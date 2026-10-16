@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -29,7 +29,7 @@ struct AudioTestData {
 void setup_inbuffer(GstBuffer *inbuffer, gpointer user_data) {
     AudioTestData *test_data = static_cast<AudioTestData *>(user_data);
     ck_assert_msg(test_data != NULL, "Passed data is not TestData");
-    int size = 32000; // rate * (Bits Per Frame)
+    constexpr int size = 32000; // rate * (Bits Per Frame)
     guint8 audio_wav_data[size];
     get_audio_data(audio_wav_data, size, test_data->audio_data);
     gst_buffer_fill(inbuffer, 0, audio_wav_data, size);

@@ -41,10 +41,12 @@ char *get_command_line() {
     status = get_video_file_path(video_file_path, MAX_STR_PATH_SIZE, "Pexels_Videos_4786.mp4");
     ck_assert(status == EXIT_STATUS_SUCCESS);
 
+    /* Explicit names: without fork (Windows) the tests share one process, so default names
+     * like 'fakesink0' are only valid for the first pipeline */
     snprintf(command_line, sizeof(command_line),
-             "filesrc location=%s ! qtdemux ! avdec_h264 ! videoconvert ! "
+             "filesrc location=%s ! qtdemux ! avdec_h264 ! videoconvert name=vc ! "
              "gvadetect model=%s device=CPU inference-interval=1 batch-size=1 ! gvaclassify model=%s ! "
-             "gvametaconvert format=dump-detection ! fakesink",
+             "gvametaconvert name=mc format=dump-detection ! fakesink name=fs",
              video_file_path, detection_model_path, classify_model_path);
     return command_line;
 }
@@ -85,12 +87,12 @@ GST_START_TEST(test_downstream_events_are_not_dropped) {
     GstElement *pipeline = gst_parse_launch(command_line, NULL);
     g_return_if_fail(pipeline);
 
-    GstElement *fakesink = gst_bin_get_by_name(GST_BIN(pipeline), "fakesink0");
+    GstElement *fakesink = gst_bin_get_by_name(GST_BIN(pipeline), "fs");
     ck_assert(fakesink != NULL);
     GstPad *sink = gst_element_get_static_pad(fakesink, "sink");
     ck_assert(sink != NULL);
 
-    GstElement *videoconvert = gst_bin_get_by_name(GST_BIN(pipeline), "videoconvert0");
+    GstElement *videoconvert = gst_bin_get_by_name(GST_BIN(pipeline), "vc");
     ck_assert(videoconvert != NULL);
     GstPad *videoconvert_sink = gst_element_get_static_pad(videoconvert, "sink");
     ck_assert(videoconvert_sink != NULL);
@@ -150,12 +152,12 @@ GST_START_TEST(test_upstream_events_are_not_dropped) {
     GstElement *pipeline = gst_parse_launch(command_line, NULL);
     g_return_if_fail(pipeline);
 
-    GstElement *gvametaconvert = gst_bin_get_by_name(GST_BIN(pipeline), "gvametaconvert0");
+    GstElement *gvametaconvert = gst_bin_get_by_name(GST_BIN(pipeline), "mc");
     ck_assert(gvametaconvert != NULL);
     GstPad *src = gst_element_get_static_pad(gvametaconvert, "src");
     ck_assert(src != NULL);
 
-    GstElement *videoconvert = gst_bin_get_by_name(GST_BIN(pipeline), "videoconvert0");
+    GstElement *videoconvert = gst_bin_get_by_name(GST_BIN(pipeline), "vc");
     ck_assert(videoconvert != NULL);
     GstPad *videoconvert_src = gst_element_get_static_pad(videoconvert, "src");
     ck_assert(videoconvert_src != NULL);

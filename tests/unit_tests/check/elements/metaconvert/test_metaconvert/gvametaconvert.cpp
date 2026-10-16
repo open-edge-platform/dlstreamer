@@ -442,6 +442,7 @@ GST_START_TEST(test_metaconvert_all) {
 
     for (int i = 0; i < G_N_ELEMENTS(test_data); i++) {
         for (const auto &fp : supported_fp) {
+            test_data[i].ignore_detections = false;
             test_data[i].add_tensor_data = "all";
             test_data[i].add_ntp_meta = true;
             run_test("gvametaconvert", VIDEO_CAPS_TEMPLATE_STRING, test_data[i].resolution, &srctemplate, &sinktemplate,

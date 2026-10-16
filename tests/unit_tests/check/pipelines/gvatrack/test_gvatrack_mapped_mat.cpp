@@ -18,7 +18,13 @@ extern "C" {
 #include <gst/video/video.h>
 
 #include <stdio.h>
+#ifdef _WIN32
+#include <algorithm>
+#include <direct.h>
+#define getcwd _getcwd
+#else
 #include <unistd.h>
+#endif
 
 struct TestData {
     TestData(const std::string &caps) : MCaps(gst_caps_from_string(caps.c_str())), MVideoInfo(gst_video_info_new()) {
@@ -58,15 +64,28 @@ std::string generate_file_name() {
     if (getcwd(cwd, sizeof(cwd)) == NULL) {
         ck_assert(!"Unable to generate file name");
     }
+#ifdef _WIN32
+    // The path ends up in a gst_parse_launch() description, where '\' is an escape character
+    std::string path(cwd);
+    std::replace(path.begin(), path.end(), '\\', '/');
+    return path + "/bad_resolution.mp4";
+#else
     return std::string(cwd) + "/bad_resolution.mp4";
+#endif
 }
 
 void generate_video_with_caps(const std::string &caps, const std::string &file_name) {
+#ifdef _WIN32
+    // No VA-API on Windows; openh264enc produces a stream both avdec_h264 and d3d11h264dec can decode
+    const char *encoder = "videoconvert ! openh264enc";
+#else
+    const char *encoder = "vapostproc ! vah264enc";
+#endif
     char pipeline_gen[MAX_STR_PATH_SIZE];
     sprintf(pipeline_gen,
-            "videotestsrc num-buffers=3 pattern=colors ! %s ! vapostproc ! vah264enc ! h264parse ! qtmux ! "
+            "videotestsrc num-buffers=3 pattern=colors ! %s ! %s ! h264parse ! qtmux ! "
             "filesink location=%s",
-            caps.c_str(), file_name.c_str());
+            caps.c_str(), encoder, file_name.c_str());
     check_run_pipeline(pipeline_gen, GST_CLOCK_TIME_NONE);
 }
 
@@ -121,8 +140,12 @@ GST_START_TEST(test_avdec_decoder_perform_copy_nv12) {
     const auto caps = "video/x-raw,format=I420,width=768,height=432";
     auto file_name = generate_file_name();
     generate_video_with_caps(caps, file_name);
-    bool copied_data = check_data_copying("qtdemux ! h264parse ! vah264dec ! videoconvert ! video/x-raw",
-                                          "video/x-raw,format=NV12,width=768,height=432", file_name);
+#ifdef _WIN32
+    const char *decoder = "qtdemux ! h264parse ! d3d11h264dec ! videoconvert ! video/x-raw";
+#else
+    const char *decoder = "qtdemux ! h264parse ! vah264dec ! videoconvert ! video/x-raw";
+#endif
+    bool copied_data = check_data_copying(decoder, "video/x-raw,format=NV12,width=768,height=432", file_name);
     ck_assert(copied_data && "DID expected copying of data!");
     delete_generated_video(file_name);
 }

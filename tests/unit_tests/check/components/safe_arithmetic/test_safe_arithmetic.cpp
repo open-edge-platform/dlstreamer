@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -131,19 +131,19 @@ TEST(SafeArithmetic, safe_mul_positive_test) {
     EXPECT_EQ(safe_mul((uint32_t)val1, (uint32_t)val2), (uint32_t)expected_mul);
 
     EXPECT_EQ(safe_mul(std::numeric_limits<int32_t>::max(), 1), std::numeric_limits<int32_t>::max() * 1);
-    EXPECT_EQ(safe_mul(std::numeric_limits<int64_t>::max(), 1L), std::numeric_limits<int64_t>::max() * 1);
+    EXPECT_EQ(safe_mul(std::numeric_limits<int64_t>::max(), (int64_t)1), std::numeric_limits<int64_t>::max() * 1);
     EXPECT_EQ(safe_mul(std::numeric_limits<int32_t>::min(), 1), std::numeric_limits<int32_t>::min() * 1);
     EXPECT_EQ(safe_mul(1, std::numeric_limits<int32_t>::min()), 1 * std::numeric_limits<int32_t>::min());
 }
 
 TEST(SafeArithmetic, safe_mul_negative_test) {
     EXPECT_THROW(safe_mul(std::numeric_limits<uint32_t>::max(), 2U), std::overflow_error);
-    EXPECT_THROW(safe_mul(std::numeric_limits<uint64_t>::max(), 2UL), std::overflow_error);
+    EXPECT_THROW(safe_mul(std::numeric_limits<uint64_t>::max(), (uint64_t)2), std::overflow_error);
     EXPECT_THROW(safe_mul(std::numeric_limits<int32_t>::max(), 2), std::overflow_error);
     EXPECT_THROW(safe_mul(std::numeric_limits<int32_t>::max(), -2), std::overflow_error);
     EXPECT_THROW(safe_mul(std::numeric_limits<int32_t>::min(), 2), std::overflow_error);
     EXPECT_THROW(safe_mul(-1, std::numeric_limits<int32_t>::min()), std::overflow_error);
-    EXPECT_THROW(safe_mul(std::numeric_limits<int64_t>::min(), -1L), std::overflow_error);
+    EXPECT_THROW(safe_mul(std::numeric_limits<int64_t>::min(), (int64_t)-1), std::overflow_error);
 }
 
 int main(int argc, char *argv[]) {

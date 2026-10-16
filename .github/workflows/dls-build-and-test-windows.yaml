@@ -8,6 +8,11 @@ on:
         required: false
         type: string
         default: "main"
+      run-unit-tests:
+        description: "Whether to build and run C++ unit tests (skipped when PR changes only touch the samples/ folder)"
+        required: false
+        type: string
+        default: "true"
   workflow_dispatch:
     inputs:
       test-repo-branch:
@@ -15,6 +20,11 @@ on:
         required: false
         type: string
         default: "main"
+      run-unit-tests:
+        description: "Whether to build and run C++ unit tests"
+        required: false
+        type: string
+        default: "true"
 
 permissions: {}
 
@@ -27,8 +37,9 @@ env:
   MODELS_PATH: 'C:\models\models'
   VIDEO_INPUTS_PATH: 'C:\videos\videos'
   TESTS_RESULTS_DIRECTORY: 'C:\dlstreamer_test_results'
+  UNIT_TESTS_RESULTS_DIRECTORY: 'C:\dlstreamer_unit_test_results'
   PYTHON_VERSION: '3.12.7'
-  DLL_EXPECTED_COUNT: 19
+  DLL_EXPECTED_COUNT: 14
 
 jobs:
   setup:
@@ -152,9 +163,15 @@ jobs:
       - name: "${{ env.EBOX }} Build DLStreamer DLLs"
         if: needs.setup.outputs.should_run == 'true'
         shell: powershell
+        env:
+          RUN_UNIT_TESTS: ${{ inputs.run-unit-tests }}
         run: |
           cd ${{ env.DLS_REPO_TARGET_DIRECTORY }}
-          & ./scripts/build_dlstreamer_dlls.ps1 -buildInstaller -installerSkipCompression
+          $buildArgs = @{ buildInstaller = $true; installerSkipCompression = $true }
+          if ($env:RUN_UNIT_TESTS -eq 'true') {
+              $buildArgs.enableTests = $true
+          }
+          & ./scripts/build_dlstreamer_dlls.ps1 @buildArgs
 
       - name: Copy DLLs
         if: needs.setup.outputs.should_run == 'true'
@@ -167,9 +184,9 @@ jobs:
           if (Test-Path $target) {
               Remove-Item -Recurse -Force $target
           }
-          # Copy DLLs
+          # Copy DLLs (unit test binaries and data stay in the build tree, as in the installer)
           New-Item -ItemType Directory -Path $target | Out-Null
-          Copy-Item -Path "$source\*" -Destination $target -Recurse -Force
+          Copy-Item -Path "$source\*" -Destination $target -Recurse -Force -Exclude "test_*", "*_test_files"
           # Copy script
           $scriptSource = "$PWD\dlstreamer-repo\scripts\setup_dls_env.ps1"
           $scriptDest = Join-Path $target "setup_dls_env.ps1"
@@ -358,6 +375,91 @@ jobs:
               exit 1
           }
 
+      # ====================================================== UNIT TESTS ============================================================
+      - name: Skip unit tests notice
+        if: needs.setup.outputs.should_run == 'true' && inputs.run-unit-tests != 'true'
+        shell: powershell
+        run: |
+          $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+          [System.IO.File]::AppendAllText($env:GITHUB_STEP_SUMMARY, "## Unit tests skipped`n", $utf8NoBom)
+
+      - name: Check unit test models and videos
+        if: needs.setup.outputs.should_run == 'true' && inputs.run-unit-tests == 'true'
+        shell: powershell
+        run: |
+          # Models requested by the unit tests that run here.
+          $models = @(
+              "centerface/FP32", "colorcls2/FP32", "yolov8_license_plate_detector/FP32",
+              "dima806_fairface_gender_image_detection/FP32", "yolo11n/FP16", "yolo11s/FP32", "yolo11s/FP16",
+              "yolo26s/FP32", "yolo26s/FP16"
+          )
+          $xmlFiles = Get-ChildItem -Path "${{ env.MODELS_PATH }}" -Recurse -Filter *.xml -File -ErrorAction SilentlyContinue
+          $missing = 0
+          foreach ($m in $models) {
+              $name, $precision = $m.Split("/")
+              $r1Name = if ($precision -eq "FP16") { "$name-fp16.xml" } else { "$name.xml" }
+              $found = $xmlFiles | Where-Object { $_.Name -eq "$name.xml" -and $_.DirectoryName -clike "*$precision*" } | Select-Object -First 1
+              if (-not $found) {
+                  $found = $xmlFiles | Where-Object { $_.Name -eq $r1Name } | Select-Object -First 1
+              }
+              if ($found) {
+                  Write-Host "[OK] $m -> $($found.FullName)"
+              } else {
+                  Write-Host "::warning title=Missing unit test model::$m not found under ${{ env.MODELS_PATH }}"
+                  $missing++
+              }
+          }
+          $video = Join-Path "${{ env.VIDEO_INPUTS_PATH }}" "Pexels_Videos_4786.mp4"
+          if (-not (Test-Path $video)) {
+              Write-Host "::warning title=Missing unit test video::$video"
+              $missing++
+          }
+          Write-Host "Missing unit test resources: $missing (affected tests will fail)"
+
+      - name: "${{ env.ERUN }} Run C++ unit tests"
+        if: needs.setup.outputs.should_run == 'true' && inputs.run-unit-tests == 'true'
+        id: run-unit-tests
+        shell: powershell
+        run: |
+          $resultsDir = "${{ env.UNIT_TESTS_RESULTS_DIRECTORY }}"
+          if (Test-Path $resultsDir) {
+              Remove-Item -Recurse -Force $resultsDir
+          }
+          New-Item -ItemType Directory -Path $resultsDir -Force | Out-Null
+
+          # Use the plugins from the build tree, with a private registry
+          $binDir = "${{ env.DLS_BUILD_DIRECTORY }}\intel64\Release\bin"
+          $env:PATH = "$binDir;$env:PATH"
+          $env:GST_PLUGIN_PATH = $binDir
+          $env:GST_REGISTRY = Join-Path $env:RUNNER_TEMP "gst_registry_unit_tests.bin"
+          Remove-Item $env:GST_REGISTRY -Force -ErrorAction SilentlyContinue
+          $env:GST_DEBUG = "3"
+          $env:GST_DEBUG_NO_COLOR = "1"
+          $env:MODELS_PATH = "${{ env.MODELS_PATH }}"
+          $env:MODELS_PROC_PATH = "${{ env.DLS_REPO_TARGET_DIRECTORY }}\samples\gstreamer\model_proc"
+          $env:VIDEO_EXAMPLES_DIR = "${{ env.VIDEO_INPUTS_PATH }}"
+
+          # libcheck can't fork on Windows, so it can't time out a hung test case: rely on ctest --timeout.
+          # Same exclusions as tests/scripts/run_unit_tests.sh.
+          cd "${{ env.DLS_BUILD_DIRECTORY }}"
+          ctest -C Release -T Test --timeout 900 --output-on-failure `
+              -E "test_audio_detection_plugin" `
+              --output-junit "$resultsDir\ctest-junit.xml"
+          $ctestExitCode = $LASTEXITCODE
+          Write-Host "ctest exit code: $ctestExitCode"
+
+          $tag = Get-Content "Testing\TAG" -TotalCount 1
+          Copy-Item "Testing\$tag\Test.xml" "$resultsDir\CTestResults.xml" -ErrorAction SilentlyContinue
+          # -T Test names the log LastTest_<timestamp>.log
+          Copy-Item "Testing\Temporary\LastTest*.log" $resultsDir -ErrorAction SilentlyContinue
+
+          # Failed tests are reported by the results check step, so the functional tests still run
+          if (-not (Test-Path "$resultsDir\ctest-junit.xml")) {
+              Write-Host "::error::ctest did not produce a JUnit report"
+              exit 1
+          }
+          exit 0
+
       - name: Install Python dependencies in VENV
         if: needs.setup.outputs.should_run == 'true'
         shell: powershell
@@ -384,7 +486,8 @@ jobs:
               exit 1
           }
 
-          & $VenvPython -m pip install tqdm==4.67.1 numpy==2.2.0 opencv-python==4.11.0.86
+          # defusedxml is needed by tests/scripts/unit_test_results.py
+          & $VenvPython -m pip install tqdm==4.67.1 numpy==2.2.0 opencv-python==4.11.0.86 defusedxml==0.7.1
 
           "VENV_PYTHON=$VenvPython" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
@@ -528,6 +631,48 @@ jobs:
               Write-Host "[OK] All test cases passed according to the report."
           }
 
+      - name: "${{ env.ECHART }} Check and display unit test results"
+        if: always() && steps.run-unit-tests.outcome == 'success'
+        shell: powershell
+        env:
+          PYTHON_VENV_EXE: ${{ env.VENV_PYTHON }}
+          RUNNER_PRINT_LABEL: ${{ matrix.runner_print_label }}
+        run: |
+          $resultsDir = "${{ env.UNIT_TESTS_RESULTS_DIRECTORY }}"
+          if (-not $env:PYTHON_VENV_EXE) {
+              Write-Host "::error::Python venv is not available to parse unit test results"
+              exit 1
+          }
+          # Creates unit_test_summary.txt in the results directory
+          & $env:PYTHON_VENV_EXE "${{ env.DLS_REPO_TARGET_DIRECTORY }}\tests\scripts\unit_test_results.py" $resultsDir
+          $summaryFile = Join-Path $resultsDir "unit_test_summary.txt"
+          if (-not (Test-Path $summaryFile)) {
+              Write-Host "::error::Unit test summary not found: $summaryFile"
+              exit 1
+          }
+          $content = Get-Content -Path $summaryFile -Raw
+          Write-Host $content
+
+          $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+          [System.IO.File]::AppendAllText($env:GITHUB_STEP_SUMMARY, "## Test Summary for Unit Tests on Windows $($env:RUNNER_PRINT_LABEL)`n$content`n", $utf8NoBom)
+
+          if ($content -notmatch "CTest:.*Failed: (\d+)") {
+              Write-Host "::error::Could not read the CTest failure count from $summaryFile"
+              exit 1
+          }
+          $failed = [int]$Matches[1]
+          if ($failed -gt 0) {
+              Write-Host "::error::$failed unit test(s) failed (CTest: $failed)"
+              exit 1
+          }
+
+      - name: Upload unit tests results to Artifacts
+        if: always() && steps.run-unit-tests.outcome != 'skipped'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: DLS_unit_tests_Windows_${{ matrix.runner_print_label }}
+          path: ${{ env.UNIT_TESTS_RESULTS_DIRECTORY }}
+
       # ======================================================== CLEANUP PART ========================================================
       - name: Clean up
         if: always() && needs.setup.outputs.should_run == 'true'
@@ -536,6 +681,7 @@ jobs:
           $PathsToClean = @(
               "${{ env.DLS_BUILD_DIRECTORY }}",
               "${{ env.TESTS_RESULTS_DIRECTORY }}",
+              "${{ env.UNIT_TESTS_RESULTS_DIRECTORY }}",
               "${{ env.DLS_DLL_TARGET_DIRECTORY }}",
               "${{ env.DLS_REPO_TARGET_DIRECTORY }}"
           )

@@ -82,7 +82,7 @@ DLS_EXPORT GType gst_gva_json_meta_api_get_type(void);
  * @param meta _GstGVAJSONMeta* to retrieve message of
  * @return C-style string with message
  */
-gchar *get_json_message(GstGVAJSONMeta *meta);
+DLS_EXPORT gchar *get_json_message(GstGVAJSONMeta *meta);
 
 /**
  * @brief This function sets message field of _GstGVAJSONMeta
@@ -90,7 +90,7 @@ gchar *get_json_message(GstGVAJSONMeta *meta);
  * @param message message
  * @return void
  */
-void set_json_message(GstGVAJSONMeta *meta, const gchar *message);
+DLS_EXPORT void set_json_message(GstGVAJSONMeta *meta, const gchar *message);
 
 G_END_DECLS
 

@@ -56,7 +56,7 @@ gboolean gst_gva_audio_event_meta_transform(GstBuffer *dest_buf, GstMeta *src_me
     return TRUE;
 }
 
-const GstMetaInfo *gst_gva_audio_event_meta_get_info(void) {
+DLS_EXPORT const GstMetaInfo *gst_gva_audio_event_meta_get_info(void) {
     static const GstMetaInfo *meta_info = NULL;
 
     if (g_once_init_enter(&meta_info)) {
@@ -82,7 +82,7 @@ const GstMetaInfo *gst_gva_audio_event_meta_get_info(void) {
  * Returns: (transfer none): the #GstGVAAudioEventMeta with @id or %NULL when there is
  * no such metadata on @buffer.
  */
-GstGVAAudioEventMeta *gst_gva_buffer_get_audio_event_meta_id(GstBuffer *buffer, gint id) {
+DLS_EXPORT GstGVAAudioEventMeta *gst_gva_buffer_get_audio_event_meta_id(GstBuffer *buffer, gint id) {
     gpointer state = NULL;
     GstMeta *meta;
     const GstMetaInfo *meta_info = GST_GVA_AUDIO_EVENT_META_INFO;
@@ -127,8 +127,9 @@ DLS_EXPORT GstGVAAudioEventMeta *gst_gva_buffer_add_audio_event_meta(GstBuffer *
  *
  * Returns: (transfer none): the #GstGVAAudioEventMeta on @buffer.
  */
-GstGVAAudioEventMeta *gst_gva_buffer_add_audio_event_meta_id(GstBuffer *buffer, GQuark event_type,
-                                                             guint64 start_timestamp, guint64 end_timestamp) {
+DLS_EXPORT GstGVAAudioEventMeta *gst_gva_buffer_add_audio_event_meta_id(GstBuffer *buffer, GQuark event_type,
+                                                                        guint64 start_timestamp,
+                                                                        guint64 end_timestamp) {
     GstGVAAudioEventMeta *event_meta;
 
     g_return_val_if_fail(GST_IS_BUFFER(buffer), NULL);
@@ -169,7 +170,7 @@ DLS_EXPORT void gst_gva_audio_event_meta_add_param(GstGVAAudioEventMeta *meta, G
  *
  * See also: gst_gva_audio_event_meta_add_param()
  */
-GstStructure *gst_gva_audio_event_meta_get_param(GstGVAAudioEventMeta *meta, const gchar *name) {
+DLS_EXPORT GstStructure *gst_gva_audio_event_meta_get_param(GstGVAAudioEventMeta *meta, const gchar *name) {
     GList *list;
 
     g_return_val_if_fail(meta, NULL);

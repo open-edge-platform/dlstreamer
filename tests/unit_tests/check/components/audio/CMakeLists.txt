@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -44,4 +44,4 @@ PRIVATE
     ${GLIB2_INCLUDE_DIRS}
 )
 
-add_test(NAME GSTVIDEOANALYTICSMETA_TEST COMMAND ${TARGET_NAME})
+add_test(NAME ${TARGET_NAME} COMMAND ${TARGET_NAME})

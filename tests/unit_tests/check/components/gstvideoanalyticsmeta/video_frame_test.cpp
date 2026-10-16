@@ -178,7 +178,8 @@ TEST_F(VideoFrameTest, VideoFrameTestJSONMessages) {
     gpointer state = NULL;
     unsigned index = 0;
     while ((meta = GST_GVA_JSON_META_ITERATE(buffer, &state))) {
-        meta->message = strcat(strdup(std::to_string(index + 10).c_str()), "test_message");
+        std::string combined = std::to_string(index + 10) + "test_message";
+        meta->message = strdup(combined.c_str());
         ++index;
     }
 

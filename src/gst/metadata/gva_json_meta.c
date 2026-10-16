@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -70,11 +70,11 @@ DLS_EXPORT const GstMetaInfo *gst_gva_json_meta_get_info(void) {
     return meta_info;
 }
 
-gchar *get_json_message(GstGVAJSONMeta *meta) {
+DLS_EXPORT gchar *get_json_message(GstGVAJSONMeta *meta) {
     return meta->message;
 }
 
-void set_json_message(GstGVAJSONMeta *meta, const gchar *message) {
+DLS_EXPORT void set_json_message(GstGVAJSONMeta *meta, const gchar *message) {
     gst_gva_json_meta_free((GstMeta *)meta, NULL);
     meta->message = g_strdup(message);
 }

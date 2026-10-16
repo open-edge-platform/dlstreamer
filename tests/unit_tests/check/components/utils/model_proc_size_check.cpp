@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2025 Intel Corporation
+ * Copyright (C) 2021-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -32,7 +32,11 @@ TEST_F(UtilsTest, UtilsTestIsLinuxWorking) {
 }
 
 TEST_F(UtilsTest, UtilsTestIsLinuxWorkingCorrectly) {
+#ifdef __linux__
     EXPECT_TRUE(IsLinux());
+#else
+    EXPECT_FALSE(IsLinux());
+#endif
 }
 
 // Tests for GetFileSize() function

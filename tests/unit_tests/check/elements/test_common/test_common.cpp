@@ -8,7 +8,6 @@
 #include <gst/video/video-format.h>
 #include <gst/video/video.h>
 #include <opencv2/imgcodecs.hpp>
-#include <unistd.h>
 
 #include "test_common.h"
 
@@ -81,6 +80,9 @@ static void check_plugin_caps(const gchar *name, GstCaps *caps, gint size, GstSt
                               GstStaticPadTemplate *sinktemplate, SetupInBuffCb setup_inbuf,
                               CheckOutBuffCb check_outbuf, gpointer user_data, const gchar *prop, va_list varargs,
                               bool size_increase = false) {
+    // Without fork (Windows) a test that failed before the cleanup below leaves its buffers behind
+    gst_check_drop_buffers();
+
     GstElement *plugin = setup_plugin(name, srctemplate, sinktemplate);
     g_object_set_valist(G_OBJECT(plugin), prop, varargs);
 
@@ -97,7 +99,7 @@ static void check_plugin_caps(const gchar *name, GstCaps *caps, gint size, GstSt
     ck_assert(gst_pad_push(mysrcpad, inbuffer) == GST_FLOW_OK);
 
     while (g_list_length(buffers) < 1) {
-        usleep(1000);
+        g_usleep(1000);
     }
 
     GstBuffer *outbuffer = GST_BUFFER(buffers->data);
