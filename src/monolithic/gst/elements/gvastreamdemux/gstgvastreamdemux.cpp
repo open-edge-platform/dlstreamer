@@ -94,6 +94,7 @@ static void gst_gva_streamdemux_class_init(GstGvaStreamdemuxClass *klass) {
 
 static void gst_gva_streamdemux_init(GstGvaStreamdemux *demux) {
     g_mutex_init(&demux->lock);
+    g_cond_init(&demux->fps_cond);
 
     /* No other thread can reach an object still under construction, but taking
      * the lock anyway keeps every access to these fields on one path, so none
@@ -102,6 +103,7 @@ static void gst_gva_streamdemux_init(GstGvaStreamdemux *demux) {
 
     demux->max_fps = DEFAULT_MAX_FPS;
     demux->num_src_pads = 0;
+    demux->flushing = FALSE;
     demux->validated = FALSE;
     demux->container_mode = FALSE;
     demux->last_batch_output_time = GST_CLOCK_TIME_NONE;
@@ -109,6 +111,7 @@ static void gst_gva_streamdemux_init(GstGvaStreamdemux *demux) {
 
     demux->srcpads = g_ptr_array_new();
     demux->last_output_times = g_array_new(FALSE, FALSE, sizeof(GstClockTime));
+    demux->unrouted_warned = g_array_new(FALSE, TRUE, sizeof(gboolean));
     demux->flow_combiner = gst_flow_combiner_new();
 
     g_mutex_unlock(&demux->lock);
@@ -131,15 +134,21 @@ static void gst_gva_streamdemux_finalize(GObject *object) {
     g_mutex_lock(&demux->lock);
     g_ptr_array_free(demux->srcpads, TRUE);
     g_array_free(demux->last_output_times, TRUE);
+    g_array_free(demux->unrouted_warned, TRUE);
     gst_flow_combiner_free(demux->flow_combiner);
     g_mutex_unlock(&demux->lock);
 
     g_mutex_clear(&demux->lock);
+    g_cond_clear(&demux->fps_cond);
 
     G_OBJECT_CLASS(gst_gva_streamdemux_parent_class)->finalize(object);
 }
 
-/* Property set/get */
+/* Property set/get.
+ *
+ * max-fps can be set at any time, from a thread that is neither the one
+ * routing buffers nor the one answering queries, so it is assigned under the
+ * lock and every reader either holds it or takes a snapshot under it. */
 static void gst_gva_streamdemux_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec) {
     GstGvaStreamdemux *demux = GST_GVA_STREAMDEMUX(object);
 
@@ -199,7 +208,12 @@ static GstPad *gst_gva_streamdemux_request_new_pad(GstElement *element, GstPadTe
         pad_index = (guint)parsed_index;
         name = g_strdup(req_name);
     } else {
-        pad_index = demux->num_src_pads;
+        /* First free slot, not the pad count: with src_0..src_2 created and
+         * src_1 released the count is 2, so this used to name the new pad
+         * src_2, on top of the one already using that index. */
+        pad_index = 0;
+        while (pad_index < demux->srcpads->len && g_ptr_array_index(demux->srcpads, pad_index) != NULL)
+            pad_index++;
         name = g_strdup_printf("src_%u", pad_index);
     }
 
@@ -211,17 +225,32 @@ static GstPad *gst_gva_streamdemux_request_new_pad(GstElement *element, GstPadTe
         return NULL;
     }
 
+    if (pad_index < demux->srcpads->len && g_ptr_array_index(demux->srcpads, pad_index) != NULL) {
+        GST_ERROR_OBJECT(demux, "Pad index %u is already in use by %s", pad_index, name);
+        g_free(name);
+        g_mutex_unlock(&demux->lock);
+        return NULL;
+    }
+
     srcpad = gst_pad_new_from_static_template(&gva_streamdemux_src_template, name);
     gst_pad_use_fixed_caps(srcpad);
-    gst_element_add_pad(element, srcpad);
+    if (pad_index < demux->unrouted_warned->len)
+        g_array_index(demux->unrouted_warned, gboolean, pad_index) = FALSE;
 
     /* Ensure srcpads array can hold this index */
     while (demux->srcpads->len <= pad_index)
         g_ptr_array_add(demux->srcpads, NULL);
+
+    if (!gst_element_add_pad(element, srcpad)) {
+        GST_ERROR_OBJECT(demux, "Failed to add pad %s", name);
+        gst_object_unref(srcpad);
+        g_free(name);
+        g_mutex_unlock(&demux->lock);
+        return NULL;
+    }
+
     demux->srcpads->pdata[pad_index] = srcpad;
-
     gst_flow_combiner_add_pad(demux->flow_combiner, srcpad);
-
     demux->num_src_pads++;
 
     GST_INFO_OBJECT(demux, "Created src pad %s (index=%u), total src pads=%u", name, pad_index, demux->num_src_pads);
@@ -245,13 +274,17 @@ static void gst_gva_streamdemux_release_pad(GstElement *element, GstPad *pad) {
         }
     }
     gst_flow_combiner_remove_pad(demux->flow_combiner, pad);
-    demux->num_src_pads--;
-
-    gst_element_remove_pad(element, pad);
+    if (demux->num_src_pads > 0)
+        demux->num_src_pads--;
 
     GST_INFO_OBJECT(demux, "Released pad, remaining src pads=%u", demux->num_src_pads);
 
     g_mutex_unlock(&demux->lock);
+
+    /* Outside the lock: removing a pad emits pad-removed, which runs whatever
+     * the application connected to it, and that must not happen with this
+     * element's lock held. */
+    gst_element_remove_pad(element, pad);
 }
 
 /* State changes */
@@ -270,6 +303,7 @@ static GstStateChangeReturn gst_gva_streamdemux_change_state(GstElement *element
         demux->container_mode = FALSE;
         gst_flow_combiner_reset(demux->flow_combiner);
         gva_streamdemux_reset_output_times(demux);
+        demux->flushing = FALSE;
         g_mutex_unlock(&demux->lock);
         break;
     default:
@@ -290,6 +324,40 @@ static void gva_streamdemux_reset_output_times(GstGvaStreamdemux *demux) {
         g_array_index(demux->last_output_times, GstClockTime, i) = GST_CLOCK_TIME_NONE;
 }
 
+/* TRUE the first time a source turns out to have no branch to go to, FALSE
+ * afterwards, so the caller can warn once and then stay quiet. Must be called
+ * with demux->lock held. */
+static gboolean gva_streamdemux_first_unrouted(GstGvaStreamdemux *demux, guint source_id) {
+    if (source_id >= GST_GVA_STREAMDEMUX_MAX_PAD_INDEX)
+        return FALSE;
+    while (demux->unrouted_warned->len <= source_id) {
+        gboolean unset = FALSE;
+        g_array_append_val(demux->unrouted_warned, unset);
+    }
+    gboolean *seen = &g_array_index(demux->unrouted_warned, gboolean, source_id);
+    if (*seen)
+        return FALSE;
+    *seen = TRUE;
+    return TRUE;
+}
+
+/* Report a source that has no branch. Separated from the two chain functions
+ * so both modes say the same thing, at the same volume. */
+static void gva_streamdemux_report_unrouted(GstGvaStreamdemux *demux, guint source_id) {
+    g_mutex_lock(&demux->lock);
+    gboolean first = gva_streamdemux_first_unrouted(demux, source_id);
+    guint n_pads = demux->num_src_pads;
+    g_mutex_unlock(&demux->lock);
+
+    if (first)
+        GST_WARNING_OBJECT(demux,
+                           "No src pad for source %u (%u src pad(s) requested); dropping its buffers. "
+                           "Request src_%u to receive them. Further occurrences are logged at debug level.",
+                           source_id, n_pads, source_id);
+    else
+        GST_DEBUG_OBJECT(demux, "Dropping a buffer for unrouted source %u", source_id);
+}
+
 /* The slot holding the last output time a given push is throttled against.
  * source_id < 0 selects the whole-batch slot used by CONTAINER mode.
  * Must be called with demux->lock held; the pointer is only valid under it. */
@@ -305,28 +373,37 @@ static GstClockTime *gva_streamdemux_output_time_slot(GstGvaStreamdemux *demux, 
     return &g_array_index(demux->last_output_times, GstClockTime, index);
 }
 
-/* Hold this push back until max-fps allows it. */
+/* Hold this push back until max-fps allows it.
+ *
+ * The wait is on a condition variable rather than a plain sleep so that a
+ * flush can cut it short. The chain function holds the sink pad's stream lock
+ * while it waits, and FLUSH_STOP is a serialized event needing that same
+ * lock, so an uninterruptible sleep delays everything downstream of this
+ * element by up to a full interval after every seek. */
 static void gst_gva_streamdemux_apply_fps_throttle(GstGvaStreamdemux *demux, gint source_id) {
-    g_mutex_lock(&demux->lock);
-    GstClockTime max_fps_duration = demux->max_fps_duration;
-    GstClockTime last = *gva_streamdemux_output_time_slot(demux, source_id);
-    g_mutex_unlock(&demux->lock);
-
-    if (!GST_CLOCK_TIME_IS_VALID(max_fps_duration))
-        return;
-
     GstClock *clock = gst_element_get_clock(GST_ELEMENT(demux));
     if (!clock)
         return;
 
     GstClockTime now = gst_clock_get_time(clock);
     gst_object_unref(clock);
+    if (!GST_CLOCK_TIME_IS_VALID(now))
+        return;
 
-    if (GST_CLOCK_TIME_IS_VALID(last) && now - last < max_fps_duration) {
-        GstClockTime wait = max_fps_duration - (now - last);
-        GST_LOG_OBJECT(demux, "FPS throttle on source %d: waiting %" GST_TIME_FORMAT, source_id, GST_TIME_ARGS(wait));
-        g_usleep(GST_TIME_AS_USECONDS(wait));
+    g_mutex_lock(&demux->lock);
+    GstClockTime max_fps_duration = demux->max_fps_duration;
+    if (GST_CLOCK_TIME_IS_VALID(max_fps_duration) && !demux->flushing) {
+        GstClockTime last = *gva_streamdemux_output_time_slot(demux, source_id);
+        if (GST_CLOCK_TIME_IS_VALID(last) && now - last < max_fps_duration) {
+            GstClockTime wait = max_fps_duration - (now - last);
+            GST_LOG_OBJECT(demux, "FPS throttle on source %d: waiting %" GST_TIME_FORMAT, source_id,
+                           GST_TIME_ARGS(wait));
+            gint64 deadline = g_get_monotonic_time() + (gint64)GST_TIME_AS_USECONDS(wait);
+            while (!demux->flushing && g_cond_wait_until(&demux->fps_cond, &demux->lock, deadline))
+                ;
+        }
     }
+    g_mutex_unlock(&demux->lock);
 }
 
 static void gst_gva_streamdemux_update_output_time(GstGvaStreamdemux *demux, gint source_id) {
@@ -438,12 +515,24 @@ static gboolean gst_gva_streamdemux_sink_event(GstPad *pad, GstObject *parent, G
         gst_event_unref(event);
         return TRUE;
     }
+    case GST_EVENT_FLUSH_START: {
+        /* Release anyone waiting out a max-fps interval before forwarding.
+         * FLUSH_START is not serialized, so it arrives while the chain
+         * function is still waiting; FLUSH_STOP, which is serialized, would
+         * otherwise sit behind that wait and hold up the whole restart. */
+        g_mutex_lock(&demux->lock);
+        demux->flushing = TRUE;
+        g_cond_broadcast(&demux->fps_cond);
+        g_mutex_unlock(&demux->lock);
+        return gst_pad_event_default(pad, parent, event);
+    }
     case GST_EVENT_FLUSH_STOP: {
         /* Forward first, then drop the flow returns the flushed-out run left
          * behind -- a branch that had gone EOS or NOT_LINKED must not keep
          * vetoing the combined return after the flush. */
         gboolean ret = gst_pad_event_default(pad, parent, event);
         g_mutex_lock(&demux->lock);
+        demux->flushing = FALSE;
         gst_flow_combiner_reset(demux->flow_combiner);
         gva_streamdemux_reset_output_times(demux);
         g_mutex_unlock(&demux->lock);
@@ -569,6 +658,7 @@ static gboolean gst_gva_streamdemux_sink_query(GstPad *pad, GstObject *parent, G
         g_mutex_lock(&demux->lock);
         GstClockTime max_fps_duration = demux->max_fps_duration;
         g_mutex_unlock(&demux->lock);
+
         if (GST_CLOCK_TIME_IS_VALID(max_fps_duration)) {
             min_latency += max_fps_duration;
             if (GST_CLOCK_TIME_IS_VALID(max_latency))
@@ -673,7 +763,7 @@ static GstFlowReturn gst_gva_streamdemux_chain_container(GstGvaStreamdemux *demu
              * carry a source this demuxer has no pad for, because the
              * application only requested the branches it cares about. Failing
              * the whole buffer would stop every other source as well. */
-            GST_WARNING_OBJECT(demux, "No src pad for source_id %u, skipping that stream", source_id);
+            gva_streamdemux_report_unrouted(demux, source_id);
             continue;
         }
 
@@ -746,12 +836,12 @@ static GstFlowReturn gst_gva_streamdemux_chain(GstPad *pad, GstObject *parent, G
 
     GstPad *srcpad = gva_streamdemux_ref_srcpad(demux, source_id);
     if (G_UNLIKELY(!srcpad)) {
-        g_mutex_lock(&demux->lock);
-        guint num_src_pads = demux->num_src_pads;
-        g_mutex_unlock(&demux->lock);
-        GST_ERROR_OBJECT(demux, "No src pad for source_id %u (have %u src pads)", source_id, num_src_pads);
+        /* Drop, like CONTAINER mode skips such a stream: a batch may carry a
+         * source the application never asked for a branch for, and failing the
+         * buffer would take down every other source with it. */
+        gva_streamdemux_report_unrouted(demux, source_id);
         gst_buffer_unref(buf);
-        return GST_FLOW_ERROR;
+        return GST_FLOW_OK;
     }
 
     /* The sink event handler announces caps to the pads that exist when the
