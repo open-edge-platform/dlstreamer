@@ -15,11 +15,9 @@
 #ifndef _WIN32
 #include <dlstreamer/gst/context.h>
 #include <dlstreamer/vaapi/context.h>
-#include <opencv2/core/va_intel.hpp>
 #endif
 
 #include <opencv2/core.hpp>
-#include <opencv2/core/ocl.hpp>
 #include <opencv2/imgproc.hpp>
 
 G_BEGIN_DECLS
@@ -51,10 +49,6 @@ struct _GstGvaWatermarkImpl {
     std::shared_ptr<dlstreamer::VAAPIContext> vaapi_ctx;
     std::shared_ptr<dlstreamer::MemoryMapperGSTToVAAPI> gst_to_vaapi;
 #endif
-
-    bool overlay_ready = false;
-    cv::Mat overlay_cpu;
-    cv::UMat overlay_gpu;
 };
 
 struct _GstGvaWatermarkImplClass {
@@ -92,7 +86,6 @@ enum { PROP_0, PROP_DEVICE, PROP_OBB, PROP_DISPL_AVGFPS, PROP_DISPL_CFG };
     "\t\t\tshow-blur-roi=<string> colon-separated list of object labels to blur (e.g. 'face:person')\n"                \
     "\t\t\thide-blur-roi=<string> colon-separated list of object labels to exclude from blurring\n"                    \
     "\t\t\tNOTE: show-blur-roi takes precedence over hide-blur-roi when both are specified\n"                          \
-    "\t\t\tNOTE: currently this option is only supported for CPU\n"                                                    \
     "\t\t\ttext-x=<float> x position (pixels) for full-frame text (e.g. from gvagenai), default 0\n"                   \
     "\t\t\ttext-y=<float> y position (pixels) for full-frame text (e.g. from gvagenai), default 25\n"                  \
     "\t\t\tff-custom-txt=<string> extra custom text for full-frame display (limit 20 characters), "                    \
