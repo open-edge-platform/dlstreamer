@@ -45,16 +45,6 @@ python3 ../../../../scripts/download_models/download_hf_models.py \
     --outdir ./models
 ```
 
-or directly with `optimum-cli`:
-
-```code
-optimum-cli export openvino \
-    --model OpenGVLab/InternVL3_5-2B \
-    --task image-text-to-text \
-    --trust-remote-code \
-    ./models/OpenGVLab_InternVL3_5-2B
-```
-
 Pass the exported directory with `--model-path`. A relative path is looked up in the current
 directory and then in `$MODELS_PATH` (the model store shared with other DL Streamer samples),
 so an already exported model can be referenced by its directory name only:
