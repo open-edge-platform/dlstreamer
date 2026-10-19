@@ -47,7 +47,7 @@ result = subprocess.run(
 )
 ```
 
-Source: `samples/gstreamer/python/vlm_self_checkout/vlm_self_checkout.py`
+Source: `samples/auto_generated_samples/smart_nvr/smart_nvr.py`
 
 **Open-vocabulary detection (YOLOE) — prompt-based class selection:**
 
@@ -169,7 +169,7 @@ main_export(
 )
 ```
 
-Source: `samples/gstreamer/python/vlm_alerts/vlm_alerts.py`
+Source: `samples/auto_generated_samples/safety_compliance/export_models.py`
 
 Recommended small models for edge: `OpenGVLab/InternVL3_5-2B`, `openbmb/MiniCPM-V-4_5`,
 `Qwen/Qwen2.5-VL-3B-Instruct`, `HuggingFaceTB/SmolVLM2-2.2B-Instruct`.

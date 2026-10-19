@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import shutil
 import urllib.request
+from collections.abc import Iterable
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -41,3 +42,27 @@ def resolve_hf_revision(repo_id: str) -> str:
     if not revision:
         raise RuntimeError(f"Unable to resolve Hugging Face revision for {repo_id}")
     return revision
+
+
+def resolve_local_path(
+    value: str | Path,
+    search_dirs: Iterable[str | Path] = (),
+    description: str = "path",
+) -> Path:
+    """Return an existing local path for value.
+
+    An absolute path, or a relative one that exists in the current directory, is returned
+    as is. Any other relative path is looked up in each of search_dirs, which lets a sample
+    refer to a model stored in a shared location (for example $MODELS_PATH) by name only.
+    """
+    path = Path(value)
+    if path.exists():
+        return path.resolve()
+
+    if not path.is_absolute():
+        for base in search_dirs:
+            candidate = Path(base) / path
+            if candidate.exists():
+                return candidate.resolve()
+
+    raise FileNotFoundError(f"{description} not found: {value}")
