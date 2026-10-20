@@ -155,6 +155,10 @@ RESULTS_DIR = BASE_DIR / "results"
 # looked up there when it does not exist in the current directory.
 MODELS_PATH_ENV = os.environ.get("MODELS_PATH")
 
+# Default model locations relative to $MODELS_PATH (pre-exported with the download_models scripts).
+DEFAULT_DETECT_MODEL_REL = "public/yolo26s/INT8/yolo26s.xml"
+DEFAULT_VLM_MODEL_REL = "public/openbmb_MiniCPM-V-4_5"
+
 
 def model_search_dirs() -> list[Path]:
     """Return the directories a relative model path is looked up in."""
@@ -303,9 +307,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--video-path", required=True,
                         help="Path to a local video file")
 
-    parser.add_argument("--detect-model-path", required=True,
+    parser.add_argument("--detect-model-path", default=DEFAULT_DETECT_MODEL_REL,
                         help="Path to a detection model .xml exported beforehand (see README.md). "
-                             "A relative path is looked up in the current directory and in $MODELS_PATH")
+                             "A relative path is looked up in the current directory and in $MODELS_PATH "
+                             "(default: $MODELS_PATH/" + DEFAULT_DETECT_MODEL_REL + ")")
     parser.add_argument("--detect-device", default="GPU", help="Device for YOLO detection")
     parser.add_argument("--threshold", type=float, default=0.4,
                         help="Detection confidence threshold")
@@ -313,9 +318,10 @@ def parse_args() -> argparse.Namespace:
                         help="Path to text file listing inventory items, one per line")
     parser.add_argument("--excluded-objects-file", default=str(CONFIG_DIR / "excluded_objects.txt"),
                         help="Path to text file listing excluded object types, one per line")
-    parser.add_argument("--vlm-model-path", required=True,
+    parser.add_argument("--vlm-model-path", default=DEFAULT_VLM_MODEL_REL,
                         help="Path to an OpenVINO VLM model directory exported beforehand (see README.md). "
-                             "A relative path is looked up in the current directory and in $MODELS_PATH")
+                             "A relative path is looked up in the current directory and in $MODELS_PATH "
+                             "(default: $MODELS_PATH/" + DEFAULT_VLM_MODEL_REL + ")")
     parser.add_argument("--genai-device", default="GPU", help="Device for gvagenai inference")
     parser.add_argument("--genai-prompt",
                         default="Describe the items visible on the self-checkout counter.",

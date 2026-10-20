@@ -37,20 +37,22 @@ four-stream scenario (**`--stream-groups`**).
 
 Any image-text-to-text model supported by optimum-intel can be used. Smaller models (1B-4B parameters) are recommended for edge deployment. For example, OpenGVLab/InternVL3_5-2B.
 
-Export the model once with the [Hugging Face model conversion](../../../../scripts/download_models/README.md#1-hugging-face-conversion) script:
+Export the model once with the [Hugging Face model conversion](../../../../scripts/download_models/README.md#1-hugging-face-conversion) script. Exporting into `$MODELS_PATH/public` keeps the model in the layout shared with the other DL Streamer samples:
 
 ```code
+export MODELS_PATH="$HOME"/models
 python3 ../../../../scripts/download_models/download_hf_models.py \
     --model OpenGVLab/InternVL3_5-2B \
-    --outdir ./models
+    --outdir "${MODELS_PATH}/public"
 ```
 
-Pass the exported directory with `--model-path`. A relative path is looked up in the current
-directory and then in `$MODELS_PATH` (the model store shared with other DL Streamer samples),
-so an already exported model can be referenced by its directory name only:
+Exported this way, the model is picked up automatically: `--model-path` defaults to
+`public/OpenGVLab_InternVL3_5-2B`, which is resolved inside `$MODELS_PATH`. To use a different
+model, pass the exported directory explicitly. A relative path is looked up in the current
+directory and then in `$MODELS_PATH`:
 
 ```code
-python3 vlm_alerts.py --model-path OpenGVLab_InternVL3_5-2B ...
+python3 vlm_alerts.py --model-path public/Qwen_Qwen2-VL-2B-Instruct ...
 ```
 
 ## Pipeline Architecture
@@ -164,7 +166,9 @@ Required arguments:
 
 - `--prompt`
 - `--video-path`
-- `--model-path`
+
+`--model-path` defaults to `$MODELS_PATH/public/OpenGVLab_InternVL3_5-2B`; pass it explicitly to
+use a different model.
 
 ### Single stream (default)
 
@@ -173,7 +177,6 @@ Run one video stream with an isolated model instance:
 ```code
 python3 vlm_alerts.py \
     --video-path 2103099-hd_1280_720_60fps.mp4 \
-    --model-path ./models/OpenGVLab_InternVL3_5-2B \
     --prompt "Is there a police car? Answer yes or no."
 ```
 
@@ -189,7 +192,6 @@ use **`model-instance-id=stream-grp-2`**.
 python3 vlm_alerts.py \
     --stream-groups \
     --video-path 2103099-hd_1280_720_60fps.mp4 \
-    --model-path ./models/OpenGVLab_InternVL3_5-2B \
     --prompt "Is there a police car? Answer yes or no."
 ```
 
@@ -200,6 +202,7 @@ Optional arguments:
 
 | Argument | Default | Description |
 |---|---|---|
+| `--model-path` | `public/OpenGVLab_InternVL3_5-2B` | Path to an OpenVINO model exported beforehand. A relative path is looked up in the current directory and in `$MODELS_PATH` |
 | `--stream-groups` | off | Run four streams split into two model-sharing groups of two, each group with its own `model-instance-id` |
 | `--device` | `GPU` | Inference device |
 | `--max-tokens` | `1` | Maximum tokens in the model response |
