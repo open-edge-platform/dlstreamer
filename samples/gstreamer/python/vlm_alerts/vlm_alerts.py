@@ -30,6 +30,9 @@ from shared_utils import resolve_local_path  # pylint: disable=wrong-import-posi
 # looked up there when it does not exist in the current directory.
 MODELS_PATH_ENV = os.environ.get("MODELS_PATH")
 
+# Default model location relative to $MODELS_PATH (pre-exported with download_hf_models.py).
+DEFAULT_MODEL_REL = "public/OpenGVLab_InternVL3_5-2B"
+
 # Second, opt-in scenario (--stream-groups): four streams split into two model-sharing
 # groups of two. Streams 0-1 share model-instance-id "stream-grp-1"; streams 2-3 share
 # "stream-grp-2". Without the flag the sample runs the default single-stream scenario.
@@ -267,10 +270,11 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument(
         "--model-path",
-        required=True,
+        default=DEFAULT_MODEL_REL,
         help=(
             "Path to an OpenVINO model exported beforehand (see README.md). A relative "
-            "path is looked up in the current directory and in $MODELS_PATH"
+            "path is looked up in the current directory and in $MODELS_PATH "
+            "(default: $MODELS_PATH/" + DEFAULT_MODEL_REL + ")"
         ),
     )
 

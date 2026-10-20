@@ -89,7 +89,9 @@ Pass the file with `--video-path`.
 
 Both models are exported once, outside of the sample, with the
 [model conversion scripts](../../../../scripts/download_models/README.md) (each script
-documents its own virtual environment and requirements file).
+documents its own virtual environment and requirements file). Exporting into `$MODELS_PATH`
+places them in the layout shared with the other DL Streamer samples, which is where the sample
+looks for them by default.
 
 ### Detection (YOLO26s)
 
@@ -97,13 +99,14 @@ Export an Ultralytics detection model to OpenVINO IR with the
 [Ultralytics conversion](../../../../scripts/download_models/README.md#2-ultralytics-conversion):
 
 ```bash
+export MODELS_PATH="$HOME"/models
 python3 ../../../../scripts/download_models/download_ultralytics_models.py \
     --model yolo26s.pt \
-    --outdir ./models \
+    --outdir "${MODELS_PATH}/public/yolo26s/INT8" \
     --int8
 ```
 
-This produces `models/yolo26s_int8_openvino_model/yolo26s.xml`, which is passed with
+This produces `$MODELS_PATH/public/yolo26s/INT8/yolo26s.xml`, the default value of
 `--detect-model-path`.
 
 ### VLM (MiniCPM-V-4.5)
@@ -114,24 +117,22 @@ Export an image-text-to-text model to OpenVINO IR with the
 ```bash
 python3 ../../../../scripts/download_models/download_hf_models.py \
     --model openbmb/MiniCPM-V-4_5 \
-    --outdir ./models
+    --outdir "${MODELS_PATH}/public"
 ```
 
-This produces `models/openbmb_MiniCPM-V-4_5/`, which is passed with `--vlm-model-path`.
+This produces `$MODELS_PATH/public/openbmb_MiniCPM-V-4_5/`, the default value of
+`--vlm-model-path`. Any other image-text-to-text model supported by optimum-intel can be
+exported the same way and passed explicitly.
 
-A relative model path is looked up in the current directory and then in `$MODELS_PATH` (the
-model store shared with other DL Streamer samples), so a model already present there can be
-referenced by its relative path only.
+A relative model path is looked up in the current directory and then in `$MODELS_PATH`, so a
+model exported elsewhere can also be passed as a plain or absolute path.
 
 ## Running the Sample
 
-Basic usage:
+Basic usage, with both models taken from the shared model store (`$MODELS_PATH`):
 
 ```bash
-python3 vlm_self_checkout.py \
-    --video-path checkout.mp4 \
-    --detect-model-path ./models/yolo26s_int8_openvino_model/yolo26s.xml \
-    --vlm-model-path ./models/openbmb_MiniCPM-V-4_5
+python3 vlm_self_checkout.py --video-path checkout.mp4
 ```
 
 With non-default devices and a custom inventory:
@@ -140,19 +141,19 @@ With non-default devices and a custom inventory:
 python3 vlm_self_checkout.py \
     --video-path checkout.mp4 \
     --inventory-file my-custom-inventory.txt \
-    --detect-model-path ./models/yolo11s_int8_openvino_model/yolo11s.xml \
+    --detect-model-path public/yolo11s/INT8/yolo11s.xml \
     --detect-device NPU \
-    --vlm-model-path ./models/Qwen_Qwen2-VL-2B-Instruct \
+    --vlm-model-path public/OpenGVLab_InternVL3_5-2B \
     --genai-device GPU
 ```
 
-With models taken from the shared model store (`$MODELS_PATH`):
+With models exported into a local directory instead of the model store:
 
 ```bash
 python3 vlm_self_checkout.py \
     --video-path /path/to/checkout.mp4 \
-    --detect-model-path public/yolo26s/INT8/yolo26s.xml \
-    --vlm-model-path openbmb_MiniCPM-V-4_5
+    --detect-model-path ./models/yolo26s_int8_openvino_model/yolo26s.xml \
+    --vlm-model-path ./models/openbmb_MiniCPM-V-4_5
 ```
 
 ## Custom GStreamer Element: `gvaframeselection_py`
@@ -177,12 +178,12 @@ The `plugins/python/gvaFrameSelection.py` file implements a custom `GstBase.Base
 | Argument | Default | Description |
 |---|---|---|
 | `--video-path` | *(required)* | Path to a local video file |
-| `--detect-model-path` | *(required)* | Path to a detection model `.xml` exported beforehand. A relative path is looked up in the current directory and in `$MODELS_PATH` |
+| `--detect-model-path` | `public/yolo26s/INT8/yolo26s.xml` | Path to a detection model `.xml` exported beforehand. A relative path is looked up in the current directory and in `$MODELS_PATH` |
 | `--detect-device` | `GPU` | Device for YOLO detection inference |
 | `--threshold` | `0.4` | Detection confidence threshold (not frame selection threshold) |
 | `--inventory-file` | `config/inventory.txt` | Path to inventory items list |
 | `--excluded-objects-file` | `config/excluded_objects.txt` | Path to excluded object types list |
-| `--vlm-model-path` | *(required)* | Path to an OpenVINO VLM model directory exported beforehand. A relative path is looked up in the current directory and in `$MODELS_PATH` |
+| `--vlm-model-path` | `public/openbmb_MiniCPM-V-4_5` | Path to an OpenVINO VLM model directory exported beforehand. A relative path is looked up in the current directory and in `$MODELS_PATH` |
 | `--genai-device` | `GPU` | Device for VLM inference |
 | `--genai-prompt` | Self-checkout item description | Initial prompt for VLM inference |
 | `--results-dir` | `./results` | Directory for output files |
