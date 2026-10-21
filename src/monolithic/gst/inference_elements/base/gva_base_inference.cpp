@@ -596,6 +596,7 @@ void gva_base_inference_init(GvaBaseInference *base_inference) {
     base_inference->device = g_strdup(DEFAULT_DEVICE);
     base_inference->model_proc = g_strdup(DEFAULT_MODEL_PROC);
     base_inference->inference_interval = DEFAULT_INFERENCE_INTERVAL;
+    base_inference->inference_interval_set = FALSE;
     base_inference->reshape = DEFAULT_RESHAPE;
     base_inference->batch_size = DEFAULT_BATCH_SIZE;
     base_inference->batch_timeout = DEFAULT_BATCH_TIMEOUT;
@@ -878,6 +879,7 @@ void gva_base_inference_set_property(GObject *object, guint property_id, const G
     case PROP_INFERENCE_INTERVAL:
         GST_OBJECT_LOCK(base_inference);
         base_inference->inference_interval = g_value_get_uint(value);
+        base_inference->inference_interval_set = TRUE;
         GST_OBJECT_UNLOCK(base_inference);
         break;
     case PROP_RESHAPE:

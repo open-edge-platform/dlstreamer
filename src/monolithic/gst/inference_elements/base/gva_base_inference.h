@@ -57,6 +57,9 @@ typedef struct _GvaBaseInference {
     WinCorePinningMask core_pinning_mask;
 #endif
     guint inference_interval;
+    // TRUE once inference-interval has been set by the user (also while running). Otherwise an element that shares its
+    // model with a master element takes the interval of the master when it acquires the model.
+    gboolean inference_interval_set;
     guint batch_size;
     gint batch_timeout;
     guint reshape_width;

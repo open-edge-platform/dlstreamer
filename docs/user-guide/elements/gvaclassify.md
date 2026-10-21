@@ -176,6 +176,10 @@ share-va-display-ctx: Whether to share VA Display context across inference eleme
 `Gst.Element.set_property()` from any thread, and applies from the next frame without a restart. It is the only
 property that `gst-inspect-1.0` marks as "changeable in NULL, READY, PAUSED or PLAYING state".
 
+When elements share a model (same `model-instance-id`), an element that has no `inference-interval` of its own takes
+the one of the element that defines the model. An interval that was set explicitly, before the start or while running,
+is kept.
+
 ## Special case: zero-shot classification with CLIP
 
 `gvaclassify` supports open-vocabulary (zero-shot) image classification. Rather than a model with a

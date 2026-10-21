@@ -177,6 +177,90 @@ GST_START_TEST(test_runtime_property_changes_under_load) {
 
 GST_END_TEST;
 
+/* ========================================================================= */
+/*  inference-interval of elements that share a model                        */
+/* ========================================================================= */
+
+/* Which of the three elements is created first decides their addresses, and with them the order in which the
+   elements are found in the registry of the shared model. The intervals must not depend on it. */
+static void check_shared_model_intervals(const char *first, const char *second, const char *third) {
+    char model_path[MAX_STR_PATH_SIZE];
+    ck_assert(get_model_path(model_path, MAX_STR_PATH_SIZE, "yolo11s", "FP32") == EXIT_STATUS_SUCCESS);
+
+    /* "master" has the model and an interval, "own" has an interval of its own, "bare" only shares the model.
+       Each element is followed by a queue: without it the inference callback blocks in a sink that waits for the
+       preroll of the others, which wait for an inference request that this callback still holds. */
+    const char *branches[] = {first, second, third};
+    gchar *master_branch =
+        g_strdup_printf("gvadetect name=master model=%s model-instance-id=shared inference-interval=2", model_path);
+    const char *own_branch = "gvadetect name=own model-instance-id=shared inference-interval=3";
+    const char *bare_branch = "gvadetect name=bare model-instance-id=shared";
+
+    GString *description =
+        g_string_new("videotestsrc num-buffers=10 ! video/x-raw,width=640,height=480,framerate=30/1 ! tee name=t");
+    for (const char *branch : branches) {
+        const char *element = g_strcmp0(branch, "master") == 0 ? master_branch
+                              : g_strcmp0(branch, "own") == 0  ? own_branch
+                                                               : bare_branch;
+        g_string_append_printf(description, " t. ! queue ! %s ! queue ! fakesink", element);
+    }
+    g_free(master_branch);
+
+    GError *error = NULL;
+    GstElement *pipeline = gst_parse_launch(description->str, &error);
+    g_string_free(description, TRUE);
+    ck_assert_msg(pipeline != NULL && error == NULL, "Cannot create the pipeline: %s", error ? error->message : "");
+
+    ck_assert(gst_element_set_state(pipeline, GST_STATE_PLAYING) != GST_STATE_CHANGE_FAILURE);
+    GstBus *bus = gst_element_get_bus(pipeline);
+    GstMessage *msg =
+        gst_bus_timed_pop_filtered(bus, 120 * GST_SECOND, (GstMessageType)(GST_MESSAGE_ERROR | GST_MESSAGE_EOS));
+    const bool finished = msg != NULL && GST_MESSAGE_TYPE(msg) == GST_MESSAGE_EOS;
+    if (msg)
+        gst_message_unref(msg);
+
+    const struct {
+        const char *name;
+        guint expected;
+    } expectations[] = {{"master", 2}, {"own", 3}, {"bare", 2}};
+    guint intervals[3] = {0, 0, 0};
+    for (int i = 0; i < 3; ++i) {
+        GstElement *element = gst_bin_get_by_name(GST_BIN(pipeline), expectations[i].name);
+        if (element) {
+            g_object_get(element, "inference-interval", &intervals[i], NULL);
+            gst_object_unref(element);
+        }
+    }
+
+    /* Released before anything is asserted: a failed assertion does not return, and a pipeline left running keeps
+       the test process from exiting. */
+    gst_object_unref(bus);
+    gst_element_set_state(pipeline, GST_STATE_NULL);
+    gst_object_unref(pipeline);
+
+    ck_assert_msg(finished, "The pipeline did not finish correctly");
+    for (int i = 0; i < 3; ++i)
+        ck_assert_msg(intervals[i] == expectations[i].expected,
+                      "%s (elements created as %s, %s, %s): inference-interval is %u, expected %u",
+                      expectations[i].name, first, second, third, intervals[i], expectations[i].expected);
+}
+
+GST_START_TEST(test_shared_model_keeps_explicit_inference_interval) {
+    g_print("Starting test: test_shared_model_keeps_explicit_inference_interval\n");
+    check_shared_model_intervals("master", "own", "bare");
+}
+
+GST_END_TEST;
+
+GST_START_TEST(test_shared_model_interval_does_not_depend_on_creation_order) {
+    g_print("Starting test: test_shared_model_interval_does_not_depend_on_creation_order\n");
+    check_shared_model_intervals("own", "master", "bare");
+    check_shared_model_intervals("own", "bare", "master");
+    check_shared_model_intervals("bare", "own", "master");
+}
+
+GST_END_TEST;
+
 static Suite *inference_suite(void) {
     Suite *s = suite_create("inference");
     TCase *tc_chain = tcase_create("general");
@@ -186,6 +270,8 @@ static Suite *inference_suite(void) {
     tcase_add_test(tc_chain, test_obj_detection_inference_cpu);
     tcase_add_test(tc_chain, test_obj_detection_inference_gpu);
     tcase_add_test(tc_chain, test_runtime_property_changes_under_load);
+    tcase_add_test(tc_chain, test_shared_model_keeps_explicit_inference_interval);
+    tcase_add_test(tc_chain, test_shared_model_interval_does_not_depend_on_creation_order);
 
     return s;
 }

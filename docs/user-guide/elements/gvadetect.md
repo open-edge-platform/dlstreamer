@@ -169,3 +169,7 @@ Element Properties:
 `inference-interval` can be changed while the pipeline is running, with `g_object_set()` or
 `Gst.Element.set_property()` from any thread, and applies from the next frame without a restart. It is the only
 property that `gst-inspect-1.0` marks as "changeable in NULL, READY, PAUSED or PLAYING state".
+
+When elements share a model (same `model-instance-id`), an element that has no `inference-interval` of its own takes
+the one of the element that defines the model. An interval that was set explicitly, before the start or while running,
+is kept.

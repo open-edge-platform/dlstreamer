@@ -15,6 +15,9 @@
 
 struct InferenceRefs {
     std::set<GvaBaseInference *> refs;
+    // The element the others take their properties from. Chosen once: `refs` is ordered by address and every
+    // element gets a model copied from the master, so picking again would give an arbitrary element.
+    GvaBaseInference *master = nullptr;
     std::shared_ptr<InferenceImpl> proxy = nullptr;
     dlstreamer::ContextPtr context = nullptr;
     GstVideoFormat videoFormat = GST_VIDEO_FORMAT_UNKNOWN;
@@ -90,25 +93,29 @@ void fillElementProps(GvaBaseInference *targetElem, GvaBaseInference *masterElem
     COPY_GSTRING(targetElem->object_class, masterElem->object_class);
     COPY_GSTRING(targetElem->labels, masterElem->labels);
 
-    // inference-interval can be changed while running: read and written under the element locks, one at a time
+    // inference-interval can be changed while running: read and written under the element locks, one at a time.
+    // An element that has an interval of its own keeps it, otherwise it takes the one of the master.
     GST_OBJECT_LOCK(masterElem);
     const guint inference_interval = masterElem->inference_interval;
     GST_OBJECT_UNLOCK(masterElem);
     GST_OBJECT_LOCK(targetElem);
-    targetElem->inference_interval = inference_interval;
+    if (!targetElem->inference_interval_set)
+        targetElem->inference_interval = inference_interval;
     GST_OBJECT_UNLOCK(targetElem);
     // no need to copy model_instance_id because it should match already.
 }
 
 void initExistingElements(std::shared_ptr<InferenceRefs> infRefs) {
-    GvaBaseInference *master = nullptr;
-    for (auto elem : infRefs->refs) {
-        if (elem->model && *elem->model != 0) {
-            master = elem;
-            break;
+    if (!infRefs->master) {
+        for (auto elem : infRefs->refs) {
+            if (elem->model && *elem->model != 0) {
+                infRefs->master = elem;
+                break;
+            }
         }
     }
 
+    GvaBaseInference *master = infRefs->master;
     if (!master) {
         throw std::logic_error("There is no master inference element. Please, check if all of mandatory parameters are "
                                "set, for example 'model'.");
@@ -201,6 +208,8 @@ void release_inference_instance(GvaBaseInference *base_inference) {
         for (auto it = inference_pool_.begin(); it != inference_pool_.end();) {
             auto infRefs = it->second;
             infRefs->refs.erase(base_inference);
+            if (infRefs->master == base_inference)
+                infRefs->master = nullptr;
             if (infRefs->refs.empty()) {
                 infRefs->proxy.reset();
                 infRefs.reset();
