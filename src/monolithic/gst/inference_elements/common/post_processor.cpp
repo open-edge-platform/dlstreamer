@@ -369,7 +369,9 @@ PostProcessor::PostProcessor(size_t image_width, size_t image_height, size_t bat
     new (&post_proc_impl) PostProcessorImpl(initializer);
 }
 
-PostProcessorImpl::ExitStatus PostProcessor::process(const OutputBlobs &blobs, InferenceFrames &frames) const {
+PostProcessorImpl::ExitStatus PostProcessor::process(const OutputBlobs &blobs, InferenceFrames &frames,
+                                                     std::vector<bool> active) const {
     auto frame_wrappers = FramesWrapper(frames);
+    frame_wrappers.set_active(std::move(active));
     return post_proc_impl.process(blobs, frame_wrappers);
 }

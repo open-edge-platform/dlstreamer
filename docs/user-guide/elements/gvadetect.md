@@ -176,4 +176,4 @@ Element Properties:
 - `threshold` applies from the next inference result that is converted. A result that is being converted at the very
   moment of the change may be filtered partly with the old and partly with the new value. Setting `threshold` while
   running overrides the confidence threshold of the model for all of its output layers, in the same way as setting it
-  before the start does.
+  before the start does. When elements share a model, each one filters its own frames with its own threshold.

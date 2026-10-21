@@ -11,6 +11,10 @@
 
 #include <gst/video/gstvideometa.h>
 
+#include <memory>
+#include <string>
+#include <vector>
+
 struct _GvaBaseInference;
 typedef struct _GvaBaseInference GvaBaseInference;
 struct InferenceFrame;
@@ -49,8 +53,18 @@ class FramesWrapper {
 
     bool need_coordinate_restore();
 
+    // Frames of a batch can belong to different elements. Processing can be limited to the frames of some of them: the
+    // others are not touched, and get no results. By default all frames are active.
+    void set_active(std::vector<bool> active) {
+        _active = std::move(active);
+    }
+    bool active(size_t i) const {
+        return _active.empty() || _active[i];
+    }
+
   private:
     std::vector<FrameWrapper> _frames;
+    std::vector<bool> _active;
     bool created_from_buf = false;
 };
 
