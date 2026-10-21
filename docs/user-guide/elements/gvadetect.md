@@ -166,10 +166,14 @@ Element Properties:
 
 ## Changing properties at runtime
 
-`inference-interval` can be changed while the pipeline is running, with `g_object_set()` or
-`Gst.Element.set_property()` from any thread, and applies from the next frame without a restart. It is the only
-property that `gst-inspect-1.0` marks as "changeable in NULL, READY, PAUSED or PLAYING state".
+`threshold` and `inference-interval` can be changed while the pipeline is running, with `g_object_set()` or
+`Gst.Element.set_property()` from any thread, and take effect without a restart. They are the only properties that
+`gst-inspect-1.0` marks as "changeable in NULL, READY, PAUSED or PLAYING state".
 
-When elements share a model (same `model-instance-id`), an element that has no `inference-interval` of its own takes
-the one of the element that defines the model. An interval that was set explicitly, before the start or while running,
-is kept.
+- `inference-interval` applies from the next frame. When elements share a model (same `model-instance-id`), an
+  element that has no `inference-interval` of its own takes the one of the element that defines the model. An interval
+  that was set explicitly, before the start or while running, is kept.
+- `threshold` applies from the next inference result that is converted. A result that is being converted at the very
+  moment of the change may be filtered partly with the old and partly with the new value. Setting `threshold` while
+  running overrides the confidence threshold of the model for all of its output layers, in the same way as setting it
+  before the start does.

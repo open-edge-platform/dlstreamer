@@ -58,6 +58,12 @@ class PostProcessorImpl {
 
     ExitStatus process(const OutputBlobs &, FramesWrapper &) const;
 
+    // Applied to every converter. Safe to call from any thread, see BlobToMetaConverter::setConfidenceThreshold()
+    void setConfidenceThreshold(double threshold) const {
+        for (const auto &converter : converters)
+            converter.setConfidenceThreshold(threshold);
+    }
+
     PostProcessorImpl() = default;
     ~PostProcessorImpl() = default;
 

@@ -15,6 +15,7 @@
 #include "dlstreamer/gst/context.h"
 #include "dlstreamer/gst/frame.h"
 #include "gstgvaclassify.h"
+#include "gstgvadetect.h"
 #include "inference_backend/buffer_mapper.h"
 #include "inference_impl.h"
 #include "model_proc_provider.h"
@@ -1348,11 +1349,14 @@ static void on_base_inference_initialized(GvaBaseInference *base_inference) {
     std::shared_ptr<PostProcessor> post_proc(createPostProcessor(base_inference->inference, base_inference),
                                              releasePostProcessor);
 
+    // A threshold set while the post-processor was being created may have been missed by it, so it is published and
+    // brought up to date under the same lock that the threshold setter uses
     std::shared_ptr<PostProcessor> previous;
     GST_OBJECT_LOCK(base_inference);
     previous = std::move(base_inference->priv->post_proc);
     base_inference->priv->post_proc = std::move(post_proc);
     base_inference->post_proc = base_inference->priv->post_proc.get();
+    gva_base_inference_apply_threshold_locked(base_inference);
     GST_OBJECT_UNLOCK(base_inference);
     // The previous post-processor, if any, is released here, outside of the lock. If frames that are still being
     // processed use it, it lives until they are done.
@@ -1363,6 +1367,16 @@ std::shared_ptr<PostProcessor> gva_base_inference_get_post_processor(GvaBaseInfe
     std::shared_ptr<PostProcessor> post_proc = base_inference->priv ? base_inference->priv->post_proc : nullptr;
     GST_OBJECT_UNLOCK(base_inference);
     return post_proc;
+}
+
+void gva_base_inference_apply_threshold_locked(GvaBaseInference *base_inference) {
+    if (!base_inference->post_proc || base_inference->type != GST_GVA_DETECT_TYPE)
+        return;
+
+    const GstGvaDetect *gvadetect = reinterpret_cast<const GstGvaDetect *>(base_inference);
+    // Without an explicit value the post-processor keeps the threshold of the model
+    if (gvadetect->threshold_explicitly_set)
+        base_inference->post_proc->set_confidence_threshold(gvadetect->threshold);
 }
 
 gboolean gva_base_inference_start(GstBaseTransform *trans) {

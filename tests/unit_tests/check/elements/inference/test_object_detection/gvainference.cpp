@@ -107,8 +107,8 @@ GST_START_TEST(test_obj_detection_inference_gpu) {
 GST_END_TEST;
 
 /* ========================================================================= */
-/*  inference-interval changed from another thread while frames are being    */
-/*  processed                                                                */
+/*  inference-interval and threshold changed from another thread while       */
+/*  frames are being processed                                               */
 /* ========================================================================= */
 
 struct PropertyToggler {
@@ -121,10 +121,12 @@ static gpointer toggle_runtime_properties(gpointer data) {
     auto *toggler = static_cast<PropertyToggler *>(data);
     unsigned round = 0;
     while (!toggler->stop) {
-        g_object_set(toggler->element, "inference-interval", 1u + round % 3, NULL);
+        g_object_set(toggler->element, "inference-interval", 1u + round % 3, "threshold", round % 2 ? 0.2f : 0.8f,
+                     NULL);
         /* reading while the streaming thread works is part of what is checked */
         guint interval = 0;
-        g_object_get(toggler->element, "inference-interval", &interval, NULL);
+        gfloat threshold = 0;
+        g_object_get(toggler->element, "inference-interval", &interval, "threshold", &threshold, NULL);
         toggler->rounds++;
         round++;
         g_usleep(200);

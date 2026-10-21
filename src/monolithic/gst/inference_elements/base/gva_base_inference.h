@@ -135,6 +135,12 @@ typedef struct _GvaBaseInferenceClass {
 GType gva_base_inference_get_type(void);
 GType gst_gva_base_inference_get_inf_region(void);
 gboolean check_gva_base_inference_stopped(GvaBaseInference *base_inference);
+/**
+ * Passes the threshold of a gvadetect to its post-processor, so that a new value takes effect from the next inference
+ * result that is converted. The caller holds the object lock and has stored the value. Nothing happens before the
+ * post-processor exists: it reads the threshold when it is created, and it is applied again when it is published.
+ */
+void gva_base_inference_apply_threshold_locked(GvaBaseInference *base_inference);
 
 G_END_DECLS
 

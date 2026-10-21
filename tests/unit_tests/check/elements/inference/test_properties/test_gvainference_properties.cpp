@@ -77,12 +77,12 @@ GST_END_TEST;
 /* ========================================================================= */
 /*  Properties that can be changed while the pipeline is running             */
 /*                                                                           */
-/*  This is inference-interval. Nothing else is declared changeable while     */
-/*  running.                                                                 */
+/*  These are inference-interval and, on gvadetect, threshold. Nothing else  */
+/*  is declared changeable while running.                                    */
 /* ========================================================================= */
 
-GST_START_TEST(test_only_interval_is_changeable_while_running) {
-    g_print("Starting test: test_only_interval_is_changeable_while_running\n");
+GST_START_TEST(test_only_interval_and_threshold_are_changeable_while_running) {
+    g_print("Starting test: test_only_interval_and_threshold_are_changeable_while_running\n");
     for (const char *element_name : {"gvainference", "gvadetect", "gvaclassify"}) {
         GstElement *element = gst_element_factory_make(element_name, NULL);
         ck_assert_msg(element != NULL, "Cannot create %s", element_name);
@@ -96,7 +96,8 @@ GST_START_TEST(test_only_interval_is_changeable_while_running) {
                 !g_type_is_a(pspec->owner_type, GST_TYPE_BASE_TRANSFORM))
                 continue;
 
-            const bool expected = g_str_equal(pspec->name, "inference-interval");
+            const bool expected = g_str_equal(pspec->name, "inference-interval") ||
+                                  (g_str_equal(element_name, "gvadetect") && g_str_equal(pspec->name, "threshold"));
             const bool changeable = pspec->flags & GST_PARAM_MUTABLE_PLAYING;
             ck_assert_msg(changeable == expected, "%s: property '%s' should %sbe changeable while PLAYING",
                           element_name, pspec->name, expected ? "" : "not ");
@@ -117,7 +118,7 @@ static Suite *inference_properties_testing_suite(void) {
     tcase_add_test(tc_chain, test_batch_size_property_less_zero);
     tcase_add_test(tc_chain, test_nireq_property_less_zero);
     tcase_add_test(tc_chain, test_qos_property_str_trash);
-    tcase_add_test(tc_chain, test_only_interval_is_changeable_while_running);
+    tcase_add_test(tc_chain, test_only_interval_and_threshold_are_changeable_while_running);
 
     return s;
 }

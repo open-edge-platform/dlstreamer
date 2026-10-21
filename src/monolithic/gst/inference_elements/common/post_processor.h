@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2024 Intel Corporation
+ * Copyright (C) 2021-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -25,6 +25,11 @@ class PostProcessor {
                   const std::string &labels);
 
     PostProcessorImpl::ExitStatus process(const OutputBlobs &, InferenceFrames &) const;
+
+    // Safe to call from any thread, takes effect from the next inference result that is converted
+    void set_confidence_threshold(double threshold) const {
+        post_proc_impl.setConfidenceThreshold(threshold);
+    }
 
     // TODO: temporary for test purposes
     PostProcessorImpl::Initializer get_initializer() const {
