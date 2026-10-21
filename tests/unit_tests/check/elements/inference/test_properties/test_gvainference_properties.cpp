@@ -108,6 +108,129 @@ GST_START_TEST(test_only_interval_and_threshold_are_changeable_while_running) {
 }
 GST_END_TEST;
 
+/* ========================================================================= */
+/*  Writing properties while the pipeline is running                         */
+/*                                                                           */
+/*  The state of the element is set directly, which is enough for the checks */
+/*  of the properties, and does not need a model.                            */
+/* ========================================================================= */
+
+static void force_state(GstElement *element, GstState state) {
+    GST_OBJECT_LOCK(element);
+    GST_STATE(element) = state;
+    GST_OBJECT_UNLOCK(element);
+}
+
+static gfloat get_float(GstElement *element, const char *name) {
+    gfloat value = 0;
+    g_object_get(element, name, &value, NULL);
+    return value;
+}
+
+static guint get_uint(GstElement *element, const char *name) {
+    guint value = 0;
+    g_object_get(element, name, &value, NULL);
+    return value;
+}
+
+static gchar *get_string(GstElement *element, const char *name) {
+    gchar *value = NULL;
+    g_object_get(element, name, &value, NULL);
+    return value;
+}
+
+GST_START_TEST(test_write_of_mutable_properties_while_running) {
+    g_print("Starting test: test_write_of_mutable_properties_while_running\n");
+    GstElement *element = gst_element_factory_make("gvadetect", NULL);
+    ck_assert(element != NULL);
+    force_state(element, GST_STATE_PLAYING);
+
+    g_object_set(element, "threshold", 0.3f, "inference-interval", 2u, NULL);
+    ck_assert(get_float(element, "threshold") == 0.3f);
+    ck_assert_uint_eq(get_uint(element, "inference-interval"), 2);
+
+    force_state(element, GST_STATE_NULL);
+    gst_object_unref(element);
+}
+GST_END_TEST;
+
+GST_START_TEST(test_write_of_other_properties_while_running_is_refused) {
+    g_print("Starting test: test_write_of_other_properties_while_running_is_refused\n");
+    GstElement *element = gst_element_factory_make("gvadetect", NULL);
+    ck_assert(element != NULL);
+    g_object_set(element, "device", "CPU", "batch-size", 2u, NULL);
+    force_state(element, GST_STATE_PLAYING);
+
+    ASSERT_WARNING(g_object_set(element, "device", "GPU", NULL));
+    ASSERT_WARNING(g_object_set(element, "batch-size", 8u, NULL));
+
+    gchar *device = get_string(element, "device");
+    ck_assert_str_eq(device, "CPU");
+    g_free(device);
+    ck_assert_uint_eq(get_uint(element, "batch-size"), 2);
+
+    force_state(element, GST_STATE_NULL);
+    gst_object_unref(element);
+}
+GST_END_TEST;
+
+GST_START_TEST(test_write_of_properties_by_state) {
+    g_print("Starting test: test_write_of_properties_by_state\n");
+    GstElement *element = gst_element_factory_make("gvadetect", NULL);
+    ck_assert(element != NULL);
+
+    // Before the element starts, everything can be changed
+    for (GstState state : {GST_STATE_NULL, GST_STATE_READY}) {
+        force_state(element, state);
+        g_object_set(element, "device", "GPU", NULL);
+        g_object_set(element, "device", "CPU", NULL);
+    }
+
+    // Afterwards only the properties that are flagged changeable while running
+    for (GstState state : {GST_STATE_PAUSED, GST_STATE_PLAYING}) {
+        force_state(element, state);
+        ASSERT_WARNING(g_object_set(element, "device", "GPU", NULL));
+        g_object_set(element, "threshold", 0.4f, NULL);
+        ck_assert(get_float(element, "threshold") == 0.4f);
+    }
+
+    // A transition to PLAYING that is still going on counts as PLAYING
+    force_state(element, GST_STATE_READY);
+    GST_OBJECT_LOCK(element);
+    GST_STATE_PENDING(element) = GST_STATE_PLAYING;
+    GST_OBJECT_UNLOCK(element);
+    ASSERT_WARNING(g_object_set(element, "device", "GPU", NULL));
+
+    GST_OBJECT_LOCK(element);
+    GST_STATE_PENDING(element) = GST_STATE_VOID_PENDING;
+    GST_OBJECT_UNLOCK(element);
+    force_state(element, GST_STATE_NULL);
+    gst_object_unref(element);
+}
+GST_END_TEST;
+
+GST_START_TEST(test_write_while_running_on_other_elements) {
+    g_print("Starting test: test_write_while_running_on_other_elements\n");
+    GstElement *inference = gst_element_factory_make("gvainference", NULL);
+    GstElement *classify = gst_element_factory_make("gvaclassify", NULL);
+    ck_assert(inference != NULL && classify != NULL);
+    force_state(inference, GST_STATE_PLAYING);
+    force_state(classify, GST_STATE_PLAYING);
+
+    g_object_set(inference, "inference-interval", 3u, NULL);
+    ck_assert_uint_eq(get_uint(inference, "inference-interval"), 3);
+    g_object_set(classify, "inference-interval", 4u, NULL);
+    ck_assert_uint_eq(get_uint(classify, "inference-interval"), 4);
+    ASSERT_WARNING(g_object_set(classify, "reclassify-interval", 4u, NULL));
+    ck_assert_uint_eq(get_uint(classify, "reclassify-interval"), 1);
+
+    force_state(inference, GST_STATE_NULL);
+    force_state(classify, GST_STATE_NULL);
+    gst_object_unref(inference);
+    gst_object_unref(classify);
+}
+GST_END_TEST;
+
 static Suite *inference_properties_testing_suite(void) {
     Suite *s = suite_create("inference_properties_testing");
     TCase *tc_chain = tcase_create("general");
@@ -119,6 +242,10 @@ static Suite *inference_properties_testing_suite(void) {
     tcase_add_test(tc_chain, test_nireq_property_less_zero);
     tcase_add_test(tc_chain, test_qos_property_str_trash);
     tcase_add_test(tc_chain, test_only_interval_and_threshold_are_changeable_while_running);
+    tcase_add_test(tc_chain, test_write_of_mutable_properties_while_running);
+    tcase_add_test(tc_chain, test_write_of_other_properties_while_running_is_refused);
+    tcase_add_test(tc_chain, test_write_of_properties_by_state);
+    tcase_add_test(tc_chain, test_write_while_running_on_other_elements);
 
     return s;
 }

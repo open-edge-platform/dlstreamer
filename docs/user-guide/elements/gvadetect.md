@@ -168,7 +168,8 @@ Element Properties:
 
 `threshold` and `inference-interval` can be changed while the pipeline is running, with `g_object_set()` or
 `Gst.Element.set_property()` from any thread, and take effect without a restart. They are the only properties that
-`gst-inspect-1.0` marks as "changeable in NULL, READY, PAUSED or PLAYING state".
+`gst-inspect-1.0` marks as "changeable in NULL, READY, PAUSED or PLAYING state". Any other property is refused once the
+element has started: the value is not changed and a warning is logged.
 
 - `inference-interval` applies from the next frame. When elements share a model (same `model-instance-id`), an
   element that has no `inference-interval` of its own takes the one of the element that defines the model. An interval

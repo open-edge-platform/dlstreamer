@@ -142,6 +142,19 @@ gboolean check_gva_base_inference_stopped(GvaBaseInference *base_inference);
  */
 void gva_base_inference_apply_threshold_locked(GvaBaseInference *base_inference);
 
+/**
+ * Tells whether the property may be written now. Above the READY state only the properties flagged
+ * GST_PARAM_MUTABLE_PLAYING (or GST_PARAM_MUTABLE_PAUSED, while PAUSED) may be written, as the others are read once,
+ * when the element starts. Returns NULL if the write is allowed, otherwise the reason, to be freed with g_free().
+ */
+gchar *gva_base_inference_get_write_denial(GstElement *element, GParamSpec *pspec);
+
+/**
+ * For the set_property functions of the inference elements: returns TRUE, after logging a warning, if the write is
+ * denied (see above). The property must then be left untouched.
+ */
+gboolean gva_base_inference_reject_write(GstElement *element, GParamSpec *pspec);
+
 G_END_DECLS
 
 #ifdef __cplusplus

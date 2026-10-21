@@ -22,6 +22,7 @@
 
 #include "gva_base_inference_priv.hpp"
 
+#include <algorithm>
 #include <charconv>
 #include <gst_smart_pointer_types.hpp>
 #include <memory>
@@ -204,6 +205,32 @@ static GstCaps *gva_base_inference_transform_caps(GstBaseTransform *trans, GstPa
     }
 
     return result;
+}
+
+gchar *gva_base_inference_get_write_denial(GstElement *element, GParamSpec *pspec) {
+    GST_OBJECT_LOCK(element);
+    // The pending state counts too, so that a write racing with the start of the element is not let through
+    const GstState state = std::max(GST_STATE(element), GST_STATE_PENDING(element));
+    GST_OBJECT_UNLOCK(element);
+
+    if (state <= GST_STATE_READY)
+        return nullptr;
+    if (pspec->flags & GST_PARAM_MUTABLE_PLAYING)
+        return nullptr;
+    if (state == GST_STATE_PAUSED && (pspec->flags & GST_PARAM_MUTABLE_PAUSED))
+        return nullptr;
+
+    return g_strdup_printf("property '%s' cannot be changed in state %s, only before the element starts", pspec->name,
+                           gst_element_state_get_name(state));
+}
+
+gboolean gva_base_inference_reject_write(GstElement *element, GParamSpec *pspec) {
+    gchar *denial = gva_base_inference_get_write_denial(element, pspec);
+    if (!denial)
+        return FALSE;
+    g_warning("%s: %s; the value was not changed", GST_OBJECT_NAME(element), denial);
+    g_free(denial);
+    return TRUE;
 }
 
 void gva_base_inference_class_init(GvaBaseInferenceClass *klass) {
@@ -865,6 +892,9 @@ void gva_base_inference_set_property(GObject *object, guint property_id, const G
     GvaBaseInference *base_inference = GVA_BASE_INFERENCE(object);
 
     GST_DEBUG_OBJECT(base_inference, "set_property");
+
+    if (gva_base_inference_reject_write(GST_ELEMENT(object), pspec))
+        return;
 
     switch (property_id) {
     case PROP_MODEL:

@@ -52,6 +52,9 @@ void gst_gva_detect_set_property(GObject *object, guint property_id, const GValu
 
     GST_DEBUG_OBJECT(gvadetect, "set_property");
 
+    if (gva_base_inference_reject_write(GST_ELEMENT(object), pspec))
+        return;
+
     switch (property_id) {
     case PROP_THRESHOLD:
         GST_OBJECT_LOCK(gvadetect);
