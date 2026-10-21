@@ -229,6 +229,9 @@ void gva_base_inference_class_init(GvaBaseInferenceClass *klass) {
     klass->on_initialized = on_base_inference_initialized;
 
     constexpr auto param_flags = static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+    // For the properties that can also be changed while the element is running
+    constexpr auto mutable_playing_flags =
+        static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | GST_PARAM_MUTABLE_PLAYING);
 
     g_object_class_install_property(
         gobject_class, PROP_MODEL,
@@ -324,7 +327,7 @@ void gva_base_inference_class_init(GvaBaseInferenceClass *klass) {
                           "every frame. An interval of 2 performs inference on every other frame. An interval of N "
                           "performs inference on every Nth frame.",
                           DEFAULT_MIN_INFERENCE_INTERVAL, DEFAULT_MAX_INFERENCE_INTERVAL, DEFAULT_INFERENCE_INTERVAL,
-                          param_flags));
+                          mutable_playing_flags));
 
     g_object_class_install_property(
         gobject_class, PROP_RESHAPE,
@@ -873,7 +876,9 @@ void gva_base_inference_set_property(GObject *object, guint property_id, const G
         base_inference->device = g_value_dup_string(value);
         break;
     case PROP_INFERENCE_INTERVAL:
+        GST_OBJECT_LOCK(base_inference);
         base_inference->inference_interval = g_value_get_uint(value);
+        GST_OBJECT_UNLOCK(base_inference);
         break;
     case PROP_RESHAPE:
         base_inference->reshape = g_value_get_boolean(value);
@@ -1012,7 +1017,9 @@ void gva_base_inference_get_property(GObject *object, guint property_id, GValue 
         g_value_set_string(value, base_inference->device);
         break;
     case PROP_INFERENCE_INTERVAL:
+        GST_OBJECT_LOCK(base_inference);
         g_value_set_uint(value, base_inference->inference_interval);
+        GST_OBJECT_UNLOCK(base_inference);
         break;
     case PROP_RESHAPE:
         g_value_set_boolean(value, base_inference->reshape);

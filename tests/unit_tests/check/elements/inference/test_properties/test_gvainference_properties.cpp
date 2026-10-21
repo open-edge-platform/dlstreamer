@@ -74,6 +74,39 @@ GST_START_TEST(test_qos_property_str_trash) {
 
 GST_END_TEST;
 
+/* ========================================================================= */
+/*  Properties that can be changed while the pipeline is running             */
+/*                                                                           */
+/*  This is inference-interval. Nothing else is declared changeable while     */
+/*  running.                                                                 */
+/* ========================================================================= */
+
+GST_START_TEST(test_only_interval_is_changeable_while_running) {
+    g_print("Starting test: test_only_interval_is_changeable_while_running\n");
+    for (const char *element_name : {"gvainference", "gvadetect", "gvaclassify"}) {
+        GstElement *element = gst_element_factory_make(element_name, NULL);
+        ck_assert_msg(element != NULL, "Cannot create %s", element_name);
+
+        guint n_props = 0;
+        GParamSpec **props = g_object_class_list_properties(G_OBJECT_GET_CLASS(element), &n_props);
+        for (guint i = 0; i < n_props; i++) {
+            const GParamSpec *pspec = props[i];
+            /* only the properties added by the gva elements, not those of GstObject/GstBaseTransform */
+            if (pspec->owner_type == GST_TYPE_BASE_TRANSFORM ||
+                !g_type_is_a(pspec->owner_type, GST_TYPE_BASE_TRANSFORM))
+                continue;
+
+            const bool expected = g_str_equal(pspec->name, "inference-interval");
+            const bool changeable = pspec->flags & GST_PARAM_MUTABLE_PLAYING;
+            ck_assert_msg(changeable == expected, "%s: property '%s' should %sbe changeable while PLAYING",
+                          element_name, pspec->name, expected ? "" : "not ");
+        }
+        g_free(props);
+        gst_object_unref(element);
+    }
+}
+GST_END_TEST;
+
 static Suite *inference_properties_testing_suite(void) {
     Suite *s = suite_create("inference_properties_testing");
     TCase *tc_chain = tcase_create("general");
@@ -84,6 +117,7 @@ static Suite *inference_properties_testing_suite(void) {
     tcase_add_test(tc_chain, test_batch_size_property_less_zero);
     tcase_add_test(tc_chain, test_nireq_property_less_zero);
     tcase_add_test(tc_chain, test_qos_property_str_trash);
+    tcase_add_test(tc_chain, test_only_interval_is_changeable_while_running);
 
     return s;
 }

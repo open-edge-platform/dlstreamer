@@ -163,3 +163,9 @@ Element Properties:
                         flags: readable, writable
                         Float. Range: 0 - 1 Default: 0.5
 ```
+
+## Changing properties at runtime
+
+`inference-interval` can be changed while the pipeline is running, with `g_object_set()` or
+`Gst.Element.set_property()` from any thread, and applies from the next frame without a restart. It is the only
+property that `gst-inspect-1.0` marks as "changeable in NULL, READY, PAUSED or PLAYING state".

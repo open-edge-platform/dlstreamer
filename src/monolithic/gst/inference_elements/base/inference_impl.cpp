@@ -1438,10 +1438,15 @@ GstFlowReturn InferenceImpl::TransformFrameIp(GvaBaseInference *gva_base_inferen
     // Unref buffer automatically on early exit
     auto buf_guard = makeScopeGuard([buffer] { gst_buffer_unref(buffer); });
 
+    // inference-interval can be changed while running: read it once, so the whole frame is handled with one value
+    GST_OBJECT_LOCK(gva_base_inference);
+    const guint inference_interval = gva_base_inference->inference_interval;
+    GST_OBJECT_UNLOCK(gva_base_inference);
+
     InferenceStatus status = INFERENCE_EXECUTED;
     {
         ITT_TASK("InferenceImpl::TransformFrameIp check_skip");
-        if (++gva_base_inference->num_skipped_frames < gva_base_inference->inference_interval) {
+        if (++gva_base_inference->num_skipped_frames < inference_interval) {
             status = INFERENCE_SKIPPED_PER_PROPERTY;
         }
         if (gva_base_inference->no_block) {
@@ -1525,8 +1530,8 @@ GstFlowReturn InferenceImpl::TransformFrameIp(GvaBaseInference *gva_base_inferen
             // pause if total number of buffered frames exceeds max number of frames in flight,
             // and frame presentation time is later than ones already queued
             while ((buffer->pts > latest_pts) &&
-                   (output_frames.size() > model.inference->GetNireq() * model.inference->GetBatchSize() *
-                                               gva_base_inference->inference_interval)) {
+                   (output_frames.size() >
+                    model.inference->GetNireq() * model.inference->GetBatchSize() * inference_interval)) {
                 output_lock.unlock();
                 lock.unlock();
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
