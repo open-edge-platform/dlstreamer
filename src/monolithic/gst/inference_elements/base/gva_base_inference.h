@@ -137,3 +137,13 @@ GType gst_gva_base_inference_get_inf_region(void);
 gboolean check_gva_base_inference_stopped(GvaBaseInference *base_inference);
 
 G_END_DECLS
+
+#ifdef __cplusplus
+#include <memory>
+
+/**
+ * The post-processor of the element, to be used by the streaming threads and the inference callbacks. The caller keeps
+ * it alive while it uses it, even if it is replaced meanwhile (when caps are renegotiated). Null if there is none.
+ */
+std::shared_ptr<PostProcessor> gva_base_inference_get_post_processor(GvaBaseInference *base_inference);
+#endif

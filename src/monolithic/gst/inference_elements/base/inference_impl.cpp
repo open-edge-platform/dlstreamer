@@ -1635,7 +1635,7 @@ void InferenceImpl::InferenceCompletionCallback(
         return;
 
     std::vector<std::shared_ptr<InferenceFrame>> inference_frames;
-    PostProcessor *post_proc = nullptr;
+    std::shared_ptr<PostProcessor> post_proc;
 
     for (auto &frame : frames) {
         auto inference_result = std::dynamic_pointer_cast<InferenceResult>(frame);
@@ -1645,7 +1645,8 @@ void InferenceImpl::InferenceCompletionCallback(
         std::shared_ptr<InferenceFrame> inference_roi = inference_result->inference_frame;
         inference_roi->image_transform_info = inference_result->GetImageTransformationParams();
         inference_result->image.reset(); // deleter will to not make buffer_unref, see 'SubmitImages' method
-        post_proc = inference_roi->gva_base_inference->post_proc;
+        // The post-processor is kept alive until the frames are done, even if the element replaces it meanwhile
+        post_proc = gva_base_inference_get_post_processor(inference_roi->gva_base_inference);
 
         inference_frames.push_back(inference_roi);
     }

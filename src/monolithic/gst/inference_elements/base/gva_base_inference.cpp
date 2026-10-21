@@ -492,7 +492,7 @@ void gva_base_inference_cleanup(GvaBaseInference *base_inference) {
     g_free(base_inference->labels);
     base_inference->labels = nullptr;
 
-    releasePostProcessor(base_inference->post_proc);
+    // The post-processor itself is owned, and released, by priv
     base_inference->post_proc = nullptr;
 
     g_free(base_inference->scale_method);
@@ -1345,7 +1345,24 @@ gboolean gva_base_inference_check_properties_correctness(GvaBaseInference *base_
 static void on_base_inference_initialized(GvaBaseInference *base_inference) {
     GST_DEBUG_OBJECT(base_inference, "on_base_inference_initialized");
 
-    base_inference->post_proc = createPostProcessor(base_inference->inference, base_inference);
+    std::shared_ptr<PostProcessor> post_proc(createPostProcessor(base_inference->inference, base_inference),
+                                             releasePostProcessor);
+
+    std::shared_ptr<PostProcessor> previous;
+    GST_OBJECT_LOCK(base_inference);
+    previous = std::move(base_inference->priv->post_proc);
+    base_inference->priv->post_proc = std::move(post_proc);
+    base_inference->post_proc = base_inference->priv->post_proc.get();
+    GST_OBJECT_UNLOCK(base_inference);
+    // The previous post-processor, if any, is released here, outside of the lock. If frames that are still being
+    // processed use it, it lives until they are done.
+}
+
+std::shared_ptr<PostProcessor> gva_base_inference_get_post_processor(GvaBaseInference *base_inference) {
+    GST_OBJECT_LOCK(base_inference);
+    std::shared_ptr<PostProcessor> post_proc = base_inference->priv ? base_inference->priv->post_proc : nullptr;
+    GST_OBJECT_UNLOCK(base_inference);
+    return post_proc;
 }
 
 gboolean gva_base_inference_start(GstBaseTransform *trans) {
