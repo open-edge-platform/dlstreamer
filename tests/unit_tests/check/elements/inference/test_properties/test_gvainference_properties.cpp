@@ -121,6 +121,21 @@ static void force_state(GstElement *element, GstState state) {
     GST_OBJECT_UNLOCK(element);
 }
 
+/* Status of the "set-runtime-property" signal, as in GvaPropertyStatus */
+enum { GVA_PROPERTY_APPLIED = 0, GVA_PROPERTY_NOT_FOUND, GVA_PROPERTY_NOT_MUTABLE, GVA_PROPERTY_INVALID_VALUE };
+
+static gint emit_set_runtime_property(GstElement *element, const char *name, const char *value) {
+    GstStructure *result = NULL;
+    g_signal_emit_by_name(element, "set-runtime-property", name, value, &result);
+    ck_assert_msg(result != NULL, "no result for '%s'", name);
+    gint status = -1;
+    ck_assert(gst_structure_get_int(result, "status", &status));
+    ck_assert(gst_structure_get_string(result, "code") != NULL);
+    ck_assert(gst_structure_get_string(result, "message") != NULL);
+    gst_structure_free(result);
+    return status;
+}
+
 static gfloat get_float(GstElement *element, const char *name) {
     gfloat value = 0;
     g_object_get(element, name, &value, NULL);
@@ -231,6 +246,119 @@ GST_START_TEST(test_write_while_running_on_other_elements) {
 }
 GST_END_TEST;
 
+/* ========================================================================= */
+/*  The "set-runtime-property" signal                                        */
+/* ========================================================================= */
+
+GST_START_TEST(test_signal_applies_mutable_properties) {
+    g_print("Starting test: test_signal_applies_mutable_properties\n");
+    GstElement *element = gst_element_factory_make("gvadetect", NULL);
+    ck_assert(element != NULL);
+    force_state(element, GST_STATE_PLAYING);
+
+    ck_assert_int_eq(emit_set_runtime_property(element, "threshold", "0.8"), GVA_PROPERTY_APPLIED);
+    ck_assert(get_float(element, "threshold") == 0.8f);
+    ck_assert_int_eq(emit_set_runtime_property(element, "inference-interval", "5"), GVA_PROPERTY_APPLIED);
+    ck_assert_uint_eq(get_uint(element, "inference-interval"), 5);
+
+    force_state(element, GST_STATE_NULL);
+    gst_object_unref(element);
+}
+GST_END_TEST;
+
+GST_START_TEST(test_signal_refuses_invalid_value) {
+    g_print("Starting test: test_signal_refuses_invalid_value\n");
+    GstElement *element = gst_element_factory_make("gvadetect", NULL);
+    ck_assert(element != NULL);
+    g_object_set(element, "threshold", 0.8f, "inference-interval", 5u, NULL);
+    force_state(element, GST_STATE_PLAYING);
+
+    for (const char *value : {"1.5", "-0.1", "abc", "nan", ""})
+        ck_assert_msg(emit_set_runtime_property(element, "threshold", value) == GVA_PROPERTY_INVALID_VALUE,
+                      "threshold '%s' should be refused", value);
+    for (const char *value : {"0", "-1", "1.5", "abc", "", "4294967296"})
+        ck_assert_msg(emit_set_runtime_property(element, "inference-interval", value) == GVA_PROPERTY_INVALID_VALUE,
+                      "inference-interval '%s' should be refused", value);
+    ck_assert_int_eq(emit_set_runtime_property(element, "threshold", NULL), GVA_PROPERTY_INVALID_VALUE);
+
+    // Nothing has changed
+    ck_assert(get_float(element, "threshold") == 0.8f);
+    ck_assert_uint_eq(get_uint(element, "inference-interval"), 5);
+
+    force_state(element, GST_STATE_NULL);
+    gst_object_unref(element);
+}
+GST_END_TEST;
+
+GST_START_TEST(test_signal_refuses_other_properties) {
+    g_print("Starting test: test_signal_refuses_other_properties\n");
+    GstElement *element = gst_element_factory_make("gvadetect", NULL);
+    ck_assert(element != NULL);
+    g_object_set(element, "device", "CPU", "batch-size", 2u, NULL);
+    force_state(element, GST_STATE_PLAYING);
+
+    ck_assert_int_eq(emit_set_runtime_property(element, "nonexistent", "1"), GVA_PROPERTY_NOT_FOUND);
+    ck_assert_int_eq(emit_set_runtime_property(element, NULL, "1"), GVA_PROPERTY_NOT_FOUND);
+    ck_assert_int_eq(emit_set_runtime_property(element, "device", "GPU"), GVA_PROPERTY_NOT_MUTABLE);
+    ck_assert_int_eq(emit_set_runtime_property(element, "batch-size", "8"), GVA_PROPERTY_NOT_MUTABLE);
+    ck_assert_int_eq(emit_set_runtime_property(element, "model", "/some/model.xml"), GVA_PROPERTY_NOT_MUTABLE);
+    // The state is checked before the value
+    ck_assert_int_eq(emit_set_runtime_property(element, "batch-size", "abc"), GVA_PROPERTY_NOT_MUTABLE);
+
+    gchar *device = get_string(element, "device");
+    ck_assert_str_eq(device, "CPU");
+    g_free(device);
+    ck_assert_uint_eq(get_uint(element, "batch-size"), 2);
+
+    force_state(element, GST_STATE_NULL);
+    gst_object_unref(element);
+}
+GST_END_TEST;
+
+GST_START_TEST(test_signal_by_state) {
+    g_print("Starting test: test_signal_by_state\n");
+    GstElement *element = gst_element_factory_make("gvadetect", NULL);
+    ck_assert(element != NULL);
+
+    // Before the element starts, everything can be changed
+    for (GstState state : {GST_STATE_NULL, GST_STATE_READY}) {
+        force_state(element, state);
+        ck_assert_int_eq(emit_set_runtime_property(element, "device", "GPU"), GVA_PROPERTY_APPLIED);
+        ck_assert_int_eq(emit_set_runtime_property(element, "device", "CPU"), GVA_PROPERTY_APPLIED);
+    }
+
+    for (GstState state : {GST_STATE_PAUSED, GST_STATE_PLAYING}) {
+        force_state(element, state);
+        ck_assert_int_eq(emit_set_runtime_property(element, "device", "GPU"), GVA_PROPERTY_NOT_MUTABLE);
+        ck_assert_int_eq(emit_set_runtime_property(element, "threshold", "0.4"), GVA_PROPERTY_APPLIED);
+    }
+
+    force_state(element, GST_STATE_NULL);
+    gst_object_unref(element);
+}
+GST_END_TEST;
+
+GST_START_TEST(test_signal_on_other_elements) {
+    g_print("Starting test: test_signal_on_other_elements\n");
+    GstElement *inference = gst_element_factory_make("gvainference", NULL);
+    GstElement *classify = gst_element_factory_make("gvaclassify", NULL);
+    ck_assert(inference != NULL && classify != NULL);
+    force_state(inference, GST_STATE_PLAYING);
+    force_state(classify, GST_STATE_PLAYING);
+
+    ck_assert_int_eq(emit_set_runtime_property(inference, "inference-interval", "3"), GVA_PROPERTY_APPLIED);
+    ck_assert_int_eq(emit_set_runtime_property(inference, "threshold", "0.5"), GVA_PROPERTY_NOT_FOUND);
+    ck_assert_int_eq(emit_set_runtime_property(classify, "inference-interval", "4"), GVA_PROPERTY_APPLIED);
+    ck_assert_int_eq(emit_set_runtime_property(classify, "reclassify-interval", "4"), GVA_PROPERTY_NOT_MUTABLE);
+    ck_assert_uint_eq(get_uint(classify, "reclassify-interval"), 1);
+
+    force_state(inference, GST_STATE_NULL);
+    force_state(classify, GST_STATE_NULL);
+    gst_object_unref(inference);
+    gst_object_unref(classify);
+}
+GST_END_TEST;
+
 static Suite *inference_properties_testing_suite(void) {
     Suite *s = suite_create("inference_properties_testing");
     TCase *tc_chain = tcase_create("general");
@@ -246,6 +374,11 @@ static Suite *inference_properties_testing_suite(void) {
     tcase_add_test(tc_chain, test_write_of_other_properties_while_running_is_refused);
     tcase_add_test(tc_chain, test_write_of_properties_by_state);
     tcase_add_test(tc_chain, test_write_while_running_on_other_elements);
+    tcase_add_test(tc_chain, test_signal_applies_mutable_properties);
+    tcase_add_test(tc_chain, test_signal_refuses_invalid_value);
+    tcase_add_test(tc_chain, test_signal_refuses_other_properties);
+    tcase_add_test(tc_chain, test_signal_by_state);
+    tcase_add_test(tc_chain, test_signal_on_other_elements);
 
     return s;
 }

@@ -24,8 +24,10 @@
 
 #include <algorithm>
 #include <charconv>
+#include <cmath>
 #include <gst_smart_pointer_types.hpp>
 #include <memory>
+#include <string>
 #include <string_view>
 
 #define DEFAULT_MODEL nullptr
@@ -232,6 +234,169 @@ gboolean gva_base_inference_reject_write(GstElement *element, GParamSpec *pspec)
     g_free(denial);
     return TRUE;
 }
+
+namespace {
+
+struct ScopedValue {
+    GValue value = G_VALUE_INIT;
+    ScopedValue() = default;
+    ScopedValue(const ScopedValue &) = delete;
+    ScopedValue &operator=(const ScopedValue &) = delete;
+    ~ScopedValue() {
+        if (G_IS_VALUE(&value))
+            g_value_unset(&value);
+    }
+};
+
+template <typename T>
+bool parse_number(const char *text, T &number) {
+    const std::string_view view(text);
+    const auto result = std::from_chars(view.data(), view.data() + view.size(), number);
+    return result.ec == std::errc() && result.ptr == view.data() + view.size();
+}
+
+// Converts the text to the type of the value, which is already initialized. The numbers are parsed strictly, as
+// gst_value_deserialize() accepts an empty text as 0 and wraps a negative number to a large unsigned one.
+bool parse_value(GValue *value, const gchar *text) {
+    if (!text)
+        return false;
+    switch (G_VALUE_TYPE(value)) {
+    case G_TYPE_STRING:
+        g_value_set_string(value, text);
+        return true;
+    case G_TYPE_UINT: {
+        guint number = 0;
+        const bool ok = parse_number(text, number);
+        g_value_set_uint(value, number);
+        return ok;
+    }
+    case G_TYPE_INT: {
+        gint number = 0;
+        const bool ok = parse_number(text, number);
+        g_value_set_int(value, number);
+        return ok;
+    }
+    case G_TYPE_FLOAT: {
+        gfloat number = 0;
+        const bool ok = parse_number(text, number) && std::isfinite(number);
+        g_value_set_float(value, number);
+        return ok;
+    }
+    case G_TYPE_DOUBLE: {
+        gdouble number = 0;
+        const bool ok = parse_number(text, number) && std::isfinite(number);
+        g_value_set_double(value, number);
+        return ok;
+    }
+    case G_TYPE_BOOLEAN: {
+        const std::string_view view(text);
+        if (view != "true" && view != "false")
+            return false;
+        g_value_set_boolean(value, view == "true");
+        return true;
+    }
+    default:
+        return gst_value_deserialize(value, text);
+    }
+}
+
+std::string serialize_value(const GValue *value) {
+    // The shortest text that gives the same number, instead of 0.89999997615814209 for the float 0.9
+    char buffer[64];
+    if (G_VALUE_HOLDS_FLOAT(value)) {
+        const auto result = std::to_chars(buffer, buffer + sizeof(buffer), g_value_get_float(value));
+        return std::string(buffer, result.ptr);
+    }
+    if (G_VALUE_HOLDS_DOUBLE(value)) {
+        const auto result = std::to_chars(buffer, buffer + sizeof(buffer), g_value_get_double(value));
+        return std::string(buffer, result.ptr);
+    }
+    std::unique_ptr<gchar, decltype(&g_free)> text(gst_value_serialize(value), g_free);
+    return text ? text.get() : "";
+}
+
+std::string range_text(GParamSpec *pspec) {
+    if (G_IS_PARAM_SPEC_UINT(pspec))
+        return " [" + std::to_string(G_PARAM_SPEC_UINT(pspec)->minimum) + ", " +
+               std::to_string(G_PARAM_SPEC_UINT(pspec)->maximum) + "]";
+    if (G_IS_PARAM_SPEC_INT(pspec))
+        return " [" + std::to_string(G_PARAM_SPEC_INT(pspec)->minimum) + ", " +
+               std::to_string(G_PARAM_SPEC_INT(pspec)->maximum) + "]";
+    if (G_IS_PARAM_SPEC_FLOAT(pspec))
+        return " [" + std::to_string(G_PARAM_SPEC_FLOAT(pspec)->minimum) + ", " +
+               std::to_string(G_PARAM_SPEC_FLOAT(pspec)->maximum) + "]";
+    if (G_IS_PARAM_SPEC_DOUBLE(pspec))
+        return " [" + std::to_string(G_PARAM_SPEC_DOUBLE(pspec)->minimum) + ", " +
+               std::to_string(G_PARAM_SPEC_DOUBLE(pspec)->maximum) + "]";
+    return "";
+}
+
+GstStructure *make_property_result(GvaPropertyStatus status, const gchar *property, const std::string &message,
+                                   const std::string &previous = {}, const std::string &current = {}) {
+    static const char *const codes[] = {"APPLIED", "NOT_FOUND", "NOT_MUTABLE", "INVALID_VALUE", "NOT_APPLIED"};
+    return gst_structure_new("set-runtime-property-result", "status", G_TYPE_INT, static_cast<gint>(status), "code",
+                             G_TYPE_STRING, codes[status], "property", G_TYPE_STRING, property ? property : "",
+                             "message", G_TYPE_STRING, message.c_str(), "previous", G_TYPE_STRING, previous.c_str(),
+                             "current", G_TYPE_STRING, current.c_str(), nullptr);
+}
+
+// Handler of the "set-runtime-property" action signal. Returns a newly allocated result structure, which the signal
+// machinery takes over. The value is given as text, and converted to the type of the property.
+GstStructure *set_runtime_property(GvaBaseInference *base_inference, const gchar *name, const gchar *text) {
+    GstElement *element = GST_ELEMENT(base_inference);
+    GObject *object = G_OBJECT(base_inference);
+
+    auto refuse = [&](GvaPropertyStatus status, const std::string &message) {
+        GST_WARNING_OBJECT(element, "set-runtime-property '%s': %s", name ? name : "(null)", message.c_str());
+        return make_property_result(status, name, message);
+    };
+
+    GParamSpec *pspec = name ? g_object_class_find_property(G_OBJECT_GET_CLASS(object), name) : nullptr;
+    if (!pspec)
+        return refuse(GVA_PROPERTY_NOT_FOUND, "no such property");
+    if (!(pspec->flags & G_PARAM_WRITABLE))
+        return refuse(GVA_PROPERTY_NOT_MUTABLE, "the property is read-only");
+
+    if (gchar *denial = gva_base_inference_get_write_denial(element, pspec)) {
+        std::string message = denial;
+        g_free(denial);
+        return refuse(GVA_PROPERTY_NOT_MUTABLE, message);
+    }
+
+    ScopedValue new_value;
+    g_value_init(&new_value.value, pspec->value_type);
+    if (!parse_value(&new_value.value, text))
+        return refuse(GVA_PROPERTY_INVALID_VALUE, std::string("'") + (text ? text : "(null)") + "' is not a valid " +
+                                                      g_type_name(pspec->value_type) + range_text(pspec));
+    if (g_param_value_validate(pspec, &new_value.value))
+        return refuse(GVA_PROPERTY_INVALID_VALUE,
+                      std::string("value '") + text + "' is out of range" + range_text(pspec));
+
+    ScopedValue old_value;
+    g_value_init(&old_value.value, pspec->value_type);
+    g_object_get_property(object, pspec->name, &old_value.value);
+
+    // The set_property function checks the state again, in case it changed meanwhile
+    g_object_set_property(object, pspec->name, &new_value.value);
+
+    ScopedValue current_value;
+    g_value_init(&current_value.value, pspec->value_type);
+    g_object_get_property(object, pspec->name, &current_value.value);
+
+    const std::string previous = serialize_value(&old_value.value);
+    const std::string current = serialize_value(&current_value.value);
+    if (g_param_values_cmp(pspec, &new_value.value, &current_value.value) != 0) {
+        GST_WARNING_OBJECT(element, "set-runtime-property '%s': the value '%s' was not taken, it is '%s'", name, text,
+                           current.c_str());
+        return make_property_result(GVA_PROPERTY_NOT_APPLIED, name, "the property did not take the value", previous,
+                                    current);
+    }
+
+    GST_INFO_OBJECT(element, "set-runtime-property '%s': %s -> %s", name, previous.c_str(), current.c_str());
+    return make_property_result(GVA_PROPERTY_APPLIED, name, "applied", previous, current);
+}
+
+} // namespace
 
 void gva_base_inference_class_init(GvaBaseInferenceClass *klass) {
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
@@ -458,6 +623,12 @@ void gva_base_inference_class_init(GvaBaseInferenceClass *klass) {
         g_param_spec_string("core-pinning", "Core Pinning",
                             "List or range of CPU cores to pin this inference element to (e.g., '0-3' or '0,2,3')",
                             nullptr, param_flags));
+
+    // Sets a property by name, from the text of its value, and returns a structure with the status of the change
+    g_signal_new_class_handler("set-runtime-property", G_TYPE_FROM_CLASS(klass),
+                               static_cast<GSignalFlags>(G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION),
+                               G_CALLBACK(set_runtime_property), nullptr, nullptr, nullptr, GST_TYPE_STRUCTURE, 2,
+                               G_TYPE_STRING, G_TYPE_STRING);
 }
 
 void gva_base_inference_cleanup(GvaBaseInference *base_inference) {

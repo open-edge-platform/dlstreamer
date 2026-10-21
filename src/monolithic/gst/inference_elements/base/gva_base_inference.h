@@ -143,6 +143,17 @@ gboolean check_gva_base_inference_stopped(GvaBaseInference *base_inference);
 void gva_base_inference_apply_threshold_locked(GvaBaseInference *base_inference);
 
 /**
+ * Result of the "set-runtime-property" action signal, returned in the "status" field of the result structure.
+ */
+typedef enum {
+    GVA_PROPERTY_APPLIED = 0,       // set, and the read-back value matches
+    GVA_PROPERTY_NOT_FOUND = 1,     // no such property
+    GVA_PROPERTY_NOT_MUTABLE = 2,   // the property cannot be changed in the current state of the element
+    GVA_PROPERTY_INVALID_VALUE = 3, // the value has the wrong type or is out of range
+    GVA_PROPERTY_NOT_APPLIED = 4    // set was attempted, but the property did not take the value
+} GvaPropertyStatus;
+
+/**
  * Tells whether the property may be written now. Above the READY state only the properties flagged
  * GST_PARAM_MUTABLE_PLAYING (or GST_PARAM_MUTABLE_PAUSED, while PAUSED) may be written, as the others are read once,
  * when the element starts. Returns NULL if the write is allowed, otherwise the reason, to be freed with g_free().
