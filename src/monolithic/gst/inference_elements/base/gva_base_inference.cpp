@@ -435,10 +435,11 @@ void gva_base_inference_cleanup(GvaBaseInference *base_inference) {
 
     GST_DEBUG_OBJECT(base_inference, "gva_base_inference_cleanup");
 
-    if (base_inference->inference) {
-        release_inference_instance(base_inference);
-        base_inference->inference = nullptr;
-    }
+    // The element registered itself in the shared pool at start(), whether or not it later negotiated caps and
+    // acquired an inference instance. Unregister unconditionally: a dangling pointer left in the pool is walked by
+    // the next element acquiring the same model-instance-id (use-after-free in initExistingElements).
+    release_inference_instance(base_inference);
+    base_inference->inference = nullptr;
 
     if (base_inference->priv) {
         base_inference->priv->~GvaBaseInferencePrivate();
@@ -1387,8 +1388,14 @@ gboolean gva_base_inference_stop(GstBaseTransform *trans) {
     GvaBaseInference *self = GVA_BASE_INFERENCE(trans);
     GST_DEBUG_OBJECT(self, "stop");
 
-    if (!self || !self->inference) {
-        GST_ELEMENT_ERROR(self, CORE, STATE_CHANGE, ("base_inference failed on stop"), ("empty inference instance"));
+    if (!self)
+        return TRUE;
+
+    if (!self->inference) {
+        // Started but never negotiated caps (e.g. the source produced no data), so no inference instance was ever
+        // acquired. Not an error; just drop the registration made at start() so the pool holds no stale pointer.
+        GST_DEBUG_OBJECT(self, "stop without an acquired inference instance; unregistering from the shared pool");
+        release_inference_instance(self);
         return TRUE;
     }
 
