@@ -407,11 +407,19 @@ ARG OPENVINO_GENAI_VERSION=2026.5.0.0.dev20261023
 ARG OPENVINO_GENAI_VER=openvino_genai_ubuntu24_${OPENVINO_GENAI_VERSION}_x86_64
 ARG OPENVINO_GENAI_PKG=https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/${OPENVINO_GENAI_VERSION}/${OPENVINO_GENAI_VER}.tar.gz
 
+# Register with ldconfig here too (not just in the final "dlstreamer" stage):
+# this dlstreamer-dev image is also run directly (e.g. in CI unit tests), and
+# some plugins (e.g. libgstvideoanalytics.so, via libopenvino_gguf_frontend.so)
+# resolve libopenvino* through the default linker search path rather than an
+# RPATH, so ldconfig must know about this directory independently of the one
+# "source setupvars.sh" used below for the cmake build itself.
 RUN \
     mkdir -p /opt/intel && \
     curl -L ${OPENVINO_GENAI_PKG} | tar -xz -C /opt/intel && \
     mv "/opt/intel/${OPENVINO_GENAI_VER}" /opt/intel/openvino_genai && \
-    ln -s /opt/intel/openvino_genai /opt/intel/openvino
+    ln -s /opt/intel/openvino_genai /opt/intel/openvino && \
+    echo "/opt/intel/openvino/runtime/lib/intel64" > /etc/ld.so.conf.d/openvino.conf && \
+    ldconfig
 
 WORKDIR "$DLSTREAMER_DIR"
 
