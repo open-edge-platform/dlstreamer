@@ -27,7 +27,6 @@ BuildRequires:  gobject-introspection-devel
 
 # Runtime dependencies
 Requires:       paho-mqtt-c-devel >= 1.3.4
-Requires:       ffmpeg >= 6.1.1
 Requires:       gstreamer >= 1.28.2
 Requires:       opencv >= 4.13.0
 Requires:       libva2 libva-intel-media-driver
