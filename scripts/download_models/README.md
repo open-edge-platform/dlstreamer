@@ -5,7 +5,7 @@ This folder contains standalone conversion CLIs:
 - `download_hf_models.py` — Convert Hugging Face models to OpenVINO.
 - `download_ultralytics_models.py` — Convert Ultralytics YOLO models to OpenVINO.
 - `download_timm_models.py` — Convert supported TIMM (PyTorch Image Models) image-classification models to OpenVINO.
-- `download_other_models.sh` — Download and convert selected non-HF/non-Ultralytics helper models.
+- `download_other_models.py` — Download and convert selected non-HF/non-Ultralytics helper models.
 
 Model list files used by automation are stored in:
 
@@ -32,7 +32,7 @@ If `@...` is omitted:
 - `download_hf_models.py` uses the current latest Hugging Face revision at runtime.
 - `download_timm_models.py` uses the current latest Hugging Face revision at runtime.
 - `download_ultralytics_models.py` resolves a model by local file first, then by Ultralytics latest weights.
-- `download_other_models.sh` uses fixed script-defined sources (no per-model `@...` pin syntax).
+- `download_other_models.py` uses fixed script-defined sources (no per-model `@...` pin syntax).
 
 
 ## 1) Hugging Face conversion
@@ -234,23 +234,49 @@ python download_timm_models.py import \
   --output-dir "${MODELS_PATH}"
 ```
 
-## 4) Other Public Models (Shell)
+## 4) Other Public Models
 
-Script: `download_other_models.sh`
+Script: `download_other_models.py`
 
-This script downloads/converts a fixed set of helper models (for example, `centerface`, `hsemotion`, `deeplabv3`, `mars-small128`) into the `MODELS_PATH/public/...` layout.
+Dependencies file: `requirements_download_other_models.txt`
+
+This script downloads/converts a fixed set of helper models (for example, `centerface`, `hsemotion`, `deeplabv3`, `mars-small128`) into the `MODELS_PATH/public/...` layout. It runs on Linux and Windows.
+
+`yolox-tiny` and `deeplabv3` are converted with the OpenVINO Model Zoo tools
+(`openvino-dev` 2024.6.0), which require Python 3.12 or older. With a newer
+Python these two models are skipped with a warning and the script exits with a
+non-zero status. Use Python 3.12 to download all models.
 
 ### Setup
 
-Set `MODELS_PATH` before running the script. The script creates and manages its
-own virtual environments under `${HOME}/.virtualenvs/` and installs its Python
-dependencies automatically.
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv venv --python 3.12 .other_models_venv
+source .other_models_venv/bin/activate  # On Windows: .other_models_venv\Scripts\activate
+uv pip install --index-strategy unsafe-best-match -r requirements_download_other_models.txt
+```
+
+`yolox-tiny` and `deeplabv3` (OpenVINO Model Zoo tools) and the PP-OCRv5 models
+(PaddlePaddle) install their conversion tools into temporary virtual environments
+that are removed after the conversion.
 
 ### Command
 
 ```bash
-./download_other_models.sh [MODEL] [QUANTIZE]
+python download_other_models.py [MODEL] [--outdir <output_dir>]
 ```
+
+### Arguments
+
+- `MODEL` (optional, default `all`): `all`, a single model, or a comma-separated
+  list of models. Run `python download_other_models.py --help` to list the
+  supported models.
+- `--outdir` (optional, default `${MODELS_PATH}`): Root output directory. Models
+  are written under `<outdir>/public/<model_name>/...`.
+
+Models that already exist in the output directory are not downloaded again. If a
+model fails or is skipped, the remaining models are still processed and the
+script exits with a non-zero status listing the failed and skipped models.
 
 ### Versioning Behavior
 
@@ -261,11 +287,16 @@ dependencies automatically.
 ### Examples
 
 ```bash
+export MODELS_PATH=~/models  # On Windows (PowerShell): $env:MODELS_PATH = "$HOME\models"
+
 # Download all supported "other" models
-./download_other_models.sh all
+python download_other_models.py all
 
 # Download only mars-small128
-./download_other_models.sh mars-small128
+python download_other_models.py mars-small128
+
+# Download several models
+python download_other_models.py yolov8_license_plate_detector,ch_PP-OCRv4_rec_infer
 ```
 
 ## Output notes
@@ -278,4 +309,4 @@ dependencies automatically.
   normally already be the desired precision directory.
 - TIMM exports are written under `<output-dir>/public/<model_name>/<precision>/`
   (e.g. `FP16/`, `INT8/`) with matching `.xml`, `.bin`, and `data_config.json` files.
-- `download_other_models.sh` writes models under `${MODELS_PATH}/public/<model_name>/...`.
+- `download_other_models.py` writes models under `${MODELS_PATH}/public/<model_name>/...`.

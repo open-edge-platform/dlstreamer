@@ -168,7 +168,10 @@ def run_dlstreamer_pipeline():
     # Check if there are models in current directory and download if necessary
     if not os.path.exists(f"{cwd}/public/yolov8_license_plate_detector"):
         print("Downloading DL Streamer models....\n")
-        command=f"{dlstreamer_docker} \"bash /opt/intel/dlstreamer/scripts/download_models/download_other_models.sh "
+        command=f"{dlstreamer_docker} \"python3 -m venv ~/other_models_venv && "
+        command+="~/other_models_venv/bin/pip install -r "
+        command+="/opt/intel/dlstreamer/scripts/download_models/requirements_download_other_models.txt && "
+        command+="~/other_models_venv/bin/python /opt/intel/dlstreamer/scripts/download_models/download_other_models.py "
         command+="yolov8_license_plate_detector,ch_PP-OCRv4_rec_infer \""
         os.system(command) # nosec
 

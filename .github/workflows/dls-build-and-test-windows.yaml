@@ -39,7 +39,7 @@ env:
   TESTS_RESULTS_DIRECTORY: 'C:\dlstreamer_test_results'
   UNIT_TESTS_RESULTS_DIRECTORY: 'C:\dlstreamer_unit_test_results'
   PYTHON_VERSION: '3.12.7'
-  DLL_EXPECTED_COUNT: 14
+  DLL_EXPECTED_COUNT: ${{ vars.EXPECTED_WIN_DLL_COUNT }}
 
 jobs:
   setup:
@@ -201,7 +201,7 @@ jobs:
           $dllDir = "${{ env.DLS_DLL_TARGET_DIRECTORY }}"
           $files = Get-ChildItem -Path $dllDir -Recurse -Filter *.dll -File
 
-          $expectedCount = ${{ env.DLL_EXPECTED_COUNT }}
+          $expectedCount = [int]$env:DLL_EXPECTED_COUNT
           $actualCount = $files.Count
           $isMismatch = $actualCount -ne $expectedCount
 

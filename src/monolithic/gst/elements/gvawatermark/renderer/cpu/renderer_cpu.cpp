@@ -57,6 +57,63 @@ cv::Point2i calc_point_for_u_v_planes(cv::Point2i pt) {
     return pt / 2;
 }
 
+struct TextMasks {
+    cv::Rect roi_y;
+    cv::Rect roi_u_v;
+    cv::Mat mask_y;
+    cv::Mat coverage_u_v;
+};
+
+// Rasterizes text once at full resolution, so luma and chroma planes get the same glyph shape.
+// Every chroma pixel is shared by 2x2 luma pixels, so 1px strokes can't get their own chroma. coverage_u_v holds the
+// share of each 2x2 block covered by the glyph.
+TextMasks rasterize_text(const render::Text &text, const cv::Size &y_size, const cv::Size &u_v_size) {
+    TextMasks masks;
+
+    int baseline = 0;
+    cv::Size text_size = cv::getTextSize(text.text, text.fonttype, text.fontscale, text.thick, &baseline);
+    // Some glyphs and the stroke thickness reach slightly beyond the size reported by getTextSize
+    int margin = text.thick + text_size.height / 2;
+    cv::Rect bounds_y(text.org.x - margin, text.org.y - text_size.height - margin, text_size.width + 2 * margin,
+                      text_size.height + baseline + 2 * margin);
+    bounds_y &= cv::Rect(cv::Point(), y_size);
+    if (bounds_y.empty())
+        return masks;
+
+    // Align luma region to whole 2x2 blocks
+    masks.roi_u_v =
+        cv::Rect(bounds_y.tl() / 2, (bounds_y.br() + cv::Point(1, 1)) / 2) & cv::Rect(cv::Point(), u_v_size);
+    if (masks.roi_u_v.empty())
+        return masks;
+
+    cv::Mat mask(masks.roi_u_v.size() * 2, CV_8UC1, cv::Scalar(0));
+    cv::putText(mask, text.text, text.org - masks.roi_u_v.tl() * 2, text.fonttype, text.fontscale, 255, text.thick);
+    masks.roi_y = cv::Rect(masks.roi_u_v.tl() * 2, mask.size()) & cv::Rect(cv::Point(), y_size);
+    masks.mask_y = mask(cv::Rect(cv::Point(), masks.roi_y.size()));
+
+    cv::Mat mask_f;
+    mask.convertTo(mask_f, CV_32F, 1. / 255);
+    cv::resize(mask_f, masks.coverage_u_v, masks.roi_u_v.size(), 0, 0, cv::INTER_AREA);
+    return masks;
+}
+
+// Blends color into chroma by coverage of each 2x2 block. That gives the same result as drawing in RGB and converting
+// to YUV, which averages chroma of the block.
+void blend_u_v(cv::Mat u_v, const cv::Mat &coverage, const cv::Scalar &color) {
+    cv::Mat color_u_v(u_v.size(), u_v.type(), color);
+    cv::Mat background_weight = 1. - coverage;
+    cv::blendLinear(color_u_v, u_v, coverage, background_weight, u_v);
+}
+
+// Extends rectangle given by inclusive corners to whole 2x2 blocks, so its edges on luma and subsampled chroma planes
+// match
+void align_to_u_v_blocks(cv::Point &tl, cv::Point &br) {
+    tl.x -= tl.x & 1;
+    tl.y -= tl.y & 1;
+    br.x |= 1;
+    br.y |= 1;
+}
+
 } // namespace
 
 template <typename T>
@@ -196,14 +253,16 @@ void RendererI420::draw_text(std::vector<cv::Mat> &mats, render::Text text) {
     cv::Mat &v = mats[2];
 
     // Set text color, if draw text background is enabled, set text color to white
-    cv::Scalar color =
-        text.draw_bg ? cv::Scalar(255, 128, 128) : cv::Scalar(text.color[0], text.color[1], text.color[2]);
+    Color white = _color_converter->convert(Color(255, 255, 255));
+    cv::Scalar color = text.draw_bg ? cv::Scalar(white[0], white[1], white[2])
+                                    : cv::Scalar(text.color[0], text.color[1], text.color[2]);
 
-    cv::putText(y, text.text, text.org, text.fonttype, text.fontscale, color[0], text.thick);
-    cv::Point2i pos_u_v(calc_point_for_u_v_planes(text.org));
-    int thick = calc_thick_for_u_v_planes(text.thick);
-    cv::putText(u, text.text, pos_u_v, text.fonttype, text.fontscale / 2.0, color[1], thick);
-    cv::putText(v, text.text, pos_u_v, text.fonttype, text.fontscale / 2.0, color[2], thick);
+    TextMasks masks = rasterize_text(text, y.size(), u.size());
+    if (masks.mask_y.empty())
+        return;
+    y(masks.roi_y).setTo(color[0], masks.mask_y);
+    blend_u_v(u(masks.roi_u_v), masks.coverage_u_v, color[1]);
+    blend_u_v(v(masks.roi_u_v), masks.coverage_u_v, color[2]);
 }
 
 void RendererI420::draw_text_bg(std::vector<cv::Mat> &mats, render::Text text) {
@@ -219,6 +278,7 @@ void RendererI420::draw_text_bg(std::vector<cv::Mat> &mats, render::Text text) {
     // Define background rectangle on Y plane
     cv::Point bg_tl(text.org.x, text.org.y - textSize.height);
     cv::Point bg_br(text.org.x + textSize.width, text.org.y + baseline);
+    align_to_u_v_blocks(bg_tl, bg_br);
 
     // Draw background on Y plane (use original text,rectangle color for background)
     cv::rectangle(y, bg_tl, bg_br, text.color[0], cv::FILLED);
@@ -326,13 +386,15 @@ void RendererNV12::draw_text(std::vector<cv::Mat> &mats, render::Text text) {
     cv::Mat &u_v = mats[1];
 
     // Set text color, if draw text background is enabled, set text color to white
-    cv::Scalar color =
-        text.draw_bg ? cv::Scalar(255, 128, 128) : cv::Scalar(text.color[0], text.color[1], text.color[2]);
+    Color white = _color_converter->convert(Color(255, 255, 255));
+    cv::Scalar color = text.draw_bg ? cv::Scalar(white[0], white[1], white[2])
+                                    : cv::Scalar(text.color[0], text.color[1], text.color[2]);
 
-    cv::putText(y, text.text, text.org, text.fonttype, text.fontscale, color[0], text.thick);
-    cv::Point2i pos_u_v(calc_point_for_u_v_planes(text.org));
-    cv::putText(u_v, text.text, pos_u_v, text.fonttype, text.fontscale / 2.0, {color[1], color[2]},
-                calc_thick_for_u_v_planes(text.thick));
+    TextMasks masks = rasterize_text(text, y.size(), u_v.size());
+    if (masks.mask_y.empty())
+        return;
+    y(masks.roi_y).setTo(color[0], masks.mask_y);
+    blend_u_v(u_v(masks.roi_u_v), masks.coverage_u_v, {color[1], color[2]});
 }
 
 void RendererNV12::draw_text_bg(std::vector<cv::Mat> &mats, render::Text text) {
@@ -347,6 +409,7 @@ void RendererNV12::draw_text_bg(std::vector<cv::Mat> &mats, render::Text text) {
     // Define background rectangle on Y plane
     cv::Point bg_tl(text.org.x, text.org.y - textSize.height);
     cv::Point bg_br(text.org.x + textSize.width, text.org.y + baseline);
+    align_to_u_v_blocks(bg_tl, bg_br);
 
     // Draw background on Y plane (use original text,rectangle color for background)
     cv::rectangle(y, bg_tl, bg_br, text.color[0], cv::FILLED);

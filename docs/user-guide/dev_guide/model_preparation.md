@@ -6,7 +6,7 @@ conversion scripts under
 [scripts/download_models](https://github.com/open-edge-platform/dlstreamer/tree/main/scripts/download_models)
 (`download_hf_models.py` for Hugging Face, `download_ultralytics_models.py` for
 Ultralytics YOLO, `download_timm_models.py` for TIMM, and
-`download_other_models.sh` for a handful of other helper models). See
+`download_other_models.py` for a handful of other helper models). See
 [Download and Convert Models](./download_public_models.md) and the script's own
 [README](https://github.com/open-edge-platform/dlstreamer/blob/main/scripts/download_models/README.md)
 for details.

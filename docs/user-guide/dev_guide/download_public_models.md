@@ -19,7 +19,7 @@ the [Model Conversion Scripts README](https://github.com/open-edge-platform/dlst
 	supports model names, local `.pt` files, and Hugging Face repositories.
 - `download_timm_models.py` converts supported TIMM image-classification
 	models hosted on Hugging Face.
-- `download_other_models.sh` downloads and converts selected helper models that
+- `download_other_models.py` downloads and converts selected helper models that
 	are not handled by the other scripts, including `yolox-tiny`, `yolox_s`, and
 	`yolov7`.
 
@@ -30,7 +30,7 @@ Model references can include an `@...` suffix to pin the source version:
 - Hugging Face and TIMM use `repo_id@revision`, typically a commit SHA.
 - Ultralytics uses `model.pt@tag`, where `tag` is an `ultralytics/assets`
 	GitHub release tag.
-- `download_other_models.sh` uses sources and tool versions defined in the
+- `download_other_models.py` uses sources and tool versions defined in the
 	script and does not support per-model version suffixes.
 
 Without a pinned revision, the Hugging Face, TIMM, and Ultralytics scripts may

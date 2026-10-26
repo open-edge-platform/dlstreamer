@@ -23,7 +23,11 @@
 #include <mutex>
 #include <string>
 
+#ifdef _WIN32
+#include <dlstreamer/d3d11/device_lock.h>
+#else
 #include <unistd.h>
+#endif
 
 GST_DEBUG_CATEGORY_STATIC(gva_watermark_gpu_debug);
 #define GST_CAT_DEFAULT gva_watermark_gpu_debug
@@ -47,6 +51,25 @@ constexpr size_t BLOB_MAX_BYTES = 64u << 20;
  * them. The cap is only there to stop an adversarial stream of ever-changing
  * ROI sizes from growing the table without bound. */
 constexpr size_t COEFF_MAX_ENTRIES = 256;
+
+/* Batched read-modify-write primitives (blurs, text chroma) each take a scratch
+ * slot of their own, so a group needs the sum of its primitives' slots. Past
+ * this many wm_vec elements (8 MB) a new group is started instead; a single
+ * primitive larger than that still gets a group to itself. The second pass
+ * reads back what the first wrote, which is quicker while that is still in
+ * cache: 4K blurs, where a group would otherwise reach 32 MB, measured 5-10%
+ * faster with this cap than without. */
+constexpr size_t SCRATCH_GROUP_MAX = 1u << 20;
+
+/* Work-group shapes of the blur passes, row pass first, which both go out as
+ * lists of such tiles (see wm_blur_h). The row pass reads along rows, so it is
+ * given wide tiles. Left to itself the runtime picks shapes that suit a
+ * rectangle's arbitrary width and height poorly: on ARL these were
+ * 20-40% faster, and wider row tiles also beat square ones by up to 25% at 4K. */
+struct TileShape {
+    int w, h;
+};
+constexpr TileShape BLUR_TILES[2] = {{32, 8}, {16, 16}};
 
 /* RendererYUV halves the line thickness on the U and V planes, and also uses
  * the halved thickness on the Y plane (drawing twice with a parity offset) so
@@ -134,6 +157,39 @@ bool bit_exact_256(const cv::Mat &kernel, std::vector<float> &scaled) {
     return true;
 }
 
+/* One output of RowFilter<uchar, float>: the taps summed in order, each
+ * multiply-add either fused or rounded twice. volatile keeps a contracting
+ * host compiler from fusing the second kind. */
+float row_sum(const float *kx, const uint8_t *px, int n, bool fused) {
+    float s = 0.f;
+    for (int k = 0; k < n; ++k) {
+        if (fused) {
+            s = std::fma(kx[k], static_cast<float>(px[k]), s);
+        } else {
+            volatile float t = kx[k] * static_cast<float>(px[k]);
+            s = s + t;
+        }
+    }
+    return s;
+}
+
+/* One output of SymmColumnFilter<float, uchar>: the centre tap, then the taps
+ * paired around it, each pair added before it is scaled. */
+float column_sum(const float *ky, const uint8_t *px, int n, bool fused) {
+    const int c = n / 2;
+    float s = ky[c] * static_cast<float>(px[c]);
+    for (int k = 1; k <= c; ++k) {
+        const float pair = static_cast<float>(px[c + k]) + static_cast<float>(px[c - k]);
+        if (fused) {
+            s = std::fma(ky[c + k], pair, s);
+        } else {
+            volatile float t = ky[c + k] * pair;
+            s = s + t;
+        }
+    }
+    return s;
+}
+
 bool cl_ok(cl_int err, const char *what) {
     if (err == CL_SUCCESS)
         return true;
@@ -143,6 +199,7 @@ bool cl_ok(cl_int err, const char *what) {
 
 } // namespace
 
+#ifndef _WIN32
 namespace {
 
 /* cl_khr_pci_bus_info, for OpenCL headers that predate it. */
@@ -179,6 +236,27 @@ std::string kernel_driver(cl_device_id dev) {
 }
 
 } // namespace
+#else
+namespace {
+
+/* Held around every OpenCL call that may use the D3D11 immediate context,
+ * which GStreamer only allows under the device lock. With D3D11 sharing that is
+ * more than acquire and release: context creation and the import and release
+ * of a shared texture use it too. */
+using dlstreamer::D3D11DeviceLock;
+
+bool has_extension(cl_device_id dev, const char *name) {
+    size_t size = 0;
+    if (clGetDeviceInfo(dev, CL_DEVICE_EXTENSIONS, 0, nullptr, &size) != CL_SUCCESS || size == 0)
+        return false;
+    std::string extensions(size, '\0');
+    if (clGetDeviceInfo(dev, CL_DEVICE_EXTENSIONS, size, extensions.data(), nullptr) != CL_SUCCESS)
+        return false;
+    return (" " + extensions + " ").find(std::string(" ") + name + " ") != std::string::npos;
+}
+
+} // namespace
+#endif
 
 // ---------------------------------------------------------------------------
 // SharedContext
@@ -190,9 +268,18 @@ struct RendererGPU::SharedContext {
     cl_context context = nullptr;
     cl_program program = nullptr;
 
+#ifdef _WIN32
+    /* Referenced for as long as the OpenCL context lives, and locked around
+     * every OpenCL call that uses the device's immediate context. */
+    GstD3D11Device *d3d11_device = nullptr;
+    clCreateFromD3D11Texture2DKHR_fn create_from_d3d11 = nullptr;
+    clEnqueueAcquireD3D11ObjectsKHR_fn acquire = nullptr;
+    clEnqueueReleaseD3D11ObjectsKHR_fn release = nullptr;
+#else
     clCreateFromVA_APIMediaSurfaceINTEL_fn create_from_va = nullptr;
     clEnqueueAcquireVA_APIMediaSurfacesINTEL_fn acquire = nullptr;
     clEnqueueReleaseVA_APIMediaSurfacesINTEL_fn release = nullptr;
+#endif
 
     /* Whether imported plane images may outlive the frame that used them. Not
      * on i915: there the imports keep every pooled surface attached to the
@@ -208,12 +295,16 @@ struct RendererGPU::SharedContext {
             clReleaseProgram(program);
         if (context)
             clReleaseContext(context);
+#ifdef _WIN32
+        if (d3d11_device)
+            gst_object_unref(d3d11_device);
+#endif
     }
 
-    static std::shared_ptr<SharedContext> get(VADisplay display);
+    static std::shared_ptr<SharedContext> get(renderer_gpu::Device device);
 
   private:
-    bool build(VADisplay display);
+    bool build(renderer_gpu::Device device);
     bool build_program();
 };
 
@@ -226,7 +317,13 @@ bool RendererGPU::SharedContext::build_program() {
         return false;
     }
 
-    err = clBuildProgram(prog, 1, &device, "-cl-fast-relaxed-math", nullptr, nullptr);
+    /* No -cl-fast-relaxed-math: it licenses the compiler to fuse and reorder
+     * the blur's arithmetic, which then no longer rounds the way OpenCV does. */
+    char options[128];
+    std::snprintf(options, sizeof(options),
+                  "-DWM_ROW_TILE_W=%d -DWM_ROW_TILE_H=%d -DWM_COL_TILE_W=%d -DWM_COL_TILE_H=%d", BLUR_TILES[0].w,
+                  BLUR_TILES[0].h, BLUR_TILES[1].w, BLUR_TILES[1].h);
+    err = clBuildProgram(prog, 1, &device, options, nullptr, nullptr);
     if (err != CL_SUCCESS) {
         size_t log_size = 0;
         clGetProgramBuildInfo(prog, device, CL_PROGRAM_BUILD_LOG, 0, nullptr, &log_size);
@@ -241,7 +338,7 @@ bool RendererGPU::SharedContext::build_program() {
     return true;
 }
 
-bool RendererGPU::SharedContext::build(VADisplay display) {
+bool RendererGPU::SharedContext::build(renderer_gpu::Device display) {
     cl_uint num_platforms = 0;
     if (!cl_ok(clGetPlatformIDs(0, nullptr, &num_platforms), "clGetPlatformIDs") || num_platforms == 0)
         return false;
@@ -249,6 +346,74 @@ bool RendererGPU::SharedContext::build(VADisplay display) {
     if (!cl_ok(clGetPlatformIDs(num_platforms, platforms.data(), nullptr), "clGetPlatformIDs"))
         return false;
 
+#ifdef _WIN32
+    ID3D11Device *d3d11 = gst_d3d11_device_get_device_handle(display);
+    if (!d3d11)
+        return false;
+
+    /* cl_khr_d3d11_sharing imports a texture, and cl_intel_d3d11_nv12_media_sharing
+     * extends it to the two planes of an NV12 one. */
+    for (cl_platform_id platform : platforms) {
+        auto ext = [platform](const char *name) { return clGetExtensionFunctionAddressForPlatform(platform, name); };
+        auto get_devices = reinterpret_cast<clGetDeviceIDsFromD3D11KHR_fn>(ext("clGetDeviceIDsFromD3D11KHR"));
+        auto create_texture = reinterpret_cast<clCreateFromD3D11Texture2DKHR_fn>(ext("clCreateFromD3D11Texture2DKHR"));
+        auto acquire_fn = reinterpret_cast<clEnqueueAcquireD3D11ObjectsKHR_fn>(ext("clEnqueueAcquireD3D11ObjectsKHR"));
+        auto release_fn = reinterpret_cast<clEnqueueReleaseD3D11ObjectsKHR_fn>(ext("clEnqueueReleaseD3D11ObjectsKHR"));
+        if (!get_devices || !create_texture || !acquire_fn || !release_fn)
+            continue;
+
+        cl_device_id dev = nullptr;
+        cl_uint num_devices = 0;
+        cl_int err = get_devices(platform, CL_D3D11_DEVICE_KHR, d3d11, CL_PREFERRED_DEVICES_FOR_D3D11_KHR, 1, &dev,
+                                 &num_devices);
+        if (err != CL_SUCCESS || num_devices == 0 || !dev)
+            continue;
+        if (!has_extension(dev, "cl_intel_d3d11_nv12_media_sharing"))
+            continue;
+
+        /* CL_CONTEXT_INTEROP_USER_SYNC = CL_TRUE leaves D3D11<->CL
+         * synchronization to the renderer: otherwise acquire waits for the GPU
+         * from inside the device lock (see RendererGPU::_d3d11_fence). */
+        cl_context_properties props[] = {CL_CONTEXT_D3D11_DEVICE_KHR, reinterpret_cast<cl_context_properties>(d3d11),
+                                         CL_CONTEXT_INTEROP_USER_SYNC, CL_TRUE, 0};
+        cl_context ctx = nullptr;
+        {
+            D3D11DeviceLock lock(display);
+            ctx = clCreateContext(props, 1, &dev, nullptr, nullptr, &err);
+        }
+        if (!ctx || err != CL_SUCCESS) {
+            cl_ok(err, "clCreateContext");
+            continue;
+        }
+
+        this->platform = platform;
+        this->device = dev;
+        this->context = ctx;
+        this->create_from_d3d11 = create_texture;
+        this->acquire = acquire_fn;
+        this->release = release_fn;
+
+        if (!build_program()) {
+            this->platform = nullptr;
+            this->device = nullptr;
+            this->context = nullptr;
+            clReleaseContext(ctx);
+            continue;
+        }
+
+        this->d3d11_device = static_cast<GstD3D11Device *>(gst_object_ref(display));
+
+        char name[256] = {};
+        clGetDeviceInfo(dev, CL_DEVICE_NAME, sizeof(name) - 1, name, nullptr);
+        GST_INFO("gvawatermark GPU renderer: OpenCL device '%s' bound to D3D11 device %p", name, d3d11);
+        return true;
+    }
+
+    GST_WARNING("gvawatermark GPU renderer: no OpenCL device shares NV12 textures with D3D11 device %p "
+                "(cl_khr_d3d11_sharing and cl_intel_d3d11_nv12_media_sharing); falling back to the CPU renderer",
+                d3d11);
+    return false;
+#else
     /* cl_intel_va_api_media_sharing is the only usable route to a VA surface:
      * importing the surface's dma-buf as a flat OpenCL buffer gives a linear
      * byte view, which addresses the wrong pixels on the Tile4 surfaces that
@@ -320,12 +485,13 @@ bool RendererGPU::SharedContext::build(VADisplay display) {
                 "VADisplay %p; falling back to the CPU renderer",
                 display);
     return false;
+#endif
 }
 
-std::shared_ptr<RendererGPU::SharedContext> RendererGPU::SharedContext::get(VADisplay display) {
+std::shared_ptr<RendererGPU::SharedContext> RendererGPU::SharedContext::get(renderer_gpu::Device display) {
     static std::mutex mutex;
-    static std::map<VADisplay, std::weak_ptr<SharedContext>> cache;
-    static std::map<VADisplay, bool> failed;
+    static std::map<renderer_gpu::Device, std::weak_ptr<SharedContext>> cache;
+    static std::map<renderer_gpu::Device, bool> failed;
 
     std::lock_guard<std::mutex> lock(mutex);
     if (auto it = cache.find(display); it != cache.end()) {
@@ -351,9 +517,52 @@ std::shared_ptr<RendererGPU::SharedContext> RendererGPU::SharedContext::get(VADi
 RendererGPU::RendererGPU(std::shared_ptr<SharedContext> shared, std::shared_ptr<ColorConverter> color_converter,
                          int width, int height)
     : _shared(std::move(shared)), _color_converter(std::move(color_converter)), _width(width), _height(height) {
+    // Same white as RendererNV12::draw_text, so limited range video gets Y=235
+    const Color white = _color_converter->convert(Color(255, 255, 255));
+    _white = cv::Scalar(white[0], white[1], white[2]);
 }
 
-std::unique_ptr<RendererGPU> RendererGPU::create(VADisplay display, int width, int height,
+cl_command_queue RendererGPU::create_queue(cl_int *err) {
+    cl_command_queue queue = clCreateCommandQueueWithProperties(_shared->context, _shared->device, nullptr, err);
+#if defined(_WIN32) && defined(CL_DEVICE_QUEUE_FAMILY_PROPERTIES_INTEL)
+    /* Every frame waits for its kernels, and a default queue shares the
+     * engine OpenVINO runs inference on, so the wait includes whatever
+     * inference is in flight: several ms per frame next to a detector. Another
+     * engine that runs every command, 'rcs' next to 'ccs', avoids that. */
+    if (!queue)
+        return queue;
+    size_t size = 0;
+    if (clGetDeviceInfo(_shared->device, CL_DEVICE_QUEUE_FAMILY_PROPERTIES_INTEL, 0, nullptr, &size) != CL_SUCCESS ||
+        size == 0)
+        return queue;
+    std::vector<cl_queue_family_properties_intel> families(size / sizeof(cl_queue_family_properties_intel));
+    cl_uint default_family = 0;
+    if (clGetDeviceInfo(_shared->device, CL_DEVICE_QUEUE_FAMILY_PROPERTIES_INTEL, size, families.data(), nullptr) !=
+            CL_SUCCESS ||
+        clGetCommandQueueInfo(queue, CL_QUEUE_FAMILY_INTEL, sizeof(default_family), &default_family, nullptr) !=
+            CL_SUCCESS)
+        return queue;
+
+    for (cl_uint i = 0; i < families.size(); ++i) {
+        if (i == default_family || families[i].capabilities != CL_QUEUE_DEFAULT_CAPABILITIES_INTEL ||
+            families[i].count == 0)
+            continue;
+        const cl_queue_properties props[] = {CL_QUEUE_FAMILY_INTEL, i, CL_QUEUE_INDEX_INTEL, 0, 0};
+        cl_int other_err = CL_SUCCESS;
+        cl_command_queue other =
+            clCreateCommandQueueWithProperties(_shared->context, _shared->device, props, &other_err);
+        if (other && other_err == CL_SUCCESS) {
+            GST_INFO("gvawatermark GPU renderer: kernels on engine '%s' rather than '%s'", families[i].name,
+                     families[default_family].name);
+            clReleaseCommandQueue(queue);
+            return other;
+        }
+    }
+#endif
+    return queue;
+}
+
+std::unique_ptr<RendererGPU> RendererGPU::create(renderer_gpu::Device display, int width, int height,
                                                  std::shared_ptr<ColorConverter> color_converter) {
     static std::once_flag category_once;
     std::call_once(category_once, [] {
@@ -378,7 +587,7 @@ std::unique_ptr<RendererGPU> RendererGPU::create(VADisplay display, int width, i
 bool RendererGPU::init() {
     cl_program program = _shared->program;
     cl_int err = CL_SUCCESS;
-    _queue = clCreateCommandQueueWithProperties(_shared->context, _shared->device, nullptr, &err);
+    _queue = create_queue(&err);
     if (!_queue || !cl_ok(err, "clCreateCommandQueueWithProperties"))
         return false;
 
@@ -400,27 +609,69 @@ bool RendererGPU::init() {
     _k_blur_v = clCreateKernel(program, "wm_blur_v", &err);
     if (!cl_ok(err, "clCreateKernel(wm_blur_v)"))
         return false;
+    for (int pass = 0; pass < 2; ++pass) {
+        const int needed = BLUR_TILES[pass].w * BLUR_TILES[pass].h;
+        size_t max_items = 0;
+        if (!cl_ok(clGetKernelWorkGroupInfo(pass ? _k_blur_v : _k_blur_h, _shared->device, CL_KERNEL_WORK_GROUP_SIZE,
+                                            sizeof(max_items), &max_items, nullptr),
+                   "clGetKernelWorkGroupInfo") ||
+            max_items < static_cast<size_t>(needed)) {
+            GST_WARNING("gvawatermark GPU renderer: blur work-groups are limited to %zu work items, %d needed",
+                        max_items, needed);
+            return false;
+        }
+    }
     _k_blend_gather = clCreateKernel(program, "wm_blend_gather", &err);
     if (!cl_ok(err, "clCreateKernel(wm_blend_gather)"))
         return false;
     _k_blend_scatter = clCreateKernel(program, "wm_blend_scatter", &err);
     if (!cl_ok(err, "clCreateKernel(wm_blend_scatter)"))
         return false;
+    _k_cover_gather = clCreateKernel(program, "wm_cover_gather", &err);
+    if (!cl_ok(err, "clCreateKernel(wm_cover_gather)"))
+        return false;
+    _k_cover_scatter = clCreateKernel(program, "wm_cover_scatter", &err);
+    if (!cl_ok(err, "clCreateKernel(wm_cover_scatter)"))
+        return false;
+
+#ifdef _WIN32
+    ID3D11Device5 *device5 = nullptr;
+    if (FAILED(gst_d3d11_device_get_device_handle(_shared->d3d11_device)->QueryInterface(IID_PPV_ARGS(&device5)))) {
+        GST_WARNING("gvawatermark GPU renderer: D3D11 device has no fences (ID3D11Device5)");
+        return false;
+    }
+    const HRESULT hr = device5->CreateFence(0, D3D11_FENCE_FLAG_NONE, IID_PPV_ARGS(&_d3d11_fence));
+    device5->Release();
+    if (FAILED(hr) || FAILED(gst_d3d11_device_get_device_context_handle(_shared->d3d11_device)
+                                 ->QueryInterface(IID_PPV_ARGS(&_d3d11_context)))) {
+        GST_WARNING("gvawatermark GPU renderer: cannot create a D3D11 fence, hr 0x%x", static_cast<unsigned>(hr));
+        return false;
+    }
+    _d3d11_fence_event = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+    if (!_d3d11_fence_event)
+        return false;
+#endif
 
     for (int plane = 0; plane < 2; ++plane)
         _span_rows[plane].resize(plane_height(plane));
     calibrate_blur_rounding();
+    calibrate_blur_fma();
     return true;
 }
 
 RendererGPU::~RendererGPU() {
-    for (auto &entry : _plane_cache) {
-        for (cl_mem plane : entry.second) {
-            if (plane)
-                clReleaseMemObject(plane);
+    {
+#ifdef _WIN32
+        D3D11DeviceLock lock(_shared->d3d11_device);
+#endif
+        for (auto &entry : _plane_cache) {
+            for (cl_mem plane : entry.second) {
+                if (plane)
+                    clReleaseMemObject(plane);
+            }
         }
+        _plane_cache.clear();
     }
-    _plane_cache.clear();
 
     if (_prim_buffer)
         clReleaseMemObject(_prim_buffer);
@@ -448,8 +699,20 @@ RendererGPU::~RendererGPU() {
         clReleaseKernel(_k_blend_gather);
     if (_k_blend_scatter)
         clReleaseKernel(_k_blend_scatter);
+    if (_k_cover_gather)
+        clReleaseKernel(_k_cover_gather);
+    if (_k_cover_scatter)
+        clReleaseKernel(_k_cover_scatter);
     if (_queue)
         clReleaseCommandQueue(_queue);
+#ifdef _WIN32
+    if (_d3d11_fence_event)
+        CloseHandle(_d3d11_fence_event);
+    if (_d3d11_fence)
+        _d3d11_fence->Release();
+    if (_d3d11_context)
+        _d3d11_context->Release();
+#endif
 }
 
 // ---------------------------------------------------------------------------
@@ -476,7 +739,7 @@ cl_float4 RendererGPU::plane_color_uv(const cv::Scalar &yuv) {
 // ---------------------------------------------------------------------------
 
 RendererGPU::Group &RendererGPU::group_for(BatchId id, int x0, int y0, int x1, int y1, const cl_float4 &color,
-                                           bool any_color) {
+                                           bool any_color, size_t scratch) {
     const int plane = id & 1;
     std::vector<Group> &groups = _groups[plane];
     const size_t used = _group_count[plane];
@@ -510,7 +773,9 @@ RendererGPU::Group &RendererGPU::group_for(BatchId id, int x0, int y0, int x1, i
      * overlap chain instead of the primitive count. */
     size_t target = used;
     for (size_t i = after; i < used; ++i) {
-        if (groups[i].id == id && !groups[i].exclusive) {
+        const Group &group = groups[i];
+        if (group.id == id && !group.exclusive &&
+            (group.scratch == 0 || group.scratch + scratch <= SCRATCH_GROUP_MAX)) {
             target = i;
             break;
         }
@@ -524,7 +789,9 @@ RendererGPU::Group &RendererGPU::group_for(BatchId id, int x0, int y0, int x1, i
         fresh.boxes.clear();
         fresh.max_w = 0;
         fresh.max_h = 0;
+        fresh.tiles[0] = fresh.tiles[1] = 0;
         fresh.base = 0;
+        fresh.scratch = 0;
         fresh.exclusive = false;
         _group_count[plane] = used + 1;
     }
@@ -550,7 +817,9 @@ RendererGPU::Group &RendererGPU::exclusive_group(BatchId id, int x0, int y0, int
     group.boxes.clear();
     group.max_w = 0;
     group.max_h = 0;
+    group.tiles[0] = group.tiles[1] = 0;
     group.base = 0;
+    group.scratch = 0;
     group.exclusive = true;
     _group_count[plane] = used + 1;
 
@@ -630,6 +899,39 @@ void RendererGPU::add_mask(BatchId id, const AtlasEntry &entry, int dst_x, int d
     group.max_h = std::max(group.max_h, entry.height);
 }
 
+void RendererGPU::add_cover(BatchId id, const AtlasEntry &entry, int dst_x, int dst_y, const cl_float4 &color) {
+    if (entry.width <= 0 || entry.height <= 0)
+        return;
+
+    // First UV pixel under the glyph, rounded towards minus infinity, and where the glyph starts inside it
+    const int x0 = (dst_x - (dst_x & 1)) / 2, y0 = (dst_y - (dst_y & 1)) / 2;
+    const int ox = dst_x - 2 * x0, oy = dst_y - 2 * y0;
+    const int w = (ox + entry.width + 1) / 2, h = (oy + entry.height + 1) / 2;
+    const int x1 = x0 + w - 1, y1 = y0 + h - 1;
+
+    /* It reads what is under it, so it is ordered against every overlapping
+     * primitive whatever the colour, and two overlapping labels never share a
+     * group, whose gather pass runs entirely before its scatter pass. */
+    flush_spans_overlapping(id & 1, x0, y0, x1, y1);
+    const size_t slot = static_cast<size_t>(w) * h;
+    Group &group = group_for(id, x0, y0, x1, y1, color, true, slot);
+    Prim p{};
+    p.a.s[0] = x0;
+    p.a.s[1] = y0;
+    p.a.s[2] = entry.width;
+    p.a.s[3] = entry.height;
+    p.b.s[0] = static_cast<cl_int>(entry.offset);
+    p.b.s[1] = ox | (oy << 1);
+    p.b.s[2] = static_cast<cl_int>(group.scratch);
+    p.color = color;
+    group.prims.push_back(p);
+
+    group.max_w = std::max(group.max_w, w);
+    group.max_h = std::max(group.max_h, h);
+    group.scratch += slot;
+    _scratch_needed = std::max(_scratch_needed, group.scratch);
+}
+
 const RendererGPU::CoeffEntry *RendererGPU::gaussian_coeffs(int ksize) {
     if (auto it = _coeff_index.find(ksize); it != _coeff_index.end())
         return &it->second;
@@ -678,6 +980,18 @@ int RendererGPU::blur_vector_elements(int n) const {
     if (i <= n - v16)
         i += v16;
     return i;
+}
+
+int RendererGPU::blur_float_vector_elements(int n) const {
+    /* RowVec_8u32f and SymmColumnVec_32f8u: whole v_uint8-wide steps only. */
+    return _blur_vec_lanes > 0 ? n / _blur_vec_lanes * _blur_vec_lanes : 0;
+}
+
+int RendererGPU::blur_unrolled_elements(int n) const {
+    /* RowFilter and SymmColumnFilter take what the vector code leaves in steps
+     * of 4 (CV_ENABLE_UNROLLED), then one element at a time. */
+    const int vec = blur_float_vector_elements(n);
+    return vec + (n - vec) / 4 * 4;
 }
 
 void RendererGPU::calibrate_blur_rounding() {
@@ -741,37 +1055,142 @@ void RendererGPU::calibrate_blur_rounding() {
     _blur_vec_lanes = 32;
 }
 
+void RendererGPU::calibrate_blur_fma() {
+    /* For each pass, finds eleven pixels whose 11-tap Gaussian sum rounds to
+     * one integer when fused and to another when not, then has cv::GaussianBlur
+     * round them in each part of a row: the vector code, the 4-wide loop of the
+     * scalar tail and its 1-wide rest. An 11x1 kernel probes the row pass and a
+     * 1x11 one the column pass. Either keeps the regime float - the 1-tap
+     * kernel is also KERNEL_INTEGER - and makes the other pass an exact copy.
+     * Nine taps would not do: no input tells the two apart there. With 16, 32
+     * or 64 lanes a 70 wide row hands over at 64, and the 4-wide loop then
+     * takes 64-67. */
+    constexpr int TAPS = 11, W = 70, AT[3] = {20, 65, 69};
+    struct Probe {
+        uint8_t px[TAPS];
+        int fused = 0, plain = 0;
+    };
+    /* About one input in 350k qualifies, and which one depends only on the
+     * kernel, so the search runs once per process. */
+    static const std::array<Probe, 2> probes = [] {
+        const cv::Mat kernel = cv::getGaussianKernel(TAPS, 0, CV_32F);
+        const float *k = kernel.ptr<float>();
+        std::array<Probe, 2> found;
+        for (int pass = 0; pass < 2; ++pass) {
+            Probe &p = found[pass];
+            const auto sum = pass ? column_sum : row_sum;
+            uint32_t seed = 1;
+            for (int it = 0; it < (1 << 24) && p.fused == p.plain; ++it) {
+                for (uint8_t &v : p.px) {
+                    seed = seed * 1664525u + 1013904223u;
+                    v = static_cast<uint8_t>(seed >> 24);
+                }
+                p.fused = cvRound(sum(k, p.px, TAPS, true));
+                p.plain = cvRound(sum(k, p.px, TAPS, false));
+            }
+        }
+        return found;
+    }();
+
+    int bits = 0;
+    for (int pass = 0; pass < 2; ++pass) {
+        const Probe &probe = probes[pass];
+        if (probe.fused == probe.plain) {
+            GST_WARNING("gvawatermark GPU renderer: no blur FMA probe found; blurs may differ from the CPU renderer "
+                        "by one on rare pixels");
+            return;
+        }
+        for (int part = 0; part < 3; ++part) {
+            /* One blur per probe, so no two probes share taps. The row probe's
+             * taps reach past the rectangle into the plane, the column probe's
+             * into the rows above and below it. */
+            const int x = AT[part];
+            cv::Mat plane = pass ? cv::Mat::zeros(TAPS, W, CV_8UC1) : cv::Mat::zeros(1, W + TAPS, CV_8UC1);
+            for (int k = 0; k < TAPS; ++k) {
+                if (pass)
+                    plane.at<uint8_t>(k, x) = probe.px[k];
+                else
+                    plane.at<uint8_t>(0, x - TAPS / 2 + k) = probe.px[k];
+            }
+            cv::Mat sub = plane(cv::Rect(0, pass ? TAPS / 2 : 0, W, 1));
+            try {
+                cv::GaussianBlur(sub, sub, pass ? cv::Size(1, TAPS) : cv::Size(TAPS, 1), 0);
+            } catch (const cv::Exception &e) {
+                GST_WARNING("gvawatermark GPU renderer: blur FMA calibration failed: %s", e.what());
+                return;
+            }
+            const int out = sub.at<uint8_t>(0, x);
+            if (out != probe.fused && out != probe.plain) {
+                GST_WARNING("gvawatermark GPU renderer: blur FMA calibration got %d at %d (%s pass), expected %d or %d",
+                            out, x, pass ? "column" : "row", probe.fused, probe.plain);
+                return;
+            }
+            if (out == probe.fused)
+                bits |= 1 << (pass * 3 + part);
+        }
+    }
+    /* With no vector code the first probe lands in the 4-wide loop, but the
+     * vector bits are then never consulted. */
+    _blur_fma = bits;
+    auto yn = [bits](int bit) { return (bits >> bit & 1) ? "yes" : "no"; };
+    GST_INFO("gvawatermark GPU renderer: blur vector lanes %d, fused multiply-add (vector, 4-wide tail, 1-wide tail): "
+             "row %s %s %s, column %s %s %s",
+             _blur_vec_lanes, yn(0), yn(1), yn(2), yn(3), yn(4), yn(5));
+}
+
 void RendererGPU::add_blur(BatchId id, const cv::Rect &rect, int cn, int kw, int kh, const CoeffEntry &cx,
                            const CoeffEntry &cy, bool integer_regime) {
     /* The taps reach the kernel's half width outside the rectangle, and the
      * result depends on what is there, so the conflict box is the rectangle
-     * grown by that much rather than the rectangle itself. */
+     * grown by that much rather than the rectangle itself. It conflicts with
+     * anything, so neither a blur nor any other primitive within reach can
+     * share its dispatches: they would read what it writes, or the other way
+     * round. Blurs out of each other's reach do share them. */
     const int ax = kw / 2, ay = kh / 2;
     const int x0 = rect.x - ax, y0 = rect.y - ay;
     const int x1 = rect.x + rect.width - 1 + ax, y1 = rect.y + rect.height - 1 + ay;
+    const int rows = rect.height + kh - 1; // of the row pass
+    const size_t slot = static_cast<size_t>(rect.width) * static_cast<size_t>(rows);
 
     flush_spans_overlapping(id & 1, x0, y0, x1, y1);
-    Group &group = exclusive_group(id, x0, y0, x1, y1);
+    cl_float4 unused{};
+    Group &group = group_for(id, x0, y0, x1, y1, unused, true, slot);
+
+    /* Both passes cover their rectangles in BLUR_TILES, listed one rectangle
+     * after the other, so blurs of any mix of sizes share the pair of
+     * dispatches without a shared range idling over the smaller ones. */
+    const int pass_rows[2] = {rows, rect.height};
+    int tiles[2];
+    for (int pass = 0; pass < 2; ++pass) {
+        const TileShape &tile = BLUR_TILES[pass];
+        tiles[pass] = (rect.width + tile.w - 1) / tile.w * ((pass_rows[pass] + tile.h - 1) / tile.h);
+    }
 
     Prim p{};
     p.a.s[0] = rect.x;
     p.a.s[1] = rect.y;
     p.a.s[2] = rect.width;
     p.a.s[3] = rect.height;
-    p.b.s[0] = kw;
-    p.b.s[1] = kh;
+    p.b.s[0] = kw | (kh << 16);
+    p.b.s[1] = static_cast<cl_int>(group.scratch);
     p.b.s[2] = static_cast<cl_int>(integer_regime ? cx.int_offset : cx.float_offset);
     p.b.s[3] = static_cast<cl_int>(integer_regime ? cy.int_offset : cy.float_offset);
     p.color.s[0] = integer_regime ? 1.f : 0.f;
-    /* The handover is always a multiple of 16 elements, so with one or two
-     * channels it never falls inside a pixel and can be passed as a column. */
+    /* The handovers are multiples of 16 elements and the end of the 4-wide
+     * loop a multiple of 4 past the float one, so with one or two channels
+     * none falls inside a pixel and each can be passed as a column. */
     p.color.s[1] = static_cast<float>(blur_vector_elements(rect.width * cn) / cn);
+    p.color.s[2] = static_cast<float>(blur_float_vector_elements(rect.width * cn) / cn);
+    p.color.s[3] = static_cast<float>(_blur_fma);
+    p.c.s[0] = group.tiles[0];
+    p.c.s[1] = group.tiles[1];
+    p.c.s[2] = blur_unrolled_elements(rect.width * cn) / cn;
     group.prims.push_back(p);
 
-    group.max_w = rect.width;
-    group.max_h = rect.height;
-    _scratch_needed =
-        std::max(_scratch_needed, static_cast<size_t>(rect.width) * static_cast<size_t>(rect.height + kh - 1));
+    group.tiles[0] += tiles[0];
+    group.tiles[1] += tiles[1];
+    group.scratch += slot;
+    _scratch_needed = std::max(_scratch_needed, group.scratch);
 }
 
 bool RendererGPU::add_blend(BatchId id, const cv::Rect &rect, const cv::Mat &bitmap, const cl_float4 &color) {
@@ -977,37 +1396,35 @@ bool RendererGPU::flatten_text(const render::Text &text) {
     if (text.text.empty())
         return true;
 
-    /* draw_text_bg fills the background with the primitive colour and draw_text
-     * then writes the label in white, which is (255, 128, 128) in NV12. */
+    /* draw_text_bg fills the background with the primitive colour, extended to
+     * whole 2x2 blocks like align_to_u_v_blocks() does, and draw_text then
+     * writes the label in white. */
     if (text.draw_bg) {
         int baseline = 0;
         const cv::Size size = cv::getTextSize(text.text, text.fonttype, text.fontscale, text.thick, &baseline);
-        const cv::Point bg_tl(text.org.x, text.org.y - size.height);
-        const cv::Point bg_br(text.org.x + size.width, text.org.y + baseline);
+        cv::Point bg_tl(text.org.x, text.org.y - size.height);
+        cv::Point bg_br(text.org.x + size.width, text.org.y + baseline);
+        bg_tl.x -= bg_tl.x & 1;
+        bg_tl.y -= bg_tl.y & 1;
+        bg_br.x |= 1;
+        bg_br.y |= 1;
         add_fill(FILL_P0, bg_tl.x, bg_tl.y, bg_br.x, bg_br.y, plane_color_y(text.color));
         add_fill(FILL_P1, half_coord(bg_tl.x), half_coord(bg_tl.y), half_coord(bg_br.x), half_coord(bg_br.y),
                  plane_color_uv(text.color));
     }
 
-    const cv::Scalar color = text.draw_bg ? cv::Scalar(255, 128, 128) : text.color;
+    const cv::Scalar color = text.draw_bg ? _white : text.color;
 
-    const AtlasEntry *y_entry = rasterize_text(text.text, text.fonttype, text.fontscale, text.thick);
-    if (!y_entry) {
+    /* One glyph serves both planes: Y takes it pixel for pixel and UV blends by
+     * how much of each 2x2 block it covers. */
+    const AtlasEntry *entry = rasterize_text(text);
+    if (!entry) {
         _last_unsupported = "text rasterization failed";
         return false;
     }
-    add_mask(MASK_P0, *y_entry, text.org.x + y_entry->origin_x, text.org.y + y_entry->origin_y, plane_color_y(color));
-
-    /* The U/V planes carry an independently rasterized label at half the font
-     * scale and half the thickness, drawn at half the position. */
-    const int uv_thick = half_thickness(text.thick);
-    const AtlasEntry *uv_entry = rasterize_text(text.text, text.fonttype, text.fontscale / 2.0, uv_thick);
-    if (!uv_entry) {
-        _last_unsupported = "text rasterization failed";
-        return false;
-    }
-    add_mask(MASK_P1, *uv_entry, half_coord(text.org.x) + uv_entry->origin_x,
-             half_coord(text.org.y) + uv_entry->origin_y, plane_color_uv(color));
+    const int dst_x = text.org.x + entry->origin_x, dst_y = text.org.y + entry->origin_y;
+    add_mask(MASK_P0, *entry, dst_x, dst_y, plane_color_y(color));
+    add_cover(COVER_P1, *entry, dst_x, dst_y, plane_color_uv(color));
     return true;
 }
 
@@ -1273,37 +1690,44 @@ bool RendererGPU::flatten(std::vector<render::Prim> &prims) {
 // CPU text rasterization
 // ---------------------------------------------------------------------------
 
-const RendererGPU::AtlasEntry *RendererGPU::rasterize_text(const std::string &text, int fonttype, double fontscale,
-                                                           int thick) {
-    char params[64];
-    std::snprintf(params, sizeof(params), "\x1f%d\x1f%.6f\x1f%d", fonttype, fontscale, thick);
-    std::string key = text + params;
-
-    if (auto it = _atlas_index.find(key); it != _atlas_index.end())
-        return &it->second;
-
+const RendererGPU::AtlasEntry *RendererGPU::rasterize_text(const render::Text &text) {
     int baseline = 0;
     cv::Size size;
     try {
-        size = cv::getTextSize(text, fonttype, fontscale, std::max(1, thick), &baseline);
+        size = cv::getTextSize(text.text, text.fonttype, text.fontscale, text.thick, &baseline);
     } catch (const cv::Exception &e) {
         GST_WARNING("gvawatermark GPU renderer: getTextSize failed: %s", e.what());
         return nullptr;
     }
-    if (size.width <= 0 || size.height <= 0)
-        return nullptr;
 
-    /* Rasterize into a padded bitmap so thick strokes, accents and descenders
-     * cannot be clipped differently than cv::putText would draw them straight
-     * into the plane. Verified pixel-identical to a direct putText. */
-    const int pad = std::max(1, thick) + 4;
-    const int width = size.width + 2 * pad;
-    const int height = size.height + baseline + 2 * pad;
+    /* The region rasterize_text() in renderer_cpu.cpp draws into: the label's
+     * box plus a margin, clipped to the frame and extended to whole 2x2 blocks.
+     * putText rasterizes a stroke clipped at the frame edge differently from
+     * an unclipped one, so a label crossing the edge needs that same clip, and
+     * the region, relative to the label's origin, is part of the key. Labels
+     * inside the frame only vary with the parity of their position. */
+    const int margin = text.thick + size.height / 2;
+    cv::Rect bounds(text.org.x - margin, text.org.y - size.height - margin, size.width + 2 * margin,
+                    size.height + baseline + 2 * margin);
+    bounds &= cv::Rect(0, 0, _width, _height);
+    const cv::Rect uv = cv::Rect(bounds.tl() / 2, (bounds.br() + cv::Point(1, 1)) / 2) &
+                        cv::Rect(0, 0, plane_width(1), plane_height(1));
+    if (bounds.empty() || uv.empty())
+        return &_off_frame;
+    const cv::Point tl = uv.tl() * 2;
+    const int width = uv.width * 2, height = uv.height * 2;
+
+    char params[96];
+    std::snprintf(params, sizeof(params), "\x1f%d\x1f%.6f\x1f%d\x1f%d,%d,%d,%d", text.fonttype, text.fontscale,
+                  text.thick, tl.x - text.org.x, tl.y - text.org.y, width, height);
+    std::string key = text.text + params;
+    if (auto it = _atlas_index.find(key); it != _atlas_index.end())
+        return &it->second;
 
     cv::Mat mask = cv::Mat::zeros(height, width, CV_8UC1);
     try {
-        cv::putText(mask, text, cv::Point(pad, pad + size.height), fonttype, fontscale, cv::Scalar(255),
-                    std::max(1, thick), cv::LINE_8);
+        cv::putText(mask, text.text, text.org - tl, text.fonttype, text.fontscale, cv::Scalar(255), text.thick,
+                    cv::LINE_8);
     } catch (const cv::Exception &e) {
         GST_WARNING("gvawatermark GPU renderer: putText failed: %s", e.what());
         return nullptr;
@@ -1313,8 +1737,8 @@ const RendererGPU::AtlasEntry *RendererGPU::rasterize_text(const std::string &te
     entry.offset = _atlas_host.size();
     entry.width = width;
     entry.height = height;
-    entry.origin_x = -pad;
-    entry.origin_y = -(size.height + pad);
+    entry.origin_x = tl.x - text.org.x;
+    entry.origin_y = tl.y - text.org.y;
 
     _atlas_host.resize(entry.offset + static_cast<size_t>(width) * height);
     uint8_t *dst = _atlas_host.data() + entry.offset;
@@ -1463,7 +1887,19 @@ bool RendererGPU::sync_prims() {
                  "clEnqueueWriteBuffer(prims)");
 }
 
-bool RendererGPU::get_planes(VASurfaceID surface, cl_mem planes[2]) {
+cl_mem RendererGPU::import_plane(renderer_gpu::Surface surface, int plane, cl_int *err) {
+#ifdef _WIN32
+    /* A single shared texture, where cl_intel_d3d11_nv12_media_sharing takes
+     * subresource 0 as the Y plane and 1 as the UV plane. */
+    D3D11DeviceLock lock(_shared->d3d11_device);
+    return _shared->create_from_d3d11(_shared->context, CL_MEM_READ_WRITE, surface, plane, err);
+#else
+    VASurfaceID id = surface;
+    return _shared->create_from_va(_shared->context, CL_MEM_READ_WRITE, &id, plane, err);
+#endif
+}
+
+bool RendererGPU::get_planes(renderer_gpu::Surface surface, cl_mem planes[2]) {
     /* Where imports must not outlive their frame, the previous frame's are
      * dropped here rather than right after its clFinish: by now they are long
      * idle, whereas releasing one straight after use costs noticeably more
@@ -1488,21 +1924,37 @@ bool RendererGPU::get_planes(VASurfaceID surface, cl_mem planes[2]) {
         return true;
     }
 
-    VASurfaceID id = surface;
     std::array<cl_mem, 2> imported = {nullptr, nullptr};
+    auto fail = [&](const char *reason) {
+#ifdef _WIN32
+        D3D11DeviceLock lock(_shared->d3d11_device);
+#endif
+        for (cl_mem done : imported) {
+            if (done)
+                clReleaseMemObject(done);
+        }
+        _last_unsupported = reason;
+        return false;
+    };
     for (int plane = 0; plane < 2; ++plane) {
         cl_int err = CL_SUCCESS;
-        imported[plane] = _shared->create_from_va(_shared->context, CL_MEM_READ_WRITE, &id, plane, &err);
+        imported[plane] = import_plane(surface, plane, &err);
         if (!imported[plane] || err != CL_SUCCESS) {
             char what[64];
-            std::snprintf(what, sizeof(what), "clCreateFromVA_APIMediaSurfaceINTEL(plane %d)", plane);
+            std::snprintf(what, sizeof(what), "surface import (plane %d)", plane);
             cl_ok(err, what);
-            for (cl_mem done : imported) {
-                if (done)
-                    clReleaseMemObject(done);
-            }
-            _last_unsupported = "surface cannot be imported into OpenCL";
-            return false;
+            return fail("surface cannot be imported into OpenCL");
+        }
+
+        /* The kernels clip to the frame, so the image may be larger (padded
+         * decoder output) but not smaller. */
+        size_t image_w = 0, image_h = 0;
+        if (clGetImageInfo(imported[plane], CL_IMAGE_WIDTH, sizeof(image_w), &image_w, nullptr) != CL_SUCCESS ||
+            clGetImageInfo(imported[plane], CL_IMAGE_HEIGHT, sizeof(image_h), &image_h, nullptr) != CL_SUCCESS ||
+            image_w < static_cast<size_t>(plane_width(plane)) || image_h < static_cast<size_t>(plane_height(plane))) {
+            GST_WARNING("gvawatermark GPU renderer: plane %d imports as %zux%zu, expected at least %dx%d", plane,
+                        image_w, image_h, plane_width(plane), plane_height(plane));
+            return fail("surface plane is smaller than the frame");
         }
     }
 
@@ -1514,8 +1966,13 @@ bool RendererGPU::get_planes(VASurfaceID surface, cl_mem planes[2]) {
      * frames and then never again. A count that keeps climbing over a long run
      * means surfaces are not being recycled and the imports are a leak, which
      * is otherwise only visible as GPU memory growth. */
+#ifdef _WIN32
+    GST_DEBUG("gvawatermark GPU renderer: imported texture %p, %zu in the plane cache", static_cast<void *>(surface),
+              _plane_cache.size());
+#else
     GST_DEBUG("gvawatermark GPU renderer: imported surface %u, %zu in the plane cache", static_cast<unsigned>(surface),
               _plane_cache.size());
+#endif
     return true;
 }
 
@@ -1523,18 +1980,49 @@ bool RendererGPU::enqueue(const Group &group, cl_mem image, int image_w, int ima
     if (group.prims.empty())
         return true;
 
+    /* Text chroma reads the plane too, but unlike blur and blend a whole group of
+     * labels goes out as one pair, each label with its own scratch slot. */
+    if (group.id == COVER_P0 || group.id == COVER_P1) {
+        if (!_atlas_buffer) {
+            GST_WARNING("gvawatermark GPU renderer: text chroma dispatch without the atlas");
+            return false;
+        }
+        const cl_int base = group.base;
+        const size_t global[3] = {static_cast<size_t>(group.max_w), static_cast<size_t>(group.max_h),
+                                  group.prims.size()};
+        if (global[0] == 0 || global[1] == 0)
+            return true;
+        for (cl_kernel kernel : {_k_cover_gather, _k_cover_scatter}) {
+            cl_uint arg = 0;
+            cl_int err = CL_SUCCESS;
+            err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &image);
+            err |= clSetKernelArg(kernel, arg++, sizeof(cl_int), &image_w);
+            err |= clSetKernelArg(kernel, arg++, sizeof(cl_int), &image_h);
+            err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &_scratch_buffer);
+            err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &_atlas_buffer);
+            err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &_prim_buffer);
+            err |= clSetKernelArg(kernel, arg++, sizeof(cl_int), &base);
+            if (!cl_ok(err, "clSetKernelArg"))
+                return false;
+            if (!cl_ok(clEnqueueNDRangeKernel(_queue, kernel, 3, nullptr, global, nullptr, 0, nullptr, nullptr),
+                       "clEnqueueNDRangeKernel"))
+                return false;
+        }
+        return true;
+    }
+
     /* The read-modify-write primitives are a pair of dispatches over one
      * scratch buffer rather than a single kernel over a prim array, so they get
-     * their own argument shape. Both passes take the same prim, and the queue
-     * is in-order, which is the only synchronization the pair needs. */
+     * their own argument shape. Both passes take the same prims, and the queue
+     * is in-order, which is the only synchronization the pair needs. A blur
+     * group goes out as one list of tiles over all of its rectangles; a blend
+     * is always alone in its group. */
     if (group.id == BLUR_P0 || group.id == BLUR_P1 || group.id == BLEND_P0 || group.id == BLEND_P1) {
         const bool is_blur = (group.id == BLUR_P0 || group.id == BLUR_P1);
         const Prim &p = group.prims[0];
         const cl_int base = group.base;
+        const cl_int count = static_cast<cl_int>(group.prims.size());
         cl_kernel passes[2] = {is_blur ? _k_blur_h : _k_blend_gather, is_blur ? _k_blur_v : _k_blend_scatter};
-        // The blur's row pass also covers the kh - 1 rows the column pass reaches into.
-        const size_t rows[2] = {static_cast<size_t>(is_blur ? p.a.s[3] + p.b.s[1] - 1 : p.a.s[3]),
-                                static_cast<size_t>(p.a.s[3])};
         cl_mem side = is_blur ? _coeff_buffer : _blob_buffer;
         if (!side) {
             GST_WARNING("gvawatermark GPU renderer: %s dispatch without its data buffer", is_blur ? "blur" : "blend");
@@ -1551,13 +2039,20 @@ bool RendererGPU::enqueue(const Group &group, cl_mem image, int image_w, int ima
             err |= clSetKernelArg(passes[pass], arg++, sizeof(cl_mem), &side);
             err |= clSetKernelArg(passes[pass], arg++, sizeof(cl_mem), &_prim_buffer);
             err |= clSetKernelArg(passes[pass], arg++, sizeof(cl_int), &base);
+            if (is_blur)
+                err |= clSetKernelArg(passes[pass], arg++, sizeof(cl_int), &count);
             if (!cl_ok(err, "clSetKernelArg"))
                 return false;
 
-            const size_t global[2] = {static_cast<size_t>(p.a.s[2]), rows[pass]};
-            if (global[0] == 0 || global[1] == 0)
+            const size_t tile[3] = {static_cast<size_t>(BLUR_TILES[pass].w), static_cast<size_t>(BLUR_TILES[pass].h),
+                                    1};
+            const size_t global[3] = {is_blur ? tile[0] : static_cast<size_t>(p.a.s[2]),
+                                      is_blur ? tile[1] : static_cast<size_t>(p.a.s[3]),
+                                      is_blur ? static_cast<size_t>(group.tiles[pass]) : 1};
+            if (global[0] == 0 || global[1] == 0 || global[2] == 0)
                 return true;
-            if (!cl_ok(clEnqueueNDRangeKernel(_queue, passes[pass], 2, nullptr, global, nullptr, 0, nullptr, nullptr),
+            if (!cl_ok(clEnqueueNDRangeKernel(_queue, passes[pass], is_blur ? 3 : 2, nullptr, global,
+                                              is_blur ? tile : nullptr, 0, nullptr, nullptr),
                        "clEnqueueNDRangeKernel"))
                 return false;
         }
@@ -1614,9 +2109,14 @@ bool RendererGPU::enqueue(const Group &group, cl_mem image, int image_w, int ima
 // Frame entry point
 // ---------------------------------------------------------------------------
 
-bool RendererGPU::draw_surface(VASurfaceID surface, std::vector<render::Prim> prims) {
+bool RendererGPU::draw_surface(renderer_gpu::Surface surface, std::vector<render::Prim> prims) {
+#ifdef _WIN32
+    if (!surface)
+        return false;
+#else
     if (surface == VA_INVALID_SURFACE)
         return false;
+#endif
 
     /* Imported first, before any of the per-frame work: this is where a surface
      * that does not import the way the kernels expect is caught, and that
@@ -1634,14 +2134,40 @@ bool RendererGPU::draw_surface(VASurfaceID surface, std::vector<render::Prim> pr
         return false;
     if (!sync_prims())
         return false;
-    if (_prims.empty())
-        return true;
     if (!sync_atlas() || !sync_coeffs() || !sync_blob() || !sync_scratch())
         return false;
+    if (_prims.empty())
+        return true;
+
+        /* Acquire and release use the device's immediate context, which GStreamer
+         * only allows under the device lock. The kernels and the finish do not
+         * touch it, so the lock is not held for them. */
+#ifdef _WIN32
+    auto lock = [this] { gst_d3d11_device_lock(_shared->d3d11_device); };
+    auto unlock = [this] { gst_d3d11_device_unlock(_shared->d3d11_device); };
+
+    /* Waits for the D3D11 work queued on the texture so far, such as the copy
+     * that put the frame in it. */
+    lock();
+    const UINT64 queued = ++_d3d11_fence_value;
+    const HRESULT signalled = _d3d11_context->Signal(_d3d11_fence, queued);
+    gst_d3d11_device_get_device_context_handle(_shared->d3d11_device)->Flush();
+    unlock();
+    if (FAILED(signalled) || FAILED(_d3d11_fence->SetEventOnCompletion(queued, _d3d11_fence_event)) ||
+        WaitForSingleObject(_d3d11_fence_event, INFINITE) != WAIT_OBJECT_0) {
+        _last_unsupported = "D3D11 fence wait failed";
+        return false;
+    }
+#else
+    auto lock = [] {};
+    auto unlock = [] {};
+#endif
 
     const cl_uint n_planes = 2;
-    if (!cl_ok(_shared->acquire(_queue, n_planes, planes, 0, nullptr, nullptr),
-               "clEnqueueAcquireVA_APIMediaSurfacesINTEL"))
+    lock();
+    const cl_int acquired = _shared->acquire(_queue, n_planes, planes, 0, nullptr, nullptr);
+    unlock();
+    if (!cl_ok(acquired, "surface acquire"))
         return false;
 
     /* The queue is in-order, so the groups of one plane execute in the order
@@ -1654,15 +2180,20 @@ bool RendererGPU::draw_surface(VASurfaceID surface, std::vector<render::Prim> pr
             ok = enqueue(_groups[plane][i], planes[plane], plane_width(plane), plane_height(plane));
     }
 
-    /* Release makes the writes visible to VA; the following finish makes them
-     * visible to the downstream element. */
-    cl_ok(_shared->release(_queue, n_planes, planes, 0, nullptr, nullptr), "clEnqueueReleaseVA_APIMediaSurfacesINTEL");
+    /* Release makes the writes visible to VA or D3D11; the following finish
+     * makes them visible to the downstream element. */
+    lock();
+    const cl_int released = _shared->release(_queue, n_planes, planes, 0, nullptr, nullptr);
+    unlock();
+    cl_ok(released, "surface release");
     if (!cl_ok(clFinish(_queue), "clFinish"))
         return false;
 
-    if (!ok)
+    if (!ok) {
         _last_unsupported = "OpenCL enqueue failed";
-    return ok;
+        return false;
+    }
+    return true;
 }
 
 #endif // ENABLE_GVAWATERMARK_GPU

@@ -265,6 +265,7 @@ jobs:
     needs: setup
     env:
       MODELS_PATH: ${{ github.workspace }}/artifacts/other
+      OTHER_VENV: ${{ github.workspace }}/.venv-download-other-models
     steps:
       - name: Skip or execute based on configuration
         if: needs.setup.outputs.should_run == 'false'
@@ -279,23 +280,38 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Ensure uv is installed
+        run: |
+          # Check if uv is installed, if not install it
+          if ! command -v uv >/dev/null 2>&1; then
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+          fi
+
+      - name: Create venv and install other models script dependencies
+        if: needs.setup.outputs.should_run == 'true'
+        run: |
+          uv venv --python 3.12 "$OTHER_VENV"
+          source "$OTHER_VENV/bin/activate"
+          uv pip install -r scripts/download_models/requirements_download_other_models.txt
+
       - name: "README §4 - download only mars-small128"
         if: needs.setup.outputs.should_run == 'true'
         run: |
+          source "$OTHER_VENV/bin/activate"
           cd scripts/download_models
-          bash download_other_models.sh mars-small128
+          python download_other_models.py mars-small128
           test -f "$MODELS_PATH/public/mars-small128/FP32/mars_small128_fp32.xml"
           test -f "$MODELS_PATH/public/mars-small128/INT8/mars_small128_int8.xml"
 
   test-download-other-models-cli-validation:
-    name: download_other_models.sh validation
+    name: download_other_models.py validation
     runs-on: dlstreamer
     needs: setup
     steps:
       - name: Skip or execute based on configuration
         if: needs.setup.outputs.should_run == 'false'
         run: |
-          echo "## ✅ download_other_models.sh validation skipped" >> "$GITHUB_STEP_SUMMARY"
+          echo "## ✅ download_other_models.py validation skipped" >> "$GITHUB_STEP_SUMMARY"
           echo "**Reason:** Changes only in excluded files" >> "$GITHUB_STEP_SUMMARY"
           exit 0
 
@@ -305,13 +321,13 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: "README §4 - --help shows Usage, Arguments, MODELS_PATH"
+      - name: "README §4 - --help shows usage, arguments, MODELS_PATH"
         if: needs.setup.outputs.should_run == 'true'
         run: |
           cd scripts/download_models
-          output=$(bash download_other_models.sh --help)
-          echo "$output" | grep -q "Usage:"
-          echo "$output" | grep -q "Arguments:"
+          output=$(python3 download_other_models.py --help)
+          echo "$output" | grep -qi "usage:"
+          echo "$output" | grep -qi "arguments:"
           echo "$output" | grep -q "MODELS_PATH"
 
   test-missing-models-path:
@@ -337,7 +353,7 @@ jobs:
         run: |
           cd scripts/download_models
           unset MODELS_PATH
-          if bash download_other_models.sh mars-small128 2>&1 | grep -q "MODELS_PATH is not specified"; then
+          if python3 download_other_models.py mars-small128 2>&1 | grep -q "MODELS_PATH is not specified"; then
             echo "Missing MODELS_PATH handling works"
           else
             echo "Missing MODELS_PATH handling failed"
@@ -367,7 +383,7 @@ jobs:
         run: |
           cd scripts/download_models
           export MODELS_PATH="$HOME/models"
-          if bash download_other_models.sh invalid_model_xyz 2>&1 | grep -q "Unsupported model"; then
+          if python3 download_other_models.py invalid_model_xyz 2>&1 | grep -q "Unsupported model"; then
             echo "Invalid model handling works"
           else
             echo "Invalid model handling failed"
@@ -385,7 +401,7 @@ jobs:
         run: |
           cd scripts/download_models
           export MODELS_PATH="$HOME/models"
-          if bash download_other_models.sh invalid_model_xyz 2>&1 | grep -q "Unsupported model"; then
+          if python3 download_other_models.py invalid_model_xyz 2>&1 | grep -q "Unsupported model"; then
             echo "Invalid model handling works"
           else
             echo "Invalid model handling failed"

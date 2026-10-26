@@ -12,14 +12,26 @@
 #include "render_prim.h"
 #include "renderer_gpu_raster.h"
 
+#ifdef _WIN32
+#ifndef GST_USE_UNSTABLE_API
+#define GST_USE_UNSTABLE_API
+#endif
+#include <d3d11_4.h>
+#include <gst/d3d11/gstd3d11.h>
+#else
 #include <va/va.h>
+#endif
 
 #ifndef CL_TARGET_OPENCL_VERSION
 #define CL_TARGET_OPENCL_VERSION 300
 #endif
 #include <CL/cl.h>
 #include <CL/cl_ext.h>
+#ifdef _WIN32
+#include <CL/cl_d3d11.h>
+#else
 #include <CL/cl_va_api_media_sharing_intel.h>
+#endif
 
 #include <array>
 #include <cstdint>
@@ -28,15 +40,39 @@
 #include <unordered_map>
 #include <vector>
 
-/**
- * Rasterizes watermark primitives straight into the planes of a VA surface
- * with OpenCL.
+namespace renderer_gpu {
+
+#ifdef _WIN32
+/* Frames are single NV12 D3D11 textures on this device, created shared
+ * (D3D11_RESOURCE_MISC_SHARED), and drawn in place.
  *
- * The planes are imported zero-copy through cl_intel_va_api_media_sharing, so
- * there is no NV12->BGR->NV12 round trip and no full-frame overlay: the cost is
- * proportional to the pixels the primitives actually cover, not to the frame
- * area. Text is still rasterized on the CPU (Hershey vector fonts are not worth
- * reimplementing on the GPU) and uploaded as a small coverage mask.
+ * Shared is the only kind OpenCL writes correctly: for any other, decoder
+ * output included, the runtime goes through a staging copy that passes the
+ * plane-encoded subresource straight to CopySubresourceRegion, so it copies the
+ * wrong slice of a texture array and drops the UV plane of a single texture.
+ * gvawatermarkimpl therefore copies every frame into such a texture first. */
+using Device = GstD3D11Device *;
+using Surface = ID3D11Texture2D *;
+#else
+/* Frames are NV12 VA surfaces of this display, drawn in place. */
+using Device = VADisplay;
+using Surface = VASurfaceID;
+#endif
+
+} // namespace renderer_gpu
+
+/**
+ * Rasterizes watermark primitives straight into the planes of a frame in video
+ * memory with OpenCL: a VA surface on Linux, a D3D11 texture on Windows.
+ *
+ * On Linux the planes are imported zero-copy through
+ * cl_intel_va_api_media_sharing, on Windows those of a shared D3D11 texture
+ * through cl_khr_d3d11_sharing with cl_intel_d3d11_nv12_media_sharing (see
+ * renderer_gpu::Surface). Either way there is no NV12->BGR->NV12 round trip and
+ * no full-frame overlay: the drawing cost is proportional to the pixels the
+ * primitives actually cover, not to the frame area. Text is still rasterized on
+ * the CPU (Hershey vector fonts are not worth reimplementing on the GPU) and
+ * uploaded as a small coverage mask.
  *
  * Pixel semantics are matched against RendererNV12, the CPU renderer the same
  * format would have used, because the CPU output is the golden reference.
@@ -45,10 +81,10 @@
  */
 class RendererGPU {
   public:
-    /* Returns nullptr when this platform cannot support the path (no
-     * cl_intel_va_api_media_sharing, no device for the VADisplay, kernels fail
-     * to build). The caller must then use the CPU renderer. */
-    static std::unique_ptr<RendererGPU> create(VADisplay display, int width, int height,
+    /* Returns nullptr when this platform cannot support the path (no sharing
+     * extension, no OpenCL device for `device`, kernels fail to build). The
+     * caller must then use the CPU renderer. */
+    static std::unique_ptr<RendererGPU> create(renderer_gpu::Device device, int width, int height,
                                                std::shared_ptr<ColorConverter> color_converter);
 
     ~RendererGPU();
@@ -58,8 +94,13 @@ class RendererGPU {
 
     /* Draws `prims` into `surface`. Returns false without touching the surface
      * when the primitive list contains something this renderer cannot draw yet;
-     * the caller must then fall back to the CPU renderer for the frame. */
-    bool draw_surface(VASurfaceID surface, std::vector<render::Prim> prims);
+     * the caller must then fall back to the CPU renderer for the frame.
+     *
+     * On Windows the caller must hold a GST_MAP_D3D11 write map of the texture,
+     * and must not hold the device lock: the renderer takes it itself, only
+     * around the calls that use the D3D11 immediate context. D3D11 work already
+     * queued on the texture, such as the copy that filled it, is waited for. */
+    bool draw_surface(renderer_gpu::Surface surface, std::vector<render::Prim> prims);
 
     /* Human readable reason for the last false returned by draw_surface(). */
     const std::string &last_unsupported() const {
@@ -72,8 +113,9 @@ class RendererGPU {
         cl_int4 a;
         cl_int4 b;
         cl_float4 color;
+        cl_int4 c;
     };
-    static_assert(sizeof(Prim) == 48, "wm_prim layout must match the OpenCL struct");
+    static_assert(sizeof(Prim) == 64, "wm_prim layout must match the OpenCL struct");
 
     /* One entry of the CPU-rasterized coverage atlas. Text bitmaps are stable
      * across frames ("bottle 86%" typically survives dozens of frames), so
@@ -105,7 +147,9 @@ class RendererGPU {
         FILL_P1,
         MASK_P0, // CPU-rasterized coverage masks (text)
         MASK_P1,
-        BLUR_P0, // Gaussian blur of one rectangle, two dispatches
+        COVER_P0, // text chroma blended by 2x2 coverage, two dispatches; UV only
+        COVER_P1,
+        BLUR_P0, // Gaussian blurs of rectangles out of each other's reach, two tiled dispatches
         BLUR_P1,
         BLEND_P0, // half-and-half blend of a segmentation mask, two dispatches
         BLEND_P1,
@@ -141,12 +185,14 @@ class RendererGPU {
         BatchId id = SPAN_P0;
         std::vector<Prim> prims;
         std::vector<Box> boxes;
-        int max_w = 0; // global work size, dimension 0
-        int max_h = 0; // global work size, dimension 1
-        int base = 0;  // offset into the concatenated device array
-        /* Blur and blend hold exactly one primitive and go out as a pair of
-         * dispatches sharing one scratch buffer, so nothing may be merged into
-         * them and they are never reused as a scheduling target. */
+        int max_w = 0;         // global work size, dimension 0
+        int max_h = 0;         // global work size, dimension 1
+        int tiles[2] = {0, 0}; // blur: work-groups of the row pass and of the column pass
+        int base = 0;          // offset into the concatenated device array
+        size_t scratch = 0;    // wm_vec elements the group's blurs or text chroma use
+        /* Blend holds exactly one primitive and goes out as a pair of
+         * dispatches over the start of the scratch buffer, so nothing may be
+         * merged into it and it is never reused as a scheduling target. */
         bool exclusive = false;
     };
 
@@ -154,6 +200,7 @@ class RendererGPU {
                 int height);
 
     bool init();
+    cl_command_queue create_queue(cl_int *err);
 
     /* Dimensions of one plane; plane 1 is the half-resolution chroma. */
     int plane_width(int plane) const {
@@ -178,16 +225,22 @@ class RendererGPU {
      * holding a conflicting primitive, or a fresh group at the end. Since
      * primitives arrive in the CPU renderer's draw order, this places each one
      * after everything it may not be allowed to race with, and nothing that
-     * conflicts with it can ever be scheduled later. */
-    Group &group_for(BatchId id, int x0, int y0, int x1, int y1, const cl_float4 &color, bool any_color);
-    /* Appends a group nothing else may join. Read-modify-write primitives need
-     * this: they conflict with any overlapping neighbour whatever its colour,
-     * and their two dispatches have to stay adjacent in the queue. */
+     * conflicts with it can ever be scheduled later. `scratch` is the slot the
+     * primitive takes in the scratch buffer, which keeps a group from growing
+     * past SCRATCH_GROUP_MAX. */
+    Group &group_for(BatchId id, int x0, int y0, int x1, int y1, const cl_float4 &color, bool any_color,
+                     size_t scratch = 0);
+    /* Appends a group nothing else may join, for the instance mask blend: it
+     * conflicts with any overlapping neighbour whatever its colour, and its two
+     * dispatches have to stay adjacent in the queue. */
     Group &exclusive_group(BatchId id, int x0, int y0, int x1, int y1);
 
     void add_outline(BatchId id, int x0, int y0, int x1, int y1, int k, const cl_float4 &color);
     void add_fill(BatchId id, int x0, int y0, int x1, int y1, const cl_float4 &color);
     void add_mask(BatchId id, const AtlasEntry &entry, int dst_x, int dst_y, const cl_float4 &color);
+    /* Blends `color` into the UV plane under the Y plane glyph `entry` placed at
+     * luma position (dst_x, dst_y), by the share of each 2x2 block it covers. */
+    void add_cover(BatchId id, const AtlasEntry &entry, int dst_x, int dst_y, const cl_float4 &color);
     /* Coalesces a rasterized pixel set into per-row runs and inserts them into
      * the pending per-row span lists in painter's order. Returns false once the
      * frame has produced more records than the per-frame budget, so a
@@ -235,8 +288,20 @@ class RendererGPU {
      * VTraits<v_uint8>::vlanes() dependent, i.e. it varies with the SIMD width
      * OpenCV dispatched to, so it is measured rather than assumed. */
     void calibrate_blur_rounding();
+    /* In the float regime the same split, and within the scalar tail the split
+     * between its 4-wide unrolled loop and the 1-wide rest, decide whether a
+     * multiply-add is fused. That is down to how OpenCV was compiled - FMA3 in
+     * the vector code, contraction in the scalar code, which a compiler may
+     * apply to one loop and not to another - so it is measured for each part
+     * of the row in each pass. Needs _blur_vec_lanes. */
+    void calibrate_blur_fma();
     /* Elements (not pixels) of a row of `n` that the vectorized path takes. */
     int blur_vector_elements(int n) const;
+    /* The same in the float regime, which has no half-width step. */
+    int blur_float_vector_elements(int n) const;
+    /* Float regime: elements of a row of `n` up to the end of the scalar
+     * tail's 4-wide loop. */
+    int blur_unrolled_elements(int n) const;
 
     /* One rectangle of one plane, blurred in place. `cn` is the plane's channel
      * count, which the rounding handover is expressed in. */
@@ -246,14 +311,21 @@ class RendererGPU {
      * `bitmap` (CV_8UC1, rectangle sized) is non-zero. */
     bool add_blend(BatchId id, const cv::Rect &rect, const cv::Mat &bitmap, const cl_float4 &color);
 
-    const AtlasEntry *rasterize_text(const std::string &text, int fonttype, double fontscale, int thick);
+    /* The label's glyph over the same region rasterize_text() in
+     * renderer_cpu.cpp uses, which is clipped to the frame and aligned to 2x2
+     * blocks. Its origin is relative to text.org; an entry of width 0 means
+     * the label is off the frame. */
+    const AtlasEntry *rasterize_text(const render::Text &text);
+    const AtlasEntry _off_frame{};
 
     bool sync_atlas();
     bool sync_coeffs();
     bool sync_blob();
     bool sync_scratch();
     bool sync_prims();
-    bool get_planes(VASurfaceID surface, cl_mem planes[2]);
+    bool get_planes(renderer_gpu::Surface surface, cl_mem planes[2]);
+    /* Imports one plane of `surface` as an OpenCL image. */
+    cl_mem import_plane(renderer_gpu::Surface surface, int plane, cl_int *err);
     bool enqueue(const Group &group, cl_mem image, int image_w, int image_h);
 
     static cl_float4 plane_color_y(const cv::Scalar &yuv);
@@ -274,6 +346,11 @@ class RendererGPU {
     cl_kernel _k_blur_v = nullptr;
     cl_kernel _k_blend_gather = nullptr;
     cl_kernel _k_blend_scatter = nullptr;
+    cl_kernel _k_cover_gather = nullptr;
+    cl_kernel _k_cover_scatter = nullptr;
+
+    /* Text colour on a background box, in the frame's colour space. */
+    cv::Scalar _white;
 
     /* Scratch for the CPU rasterizers and for the run coalescing in
      * add_raster(), reused across prims and frames so the per-frame path does
@@ -295,11 +372,23 @@ class RendererGPU {
     std::array<std::array<int, 4>, 2> _span_box{};
     size_t _span_records = 0; // pending plus already flushed, for the budget
 
-    /* VA surfaces cycle through a fixed pool, so the imported plane images are
-     * cached per surface id instead of reimported every frame, except where
+    /* Frames cycle through a fixed pool, so the imported plane images are
+     * cached per surface instead of reimported every frame, except where
      * SharedContext::cache_imports forbids it and only the latest frame's
      * import is kept. */
-    std::unordered_map<VASurfaceID, std::array<cl_mem, 2>> _plane_cache;
+    std::unordered_map<renderer_gpu::Surface, std::array<cl_mem, 2>> _plane_cache;
+
+#ifdef _WIN32
+    /* Signalled on the immediate context behind the D3D11 work queued on the
+     * frame. The OpenCL context leaves D3D11 synchronization to us, and waiting
+     * on this fence, unlike the driver's own wait in acquire, does not hold the
+     * device lock while the GPU works, which would stall every other stream and
+     * the decoder. */
+    ID3D11DeviceContext4 *_d3d11_context = nullptr;
+    ID3D11Fence *_d3d11_fence = nullptr;
+    UINT64 _d3d11_fence_value = 0;
+    HANDLE _d3d11_fence_event = nullptr;
+#endif
 
     /* Dispatch schedule, per plane, in order. Groups are reused across frames
      * for their storage; _group_count says how many of them the current frame
@@ -329,6 +418,11 @@ class RendererGPU {
      * vectorized column filter consumes per step, or 0 if this build has no
      * vector path at all. */
     int _blur_vec_lanes = 0;
+    /* Measured by calibrate_blur_fma(): which parts of a row OpenCV's float
+     * filters fuse their multiply-adds in. Bits 0-2 are the row pass's vector
+     * code, the 4-wide loop of its scalar tail and the 1-wide rest; bits 3-5
+     * the same for the column pass. */
+    int _blur_fma = 0x3f;
 
     /* Segmentation coverage bitmaps. Unlike glyphs these are different every
      * frame, so they get their own buffer and are rebuilt from scratch rather
