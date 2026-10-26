@@ -177,6 +177,7 @@ ImageInference::Ptr ImageInference::createImageInferenceInstance(MemoryType inpu
                                     "multiple of 64 or an NPU driver with strided input support.");
                     } else {
                         memory_type_to_use = MemoryType::DMA_BUFFER;
+                        GVA_WARNING("NPU zero-copy enabled.");
                     }
                 }
             }
