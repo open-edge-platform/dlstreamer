@@ -349,9 +349,6 @@ class RendererGPU {
     cl_kernel _k_cover_gather = nullptr;
     cl_kernel _k_cover_scatter = nullptr;
 
-    /* Text colour on a background box, in the frame's colour space. */
-    cv::Scalar _white;
-
     /* Scratch for the CPU rasterizers and for the run coalescing in
      * add_raster(), reused across prims and frames so the per-frame path does
      * not allocate. */

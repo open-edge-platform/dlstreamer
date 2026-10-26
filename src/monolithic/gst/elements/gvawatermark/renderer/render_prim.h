@@ -23,7 +23,10 @@ struct Text {
     double fontscale;
     cv::Scalar color;
     int thick;
+    // Fill a box with `color` behind the text and draw the glyphs in contrast_color instead
     bool draw_bg = false;
+    // Set by convert_prims_color() from `color`
+    cv::Scalar contrast_color;
 
     Text() = default;
 
@@ -129,7 +132,9 @@ using Prim = std::variant<Text, Rect, Circle, Line, Polygon, InstanceSegmantatio
 
 // Replaces every primitive colour with its representation in the frame's native
 // colour space, so the rasterizer only ever writes bytes. Blur and
-// SemanticSegmantationMask carry no colour and are left alone.
+// SemanticSegmantationMask carry no colour and are left alone. Text with a
+// background also gets its contrast_color here, picked while the colour is
+// still RGB, so every renderer and frame format draws the same glyph colour.
 void convert_prims_color(std::vector<Prim> &prims, ColorConverter &converter);
 
 } // namespace render
