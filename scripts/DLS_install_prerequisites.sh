@@ -619,13 +619,14 @@ if $SUDO_PREFIX dmesg | grep -qi intel_vpu || lspci | grep -qi 'Intel.*NPU'; the
     # By default this device is only accessible by root, so DL Streamer falls back
     # to a slower GPU->CPU copy path. Grant the 'render' group access for this boot.
     # Only relevant on Intel Core Ultra Series 3, model 3xx.
-    if echo "$cpu_model_name" | grep -qiE 'Core.*Ultra.*\b3[0-9]{2}[A-Z]*\b'; then
-        if [ -e /dev/dma_heap/system ]; then
-            echo_color " Intel Core Ultra Series 3 CPU detected and enabling NPU DMA-BUF zero-copy access." "green"
-            $SUDO_PREFIX chgrp render /dev/dma_heap/system 2>/dev/null || true
-            $SUDO_PREFIX chmod 0660 /dev/dma_heap/system 2>/dev/null || true
-        fi
+    #if echo "$cpu_model_name" | grep -qiE 'Core.*Ultra.*\b3[0-9]{2}[A-Z]*\b'; then
+    if [ -e /dev/dma_heap/system ]; then
+        #echo_color " Intel Core Ultra Series 3 CPU detected and enabling NPU DMA-BUF zero-copy access." "green"
+        echo_color " Enabling NPU DMA-BUF zero-copy access." "green"
+        $SUDO_PREFIX chgrp render /dev/dma_heap/system 2>/dev/null || true
+        $SUDO_PREFIX chmod 0660 /dev/dma_heap/system 2>/dev/null || true
     fi
+    #fi
 fi
 
 if [ "$need_to_logout" -eq 1 ]; then
