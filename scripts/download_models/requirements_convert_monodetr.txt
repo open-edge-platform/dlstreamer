@@ -5,7 +5,7 @@ numba==0.68.0
 scikit-image==0.26.0
 tqdm==4.70.1
 --extra-index-url https://storage.openvinotoolkit.org/simple/wheels/nightly
-openvino==2026.3.1==2026.5.0.dev20261020
+openvino==2026.5.0.dev20261020
 gdown==6.4.2  # convert_monodetr_ov.py: download the upstream checkpoint when --ckpt is omitted
 
 # CPU-only PyTorch. 

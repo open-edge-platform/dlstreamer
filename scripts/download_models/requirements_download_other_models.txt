@@ -4,7 +4,7 @@
 --extra-index-url https://download.pytorch.org/whl/cpu
 numpy==2.2.6
 --extra-index-url https://storage.openvinotoolkit.org/simple/wheels/nightly
-openvino==2026.3.1==2026.5.0.dev20261020
+openvino==2026.5.0.dev20261020
 onnx==1.21.0
 onnxscript==0.7.1
 seaborn==0.13.2

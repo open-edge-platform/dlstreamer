@@ -11,4 +11,4 @@ openvino==2026.5.0.dev20261020
 openvino-tokenizers==2026.5.0.0.dev20261020
 optimum-intel==2.1.0
 transformers==5.5.0
-pillow==12.3.0
+pillow==13.0.0
