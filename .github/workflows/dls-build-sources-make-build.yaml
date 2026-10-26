@@ -215,7 +215,12 @@ jobs:
 
       - name: 🔍 Verify DL Streamer installation
         if: needs.setup.outputs.should_run == 'true'
+        # hadolint ignore=SC1091
         run: |
+          echo "Sourcing OpenVINO GenAI environment..."
+          source /opt/intel/openvino_genai/setupvars.sh
+          echo " "
+
           echo "Setting up DL Streamer environment..."
           export LIBVA_DRIVER_NAME=iHD
           export GST_PLUGIN_PATH="/opt/intel/dlstreamer/Release/lib:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0:$GST_PLUGIN_PATH"
