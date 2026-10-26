@@ -32,6 +32,7 @@
 
 #include <iomanip>
 #include <iostream>
+#include <optional>
 
 using json = nlohmann::json;
 
@@ -161,20 +162,84 @@ json get_frame_data(GstGvaMetaConvert *converter, GstBuffer *buffer) {
     return res;
 }
 
-/**
- * @return JSON array which contains ROIs attributes and their detection results.
- * Also contains ROIs classification results if any.
- */
-/* Convert the GstAnalyticsODMtd-based detections (and their linked tracking /
- * keypoint / zone metadata) on @buffer to a JSON array. @video_info describes
+bool is_analytics_tensor_type(const std::string &type) {
+    return type == GVA::GST_ANALYTICS_CLS_2_TENSOR || type == GVA::GST_ANALYTICS_KEYPOINTS_2_TENSOR ||
+           type == GVA::GST_ANALYTICS_SEGMENTATION_2_TENSOR || type == GVA::GST_ANALYTICS_TENSOR_2_TENSOR;
+}
+
+/* Index of the OD label in the "class_descriptor" ClsMtd related to @od_mtd. */
+std::optional<gint> get_od_label_id(GstAnalyticsODMtd *od_mtd) {
+    GQuark label = gst_analytics_od_mtd_get_obj_type(od_mtd);
+    if (!label)
+        return std::nullopt;
+
+    gpointer state = nullptr;
+    GstAnalyticsClsMtd descriptor;
+    while (gst_analytics_relation_meta_get_direct_related(od_mtd->meta, od_mtd->id, GST_ANALYTICS_REL_TYPE_RELATE_TO,
+                                                          gst_analytics_cls_mtd_get_mtd_type(), &state, &descriptor)) {
+        gchar *tag = gst_analytics_mtd_get_semantic_tag(&descriptor);
+        const bool is_descriptor = tag && strcmp(tag, "class_descriptor") == 0;
+        g_free(tag);
+        if (!is_descriptor)
+            continue;
+        const gint index = gst_analytics_cls_mtd_get_index_by_quark(&descriptor, label);
+        if (index < 0)
+            return std::nullopt;
+        return index;
+    }
+    return std::nullopt;
+}
+
+void add_classification(json &jobject, const GVA::Tensor &tensor) {
+    std::string label = tensor.label();
+    std::string model_name = tensor.model_name();
+    json classification = json::object({});
+    if (!label.empty()) {
+        classification.push_back(json::object_t::value_type("label", label));
+    }
+    if (!model_name.empty()) {
+        classification.push_back(json::object_t::value_type("model", {{"name", model_name}}));
+    }
+    std::string attribute_name;
+    if (tensor.has_field("semantic_tag")) {
+        std::string tag = tensor.get_string("semantic_tag");
+        if (!tag.empty())
+            attribute_name = "classification/" + tag;
+    }
+    if (attribute_name.empty())
+        attribute_name = tensor.has_field("attribute_name") ? tensor.get_string("attribute_name") : tensor.name();
+
+    if (tensor.has_field("confidence")) {
+        classification.push_back(json::object_t::value_type("confidence", tensor.confidence()));
+    }
+    if (tensor.has_field("label_id")) {
+        classification.push_back(json::object_t::value_type("label_id", tensor.get_int("label_id")));
+    }
+
+    jobject.push_back(json::object_t::value_type(attribute_name, classification));
+}
+
+/* Convert the GstAnalyticsODMtd-based detections (and their linked classification /
+ * tracking / keypoint / zone metadata) on @buffer to a JSON array. @video_info describes
  * the frame geometry; pass converter->info for the primary stream, or a
  * per-buffer GstVideoInfo when iterating batched streams. */
 json convert_roi_detection(GstGvaMetaConvert *converter, GstBuffer *buffer, GstVideoInfo *video_info) {
     assert(converter && buffer && video_info && "Expected valid pointers GstGvaMetaConvert, GstBuffer, GstVideoInfo");
 
     json res = json::array();
+    GstAnalyticsRelationMeta *rmeta = gst_buffer_get_analytics_relation_meta(buffer);
+    const gint frame_w = GST_VIDEO_INFO_WIDTH(video_info);
+    const gint frame_h = GST_VIDEO_INFO_HEIGHT(video_info);
     GVA::VideoFrame video_frame(buffer, video_info);
     for (GVA::RegionOfInterest &roi : video_frame.regions()) {
+        GstAnalyticsODMtd od_mtd;
+        gint od_x, od_y, od_w, od_h;
+        gfloat od_rotation, od_confidence;
+        if (!gst_analytics_relation_meta_get_od_mtd(rmeta, roi.region_id(), &od_mtd) ||
+            !gst_analytics_od_mtd_get_oriented_location(&od_mtd, &od_x, &od_y, &od_w, &od_h, &od_rotation,
+                                                        &od_confidence))
+            continue;
+
         gint id = roi.object_id();
 
         json jobject = json::object();
@@ -204,100 +269,37 @@ json convert_roi_detection(GstGvaMetaConvert *converter, GstBuffer *buffer, GstV
         if (!roi_type.empty()) {
             jobject.push_back({"roi_type", roi_type});
         }
-        for (GList *l = roi.get_params(); l; l = g_list_next(l)) {
 
-            GstStructure *s = GST_STRUCTURE(l->data);
-            const gchar *s_name = gst_structure_get_name(s);
-            if (strcmp(s_name, "detection") == 0) {
-                double xminval;
-                double xmaxval;
-                double yminval;
-                double ymaxval;
-                double confidence;
-                int label_id;
-                if (gst_structure_get(s, "x_min", G_TYPE_DOUBLE, &xminval, "x_max", G_TYPE_DOUBLE, &xmaxval, "y_min",
-                                      G_TYPE_DOUBLE, &yminval, "y_max", G_TYPE_DOUBLE, &ymaxval, NULL)) {
-                    json detection = json::object(
-                        {{"bounding_box",
-                          {{"x_min", xminval}, {"x_max", xmaxval}, {"y_min", yminval}, {"y_max", ymaxval}}}});
+        json detection = json::object({{"confidence", od_confidence}});
+        if (frame_w > 0 && frame_h > 0) {
+            detection["bounding_box"] = {{"x_min", static_cast<double>(od_x) / frame_w},
+                                         {"x_max", static_cast<double>(od_x + od_w) / frame_w},
+                                         {"y_min", static_cast<double>(od_y) / frame_h},
+                                         {"y_max", static_cast<double>(od_y + od_h) / frame_h}};
+        }
+        if (const auto label_id = get_od_label_id(&od_mtd)) {
+            detection["label_id"] = *label_id;
+        }
+        if (!roi_type.empty()) {
+            detection["label"] = roi_type;
+        }
+        jobject["detection"] = detection;
 
-                    if (gst_structure_get(s, "confidence", G_TYPE_DOUBLE, &confidence, NULL)) {
-                        detection.push_back({"confidence", confidence});
-                    }
-
-                    if (gst_structure_get(s, "label_id", G_TYPE_INT, &label_id, NULL)) {
-                        detection.push_back({"label_id", label_id});
-                    }
-
-                    const std::string label = roi.label();
-
-                    if (!label.empty()) {
-                        detection.push_back({"label", label});
-                    }
-                    jobject.push_back(json::object_t::value_type("detection", detection));
-
-                    // Handle extra_params_json if present
-                    if (gst_structure_has_field(s, "extra_params_json")) {
-                        const GValue *val = gst_structure_get_value(s, "extra_params_json");
-                        if (G_VALUE_HOLDS_STRING(val)) {
-                            const gchar *json_str = g_value_get_string(val);
-                            if (json_str && strlen(json_str) > 0) {
-                                try {
-                                    jobject.push_back(
-                                        json::object_t::value_type("extra_params", nlohmann::json::parse(json_str)));
-                                } catch (const std::exception &e) {
-                                    GST_WARNING("Failed to parse extra_params_json: %s", e.what());
-                                    // Do not add the field if parsing fails
-                                }
-                            }
-                        }
-                    }
-                }
-            } else {
-                char *label;
-                char *model_name;
-                if (gst_structure_get(s, "label", G_TYPE_STRING, &label, "model_name", G_TYPE_STRING, &model_name,
-                                      NULL)) {
-                    double confidence;
-                    int label_id;
-                    const gchar *attribute_name = gst_structure_has_field(s, "attribute_name")
-                                                      ? gst_structure_get_string(s, "attribute_name")
-                                                      : s_name;
-                    json classification = json::object({{"label", label}, {"model", {{"name", model_name}}}});
-
-                    if (gst_structure_get(s, "confidence", G_TYPE_DOUBLE, &confidence, NULL)) {
-                        classification.push_back({"confidence", confidence});
-                    }
-
-                    if (gst_structure_get(s, "label_id", G_TYPE_INT, &label_id, NULL)) {
-                        classification.push_back({"label_id", label_id});
-                    }
-
-                    jobject.push_back(json::object_t::value_type(attribute_name, classification));
-                    g_free(label);
-                    g_free(model_name);
-                }
-            }
-            if (converter->add_tensor_data) {
-                GVA::Tensor s_tensor = GVA::Tensor((GstStructure *)l->data);
-                // Skip legacy keypoint/segmentation/raw tensors — replaced by analytics-sourced ones below
-                if (s_tensor.type() != GVA::GST_ANALYTICS_KEYPOINTS_2_TENSOR &&
-                    s_tensor.type() != GVA::GST_ANALYTICS_SEGMENTATION_2_TENSOR &&
-                    s_tensor.type() != GVA::GST_ANALYTICS_TENSOR_2_TENSOR) {
+        // Legacy params are kept only for tensors not mirrored in analytics; "detection" is dropped.
+        if (converter->add_tensor_data) {
+            for (GList *l = roi.get_params(); l; l = g_list_next(l)) {
+                GVA::Tensor s_tensor(GST_STRUCTURE(l->data));
+                if (!s_tensor.is_detection() && !is_analytics_tensor_type(s_tensor.type()))
                     jobject["tensors"].push_back(convert_tensor(s_tensor));
-                }
             }
         }
 
-        // Add analytics-sourced keypoint/segmentation/raw tensors to "tensors" array (replacing legacy tensor)
-        if (converter->add_tensor_data) {
-            for (const auto &tensor : roi.tensors()) {
-                if (tensor.type() == GVA::GST_ANALYTICS_KEYPOINTS_2_TENSOR ||
-                    tensor.type() == GVA::GST_ANALYTICS_SEGMENTATION_2_TENSOR ||
-                    tensor.type() == GVA::GST_ANALYTICS_TENSOR_2_TENSOR) {
-                    jobject["tensors"].push_back(convert_tensor(tensor));
-                }
-            }
+        for (const GVA::Tensor &tensor : roi.tensors()) {
+            const std::string type = tensor.type();
+            if (type == GVA::GST_ANALYTICS_CLS_2_TENSOR)
+                add_classification(jobject, tensor);
+            if (converter->add_tensor_data && is_analytics_tensor_type(type))
+                jobject["tensors"].push_back(convert_tensor(tensor));
         }
 
         // Add zone violations and tripwire crossings for this object
@@ -377,33 +379,7 @@ json convert_frame_classification(GstGvaMetaConvert *converter, GstBuffer *buffe
 
     for (GVA::Tensor &tensor : video_frame.tensors()) {
         if (tensor.has_field("label") || tensor.has_field("label_id")) {
-            std::string label = tensor.label();
-            std::string model_name = tensor.model_name();
-            json classification = json::object({});
-            if (!label.empty()) {
-                classification.push_back(json::object_t::value_type("label", label));
-            }
-            if (!model_name.empty()) {
-                classification.push_back(json::object_t::value_type("model", {{"name", model_name}}));
-            }
-            std::string attribute_name;
-            if (tensor.has_field("semantic_tag")) {
-                std::string tag = tensor.get_string("semantic_tag");
-                if (!tag.empty())
-                    attribute_name = "classification/" + tag;
-            }
-            if (attribute_name.empty())
-                attribute_name =
-                    tensor.has_field("attribute_name") ? tensor.get_string("attribute_name") : tensor.name();
-
-            if (tensor.has_field("confidence")) {
-                classification.push_back(json::object_t::value_type("confidence", tensor.confidence()));
-            }
-            if (tensor.has_field("label_id")) {
-                classification.push_back(json::object_t::value_type("label_id", tensor.get_int("label_id")));
-            }
-
-            jobject.push_back(json::object_t::value_type(attribute_name, classification));
+            add_classification(jobject, tensor);
         }
         // TODO: If we later suppress duplicate raw tensors for interpreted classifications, that logic must be scoped
         // to an explicit backward-compatible contract rather than all tensors with classification-style metadata.
