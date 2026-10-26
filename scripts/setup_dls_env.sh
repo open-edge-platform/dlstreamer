@@ -18,7 +18,7 @@ export PYTHONPATH=/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt
 export GI_TYPELIB_PATH=/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/opt/intel/dlstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0
 if [ "$ID" == "fedora" ] || [ "$ID" == "rhel" ]; then
     export LIBVA_DRIVERS_PATH=/usr/lib64/dri-nonfree
-    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/ffmpeg
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH
 else
     if [ "$ID" == "ubuntu" ] && [ "$VERSION_ID" == "22.04" ]; then
         export LD_LIBRARY_PATH=$LD_LIBRARY_PATH

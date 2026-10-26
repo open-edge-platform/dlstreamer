@@ -39,7 +39,6 @@ BuildRequires:  gobject-introspection-devel
 
 Requires:       glib2 gobject-introspection
 Requires:       libva2 libva-intel-media-driver
-Requires:       ffmpeg >= 6.1.1
 
 %description
 Intel optimized GStreamer build with VAAPI hardware acceleration support.

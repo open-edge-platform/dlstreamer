@@ -20,7 +20,6 @@ fi
 # Define packages with their directory and spec file names
 declare -A PACKAGES=(
      ["paho-mqtt-c"]="paho-mqtt-c/paho-mqtt-c.spec"
-     ["ffmpeg"]="ffmpeg/ffmpeg.spec"
      ["opencv"]="opencv/opencv.spec"
      ["gstreamer"]="gstreamer/gstreamer.spec"
      ["intel-dlstreamer"]="intel-dlstreamer/intel-dlstreamer.spec"
@@ -29,7 +28,6 @@ declare -A PACKAGES=(
 # Build order (dependencies first)
 BUILD_ORDER=(
     "paho-mqtt-c"
-    "ffmpeg"
     "gstreamer"
     "opencv"
     "intel-dlstreamer"
@@ -58,7 +56,6 @@ check_sources() {
     
     sources=(
         "paho.mqtt.c-${PAHO_MQTT_VERSION}.tar.gz"
-        "ffmpeg-${FFMPEG_VERSION}.tar.gz"
         "gstreamer-${GSTREAMER_VERSION}.tar.gz"
         "opencv-${OPENCV_VERSION}.tar.gz"
         "intel-dlstreamer-${DLSTREAMER_VERSION}.tar.gz"
@@ -105,9 +102,6 @@ build_package() {
     case "$package_name" in
         "paho-mqtt-c")
             cp paho.mqtt.c-${PAHO_MQTT_VERSION}.tar.gz ~/rpmbuild/SOURCES/
-            ;;
-        "ffmpeg")
-            cp ffmpeg-${FFMPEG_VERSION}.tar.gz ~/rpmbuild/SOURCES/
             ;;
         "opencv")
             cp opencv-${OPENCV_VERSION}.tar.gz ~/rpmbuild/SOURCES/
