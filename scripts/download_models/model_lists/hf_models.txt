@@ -19,6 +19,9 @@ PekingU/rtdetr_v2_r18vd@5650961749fa93567c0d46fc7f43ea4f9e914107
 # Used in samples/gstreamer/python/smart_nvr/smart_nvr.py
 PekingU/rtdetr_v2_r50vd@282494075698cab9faa1096ae26856890030c817
 
+# DFineForObjectDetection (CUSTOM_CONVERTERS: dfineforobjectdetection)
+ustc-community/dfine-large-coco@aa8f8211545e4cff5adf52ea512f9ac74a9824ec
+
 # YOLO11 detection models (pre-converted OpenVINO IR from HF Vision collection - https://huggingface.co/collections/OpenVINO/vision)
 OpenVINO/YOLO11s-fp16-ov@5f3f07b1b39aeb77dd9dec2ea0c80ac1f293cb9e
 OpenVINO/YOLO11s-int8-ov@c0b5ee29346cd82b1178acc8d992adadf61e921a
