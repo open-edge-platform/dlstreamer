@@ -41,10 +41,11 @@
 # REALSENSE_VERSION       # RealSense
 # KAFKA_VERSION           # librdkafka
 ARG DOCKER_REGISTRY
-# Single source of truth for the OpenVINO version: used both for the pip
-# wheel installed for build/test tooling in this stage, and for the archive
-# distribution (C++ runtime + matching Python bindings) installed in the
-# dlstreamer-dev stage, keeping them from drifting out of sync.
+# OpenVINO Python API wheel version, used for build/test tooling in this
+# stage and for the Python API installed in the final image. The C++ runtime
+# used by DL Streamer itself comes from the OpenVINO GenAI archive instead
+# (see OPENVINO_GENAI_VERSION in the dlstreamer-dev stage), so keep the two
+# in sync manually when bumping versions.
 ARG OPENVINO_VERSION=2026.5.0.dev20261020
 FROM ${DOCKER_REGISTRY}ubuntu:22.04 AS builder
 
@@ -368,8 +369,6 @@ FROM builder AS dlstreamer-dev
 
 ARG DLSTREAMER_VERSION=2026.3.0
 ARG DLSTREAMER_BUILD_NUMBER
-ARG OPENVINO_VERSION
-ARG OPENVINO_NIGHTLY_BUILD=2026.5.0-23523-1bddaae9e4f
 
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
@@ -385,25 +384,22 @@ COPY --from=realsense-builder /copy_libs/ /usr/local/lib/
 COPY --from=realsense-builder /usr/local/include/librealsense2 /usr/local/include/librealsense2
 
 
-# OpenVINO Runtime, installed from the archive distribution instead of the apt
+# OpenVINO Gen AI, installed from the archive distribution instead of the apt
 # repository, see:
 # https://docs.openvino.ai/2026/get-started/install-openvino/install-openvino-archive-linux.html
-ARG OPENVINO_PKG=openvino_toolkit_ubuntu22_${OPENVINO_VERSION}_x86_64
-ARG OPENVINO_PKG_URL=https://storage.openvinotoolkit.org/repositories/openvino/packages/nightly/${OPENVINO_NIGHTLY_BUILD}/${OPENVINO_PKG}.tgz
-
-RUN \
-    mkdir -p /opt/intel && \
-    curl -L ${OPENVINO_PKG_URL} | tar -xz -C /opt/intel && \
-    mv "/opt/intel/${OPENVINO_PKG}" "/opt/intel/openvino_${OPENVINO_VERSION}" && \
-    ln -s "/opt/intel/openvino_${OPENVINO_VERSION}" /opt/intel/openvino
-
-# OpenVINO Gen AI
+# The GenAI archive already bundles the full OpenVINO C++ runtime (same
+# runtime/lib/intel64 layout and setupvars.sh as the plain OpenVINO archive)
+# alongside the GenAI libraries, so installing it on its own is enough -
+# no separate OpenVINO Runtime archive download is needed.
 ARG OPENVINO_GENAI_VERSION=2026.5.0.0.dev20261020
 ARG OPENVINO_GENAI_VER=openvino_genai_ubuntu22_${OPENVINO_GENAI_VERSION}_x86_64
 ARG OPENVINO_GENAI_PKG=https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/${OPENVINO_GENAI_VERSION}/${OPENVINO_GENAI_VER}.tar.gz
 
-RUN curl -L ${OPENVINO_GENAI_PKG} | tar -xz && \
-    mv ${OPENVINO_GENAI_VER} /opt/intel/openvino_genai
+RUN \
+    mkdir -p /opt/intel && \
+    curl -L ${OPENVINO_GENAI_PKG} | tar -xz -C /opt/intel && \
+    mv "/opt/intel/${OPENVINO_GENAI_VER}" /opt/intel/openvino_genai && \
+    ln -s /opt/intel/openvino_genai /opt/intel/openvino
 
 WORKDIR "$DLSTREAMER_DIR"
 
@@ -434,7 +430,6 @@ ENV PYTHONPATH=${GSTREAMER_DIR}/lib/python3/dist-packages:${DLSTREAMER_DIR}/pyth
 # hadolint ignore=SC1091
 RUN \
     source /opt/intel/openvino/setupvars.sh && \
-    source /opt/intel/openvino_genai/setupvars.sh && \
     cmake \
     -DCMAKE_BUILD_TYPE="${BUILD_ARG}" \
     -DENABLE_PAHO_INSTALLATION=ON \
@@ -554,22 +549,19 @@ RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.26.0
 
 WORKDIR /
 
-ARG OPENVINO_VERSION
-
-# OpenVINO Runtime and OpenVINO GenAI are installed here, alongside the DL
-# Streamer .deb package, instead of being bundled inside it. The archives
-# already fetched/extracted in the dlstreamer-dev stage are reused (no second
-# download, and the exact binaries DL Streamer was built/linked against), and
-# their library directories are registered with ldconfig so the DL Streamer
-# plugins (which carry no RPATH and rely on the default linker search path)
-# can resolve libopenvino*/libopenvino_genai* at runtime.
-COPY --from=dlstreamer-dev /opt/intel/openvino_${OPENVINO_VERSION} /opt/intel/openvino_${OPENVINO_VERSION}
+# OpenVINO GenAI (which bundles the full OpenVINO C++ runtime) is installed
+# here, alongside the DL Streamer .deb package, instead of being bundled
+# inside it. The archive already fetched/extracted in the dlstreamer-dev
+# stage is reused (no second download, and the exact binaries DL Streamer
+# was built/linked against), and its library directory is registered with
+# ldconfig so the DL Streamer plugins (which carry no RPATH and rely on the
+# default linker search path) can resolve libopenvino*/libopenvino_genai* at
+# runtime.
 COPY --from=dlstreamer-dev /opt/intel/openvino_genai /opt/intel/openvino_genai
 
 RUN \
-    ln -s "/opt/intel/openvino_${OPENVINO_VERSION}" /opt/intel/openvino && \
+    ln -s /opt/intel/openvino_genai /opt/intel/openvino && \
     echo "/opt/intel/openvino/runtime/lib/intel64" > /etc/ld.so.conf.d/openvino.conf && \
-    find /opt/intel/openvino_genai -regex '.*\/lib.*\(genai\|token\).*$' -printf '%h\n' | sort -u > /etc/ld.so.conf.d/openvino-genai.conf && \
     ldconfig
 
 RUN mkdir -p /debs
