@@ -134,6 +134,7 @@ jobs:
         run: |
           cd ${{ env.DLS_REL_PATH }}
           echo "Installing OpenVINO GenAI for ${{ matrix.os }}..."
+          sudo mkdir -p /opt/intel
           sudo rm -rf /opt/intel/openvino_genai
           if [[ ${{ matrix.os }} == "ubuntu-24.04" ]]; then
             echo "Executing Ubuntu 24.04 specific setup..."
