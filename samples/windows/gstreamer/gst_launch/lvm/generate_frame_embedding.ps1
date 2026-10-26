@@ -7,8 +7,8 @@
 param(
     [string]$InputSource = "https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4",
     [string]$Device = "CPU",
-    [string]$Precision = "FP32",
-    [string]$Model = "clip-vit-large-patch14",
+    [string]$Precision = "FP16",
+    [string]$Model = "openai_clip-vit-large-patch14",
     [string]$PreprocessBackend = "opencv",
     [string]$OutputType = "json",
     [string]$FrameLimiter = ""
@@ -21,8 +21,8 @@ if ($InputSource -eq "--help" -or $InputSource -eq "-h") {
     Write-Host "Parameters:"
     Write-Host "  -InputSource        Input source (default: Pexels video URL)"
     Write-Host "  -Device             Device (default: CPU). Supported: CPU, GPU, NPU"
-    Write-Host "  -Precision          Model precision (default: FP32). Supported: FP32, FP16, INT8"
-    Write-Host "  -Model              Model name (default: clip-vit-large-patch14)"
+    Write-Host "  -Precision          Model precision (default: FP16). Supported: FP32, FP16, INT8"
+    Write-Host "  -Model              Model name (default: openai_clip-vit-large-patch14)"
     Write-Host "  -PreprocessBackend  Preprocessing backend (default: opencv for CPU; d3d11 for GPU/NPU)"
     Write-Host "  -OutputType         Output type (default: json). Supported: json, fps"
     Write-Host "  -FrameLimiter       Optional GStreamer element to add after decode (e.g., ' ! identity eos-after=1000')"

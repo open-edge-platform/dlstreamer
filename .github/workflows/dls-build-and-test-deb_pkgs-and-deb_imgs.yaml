@@ -354,7 +354,7 @@ jobs:
 
       # ======================================================== ON HOST TESTING PART ========================================================
       - name: Link DL Streamer to home directory
-        if: always() && needs.setup.outputs.should_run == 'true'
+        if: ${{ !cancelled() && needs.setup.outputs.should_run == 'true' }}
         run: |
           TARGET="$HOME/$(basename $DLS_REL_PATH)"
           if [ -e "$TARGET" ] || [ -L "$TARGET" ]; then
@@ -363,12 +363,12 @@ jobs:
           ln -s "$PWD/$DLS_REL_PATH" "$TARGET"
 
       - name: Install DL Streamer on-host
-        if: always() && needs.setup.outputs.should_run == 'true'
+        if: ${{ !cancelled() && needs.setup.outputs.should_run == 'true' }}
         run: |
           $DLS_REL_PATH/tests/scripts/installation-on-host-entrypoint.sh $DLS_REL_PATH/deb_packages
 
       - name: 🔍 Verify DL Streamer installation on host
-        if: always() && needs.setup.outputs.should_run == 'true'
+        if: ${{ !cancelled() && needs.setup.outputs.should_run == 'true' }}
         run: |
           echo "Setting up DL Streamer environment..."
           source /opt/intel/dlstreamer/scripts/setup_dls_env.sh
@@ -406,7 +406,7 @@ jobs:
           echo "✅ All DL Streamer elements verified successfully"
 
       - name: 👋 Test hello_dlstreamer script on host
-        if: always() && needs.setup.outputs.should_run == 'true'
+        if: ${{ !cancelled() && needs.setup.outputs.should_run == 'true' }}
         id: test_hello_dlstreamer_script
         env:
           runner_print_label: ${{ matrix.runner_print_label }}
@@ -434,13 +434,13 @@ jobs:
 
       - name: Upload hello_dlstreamer output video
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #7.0.1
-        if: always() && needs.setup.outputs.should_run == 'true'
+        if: ${{ !cancelled() && needs.setup.outputs.should_run == 'true' }}
         with:
           name: DLS_hello_dlstreamer_output_video_${{ matrix.runner_print_label }}_${{ matrix.ubuntu_version }}_CPU_yolo11s
           path: ${{ env.DLS_REL_PATH }}/test_hello_dlstreamer
 
       - name: Init on host tests configurations
-        if: always() && needs.setup.outputs.should_run == 'true'
+        if: ${{ !cancelled() && needs.setup.outputs.should_run == 'true' }}
         env:
           runner_print_label: ${{ matrix.runner_print_label }}
         run: |
@@ -452,7 +452,7 @@ jobs:
           echo "Selected test configuration file: $HOST_TEST_CONFIGS" >> $GITHUB_STEP_SUMMARY
 
       - name: Ensure uv is installed
-        if: always() && needs.setup.outputs.should_run == 'true'
+        if: ${{ !cancelled() && needs.setup.outputs.should_run == 'true' }}
         run: |
           # Check if uv is installed, if not install it
           if ! command -v uv >/dev/null 2>&1; then
@@ -460,7 +460,7 @@ jobs:
           fi
 
       - name: Init host test environment
-        if: always() && needs.setup.outputs.should_run == 'true'
+        if: ${{ !cancelled() && needs.setup.outputs.should_run == 'true' }}
         env:
           ubuntu_version: ${{ matrix.ubuntu_version }}
         run: |
@@ -484,7 +484,7 @@ jobs:
           done
 
       - name: 🚀 Run on host tests
-        if: always() && needs.setup.outputs.should_run == 'true'
+        if: ${{ !cancelled() && needs.setup.outputs.should_run == 'true' }}
         id: run_onhost_tests
         env:
           HOST_TEST_CONFIGS: ${{ env.HOST_TEST_CONFIGS }}
@@ -545,7 +545,7 @@ jobs:
 
       - name: Upload host test results
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #7.0.1
-        if: always() && needs.setup.outputs.should_run == 'true'
+        if: ${{ !cancelled() && needs.setup.outputs.should_run == 'true' }}
         with:
           name: DLS_functional_tests_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_results
           # Upload *_initial.* (first run) always; *_final.* (merged with retries) only exists when retries happened
@@ -554,7 +554,7 @@ jobs:
             !${{ env.DLS_TESTS_RESULTS_PATH }}/*_retry[0-9]*.*
 
       - name: Check and display host test results
-        if: always() && needs.setup.outputs.should_run == 'true'
+        if: ${{ !cancelled() && needs.setup.outputs.should_run == 'true' }}
         env:
           dls_tests_results_path: ${{ env.DLS_TESTS_RESULTS_PATH }}
           test_repo_branch: ${{ inputs.test-repo-branch }}
@@ -582,7 +582,7 @@ jobs:
           fi
 
       - name: 🔍 Generate visual diff reports for failed host tests
-        if: always() && needs.setup.outputs.should_run == 'true'
+        if: ${{ !cancelled() && needs.setup.outputs.should_run == 'true' }}
         env:
           dls_tests_results_path: ${{ env.DLS_TESTS_RESULTS_PATH }}
           runner_print_label: ${{ matrix.runner_print_label }}
@@ -711,7 +711,7 @@ jobs:
 
       - name: Upload diff reports for failed host tests
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #7.0.1
-        if: always() && needs.setup.outputs.should_run == 'true'
+        if: ${{ !cancelled() && needs.setup.outputs.should_run == 'true' }}
         with:
           name: DLS_functional_tests_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_diff_reports
           path: "${{ env.DLS_TESTS_RESULTS_PATH }}/diff_reports"
@@ -723,7 +723,7 @@ jobs:
           $DLS_REL_PATH/tests/scripts/uninstall-dlstreamer.sh
 
       - name: Check Docker image size
-        if: always() && needs.setup.outputs.should_run == 'true'
+        if: ${{ !cancelled() && needs.setup.outputs.should_run == 'true' }}
         id: check-size
         env:
           deb_final_img: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}
@@ -749,7 +749,7 @@ jobs:
           echo "current-image-size-${MATRIX_UBUNTU_VERSION}=${IMAGE_SIZE_MB}" >> "$GITHUB_OUTPUT"
 
       - name: Print image size summary
-        if: always() && needs.setup.outputs.should_run == 'true'
+        if: ${{ !cancelled() && needs.setup.outputs.should_run == 'true' }}
         env:
           IMAGE_SIZE_MB: ${{ steps.check-size.outputs.image_size_mb }}
           IMAGE_SIZE_STR: ${{ steps.check-size.outputs.size_str }}
@@ -779,7 +779,7 @@ jobs:
   merge-diff-reports:
     name: "Merge diff reports from all platforms"
     needs: [setup, build]
-    if: always() && needs.setup.outputs.should_run == 'true'
+    if: ${{ !cancelled() && needs.setup.outputs.should_run == 'true' }}
     runs-on: dlstreamer
     permissions:
       actions: write
