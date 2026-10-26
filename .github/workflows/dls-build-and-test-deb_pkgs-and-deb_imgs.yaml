@@ -479,10 +479,6 @@ jobs:
           # which was built against the system python3 inside the deb build image.
           UV_PYTHON_PREFERENCE=only-system uv venv --python python3 $HOME/.virtualenvs/dlstreamer
           VIRTUAL_ENV=$HOME/.virtualenvs/dlstreamer uv pip install --no-cache-dir -r $DLS_REL_PATH/requirements.txt
-          for sample in face_detection_and_classification prompted_detection smart_nvr; do
-            req="$DLS_REL_PATH/samples/gstreamer/python/$sample/requirements.txt"
-            [ -f "$req" ] &&  VIRTUAL_ENV=$HOME/.virtualenvs/dlstreamer uv pip install --no-cache-dir -r "$req"
-          done
 
       - name: 🚀 Run on host tests
         if: ${{ !cancelled() && needs.setup.outputs.should_run == 'true' }}

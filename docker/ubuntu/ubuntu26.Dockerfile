@@ -46,7 +46,7 @@ ARG DOCKER_REGISTRY
 # used by DL Streamer itself comes from the OpenVINO GenAI archive instead
 # (see OPENVINO_GENAI_VERSION in the dlstreamer-dev stage), so keep the two
 # in sync manually when bumping versions.
-ARG OPENVINO_VERSION=2026.5.0.dev20261020
+ARG OPENVINO_VERSION=2026.5.0.dev20261023
 FROM ${DOCKER_REGISTRY}ubuntu:26.04 AS builder
 
 ARG DEBIAN_FRONTEND=noninteractive
@@ -407,7 +407,7 @@ WORKDIR /home/dlstreamer
 # runtime/lib/intel64 layout and setupvars.sh as the plain OpenVINO archive)
 # alongside the GenAI libraries, so installing it on its own is enough -
 # no separate OpenVINO Runtime archive download is needed.
-ARG OPENVINO_GENAI_VERSION=2026.5.0.0.dev20261020
+ARG OPENVINO_GENAI_VERSION=2026.5.0.0.dev20261023
 ARG OPENVINO_GENAI_VER=openvino_genai_ubuntu26_${OPENVINO_GENAI_VERSION}_x86_64
 ARG OPENVINO_GENAI_PKG=https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/${OPENVINO_GENAI_VERSION}/${OPENVINO_GENAI_VER}.tar.gz
 
@@ -614,19 +614,7 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/b
 # Install onvif-zeep Python package and the OpenVINO Python API.
 # NOTE: the OpenVINO C++ runtime libraries used by the DL Streamer GStreamer
 # plugins are installed separately above (alongside the .deb, via ldconfig),
-# not the Python bindings. The OpenVINO archive distribution does bundle
-# compiled Python bindings (python/openvino), but packaging them into the
-# .deb was tried and reverted:
-# this OpenVINO nightly's archive is missing libopenvino_jax_frontend.so
-# (needed by the jax frontend Python binding), which breaks dh_shlibdeps
-# during `debuild`, and the archive only ships cp311/cp312/cp313 bindings,
-# which would silently fail to import on distros whose system Python uses a
-# different ABI (Ubuntu 26.04 ships Python 3.14). Installing the self
-# contained pip wheel here - after the .deb is already installed, so it is
-# never seen by dh_shlibdeps - avoids both problems and always matches the
-# system Python's ABI. OPENVINO_VERSION must be bumped in sync with
-# OPENVINO_GENAI_VERSION (dlstreamer-dev stage) to match the OpenVINO runtime
-# bundled in the GenAI archive.
+# not the Python bindings.
 RUN \
     apt-get update && \
     apt-get install -y -q --no-install-recommends python3-pip=\* gcc=\* libcairo2-dev=\* libgirepository1.0-dev=\* && \

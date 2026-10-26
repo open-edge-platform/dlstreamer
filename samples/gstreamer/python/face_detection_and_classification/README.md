@@ -62,22 +62,13 @@ This sample uses two models from Hugging Face:
 - **Age classification:** `dima806/fairface_age_image_detection` (Hugging Face Transformers)
   - Prepare with [Hugging Face model conversion](../../../../scripts/download_models/README.md#1-hugging-face-conversion)
 
-## Install Dependencies
+## Install Python Dependencies
 
-Create and activate a virtual environment:
-
-```sh
-uv venv .face_det_cls_venv
-source .face_det_cls_venv/bin/activate
-```
-
-Install dependencies:
-
-```sh
-uv pip install -r requirements.txt
-```
-
-> Note: Dependencies are pinned in [requirements.txt](requirements.txt) for reproducible installs.
+This sample only needs the Python packages already provided by the DL
+Streamer installation (GStreamer Python bindings). If you installed DL
+Streamer natively and skipped them, see
+[Step 10: Install Python dependencies](../../../../docs/user-guide/dev_guide/advanced_install/advanced_install_guide_compilation.md#step-10-install-python-dependencies-optional)
+in the Advanced Install Guide. The Docker image already includes them.
 
 ## Run Sample Application
 

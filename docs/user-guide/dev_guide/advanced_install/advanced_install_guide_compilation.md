@@ -9,6 +9,13 @@ from the source code provided in
 
 [Open Edge Platform repository](https://github.com/open-edge-platform/edge-ai-libraries).
 
+> **NOTE:** The `main` branch currently targets a **nightly (pre-release) build
+> of OpenVINO™**, not an official stable release. The exact nightly version/date
+> used below may become outdated over time; check the `OPENVINO_VERSION` /
+> `OPENVINO_GENAI_VERSION` build arguments in
+> [docker/ubuntu/ubuntu24.Dockerfile](https://github.com/open-edge-platform/dlstreamer/blob/main/docker/ubuntu/ubuntu24.Dockerfile)
+> for the version currently used in CI, and substitute it below if it differs.
+
 ## Step 1: Install prerequisites (only for Ubuntu)
 
 Follow the instructions in
@@ -107,6 +114,13 @@ packages:
 
 ## Step 5: Install OpenVINO™ Toolkit
 
+> **NOTE:** On Ubuntu, this step can be skipped if you plan to install
+> OpenVINO™ GenAI in [Step 6](#step-6-ubuntu-only-install-openvino-genai)
+> below instead - the OpenVINO™ GenAI archive already bundles the full
+> OpenVINO™ C++ runtime, so installing both is redundant. This step remains
+> required for Fedora and EMT, where no OpenVINO™ GenAI archive is currently
+> available.
+
 <!--hide_directive::::{tab-set}
 :::{tab-item}hide_directive--> Ubuntu/Fedora
 <!--hide_directive:sync: tab1hide_directive-->
@@ -140,30 +154,34 @@ packages:
 <!--hide_directive:sync: tab2hide_directive-->
 
   ```bash
-  wget https://storage.openvinotoolkit.org/repositories/openvino/packages/nightly/2026.5.0-23523-1bddaae9e4f/openvino_toolkit_ubuntu24_2026.5.0.dev20261020_x86_64.tgz
-  tar -xvzf openvino_toolkit_ubuntu24_2026.5.0.dev20261020_x86_64.tgz
-  sudo mv openvino_toolkit_ubuntu24_2026.5.0.dev20261020_x86_64 /opt/intel/openvino_2026.5.0.dev20261020
-  cd /opt/intel/openvino_2026.5.0.dev20261020/
+  wget https://storage.openvinotoolkit.org/repositories/openvino/packages/nightly/2026.5.0-23594-7e507a4ca9a/openvino_toolkit_ubuntu24_2026.5.0.dev20261023_x86_64.tgz
+  tar -xvzf openvino_toolkit_ubuntu24_2026.5.0.dev20261023_x86_64.tgz
+  sudo mv openvino_toolkit_ubuntu24_2026.5.0.dev20261023_x86_64 /opt/intel/openvino_2026.5.0.dev20261023
+  cd /opt/intel/openvino_2026.5.0.dev20261023/
   sudo -E python3 -m pip install -r ./python/requirements.txt
   cd /opt/intel
-  sudo ln -s openvino_2026.5.0.dev20261020 openvino_2026
+  sudo ln -s openvino_2026.5.0.dev20261023 openvino_2026
   ```
 
 <!--hide_directive:::
 ::::hide_directive-->
 
-### (Optional) Step 6: Install OpenVINO™ GenAI (only for Ubuntu)
+### Step 6 (Ubuntu only): Install OpenVINO™ GenAI
 
-To use [gvagenai element](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvagenai.html)
-you need to install the [OpenVINO GenAI archive](https://docs.openvino.ai/2026/get-started/install-openvino/install-openvino-genai.html) package.
+The OpenVINO™ GenAI archive bundles the full OpenVINO™ C++ runtime alongside
+the GenAI libraries, so on Ubuntu this step alone is enough to build DL
+Streamer - [Step 5](#step-5-install-openvino-toolkit) above can be skipped.
+This step is also required if you want to use the
+[gvagenai element](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvagenai.html),
+which needs the [OpenVINO GenAI archive](https://docs.openvino.ai/2026/get-started/install-openvino/install-openvino-genai.html) package.
 
 <!--hide_directive::::{tab-set}
 :::{tab-item}hide_directive--> Ubuntu 24
 <!--hide_directive:sync: tab1hide_directive-->
 
   ```bash
-  wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/2026.5.0.0.dev20261020/openvino_genai_ubuntu24_2026.5.0.0.dev20261020_x86_64.tar.gz | tar -xz &&
-  sudo mv openvino_genai_ubuntu24_2026.5.0.0.dev20261020_x86_64 /opt/intel/openvino_genai
+  wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/2026.5.0.0.dev20261023/openvino_genai_ubuntu24_2026.5.0.0.dev20261023_x86_64.tar.gz | tar -xz &&
+  sudo mv openvino_genai_ubuntu24_2026.5.0.0.dev20261023_x86_64 /opt/intel/openvino_genai
   source /opt/intel/openvino_genai/setupvars.sh
   ```
 
@@ -172,8 +190,8 @@ you need to install the [OpenVINO GenAI archive](https://docs.openvino.ai/2026/g
 <!--hide_directive:sync: tab2hide_directive-->
 
   ```bash
-  wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/2026.5.0.0.dev20261020/openvino_genai_ubuntu22_2026.5.0.0.dev20261020_x86_64.tar.gz | tar -xz &&
-  sudo mv openvino_genai_ubuntu22_2026.5.0.0.dev20261020_x86_64 /opt/intel/openvino_genai
+  wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/2026.5.0.0.dev20261023/openvino_genai_ubuntu22_2026.5.0.0.dev20261023_x86_64.tar.gz | tar -xz &&
+  sudo mv openvino_genai_ubuntu22_2026.5.0.0.dev20261023_x86_64 /opt/intel/openvino_genai
   source /opt/intel/openvino_genai/setupvars.sh
   ```
 

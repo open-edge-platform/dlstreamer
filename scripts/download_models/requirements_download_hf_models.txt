@@ -1,14 +1,13 @@
 # Dependencies for download_hf_models.py (+ hf_utils.py)
 --extra-index-url https://download.pytorch.org/whl/cpu
-# Nightly OpenVINO wheel index; version below must match ARG OPENVINO_VERSION
-# in docker/ubuntu/ubuntu24.Dockerfile to keep the runtime and Python API in sync.
+# OpenVINO extra index needed when using nightly OpenVINO builds
 --extra-index-url https://storage.openvinotoolkit.org/simple/wheels/nightly
 defusedxml>=0.7.1
 huggingface_hub==1.21.0
-openvino==2026.5.0.dev20261020
+openvino==2026.5.0.dev20261023
 # Transitive dependency of optimum-intel; must be pinned explicitly to the
 # matching nightly build so uv treats it as an allowed pre-release.
-openvino-tokenizers==2026.5.0.0.dev20261020
+openvino-tokenizers==2026.5.0.0.dev20261023
 optimum-intel==2.1.0
 transformers==5.5.0
 pillow==13.0.0

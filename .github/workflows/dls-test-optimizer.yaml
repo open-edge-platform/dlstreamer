@@ -18,10 +18,6 @@ on:
 permissions: {}
 env:
   dlstreamer-version: "2026.3.0"
-  # Keep in sync with the OPENVINO_VERSION ARG default in
-  # docker/ubuntu/ubuntu24.Dockerfile and with DEFAULT_OPENVINO_VERSION in
-  # tests/scripts/installation-on-host-entrypoint.sh.
-  OPENVINO_VERSION: "2026.5.0.dev20261020"
   MODELS_PATH: "$HOME/models"
   VIDEO_INPUTS_PATH: "$HOME/videos"
   DLS_REL_PATH: "./dlstreamer"
@@ -255,13 +251,6 @@ jobs:
           sudo apt-get install -y --no-install-recommends libcairo2-dev libgirepository1.0-dev
           uv venv --system-site-packages $HOME/optimizer-venv
           VIRTUAL_ENV=$HOME/optimizer-venv uv pip install --no-cache-dir -r /opt/intel/dlstreamer/requirements.txt
-          # The optimizer imports openvino.Core directly (scripts/optimizer/processors/device.py).
-          # The on-host OpenVINO install (installation-on-host-entrypoint.sh) only provides the
-          # C++ runtime libraries, not the Python bindings, so install the matching Python wheel
-          # here - same version/index as used for the Docker image (see ubuntuNN.Dockerfile).
-          VIRTUAL_ENV=$HOME/optimizer-venv uv pip install --no-cache-dir --no-deps \
-            --extra-index-url https://storage.openvinotoolkit.org/simple/wheels/nightly \
-            openvino==${{ env.OPENVINO_VERSION }}
           echo "$HOME/optimizer-venv/bin" >> $GITHUB_PATH
 
       - name: 🚀 Run Optimizer on host

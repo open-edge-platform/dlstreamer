@@ -45,9 +45,12 @@ fi
 
 RUN_PREFIX=
 
-# Nightly build; keep in sync with ARG OPENVINO_VERSION / OPENVINO_NIGHTLY_BUILD
-# in docker/ubuntu/ubuntu24.Dockerfile.
-OV_REMOTE_ARCHIVE_PATH="https://storage.openvinotoolkit.org/repositories/openvino/packages/nightly/2026.5.0-23523-1bddaae9e4f/openvino_toolkit_${OS}_2026.5.0.dev20261020_x86_64.tgz"
+# Nightly build. The Docker images and tests/scripts/installation-on-host-entrypoint.sh
+# now install OpenVINO GenAI instead of this plain archive (see
+# OPENVINO_GENAI_VERSION in docker/ubuntu/ubuntuNN.Dockerfile), so this pin is
+# independent; keep it in sync with the EMT tab in
+# docs/user-guide/dev_guide/advanced_install/advanced_install_guide_compilation.md.
+OV_REMOTE_ARCHIVE_PATH="https://storage.openvinotoolkit.org/repositories/openvino/packages/nightly/2026.5.0-23594-7e507a4ca9a/openvino_toolkit_${OS}_2026.5.0.dev20261023_x86_64.tgz"
 OV_ARCHIVE_EXT=".tgz"
 OV_CHECKSUM_EXT=".tgz.sha256"
 OV_LOCAL_ARCHIVE_PATH=/tmp/openvino_installation

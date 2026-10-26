@@ -46,7 +46,7 @@ ARG DOCKER_REGISTRY
 # used by DL Streamer itself comes from the OpenVINO GenAI archive instead
 # (see OPENVINO_GENAI_VERSION in the dlstreamer-dev stage), so keep the two
 # in sync manually when bumping versions.
-ARG OPENVINO_VERSION=2026.5.0.dev20261020
+ARG OPENVINO_VERSION=2026.5.0.dev20261023
 FROM ${DOCKER_REGISTRY}ubuntu:22.04 AS builder
 
 ARG DEBIAN_FRONTEND=noninteractive
@@ -391,7 +391,7 @@ COPY --from=realsense-builder /usr/local/include/librealsense2 /usr/local/includ
 # runtime/lib/intel64 layout and setupvars.sh as the plain OpenVINO archive)
 # alongside the GenAI libraries, so installing it on its own is enough -
 # no separate OpenVINO Runtime archive download is needed.
-ARG OPENVINO_GENAI_VERSION=2026.5.0.0.dev20261020
+ARG OPENVINO_GENAI_VERSION=2026.5.0.0.dev20261023
 ARG OPENVINO_GENAI_VER=openvino_genai_ubuntu22_${OPENVINO_GENAI_VERSION}_x86_64
 ARG OPENVINO_GENAI_PKG=https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/${OPENVINO_GENAI_VERSION}/${OPENVINO_GENAI_VER}.tar.gz
 
@@ -574,13 +574,7 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/b
 # Install the .deb package plus the DL Streamer Python requirements.
 # NOTE: the OpenVINO C++ runtime libraries used by the DL Streamer GStreamer
 # plugins are installed separately above (alongside the .deb, via ldconfig),
-# not the Python bindings, so the OpenVINO Python API (openvino pip package)
-# is intentionally not installed here: this OpenVINO nightly version does
-# not publish a cp310 wheel (the ABI for this distro's system Python, 3.10),
-# and its archive distribution only bundles cp311/cp312/cp313 bindings,
-# neither of which is importable on Python 3.10. See
-# ubuntu24.Dockerfile/ubuntu26.Dockerfile for the equivalent step on distros
-# where a matching OpenVINO Python build exists.
+# not the Python bindings.
 RUN \
     apt-get update -y && \
     apt-get install -y -q --no-install-recommends /debs/*.deb gcc=\* ninja-build=\* libcairo2-dev=\* libgirepository1.0-dev=\* && \

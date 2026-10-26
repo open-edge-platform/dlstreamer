@@ -1,6 +1,7 @@
 --extra-index-url https://download.pytorch.org/whl/cpu
+# OpenVINO extra index needed when using nightly OpenVINO builds
 --extra-index-url https://storage.openvinotoolkit.org/simple/wheels/nightly
-openvino==2026.5.0.dev20261020
+openvino==2026.5.0.dev20261023
 nncf==3.0.0
 ultralytics==8.4.57
 torch

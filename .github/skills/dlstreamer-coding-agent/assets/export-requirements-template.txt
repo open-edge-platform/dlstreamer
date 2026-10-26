@@ -6,12 +6,9 @@
 # Model export only needs CPU inference.
 --extra-index-url https://download.pytorch.org/whl/cpu
 
-# OpenVINO Python version (pin to match DL Streamer runtime)
-# Discover with: python3 -c "import openvino; print(openvino.__version__)"
-# For nightly/dev builds (e.g. matching docker/ubuntu/ubuntu24.Dockerfile's
-# ARG OPENVINO_VERSION), also add:
+# OpenVINO extra index needed when using nightly OpenVINO builds
 # --extra-index-url https://storage.openvinotoolkit.org/simple/wheels/nightly
-# openvino==2026.5.0.dev20261020
+# openvino==2026.5.0.dev20261023
 
 # NNCF for INT8 quantization (required by ultralytics int8=True export)
 # Discover with: pip show nncf | grep Version

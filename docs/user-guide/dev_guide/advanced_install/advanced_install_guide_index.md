@@ -9,7 +9,7 @@
   - [Step 3: Set up a Python environment](./advanced_install_guide_compilation.md#step-3-set-up-a-python-environment)
   - [Step 4: Clone Deep Learning Streamer repository](./advanced_install_guide_compilation.md#step-4-clone-deep-learning-streamer-repository)
   - [Step 5: Install OpenVINO™ Toolkit](./advanced_install_guide_compilation.md#step-5-install-openvino-toolkit)
-  - [Step 6: Install OpenVINO™ GenAI (only for Ubuntu)](./advanced_install_guide_compilation.md#optional-step-6-install-openvino-genai-only-for-ubuntu)
+  - [Step 6: Install OpenVINO™ GenAI (Ubuntu only)](./advanced_install_guide_compilation.md#step-6-ubuntu-only-install-openvino-genai)
   - [Step 7: Build Deep Learning Streamer](./advanced_install_guide_compilation.md#step-7-build-deep-learning-streamer)
   - [Step 8: Install Deep Learning Streamer](./advanced_install_guide_compilation.md#step-8-install-deep-learning-streamer-optional)
   - [Step 9: Set up environment](./advanced_install_guide_compilation.md#step-9-set-up-environment)
