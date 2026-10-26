@@ -217,7 +217,7 @@ def main():
                         help="encoder for the synthetic scene (va* need an Intel GPU)")
     parser.add_argument("--k", type=float, default=1.5, help="motion threshold multiplier")
     parser.add_argument("--margin", type=int, default=8, help="minimum byte margin above baseline")
-    parser.add_argument("--min-baseline", type=int, default=10, help="baseline floor in bytes")
+    parser.add_argument("--min-baseline", type=int, default=100, help="baseline floor in bytes")
     parser.add_argument("--output", help="write an MP4 with a red border and MOTION label on motion frames")
     parser.add_argument("--gst-debug", metavar="SPEC", default="*:3",
                         help="GStreamer debug/info logging level, same syntax as GST_DEBUG (default: '*:3')")
