@@ -163,6 +163,36 @@ jobs:
             exit 1
           fi
 
+      - name: 📷 Build and install librealsense (for gvarealsense element)
+        if: needs.setup.outputs.should_run == 'true'
+        run: |
+          echo "Installing librealsense build dependencies..."
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+              libssl-dev libusb-1.0-0-dev libudev-dev pkg-config libgtk-3-dev
+
+          # Pin the same librealsense release used by the corresponding Docker image
+          # (docker/ubuntu/ubuntu24.Dockerfile / ubuntu26.Dockerfile) for consistency.
+          if [[ ${{ matrix.os }} == "ubuntu-24.04" ]]; then
+            REALSENSE_VERSION="v2.58.4"
+          elif [[ ${{ matrix.os }} == "ubuntu-26.04" ]]; then
+            REALSENSE_VERSION="v2.57.6"
+          else
+            echo "Unknown Ubuntu version: ${{ matrix.os }}"
+            exit 1
+          fi
+
+          echo "Building librealsense ${REALSENSE_VERSION}..."
+          mkdir -p /tmp/librealsense-build
+          cd /tmp/librealsense-build
+          git clone --depth 1 --branch "$REALSENSE_VERSION" https://github.com/IntelRealSense/librealsense.git
+          cd librealsense
+          mkdir build && cd build
+          cmake ../ -DCMAKE_BUILD_TYPE=Release -DBUILD_EXAMPLES=false -DBUILD_GRAPHICAL_EXAMPLES=false
+          make -j"$(nproc)"
+          sudo make install
+          sudo ldconfig
+
       - name: 🔨 Build DL Streamer using make build
         if: needs.setup.outputs.should_run == 'true'
         run: |
@@ -215,13 +245,35 @@ jobs:
           echo " "
 
           echo "Verifying DL Streamer installation..."
-          gst-inspect-1.0 | grep gva
-          gst-inspect-1.0 gvadetect
-          gst-inspect-1.0 gvawatermark3d
-          gst-inspect-1.0 gvapython
-          gst-inspect-1.0 gvamotiondetect
-          gst-inspect-1.0 gvafpscounter
-          gst-inspect-1.0 gvagenai
+
+          # Sanity check: make sure every element documented in docs/user-guide/elements/elements.md
+          # is registered and loadable. Element names are extracted from the first column of the
+          # markdown tables, e.g. "| [gvadetect](./gvadetect.md) | ... |", so newly documented
+          # elements are picked up automatically without editing this workflow.
+          ELEMENTS_MD="${{ env.DLS_REL_PATH }}/docs/user-guide/elements/elements.md"
+
+          ELEMENTS=$(grep -oP '^\|\s*\[\K[a-zA-Z0-9_]+(?=\]\(\./)' "$ELEMENTS_MD" | sort -u)
+
+          if [ -z "$ELEMENTS" ]; then
+            echo "::error::No elements extracted from $ELEMENTS_MD - check the file format/path"
+            exit 1
+          fi
+          echo "Elements to verify (extracted from elements.md):"
+          echo "$ELEMENTS"
+
+          FAILED_ELEMENTS=""
+          while IFS= read -r element; do
+            echo "Checking element: $element"
+            if ! gst-inspect-1.0 "$element" > /dev/null; then
+              FAILED_ELEMENTS="$FAILED_ELEMENTS $element"
+            fi
+          done <<< "$ELEMENTS"
+
+          if [ -n "$FAILED_ELEMENTS" ]; then
+            echo "::error::Missing or broken element(s):$FAILED_ELEMENTS"
+            exit 1
+          fi
+          echo "✅ All DL Streamer elements verified successfully"
 
       - name: Install Python dependencies
         if: needs.setup.outputs.should_run == 'true'

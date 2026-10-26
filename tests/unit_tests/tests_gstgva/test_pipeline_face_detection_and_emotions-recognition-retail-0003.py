@@ -8,7 +8,7 @@ import unittest
 import os
 
 from pipeline_runner import TestPipelineRunner
-from tests_gstgva.utils import BBox, get_model_path, get_model_proc_path
+from tests_gstgva.utils import BBox, get_model_path, get_model_proc_path, to_gst_path
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 IMAGE_PATH = os.path.join(SCRIPT_DIR, "test_files", "face_detection.png")
@@ -24,7 +24,7 @@ PIPELINE_STR = """appsrc name=mysrc \
 ! gvadetect model={} ! queue \
 ! gvaclassify model={} pre-process-backend=opencv \
 ! gvawatermark \
-! appsink name=mysink emit-signals=true sync=false """.format(d_model_path, c_model_path)
+! appsink name=mysink emit-signals=true sync=false """.format(to_gst_path(d_model_path), to_gst_path(c_model_path))
 
 GOLD_TRUE = [
     BBox(0.6926184892654419, 0.18179790675640106, 0.822385311126709, 0.5055984705686569, [], class_id=0),

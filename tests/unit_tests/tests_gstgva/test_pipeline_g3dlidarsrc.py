@@ -13,21 +13,10 @@ gi.require_version("Gst", "1.0")
 from gi.repository import Gst  # pylint: disable=no-name-in-module, wrong-import-position
 
 from pipeline_runner import TestGenericPipelineRunner  # pylint: disable=wrong-import-position
+from tests_gstgva.utils import to_gst_path  # pylint: disable=wrong-import-position
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 REPO_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "../../.."))
-
-
-def _to_gst_path(path):
-    """Return a filesystem path safe to embed in a GStreamer pipeline string.
-
-    GStreamer's pipeline parser treats backslash as an escape character, so a
-    Windows path such as ``C:\\Program Files\\Intel`` loses its separators and
-    becomes ``C:Program FilesIntel``. Windows also accepts forward slashes in
-    file paths, so normalizing to forward slashes fixes parsing on Windows and
-    is a no-op on Linux (whose paths contain no backslashes).
-    """
-    return path.replace("\\", "/")
 
 
 class TestG3DLidarSrc(unittest.TestCase):
@@ -150,7 +139,7 @@ class TestG3DLidarSrc(unittest.TestCase):
             self.skipTest("g3dlidarsrc element not available")
 
         pipeline = (
-            f'g3dlidarsrc config="{_to_gst_path(self.lidar_config_file)}" '
+            f'g3dlidarsrc config="{to_gst_path(self.lidar_config_file)}" '
             f'timeout={self.timeout_usec} num-buffers=1 ! '
             f'fakesink'
         )
@@ -173,10 +162,10 @@ class TestG3DLidarSrc(unittest.TestCase):
             self.skipTest("g3dlidarsrc element not available")
 
         pipeline = (
-            f'g3dlidarsrc config="{_to_gst_path(self.lidar_config_file)}" '
+            f'g3dlidarsrc config="{to_gst_path(self.lidar_config_file)}" '
             f'timeout={self.timeout_usec} num-buffers=1 ! '
             f'gvametaconvert format=json add-empty-results=true ! '
-            f'gvametapublish method=file file-format=json-lines file-path="{_to_gst_path(self.output_json)}" ! '
+            f'gvametapublish method=file file-format=json-lines file-path="{to_gst_path(self.output_json)}" ! '
             f'fakesink'
         )
 

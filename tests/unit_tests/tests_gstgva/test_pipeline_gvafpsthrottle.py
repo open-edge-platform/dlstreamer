@@ -8,6 +8,7 @@ import unittest
 import os
 
 from pipeline_runner import TestGenericPipelineRunner
+from tests_gstgva.utils import to_gst_path
 
 import gi
 
@@ -115,7 +116,7 @@ class TestGvaFpsThrottle(unittest.TestCase):
         image_path = os.path.join(SCRIPT_DIR, "test_files", "dog_bike_car.jpg")
         if os.path.exists(image_path):
             pipeline = (
-                f"multifilesrc location={image_path} loop=true num-buffers=50 ! "
+                f"multifilesrc location={to_gst_path(image_path)} loop=true num-buffers=50 ! "
                 "jpegdec ! gvafpsthrottle target-fps=10 ! "
                 "gvafpscounter name=fpscounter interval=1 ! fakesink"
             )

@@ -13,7 +13,7 @@ gi.require_version('GstVideo', '1.0')
 gi.require_version('GstAudio', '1.0')
 gi.require_version('Gst', '1.0')
 # pylint: disable=no-name-in-module
-from gi.repository import GstVideo, GstAudio, GObject, Gst
+from gi.repository import GstVideo, GstAudio, Gst
 # pylint: enable=no-name-in-module
 
 # libgstreamer
@@ -277,7 +277,7 @@ GList._fields_ = [
 libgobject.g_type_name.argtypes = [ctypes.c_void_p]
 libgobject.g_type_name.restype = ctypes.c_char_p
 libgobject.g_type_from_name.argtypes = [ctypes.c_char_p]
-libgobject.g_type_from_name.restype = ctypes.c_ulong
+libgobject.g_type_from_name.restype = ctypes.c_size_t
 libgobject.g_value_get_variant.argtypes = [ctypes.c_void_p]
 libgobject.g_value_get_variant.restype = ctypes.c_void_p
 libgobject.g_value_get_int.argtypes = [ctypes.c_void_p]
@@ -412,9 +412,9 @@ class GVAJSONMeta(ctypes.Structure):
 
     @classmethod
     def iterate(cls, buffer):
-        try:
-            meta_api = hash(GObject.GType.from_name("GstGVAJSONMetaAPI"))
-        except:
+        # Not hash(GObject.GType): PyGObject truncates it to 32 bits on Windows
+        meta_api = libgobject.g_type_from_name("GstGVAJSONMetaAPI".encode('utf-8'))
+        if not meta_api:
             return
         gpointer = ctypes.c_void_p()
         while(True):

@@ -8,7 +8,7 @@ import unittest
 import os
 
 from pipeline_runner import TestPipelineRunner
-from tests_gstgva.utils import BBox, get_model_path
+from tests_gstgva.utils import BBox, get_model_path, to_gst_path
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 IMAGE_PATH = os.path.join(SCRIPT_DIR, "test_files", "dog_bike_car.jpg")
@@ -42,7 +42,7 @@ class TestColorFormatsPipeline(unittest.TestCase):
         pipeline_runner = TestPipelineRunner()
         for color_format in color_formats:
             pipeline = PIPELINE_STR.format(
-                color_format, d_model_path)
+                color_format, to_gst_path(d_model_path))
             pipeline_runner.set_pipeline(pipeline,
                                          IMAGE_PATH,
                                          GOLD_TRUE)

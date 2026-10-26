@@ -1,0 +1,17 @@
+# Dependencies for download_other_models.py
+# yolox-tiny / deeplabv3 (openvino-dev) and PP-OCRv5 (paddlepaddle / paddle2onnx / huggingface_hub)
+# install their tools into separate temporary venvs at runtime.
+--extra-index-url https://download.pytorch.org/whl/cpu
+numpy==2.2.6
+openvino==2026.3.1
+onnx==1.21.0
+onnxscript==0.7.1
+seaborn==0.13.2
+opencv-python-headless==4.12.0.88
+nncf==2.19.0
+tqdm==4.67.1
+requests==2.33.0
+pyyaml==6.0.3
+torch==2.13.0
+torchaudio==2.11.0
+torchvision==0.28.0

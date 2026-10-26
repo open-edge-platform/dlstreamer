@@ -1,17 +1,32 @@
 {
-    "dependencies": [
-        {
-            "name": "opencv4",
-            "default-features": false,
-            "features": ["world", "opencl", "calib3d", "fs", "intrinsics", "thread", "win32ui"]
-        },
-        "pkgconf",
+  "dependencies": [
+    {
+      "name": "opencv4",
+      "default-features": false,
+      "features": [
+        "world",
         "opencl",
-        "dlfcn-win32",
-        "paho-mqttpp3",
-        {
-            "name": "librdkafka",
-            "features": ["curl", "ssl", "zlib", "zstd"]
-        }
-    ]
+        "calib3d",
+        "fs",
+        "intrinsics",
+        "thread",
+        "win32ui",
+        "jpeg",
+        "png"
+      ]
+    },
+    "pkgconf",
+    "opencl",
+    "dlfcn-win32",
+    "paho-mqttpp3",
+    {
+      "name": "librdkafka",
+      "features": [
+        "curl",
+        "ssl",
+        "zlib",
+        "zstd"
+      ]
+    }
+  ]
 }

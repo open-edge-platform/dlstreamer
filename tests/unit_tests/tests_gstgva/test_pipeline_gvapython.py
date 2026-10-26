@@ -8,6 +8,7 @@ import unittest
 import os
 
 from pipeline_runner import TestGenericPipelineRunner
+from tests_gstgva.utils import to_gst_path
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 IMAGE_PATH = os.path.join(SCRIPT_DIR, "test_files", "dog_bike_car.jpg")
@@ -30,7 +31,7 @@ class TestGvaPythonParameters(unittest.TestCase):
         pipelines = []
         for args in additional_args:
             arg_str = " ".join(args)
-            pipelines.append(PIPELINE_TEMPLATE.format(IMAGE_PATH, MODULE_PATH, arg_str))
+            pipelines.append(PIPELINE_TEMPLATE.format(to_gst_path(IMAGE_PATH), to_gst_path(MODULE_PATH), arg_str))
         return pipelines
 
     def test_gvapython_parameters_pipeline(self):

@@ -16,6 +16,16 @@ on:
         description: "Current DEV image size in MB for ubuntu26"
         value: ${{ jobs.build.outputs.current-image-size-ubuntu26 }}
   workflow_dispatch:
+    inputs:
+      platform:
+        description: "Platform to build and test on"
+        required: false
+        type: choice
+        options:
+          - both
+          - ARL
+          - PTL
+        default: "both"
 permissions: {}
 env:
   MODELS_PATH: "/home/runner/models"
@@ -46,6 +56,8 @@ jobs:
         id: set-matrix
         env:
           SHOULD_RUN: ${{ steps.skip-check.outputs.should_run }}
+          # Only set on workflow_dispatch; falls back to "both" for workflow_call/other triggers.
+          PLATFORM: ${{ github.event.inputs.platform || 'both' }}
         shell: bash
         run: |
           if [[ "${SHOULD_RUN}" == "false" ]]; then
@@ -60,22 +72,30 @@ jobs:
               ]
             }' | jq -c .)
           else
-            MATRIX=$(jq -n '{
-              "include": [
-                {
-                  "path_dockerfile": "./dlstreamer-repo/docker/ubuntu/ubuntu24.Dockerfile",
-                  "ubuntu_version": "ubuntu24",
-                  "runner_labels": ["arl-ubuntu24"],
-                  "runner_print_label": "ARL"
-                },
-                {
-                  "path_dockerfile": "./dlstreamer-repo/docker/ubuntu/ubuntu26.Dockerfile",
-                  "ubuntu_version": "ubuntu26",
-                  "runner_labels": ["arl-ubuntu24"],
-                  "runner_print_label": "ARL"
-                }
-              ]
-            }' | jq -c .)
+            echo "Selected platform: ${PLATFORM}"
+            MATRIX=$(jq -n --arg platform "${PLATFORM}" '
+              {
+                "include": ([
+                  {
+                    "path_dockerfile": "./dlstreamer-repo/docker/ubuntu/ubuntu24.Dockerfile",
+                    "ubuntu_version": "ubuntu24",
+                    "runner_labels": ["arl-ubuntu24"],
+                    "runner_print_label": "ARL"
+                  },
+                  {
+                    "path_dockerfile": "./dlstreamer-repo/docker/ubuntu/ubuntu26.Dockerfile",
+                    "ubuntu_version": "ubuntu26",
+                    "runner_labels": ["ptl-ubuntu26"],
+                    "runner_print_label": "PTL"
+                  }
+                ] | map(select($platform == "both" or .runner_print_label == $platform)))
+              }
+            ' | jq -c .)
+
+            if [[ "$(echo "$MATRIX" | jq '.include | length')" == "0" ]]; then
+              echo "::error::No matrix entries matched platform input '${PLATFORM}' (expected 'both', 'ARL' or 'PTL')"
+              exit 1
+            fi
           fi
           echo "Generated matrix: $MATRIX"
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT

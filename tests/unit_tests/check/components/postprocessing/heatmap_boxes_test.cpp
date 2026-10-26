@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023-2025 Intel Corporation
+ * Copyright (C) 2023-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -28,8 +28,8 @@ class TestOutputBlob : public OutputBlob {
         std::ifstream f(filename.data(), std::ios::binary);
         f.read(reinterpret_cast<char *>(_data.get()), _data_size);
         if (!f)
-            std::runtime_error(std::string("Error reading file ") + filename.data() +
-                               ". Read bytes: " + std::to_string(f.gcount()));
+            throw std::runtime_error(std::string("Error reading file ") + filename.data() +
+                                     ". Read bytes: " + std::to_string(f.gcount()));
         f.close();
     }
 

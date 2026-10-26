@@ -8,6 +8,11 @@ on:
         required: false
         type: string
         default: "main"
+      run-unit-tests:
+        description: "Whether to build and run C++ and Python unit tests (skipped when PR changes only touch the samples/ folder)"
+        required: false
+        type: string
+        default: "true"
   workflow_dispatch:
     inputs:
       test-repo-branch:
@@ -15,6 +20,11 @@ on:
         required: false
         type: string
         default: "main"
+      run-unit-tests:
+        description: "Whether to build and run C++ and Python unit tests"
+        required: false
+        type: string
+        default: "true"
 
 permissions: {}
 
@@ -27,8 +37,9 @@ env:
   MODELS_PATH: 'C:\models\models'
   VIDEO_INPUTS_PATH: 'C:\videos\videos'
   TESTS_RESULTS_DIRECTORY: 'C:\dlstreamer_test_results'
+  UNIT_TESTS_RESULTS_DIRECTORY: 'C:\dlstreamer_unit_test_results'
   PYTHON_VERSION: '3.12.7'
-  DLL_EXPECTED_COUNT: 19
+  DLL_EXPECTED_COUNT: ${{ vars.EXPECTED_WIN_DLL_COUNT }}
 
 jobs:
   setup:
@@ -152,9 +163,15 @@ jobs:
       - name: "${{ env.EBOX }} Build DLStreamer DLLs"
         if: needs.setup.outputs.should_run == 'true'
         shell: powershell
+        env:
+          RUN_UNIT_TESTS: ${{ inputs.run-unit-tests }}
         run: |
           cd ${{ env.DLS_REPO_TARGET_DIRECTORY }}
-          & ./scripts/build_dlstreamer_dlls.ps1 -buildInstaller -installerSkipCompression
+          $buildArgs = @{ buildInstaller = $true; installerSkipCompression = $true }
+          if ($env:RUN_UNIT_TESTS -eq 'true') {
+              $buildArgs.enableTests = $true
+          }
+          & ./scripts/build_dlstreamer_dlls.ps1 @buildArgs
 
       - name: Copy DLLs
         if: needs.setup.outputs.should_run == 'true'
@@ -167,9 +184,9 @@ jobs:
           if (Test-Path $target) {
               Remove-Item -Recurse -Force $target
           }
-          # Copy DLLs
+          # Copy DLLs (unit test binaries and data stay in the build tree, as in the installer)
           New-Item -ItemType Directory -Path $target | Out-Null
-          Copy-Item -Path "$source\*" -Destination $target -Recurse -Force
+          Copy-Item -Path "$source\*" -Destination $target -Recurse -Force -Exclude "test_*", "*_test_files"
           # Copy script
           $scriptSource = "$PWD\dlstreamer-repo\scripts\setup_dls_env.ps1"
           $scriptDest = Join-Path $target "setup_dls_env.ps1"
@@ -184,7 +201,7 @@ jobs:
           $dllDir = "${{ env.DLS_DLL_TARGET_DIRECTORY }}"
           $files = Get-ChildItem -Path $dllDir -Recurse -Filter *.dll -File
 
-          $expectedCount = ${{ env.DLL_EXPECTED_COUNT }}
+          $expectedCount = [int]$env:DLL_EXPECTED_COUNT
           $actualCount = $files.Count
           $isMismatch = $actualCount -ne $expectedCount
 
@@ -358,6 +375,88 @@ jobs:
               exit 1
           }
 
+      # ====================================================== UNIT TESTS ============================================================
+      - name: Skip unit tests notice
+        if: needs.setup.outputs.should_run == 'true' && inputs.run-unit-tests != 'true'
+        shell: powershell
+        run: |
+          $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+          [System.IO.File]::AppendAllText($env:GITHUB_STEP_SUMMARY, "## Unit tests skipped`n", $utf8NoBom)
+
+      - name: Check unit test models and videos
+        if: needs.setup.outputs.should_run == 'true' && inputs.run-unit-tests == 'true'
+        shell: powershell
+        run: |
+          # Models requested by the unit tests that run here.
+          $models = @(
+              "centerface/FP32", "colorcls2/FP32", "yolov8_license_plate_detector/FP32",
+              "dima806_fairface_gender_image_detection/FP32", "yolo11n/FP16", "yolo11s/FP32", "yolo11s/FP16",
+              "yolo26s/FP32", "yolo26s/FP16", "yolo11s-seg/FP32", "resnet50/FP32"
+          )
+          $xmlFiles = Get-ChildItem -Path "${{ env.MODELS_PATH }}" -Recurse -Filter *.xml -File -ErrorAction SilentlyContinue
+          $missing = 0
+          foreach ($m in $models) {
+              $name, $precision = $m.Split("/")
+              $r1Name = if ($precision -eq "FP16") { "$name-fp16.xml" } else { "$name.xml" }
+              $found = $xmlFiles | Where-Object { $_.Name -eq "$name.xml" -and $_.DirectoryName -clike "*$precision*" } | Select-Object -First 1
+              if (-not $found) {
+                  $found = $xmlFiles | Where-Object { $_.Name -eq $r1Name } | Select-Object -First 1
+              }
+              if ($found) {
+                  Write-Host "[OK] $m -> $($found.FullName)"
+              } else {
+                  Write-Host "::warning title=Missing unit test model::$m not found under ${{ env.MODELS_PATH }}"
+                  $missing++
+              }
+          }
+          foreach ($v in @("Pexels_Videos_4786.mp4", "Pexels_Videos_1192116-sd_640_360_30fps.mp4")) {
+              $video = Join-Path "${{ env.VIDEO_INPUTS_PATH }}" $v
+              if (-not (Test-Path $video)) {
+                  Write-Host "::warning title=Missing unit test video::$video"
+                  $missing++
+              }
+          }
+          Write-Host "Missing unit test resources: $missing (affected tests will fail)"
+
+      - name: Install Python unit test dependencies
+        if: needs.setup.outputs.should_run == 'true' && inputs.run-unit-tests == 'true'
+        shell: powershell
+        run: |
+          # A separate venv, so the functional tests' packages are not affected
+          $venvDir = Join-Path $env:RUNNER_TEMP "python_unit_tests_venv"
+          & $env:PYTHON_EXE_PATH -m venv --clear $venvDir
+          & "$venvDir\Scripts\python.exe" -m pip install -r "${{ env.DLS_REPO_TARGET_DIRECTORY }}\requirements.txt" pytest==8.3.3
+          if ($LASTEXITCODE -ne 0) {
+              throw "Failed to install the Python unit test dependencies"
+          }
+          "UNIT_TESTS_VENV=$venvDir" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: "${{ env.ERUN }} Run unit tests"
+        if: needs.setup.outputs.should_run == 'true' && inputs.run-unit-tests == 'true'
+        id: run-unit-tests
+        # pytest runs the Python tests in-process, so a crash ends the step. The results check step
+        # reports the missing results, and the functional tests still run.
+        continue-on-error: true
+        shell: powershell
+        run: |
+          $resultsDir = "${{ env.UNIT_TESTS_RESULTS_DIRECTORY }}"
+          if (Test-Path $resultsDir) {
+              Remove-Item -Recurse -Force $resultsDir
+          }
+
+          $env:PATH = "$env:UNIT_TESTS_VENV\Scripts;$env:PATH"
+          $env:VIDEO_EXAMPLES_DIR = "${{ env.VIDEO_INPUTS_PATH }}"
+          $env:GSTREAMER_1_0_ROOT_MSVC_X86_64 = "${{ env.GSTREAMER_DIRECTORY }}\1.0\msvc_x86_64\"
+          # Same as the Linux unit test job
+          $env:UNIT_TEST_PIPELINE_TIMEOUT_SEC = "60"
+          $openvinoRuntimeDir = $ExecutionContext.InvokeCommand.ExpandString($env:OPENVINO_RUNTIME_DIRECTORY)
+
+          # Failed tests don't fail this step: the results check step reports them
+          & "${{ env.DLS_REPO_TARGET_DIRECTORY }}\tests\scripts\run_unit_tests.ps1" `
+              -BuildDir "${{ env.DLS_BUILD_DIRECTORY }}" `
+              -ResultsDir $resultsDir `
+              -OpenVINODir (Split-Path $openvinoRuntimeDir)
+
       - name: Install Python dependencies in VENV
         if: needs.setup.outputs.should_run == 'true'
         shell: powershell
@@ -384,7 +483,8 @@ jobs:
               exit 1
           }
 
-          & $VenvPython -m pip install tqdm==4.67.1 numpy==2.2.0 opencv-python==4.11.0.86
+          # defusedxml is needed by tests/scripts/unit_test_results.py
+          & $VenvPython -m pip install tqdm==4.67.1 numpy==2.2.0 opencv-python==4.11.0.86 defusedxml==0.7.1
 
           "VENV_PYTHON=$VenvPython" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
@@ -528,6 +628,58 @@ jobs:
               Write-Host "[OK] All test cases passed according to the report."
           }
 
+      - name: "${{ env.ECHART }} Check and display unit test results"
+        if: always() && steps.run-unit-tests.outcome != 'skipped'
+        shell: powershell
+        env:
+          PYTHON_VENV_EXE: ${{ env.VENV_PYTHON }}
+          RUNNER_PRINT_LABEL: ${{ matrix.runner_print_label }}
+        run: |
+          $resultsDir = "${{ env.UNIT_TESTS_RESULTS_DIRECTORY }}"
+          if (-not $env:PYTHON_VENV_EXE) {
+              Write-Host "::error::Python venv is not available to parse unit test results"
+              exit 1
+          }
+          # Creates unit_test_summary.txt in the results directory
+          & $env:PYTHON_VENV_EXE "${{ env.DLS_REPO_TARGET_DIRECTORY }}\tests\scripts\unit_test_results.py" $resultsDir
+          $summaryFile = Join-Path $resultsDir "unit_test_summary.txt"
+          if (-not (Test-Path $summaryFile)) {
+              Write-Host "::error::Unit test summary not found: $summaryFile"
+              exit 1
+          }
+          $content = Get-Content -Path $summaryFile -Raw
+          Write-Host $content
+
+          $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+          [System.IO.File]::AppendAllText($env:GITHUB_STEP_SUMMARY, "## Test Summary for Unit Tests on Windows $($env:RUNNER_PRINT_LABEL)`n$content`n", $utf8NoBom)
+
+          # A suite without results didn't complete, see the "Run unit tests" step
+          if ($content -notmatch "CTest:.*Failed: (\d+)") {
+              Write-Host "::error::No CTest results in $summaryFile"
+              exit 1
+          }
+          $ctestFailed = [int]$Matches[1]
+
+          # pytest reports a test module that fails to import, or a failing setUpClass, as an error
+          if ($content -notmatch "Pytest:.*Failed: (\d+), Errors: (\d+)") {
+              Write-Host "::error::No pytest results in $summaryFile"
+              exit 1
+          }
+          $pytestFailed = [int]$Matches[1] + [int]$Matches[2]
+
+          $failed = $ctestFailed + $pytestFailed
+          if ($failed -gt 0) {
+              Write-Host "::error::$failed unit test(s) failed (CTest: $ctestFailed, Pytest: $pytestFailed)"
+              exit 1
+          }
+
+      - name: Upload unit tests results to Artifacts
+        if: always() && steps.run-unit-tests.outcome != 'skipped'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: DLS_unit_tests_Windows_${{ matrix.runner_print_label }}
+          path: ${{ env.UNIT_TESTS_RESULTS_DIRECTORY }}
+
       # ======================================================== CLEANUP PART ========================================================
       - name: Clean up
         if: always() && needs.setup.outputs.should_run == 'true'
@@ -536,6 +688,7 @@ jobs:
           $PathsToClean = @(
               "${{ env.DLS_BUILD_DIRECTORY }}",
               "${{ env.TESTS_RESULTS_DIRECTORY }}",
+              "${{ env.UNIT_TESTS_RESULTS_DIRECTORY }}",
               "${{ env.DLS_DLL_TARGET_DIRECTORY }}",
               "${{ env.DLS_REPO_TARGET_DIRECTORY }}"
           )

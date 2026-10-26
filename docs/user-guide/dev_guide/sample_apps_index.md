@@ -14,7 +14,7 @@ demonstrates, the elements/models it uses, and its language — `CLI` (`gst-laun
 
 | | |
 | --- | --- |
-| [Object detection, classification & segmentation (9)](#object-detection-classification--segmentation) | [Object tracking & analytics (3)](#object-tracking--analytics) |
+| [Object detection, classification & segmentation (9)](#object-detection-classification--segmentation) | [Object tracking & analytics (4)](#object-tracking--analytics) |
 | [Vision-Language Models (VLM) & GenAI (5)](#vision-language-models-vlm--genai) | [Audio analytics (2)](#audio-analytics) |
 | [3D: LiDAR & radar (5)](#3d-lidar--radar) | [Cameras & input sources (4)](#cameras--input-sources) |
 | [Metadata: publishing, access & visualization (8)](#metadata-publishing-access--visualization) | [Customization & extensibility (8)](#customization--extensibility) |
@@ -46,6 +46,7 @@ demonstrates, the elements/models it uses, and its language — `CLI` (`gst-laun
 | Preview | Sample |
 | --- | --- |
 | ![Vehicle and Pedestrian Tracking](../_images/sample_app_template.png) | [Vehicle and Pedestrian Tracking](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/vehicle_pedestrian_tracking) `CLI`<br>Object tracking across frames.<br>**Key elements:** `gvatrack`, `gvadetect`, `gvaclassify`<br>**Models:** `yolo26s`, `dima806_vehicle_10_types_image_detection` |
+| ![People Detection & Tracking with Deep SORT](../_images/sample_app_template.png) | [People Detection & Tracking with Deep SORT](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/deepsort) `CLI`<br>Detect and track people across frames using the Deep SORT algorithm with appearance re-identification.<br>**Key elements:** `gvadetect`, `gvainference`, `gvatrack`<br>**Models:** `yolo26m`, `mars-small128` |
 | ![Vehicle Counter with gvaanalytics Tripwires](../_images/sample-gvaanalytics-tripwire-thumb.jpg) | [Vehicle Counter with gvaanalytics Tripwires](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/gvaanalytics_tripwire) `Python`<br>Count vehicles crossing a virtual line in both directions using tripwires.<br>**Key elements:** `gvaanalytics`, `gvatrack`<br>**Models:** `yolo11n` |
 | ![Smart NVR for Lane Hogging Detection](../_images/sample-smart-nvr-thumb.jpg) | [Smart NVR for Lane Hogging Detection](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/smart_nvr) `Python`<br>Build an NVR with custom analytics and video storage to detect lane-hogging events.<br>**Key elements:** `gvaanalytics_py`, `gvarecorder_py`<br>**Models:** `rtdetr_v2_r50vd` (RT-DETRv2) |
 

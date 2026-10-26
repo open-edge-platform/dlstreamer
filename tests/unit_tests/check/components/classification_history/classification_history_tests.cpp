@@ -35,7 +35,6 @@ struct Model {
     std::string name;
     std::string precision;
     std::string path;
-    std::string proc_path;
 };
 struct TestData {
     size_t width;
@@ -122,9 +121,6 @@ struct ClassificationHistoryTest : public ::testing::Test {
         model.path = std::string(temp_c_str);
         gva_classify->base_inference.model = g_strdup(model.path.c_str());
 
-        exit_status = get_model_proc_path(temp_c_str, MAX_STR_PATH_SIZE, model.name.c_str());
-        EXPECT_EQ(exit_status, EXIT_SUCCESS);
-        model.proc_path = std::string(temp_c_str);
         gva_classify->base_inference.model_proc = g_strdup(model.name.c_str());
     }
 

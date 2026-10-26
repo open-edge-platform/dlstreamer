@@ -20,7 +20,14 @@
 GST_DEBUG_CATEGORY_STATIC(gst_gva_watermark_debug_category);
 #define GST_CAT_DEFAULT gst_gva_watermark_debug_category
 
+#ifdef _WIN32
+// Unset leaves the choice to gvawatermarkimpl: GPU on video memory, CPU on system memory
+#define DEFAULT_DEVICE nullptr
+#define DEVICE_DESCRIPTION "CPU or GPU. Default is GPU on video memory and CPU on system memory."
+#else
 #define DEFAULT_DEVICE "CPU"
+#define DEVICE_DESCRIPTION "CPU or GPU. Default is CPU."
+#endif
 
 G_DEFINE_TYPE_WITH_CODE(GstGvaWatermark, gst_gva_watermark, GST_TYPE_BIN,
                         GST_DEBUG_CATEGORY_INIT(gst_gva_watermark_debug_category, "gvawatermark", 0,
@@ -88,9 +95,9 @@ static void gst_gva_watermark_class_init(GstGvaWatermarkClass *klass) {
     const auto kDefaultGParamFlags =
         static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_CONSTRUCT);
 
-    g_object_class_install_property(gobject_class, PROP_DEVICE,
-                                    g_param_spec_string("device", "Target device", "CPU or GPU. Default is CPU.",
-                                                        DEFAULT_DEVICE, kDefaultGParamFlags));
+    g_object_class_install_property(
+        gobject_class, PROP_DEVICE,
+        g_param_spec_string("device", "Target device", DEVICE_DESCRIPTION, DEFAULT_DEVICE, kDefaultGParamFlags));
 
     g_object_class_install_property(gobject_class, PROP_OBB,
                                     g_param_spec_boolean("obb", "Oriented Bounding Box",

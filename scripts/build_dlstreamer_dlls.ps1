@@ -13,7 +13,10 @@ param(
 	# Build the RoboSense LiDAR backend (g3dlidar_robosense.dll) for g3dlidarsrc.
 	# OFF by default so a plain local script run stays lean; CI passes this switch
 	# so the shipped installer includes the backend.
-	[switch]$enableLidarRobosense
+	[switch]$enableLidarRobosense,
+	# Build the C++ unit tests (tests/unit_tests). OFF by default; CI passes this
+	# switch to run ctest. Test binaries are excluded from the installer.
+	[switch]$enableTests
 )
 
 $GSTREAMER_VERSION = "1.28.2"
@@ -693,6 +696,11 @@ if ($enableLidarRobosense) {
 	$buildArgs += "-DENABLE_LIDAR_ROBOSENSE=ON"
 } else {
 	$buildArgs += "-DENABLE_LIDAR_ROBOSENSE=OFF"
+}
+if ($enableTests) {
+	$buildArgs += "-DENABLE_TESTS=ON"
+} else {
+	$buildArgs += "-DENABLE_TESTS=OFF"
 }
 if ($buildInstaller -and $installerSkipCompression) {
 	$buildArgs += "-DNSIS_SKIP_COMPRESSION=ON"

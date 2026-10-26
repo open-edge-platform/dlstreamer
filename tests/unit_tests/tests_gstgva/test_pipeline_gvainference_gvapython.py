@@ -8,7 +8,7 @@ import unittest
 import os
 
 from pipeline_runner import TestPipelineRunner
-from tests_gstgva.utils import BBox, get_model_path
+from tests_gstgva.utils import BBox, get_model_path, to_gst_path
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 IMAGE_PATH = os.path.join(SCRIPT_DIR, "test_files", "dog_bike_car.jpg")
@@ -21,8 +21,8 @@ MODEL_PATH = get_model_path(MODEL_NAME)
 
 PIPELINE_STR = f"""appsrc name=mysrc
 ! decodebin
-! gvainference model={MODEL_PATH}
-! gvapython module={MODULE_PATH}
+! gvainference model={to_gst_path(MODEL_PATH)}
+! gvapython module={to_gst_path(MODULE_PATH)}
 ! appsink name=mysink emit-signals=true sync=false"""
 
 

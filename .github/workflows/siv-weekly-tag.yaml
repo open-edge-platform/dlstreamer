@@ -1,0 +1,109 @@
+---
+name: "[SIV] Weekly Build Tagging"
+
+"on":
+  schedule:
+    - cron: '30 14 * * 2'  # Every Tuesday at 14:30 UTC
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  update-weekly-tag:
+    runs-on: dlstreamer
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Get commit SHA for tagging
+        id: get-sha
+        run: |
+          COMMIT_SHA=$(git rev-parse HEAD)
+          echo "📍 Commit SHA for tagging: $COMMIT_SHA"
+          echo "sha=$COMMIT_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Create annotated tag via API
+        env:
+          GH_TOKEN: ${{ secrets.SIV_USER_TOKEN_GH }}
+          TAG_PREFIX: ${{ vars.SIV_WEEKLY_BUILD_PREFIX }}
+          COMMIT_SHA: ${{ steps.get-sha.outputs.sha }}
+        run: |
+          TAG_NAME="${TAG_PREFIX}-$(date -u +'%Y%m%d')"
+          TAG_MESSAGE="Weekly Build - ${TAG_NAME}"
+
+          echo "🚀 Creating tag: $TAG_NAME"
+          echo "📍 Target commit: $COMMIT_SHA"
+          echo "📝 Tag message: $TAG_MESSAGE"
+
+          if [ "$COMMIT_SHA" = "" ] || [ "$COMMIT_SHA" = "null" ]; then
+            echo "❌ Invalid commit SHA: $COMMIT_SHA"
+            exit 1
+          fi
+
+          echo "📝 Creating annotated tag object..."
+          RESPONSE=$(curl -sS -w "%{http_code}" -o tag_object.json \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Content-Type: application/json" \
+            -X POST \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/tags" \
+            -d "{
+              \"tag\": \"${TAG_NAME}\",
+              \"message\": \"${TAG_MESSAGE}\",
+              \"object\": \"${COMMIT_SHA}\",
+              \"type\": \"commit\"
+            }")
+
+          HTTP_CODE="${RESPONSE: -3}"
+
+          if [ "$HTTP_CODE" -ne 201 ]; then
+            printf "❌ Failed to create tag object!\n"
+            printf "HTTP Code: %s\n" "$HTTP_CODE"
+            cat tag_object.json
+            exit 1
+          fi
+
+          TAG_SHA=$(jq -r '.sha' tag_object.json)
+          echo "✅ Tag object created: $TAG_SHA"
+
+          echo "🔗 Creating tag reference..."
+          RESPONSE=$(curl -sS -w "%{http_code}" -o tag.json \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Content-Type: application/json" \
+            -X POST \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/refs" \
+            -d "{
+              \"ref\": \"refs/tags/${TAG_NAME}\",
+              \"sha\": \"${TAG_SHA}\"
+            }")
+
+          HTTP_CODE="${RESPONSE: -3}"
+
+          if [ "$HTTP_CODE" -eq 201 ]; then
+            printf "\n"
+            printf "✅ Weekly Build Tag Created Successfully!\n"
+            printf "==========================================\n"
+            printf "📌 Tag Name:     %s\n" "${TAG_NAME}"
+            printf "🔗 Commit SHA:   %s\n" "${COMMIT_SHA}"
+            printf "📁 Repository:   %s\n" "${GITHUB_REPOSITORY}"
+            printf "⏰ Created:      %s\n" "$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+            printf "🌐 View Online:  https://github.com/%s/releases/tag/%s\n" "${GITHUB_REPOSITORY}" "${TAG_NAME}"
+            printf "\n"
+            echo "📋 API Response:"
+            cat tag.json | jq '.'
+          else
+            printf "\n"
+            printf "❌ Failed to create tag!\n"
+            printf "========================\n"
+            printf "HTTP Code: %s\n" "$HTTP_CODE"
+            printf "Response:\n"
+            cat tag.json
+            printf "\n"
+            exit 1
+          fi

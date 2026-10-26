@@ -8,19 +8,26 @@ import unittest
 import time
 import signal
 import re
+import os
 from optimizer import DLSOptimizer # pylint: disable=no-name-in-module
-from tests_gstgva.utils import get_model_path, get_video_path
+from tests_gstgva.utils import get_model_path, get_video_path, to_gst_path
 from openvino import Core
+
+# The optimizer's device candidates use VA-API elements (vapostproc, VAMemory), so on Windows they
+# return no results and only CPU candidates run. Tests that expect a result from every candidate, or
+# rely on a GPU candidate to beat the original pipeline or to reach the FPS limit, are skipped there.
+VA_CANDIDATES_SKIP_REASON = "DLSOptimizer's device candidates use VA-API, which is not available on Windows"
 
 class TestOptimizer(unittest.TestCase):
     
     def setUp(self):
-        self.model_path = get_model_path("yolo11s")
-        self.video_file = get_video_path("Pexels_Videos_1192116-sd_640_360_30fps.mp4")
+        self.model_path = to_gst_path(get_model_path("yolo11s"))
+        self.video_file = to_gst_path(get_video_path("Pexels_Videos_1192116-sd_640_360_30fps.mp4"))
         self.simple_pipeline = f"filesrc location={self.video_file} ! decodebin ! gvadetect model={self.model_path} ! queue ! gvawatermark ! fakesink"
         self.complex_pipeline = f"filesrc location={self.video_file} name=src1 ! decodebin ! gvadetect model={self.model_path} ! gvawatermark ! " \
                                f"fakesink filesrc location={self.video_file} name=src2 ! decodebin ! gvadetect model={self.model_path} ! gvawatermark ! fakesink"
 
+    @unittest.skipIf(os.name == "nt", VA_CANDIDATES_SKIP_REASON)
     def test_iter_optimize_for_fps_and_get_optimal_pipeline(self):
         """Test iter_optimize_for_fps with simple CPU pipeline and check candidate modifications"""
         optimizer = DLSOptimizer()
@@ -64,6 +71,7 @@ class TestOptimizer(unittest.TestCase):
         print(f"✓ Test passed: Found {len(candidates)} candidates in {elapsed_time:.1f} seconds, "
             f"best matches optimal pipeline")
 
+    @unittest.skipIf(os.name == "nt", VA_CANDIDATES_SKIP_REASON)
     def test_iter_optimize_for_streams_with_timeout_and_get_baseline_pipeline(self):
         """Test iter_optimize_for_streams with timeout and check if stream count changes"""
         optimizer = DLSOptimizer()
@@ -204,6 +212,7 @@ class TestOptimizer(unittest.TestCase):
 
         print(f"✓ Test passed: Optimized pipeline matches optimal pipeline with FPS {fps}")
 
+    @unittest.skipIf(os.name == "nt", VA_CANDIDATES_SKIP_REASON)
     def test_set_sample_duration_with_iter_optimize_for_fps(self):
         """Test that set_sample_duration() affects number of candidates tested"""
 
@@ -262,6 +271,7 @@ class TestOptimizer(unittest.TestCase):
         print(f"Long duration ({long_duration}s per candidate): {len(candidates_long)} candidates in {elapsed_time_long:.1f}s ({candidates_per_sec_long:.2f} candidates/sec)")
         print(f"✓ Test passed: Short sample duration tested more candidates ({len(candidates_short)} vs {len(candidates_long)})")
 
+    @unittest.skipIf(os.name == "nt", VA_CANDIDATES_SKIP_REASON)
     def test_set_allowed_devices_with_iter_optimize_for_fps(self):
         """Test that set_allowed_devices() excludes specified devices from optimization"""
 
@@ -313,6 +323,7 @@ class TestOptimizer(unittest.TestCase):
         print(f"Tested {len(candidates)} candidates in {elapsed_time:.1f}s")
         print(f"✓ Test passed: Excluded device '{excluded_device}' not found in any pipeline")
 
+    @unittest.skipIf(os.name == "nt", VA_CANDIDATES_SKIP_REASON)
     def test_set_batch_sizes_with_iter_optimize_for_fps(self):
         """Test that set_batch_sizes() limits batch sizes used in candidates"""
 
@@ -357,6 +368,7 @@ class TestOptimizer(unittest.TestCase):
         print(f"Tested {len(candidates)} candidates in {elapsed_time:.1f}s")
         print(f"✓ Test passed: All batch-size values found are in {batch_sizes}")
 
+    @unittest.skipIf(os.name == "nt", VA_CANDIDATES_SKIP_REASON)
     def test_set_nireq_sizes_with_iter_optimize_for_fps(self):
         """Test that set_nireq_sizes() limits nireq sizes used in candidates"""
 

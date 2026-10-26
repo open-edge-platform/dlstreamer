@@ -382,9 +382,9 @@ class Tensor:
 
     @classmethod
     def _iterate(cls, buffer):
-        try:
-            meta_api = hash(GObject.GType.from_name("GstGVATensorMetaAPI"))
-        except:
+        # Not hash(GObject.GType): PyGObject truncates it to 32 bits on Windows
+        meta_api = libgobject.g_type_from_name("GstGVATensorMetaAPI".encode("utf-8"))
+        if not meta_api:
             return
 
         gpointer = ctypes.c_void_p()

@@ -1,17 +1,92 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
 #include <gst/check/gstcheck.h>
 
-#include <dirent.h>
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
 
 #include "test_utils.h"
+
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <io.h>
+#include <windows.h>
+
+#define access _access
+#define F_OK 0
+
+// Minimal opendir()/readdir()/closedir() so the directory walks below are shared with Linux
+#define DT_DIR 4
+#define DT_REG 8
+
+struct dirent {
+    unsigned char d_type;
+    char d_name[MAX_PATH];
+};
+
+typedef struct {
+    HANDLE handle;
+    WIN32_FIND_DATAA data;
+    BOOL has_data;
+    struct dirent entry;
+} DIR;
+
+static DIR *opendir(const char *path) {
+    char pattern[MAX_STR_PATH_SIZE];
+    snprintf(pattern, sizeof(pattern), "%s/*", path);
+    DIR *dir = g_new0(DIR, 1);
+    dir->handle = FindFirstFileA(pattern, &dir->data);
+    if (dir->handle == INVALID_HANDLE_VALUE) {
+        g_free(dir);
+        return NULL;
+    }
+    dir->has_data = TRUE;
+    return dir;
+}
+
+static struct dirent *readdir(DIR *dir) {
+    if (!dir->has_data)
+        return NULL;
+    g_strlcpy(dir->entry.d_name, dir->data.cFileName, sizeof(dir->entry.d_name));
+    dir->entry.d_type = (dir->data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? DT_DIR : DT_REG;
+    dir->has_data = FindNextFileA(dir->handle, &dir->data);
+    return &dir->entry;
+}
+
+static int closedir(DIR *dir) {
+    FindClose(dir->handle);
+    g_free(dir);
+    return 0;
+}
+
+int setenv(const char *name, const char *value, int overwrite) {
+    if (!overwrite && getenv(name))
+        return 0;
+    return _putenv_s(name, value);
+}
+
+int usleep(unsigned int usec) {
+    // Sleep() has the ~15.6 ms system timer granularity, too coarse for the timing checks in the tests
+    HANDLE timer = CreateWaitableTimerExW(NULL, NULL, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+    if (!timer) {
+        Sleep(usec / 1000);
+        return 0;
+    }
+    LARGE_INTEGER due_time;
+    due_time.QuadPart = -10 * (LONGLONG)usec; // relative, in 100 ns units
+    if (SetWaitableTimer(timer, &due_time, 0, NULL, NULL, FALSE))
+        WaitForSingleObject(timer, INFINITE);
+    CloseHandle(timer);
+    return 0;
+}
+#else
+#include <dirent.h>
+#include <unistd.h>
+#endif
 
 typedef struct dirent DIRENT;
 
@@ -108,9 +183,12 @@ void get_env_strcat_delim(char *value, const char *env_var, const int size_of_va
         g_print("\n\t %s env variable is not set\n", env_var);
         return;
     }
-    const char delim = ':';
     g_strlcpy(value, env_value, size_of_value);
-    strcat(value, &delim);
+#ifdef _WIN32
+    // The paths end up in gst_parse_launch() descriptions, where '\' is an escape character
+    g_strdelimit(value, "\\", '/');
+#endif
+    strcat(value, G_SEARCHPATH_SEPARATOR_S);
 }
 
 ExitStatus get_model_path_with_precision(char *model_path, size_t model_path_size, const char *model_name,
@@ -121,7 +199,7 @@ ExitStatus get_model_path_with_precision(char *model_path, size_t model_path_siz
         return EXIT_STATUS_FAILURE;
     }
     // ck_assert_msg(models_env_dir != NULL, "MODELS_PATH env variable is not set");
-    const char delim = ':';
+    const char delim = G_SEARCHPATH_SEPARATOR;
     size_t str_start = 0, str_end;
     char model_env_dir[MAX_STR_PATH_SIZE];
     char model_file[256];
@@ -161,7 +239,7 @@ ExitStatus get_2019_model_path(char *model_path, size_t model_path_size, const c
         return EXIT_STATUS_FAILURE;
     }
     // ck_assert_msg(models_dir != NULL, "MODELS_PATH env variable is not set");
-    const char delim = ':';
+    const char delim = G_SEARCHPATH_SEPARATOR;
     size_t str_start = 0, str_end;
     char model_dir[MAX_STR_PATH_SIZE];
 
@@ -189,6 +267,7 @@ ExitStatus get_2019_model_path(char *model_path, size_t model_path_size, const c
 
 ExitStatus get_model_path(char *model_path, size_t model_path_size, const char *model_name, const char *fp) {
     ExitStatus status;
+    model_path[0] = '\0';
     status = get_model_path_with_precision(model_path, model_path_size, model_name, fp);
     if (status == EXIT_STATUS_SUCCESS) {
         return status;
@@ -209,7 +288,7 @@ ExitStatus get_video_file_path(char *video_file_path, size_t video_path_size, co
         return EXIT_STATUS_FAILURE;
     }
 
-    const char delim = ':';
+    const char delim = G_SEARCHPATH_SEPARATOR;
     size_t str_start = 0, str_end;
     char current_video_dir[MAX_STR_PATH_SIZE];
 
@@ -233,14 +312,14 @@ ExitStatus get_video_file_path(char *video_file_path, size_t video_path_size, co
 }
 
 ExitStatus get_model_proc_path(char *model_proc_path, size_t model_proc_path_size, const char *filename_no_ext) {
-
+    model_proc_path[0] = '\0';
     char model_proc_dir[256];
     get_env_strcat_delim(model_proc_dir, "MODELS_PROC_PATH", sizeof(model_proc_dir));
     if (!model_proc_dir) {
         return EXIT_STATUS_FAILURE;
     }
     // ck_assert_msg(model_proc_dir != NULL, "MODELS_PROC_PATH env variable is not set");
-    const char delim = ':';
+    const char delim = G_SEARCHPATH_SEPARATOR;
     size_t str_start = 0, str_end;
     char current_model_proc_dir[MAX_STR_PATH_SIZE];
 

@@ -20,7 +20,7 @@ gi.require_version('GstAudio', '1.0')
 gi.require_version('GLib', '2.0')
 gi.require_version('Gst', '1.0')
 # pylint: disable=no-name-in-module
-from gi.repository import GstAudio, GLib, GObject, Gst
+from gi.repository import GstAudio, GLib, Gst
 # pylint: enable=no-name-in-module
 
 Segment = namedtuple("Segment", "start_time end_time")
@@ -88,9 +88,9 @@ class AudioEvent(object):
     # @return generator for AudioEventMeta instances attached to buffer
     @classmethod
     def _iterate(self, buffer: Gst.Buffer):
-        try:
-            meta_api = hash(GObject.GType.from_name("GstGVAAudioEventMetaAPI"))
-        except:
+        # Not hash(GObject.GType): PyGObject truncates it to 32 bits on Windows
+        meta_api = libgobject.g_type_from_name("GstGVAAudioEventMetaAPI".encode('utf-8'))
+        if not meta_api:
             return
         gpointer = ctypes.c_void_p()
         while True:

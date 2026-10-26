@@ -161,7 +161,7 @@ Check whether the requested models (or similar ones) appear in the model exporte
 
 | Model exporter | Typical Models  | Path |
 |--------|-------------|------|
-| download_other_models.sh | Selected helper models outside Hugging Face and Ultralytics | `scripts/download_models/download_other_models.sh` |
+| download_other_models.py | Selected helper models outside Hugging Face and Ultralytics | `scripts/download_models/download_other_models.py` |
 | download_hf_models.py | HuggingFace models, including VLM models and Transformer-based detection/classification models (RTDETR, CLIP, ViT) | `scripts/download_models/download_hf_models.py` |
 | download_ultralytics_models.py | Specialized model downloader for Ultralytics YOLO models | `scripts/download_models/download_ultralytics_models.py` |
 | download_timm_models.py | TIMM image-classification models hosted on Hugging Face | `scripts/download_models/download_timm_models.py` |

@@ -117,10 +117,14 @@ RUN \
 
 RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
 
+# Force uv to build gst-python against the apt-installed system python3 instead of
+# silently downloading/using a different managed Python ABI.
+ENV UV_PYTHON_PREFERENCE=only-system
+
 USER dlstreamer
 
 RUN \
-    uv venv /python3venv && \
+    uv venv --python python3 /python3venv && \
     VIRTUAL_ENV=/python3venv uv pip install --no-cache-dir --no-deps \
     meson==1.4.1 \
     ninja==1.11.1.1 \
@@ -306,6 +310,7 @@ RUN \
     shopt -s dotglob && \
     mv gst-plugins-rs/* . && \
     git checkout "tags/gstreamer-$GST_VERSION" && \
+    sed -i '/analytics\/burn/d' Cargo.toml && \
     curl -sSL --insecure https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.92.0 && \
     source "$HOME"/.cargo/env && \
     cargo install cargo-c --version=0.10.11 --locked && \

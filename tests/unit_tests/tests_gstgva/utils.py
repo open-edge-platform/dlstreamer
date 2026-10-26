@@ -12,7 +12,7 @@ model_procs_path = os.environ["MODELS_PROC_PATH"]
 
 def env_var_value(env_var):
     try:
-        env_var_values = os.environ[env_var].split(':')
+        env_var_values = os.environ[env_var].split(os.pathsep)
     except KeyError:
         env_var_values = None
     return env_var_values
@@ -78,7 +78,7 @@ def get_video_path(video_name):
     if not video_examples_dir:
         raise ValueError("VIDEO_EXAMPLES_DIR environment variable is not set")
 
-    video_examples_path_list = video_examples_dir.split(':')
+    video_examples_path_list = video_examples_dir.split(os.pathsep)
 
     # Search in all paths from VIDEO_EXAMPLES_DIR
     for video_path in video_examples_path_list:
@@ -90,6 +90,18 @@ def get_video_path(video_name):
 
     raise ValueError("Video file '{}' was not found. Check your VIDEO_EXAMPLES_DIR={} environment variable or video file name".format(
         video_name, video_examples_path_list))
+
+
+def to_gst_path(path):
+    """Return a filesystem path safe to embed in a GStreamer pipeline string.
+
+    GStreamer's pipeline parser treats backslash as an escape character, so a
+    Windows path such as ``C:\\Program Files\\Intel`` loses its separators and
+    becomes ``C:Program FilesIntel``. Windows also accepts forward slashes in
+    file paths, so normalizing to forward slashes fixes parsing on Windows and
+    is a no-op on Linux (whose paths contain no backslashes).
+    """
+    return path.replace("\\", "/")
 
 class BBox:
     def __init__(self, x_min, y_min, x_max, y_max, additional_info=None, class_id=0, tracker_id=None):

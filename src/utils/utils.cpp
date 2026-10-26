@@ -89,7 +89,12 @@ size_t GetFileSize(const std::string &file_path) {
 
     return safe_convert<size_t>(stat_buffer.st_size);
 #else
-    return std::filesystem::file_size(file_path);
+    std::error_code ec;
+    auto file_size = std::filesystem::file_size(file_path, ec);
+    if (ec) // error while reading file information
+        throw std::invalid_argument("Error while reading file '" + file_path + "' information.");
+
+    return file_size;
 #endif
 }
 

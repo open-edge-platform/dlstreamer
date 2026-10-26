@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2018-2021 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -14,7 +14,7 @@ class AudioEventMeta(ctypes.Structure):
         ('_info', ctypes.c_void_p),
         ('event_type', ctypes.c_int),
         ('id', ctypes.c_int),
-        ('start_timestamp', ctypes.c_ulong),
-        ('end_timestamp', ctypes.c_ulong),
+        ('start_timestamp', ctypes.c_uint64),
+        ('end_timestamp', ctypes.c_uint64),
         ('_params', GLIST_POINTER)
     ]

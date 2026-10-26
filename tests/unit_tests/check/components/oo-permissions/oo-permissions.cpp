@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2024-2025 Intel Corporation
+ * Copyright (C) 2024-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -98,14 +98,20 @@ TEST(oo_permissions_test, self_test) {
 TEST(oo_permissions_test, tracker_test) {
     using vas::ot::ZeroTermChistTracker;
     using InitParameters = vas::ot::Tracker::InitParameters;
-    InitParameters init_parameters;
+    InitParameters init_parameters{};
     ZeroTermChistTracker tracker(init_parameters);
     ASSERT_EQ(is_visible_label(&tracker), false);
     ASSERT_EQ(is_visible_impl(&tracker), false);
     ASSERT_EQ(is_visiblelabels(&tracker), false);
     ASSERT_EQ(is_visibleTracker(&tracker), false);
     ASSERT_EQ(is_visibleZeroTermChistTracker(&tracker), false);
+    // Naming a member function without calling it is ill-formed, so GCC/Clang drop the decltype overload;
+    // MSVC accepts the expression and reports the public TrackObjects() as visible
+#ifdef _MSC_VER
+    ASSERT_EQ(is_visibleTrackObjects(&tracker), true);
+#else
     ASSERT_EQ(is_visibleTrackObjects(&tracker), false);
+#endif
 }
 
 TEST(oo_permissions_test, version_test) {

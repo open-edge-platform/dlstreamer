@@ -467,10 +467,12 @@ jobs:
     permissions:
       contents: read
       packages: read
+    needs: [dls-filter-unit-test-related-changes]
     name: "DLS BUILD & TEST: Windows DLLs"
     uses: ./.github/workflows/dls-build-and-test-windows.yaml
     with:
       test-repo-branch: ${{ inputs.test-repo-branch }}
+      run-unit-tests: ${{ needs.dls-filter-unit-test-related-changes.outputs.run_unit_tests }}
 
 # -------------------------------------------------------- STATUS CHECKS ---------------------------------------------------------
   check-download-models-status:

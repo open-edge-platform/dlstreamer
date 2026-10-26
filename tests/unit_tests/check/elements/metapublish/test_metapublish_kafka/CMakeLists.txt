@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2018-2025 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -7,7 +7,12 @@
 set (TARGET_NAME "test_metapublish_kafka")
 
 find_package(PkgConfig REQUIRED)
-find_library(KAFKA rdkafka++ REQUIRED)
+if(WIN32)
+    find_package(RdKafka CONFIG REQUIRED)
+    set(KAFKA RdKafka::rdkafka++)
+else()
+    find_library(KAFKA rdkafka++ REQUIRED)
+endif()
 pkg_check_modules(GSTBASE gstreamer-base-1.0>=1.16 REQUIRED)
 pkg_check_modules(GSTREAMER gstreamer-1.0>=1.16 REQUIRED)
 

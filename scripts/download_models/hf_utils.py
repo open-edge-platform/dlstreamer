@@ -53,6 +53,7 @@ CUSTOM_CONVERTERS = {
     "clipmodel",
     "rtdetrforobjectdetection",
     "rtdetrv2forobjectdetection",
+    "dfineforobjectdetection",
     "depthanythingfordepthestimation",
     "videomaeforvideoclassification",
 }
@@ -292,6 +293,16 @@ def custom_conversion(
         ),
         "rtdetrv2forobjectdetection": (
             "an RT-DETR v2 model",
+            lambda: export_hf_rtdetr_to_openvino(
+                local_model_dir,
+                export_dir,
+                token,
+                extra_args=extra_args,
+            ),
+        ),
+        # D-FINE in transformers has the same logits/pred_boxes outputs as RT-DETR
+        "dfineforobjectdetection": (
+            "a D-FINE model",
             lambda: export_hf_rtdetr_to_openvino(
                 local_model_dir,
                 export_dir,

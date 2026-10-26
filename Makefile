@@ -17,6 +17,7 @@ BUILD_TYPE 			?= Release
 ENABLE_GENAI        := OFF
 ENABLE_TESTS		:= OFF
 ENABLE_LIDAR_ROBOSENSE	:= OFF
+ENABLE_REALSENSE	:= OFF
 
 DOCKER_PRIVATE_REGISTRY := # Empty on purpose
 
@@ -26,6 +27,14 @@ ifeq ($(LINUX_DISTRIBUTION), Ubuntu)
 ifeq ($(GENAI_DIR_SET), true)
 	ENABLE_GENAI := ON
 endif
+endif
+
+# Auto-enable the gvarealsense element when librealsense is already installed on the system
+# (e.g. pre-installed by CI via scripts/install_realsense_dependencies.sh), without requiring
+# it for everyone else building DL Streamer from sources.
+REALSENSE_INSTALLED := $(shell ldconfig -p 2>/dev/null | grep -q 'librealsense2\.so' && echo true || echo false)
+ifeq ($(REALSENSE_INSTALLED), true)
+	ENABLE_REALSENSE := ON
 endif
 
 GCC_MAJOR_VERSION := $(shell gcc -dumpversion 2>/dev/null | cut -d. -f1)
@@ -75,7 +84,8 @@ build: dependencies ## Compile Deep Learning Streamer
 		-DENABLE_GENAI=${ENABLE_GENAI} \
 		-DGENERATE_GIR_FROM_SOURCE=${BUILD_GIRS} \
 		-DENABLE_TESTS=${ENABLE_TESTS} \
-		-DENABLE_LIDAR_ROBOSENSE=${ENABLE_LIDAR_ROBOSENSE}; \
+		-DENABLE_LIDAR_ROBOSENSE=${ENABLE_LIDAR_ROBOSENSE} \
+		-DENABLE_REALSENSE=${ENABLE_REALSENSE}; \
 	cmake --build build -j$(shell nproc)
 
 .PHONY: install

@@ -8,6 +8,7 @@ import os
 import unittest
 
 from pipeline_runner import TestGenericPipelineRunner
+from tests_gstgva.utils import to_gst_path
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 REPO_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "../../.."))
@@ -28,7 +29,7 @@ PIPELINE_TEMPLATE = (
 class TestG3DLidarParsePipeline(unittest.TestCase):
     def test_g3dlidarparse_pcd_pipeline(self):
         pipeline = PIPELINE_TEMPLATE.format(
-            location=PCD_LOCATION,
+            location=to_gst_path(PCD_LOCATION),
             stride=STRIDE,
             frame_rate=FRAME_RATE,
         )

@@ -105,7 +105,7 @@ std::string resolveConverterName(const std::string &requested) {
         {KeypointsHRnetConverter::getDeprecatedName(), KeypointsHRnetConverter::getName()},
         {Keypoints3DConverter::getDeprecatedName(), Keypoints3DConverter::getName()},
         {KeypointsOpenPoseConverter::getDeprecatedName(), KeypointsOpenPoseConverter::getName()},
-        {"semantic_mask", "semantic_segmentation"}}; // renamed in 2026; still written by download_other_models.sh
+        {"semantic_mask", "semantic_segmentation"}}; // renamed in 2026; still written by download_other_models.py
 
     if (const auto it = model_type_to_converter.find(requested); it != model_type_to_converter.cend())
         return it->second;

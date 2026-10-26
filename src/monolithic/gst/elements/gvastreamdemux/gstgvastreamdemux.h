@@ -20,6 +20,10 @@ G_BEGIN_DECLS
 #define GST_IS_GVA_STREAMDEMUX(obj) (G_TYPE_CHECK_INSTANCE_TYPE((obj), GST_TYPE_GVA_STREAMDEMUX))
 #define GST_IS_GVA_STREAMDEMUX_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE((klass), GST_TYPE_GVA_STREAMDEMUX))
 
+/* Upper bound on a request pad's index. Releasing a pad frees its index for
+ * reuse, and an unnamed request takes the lowest free one, so a long-running
+ * pipeline that recycles sources never approaches this; only one that keeps
+ * counting upwards does. */
 #define GST_GVA_STREAMDEMUX_MAX_PAD_INDEX 256
 
 typedef struct _GstGvaStreamdemux GstGvaStreamdemux;
@@ -52,6 +56,12 @@ struct _GstGvaStreamdemux {
 
     /* Synchronization */
     GMutex lock;
+    /* Signalled when a flush starts, so a thread waiting out its max-fps
+     * interval gives up. FLUSH_STOP is a serialized event, so it waits for the
+     * stream lock that the waiting chain function holds, and nothing
+     * downstream restarts until it has been through. */
+    GCond fps_cond;
+    gboolean flushing;
 
     /* Src pads array (indexed by source_id) */
     GPtrArray *srcpads;
@@ -71,6 +81,12 @@ struct _GstGvaStreamdemux {
     GArray *last_output_times;
     GstClockTime last_batch_output_time;
     GstClockTime max_fps_duration;
+
+    /* Per source id: whether the "no src pad for this source" warning has
+     * already been issued. A batch carrying a source nobody requested a branch
+     * for arrives at the full frame rate, so without this it would be a
+     * warning per buffer. Cleared when a pad is requested for that id. */
+    GArray *unrouted_warned;
 };
 
 struct _GstGvaStreamdemuxClass {

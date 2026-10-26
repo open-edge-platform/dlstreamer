@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2018-2025 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -25,7 +25,9 @@ PRIVATE
 	fff
 )
 
-if(${ENABLE_PAHO_INSTALLATION})
+# The MQTT cases mock the paho C API with fff, which relies on -rdynamic symbol
+# interposition. Windows has no equivalent, so they are only built on Linux.
+if(${ENABLE_PAHO_INSTALLATION} AND NOT WIN32)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DPAHO_INC ")
         find_library(UUID uuid REQUIRED)
         target_link_libraries(${TARGET_NAME}

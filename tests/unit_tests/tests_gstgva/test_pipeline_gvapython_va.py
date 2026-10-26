@@ -19,6 +19,7 @@ READ_FUNC = "read_frame_data"
 WRITE_FUNC = "write_frame_data"
 
 
+@unittest.skipIf(os.name == "nt", "VA-API is not available on Windows")
 class TestGvapythonVaMap(unittest.TestCase):
     def test_gvapython_va_map(self):
         for enc in ENCODERS:

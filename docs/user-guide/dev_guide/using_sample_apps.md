@@ -23,7 +23,7 @@ or, after installation, under `/opt/intel/dlstreamer/samples`.
   - `download_hf_models.py` — Hugging Face models (VLMs, CLIP, Whisper, …).
   - `download_ultralytics_models.py` — Ultralytics YOLO models.
   - `download_timm_models.py` — TIMM image-classification models.
-  - `download_other_models.sh` — other helper models (e.g. `centerface`, `hsemotion`, `deeplabv3`, `mars-small128`).
+  - `download_other_models.py` — other helper models (e.g. `centerface`, `hsemotion`, `deeplabv3`, `mars-small128`).
 
   See the [download_models README](https://github.com/open-edge-platform/dlstreamer/tree/main/scripts/download_models)
   for prerequisites, per-script requirements files and usage examples. Each sample's own

@@ -14,6 +14,7 @@ add_subdirectory(watermark)
 add_subdirectory(analytics)
 add_subdirectory(properties)
 add_subdirectory(render)
+add_subdirectory(streammux)
 
 if(${ENABLE_GENAI})
     add_subdirectory(genai)
