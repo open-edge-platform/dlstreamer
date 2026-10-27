@@ -58,23 +58,14 @@ void gst_gva_classify_set_property(GObject *object, guint property_id, const GVa
 
     GST_DEBUG_OBJECT(gvaclassify, "set_property");
 
-    static gulong probe_id = 0;
-
     switch (property_id) {
     case PROP_RECLASSIFY_INTERVAL: {
-        guint newValue = g_value_get_uint(value);
-        guint oldValue = gvaclassify->reclassify_interval;
-        if (newValue != oldValue) {
-            if (oldValue == DEFAULT_RECLASSIFY_INTERVAL) {
-                probe_id =
-                    gst_pad_add_probe(gvaclassify->base_inference.base_transform.srcpad, GST_PAD_PROBE_TYPE_BUFFER,
-                                      FillROIParamsCallback, gvaclassify->classification_history, NULL);
-            } else if (newValue == DEFAULT_RECLASSIFY_INTERVAL) { // not tested
-                gst_pad_remove_probe(gvaclassify->base_inference.base_transform.srcpad, probe_id);
-                probe_id = 0;
-            }
-            gvaclassify->reclassify_interval = newValue;
-        }
+        guint new_value = g_value_get_uint(value);
+        // History is not maintained when every frame is classified, so it is outdated after enabling it again
+        if (gvaclassify->reclassify_interval == DEFAULT_RECLASSIFY_INTERVAL &&
+            new_value != DEFAULT_RECLASSIFY_INTERVAL && gvaclassify->classification_history)
+            clear_classification_history(gvaclassify->classification_history);
+        gvaclassify->reclassify_interval = new_value;
         break;
     }
     case PROP_SKIP_RAW_TENSORS:
@@ -196,6 +187,10 @@ void gst_gva_classify_init(GstGvaClassify *gvaclassify) {
         return;
 
     gvaclassify->base_inference.specific_roi_filter = IS_ROI_CLASSIFICATION_NEEDED;
+
+    // Probe is always installed, it is a no-op when reclassify-interval equals 1
+    gst_pad_add_probe(gvaclassify->base_inference.base_transform.srcpad, GST_PAD_PROBE_TYPE_BUFFER,
+                      FillROIParamsCallback, gvaclassify->classification_history, NULL);
 }
 
 void gst_gva_classify_cleanup(GstGvaClassify *gvaclassify) {

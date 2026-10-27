@@ -646,14 +646,15 @@ void ApplyImageBoundaries(std::shared_ptr<InferenceBackend::Image> &image, GstVi
                                                                                          : raw_coordinates.h;
 }
 
-void UpdateClassificationHistory(gint meta_id, GvaBaseInference *gva_base_inference,
-                                 const GstStructure *classification_result) {
-    if (gva_base_inference->type != GST_GVA_CLASSIFY_TYPE)
+void UpdateClassificationHistory(const InferenceFrame &inference_roi) {
+    GvaBaseInference *gva_base_inference = inference_roi.gva_base_inference;
+    if (gva_base_inference->type != GST_GVA_CLASSIFY_TYPE || inference_roi.roi.id < 0)
         return;
 
     GstGvaClassify *gvaclassify = GST_GVA_CLASSIFY(gva_base_inference);
-    if (gvaclassify->reclassify_interval != 1 and meta_id > 0)
-        gvaclassify->classification_history->UpdateROIParams(meta_id, classification_result);
+    if (gvaclassify->reclassify_interval != 1)
+        gvaclassify->classification_history->UpdateROIParams(inference_roi.buffer, inference_roi.roi,
+                                                             inference_roi.roi_classifications);
 }
 
 MemoryType GetMemoryType(CapsFeature caps_feature) {
@@ -1249,32 +1250,6 @@ void InferenceImpl::PushOutput() {
             break; // inference not completed yet
         }
 
-        for (const std::shared_ptr<InferenceFrame> &inference_roi : (*frame).inference_rois) {
-            gint meta_id = 0;
-            if (inference_roi->roi.id >= 0) {
-                GMutexLockGuard guard(&inference_roi->gva_base_inference->meta_mutex);
-                GstAnalyticsRelationMeta *relation_meta = gst_buffer_get_analytics_relation_meta(inference_roi->buffer);
-                if (!relation_meta) {
-                    throw std::runtime_error("Failed to find relation meta");
-                }
-
-                GstAnalyticsODMtd od_mtd;
-                if (!gst_analytics_relation_meta_get_od_mtd(relation_meta, inference_roi->roi.id, &od_mtd)) {
-                    throw std::runtime_error("Failed to find od metadata");
-                }
-
-                if (!post_processing::sameRegion(&od_mtd, &inference_roi->roi)) {
-                    throw std::runtime_error("Roi and od meta are not the same region");
-                }
-
-                get_od_id(od_mtd, &meta_id);
-            }
-
-            for (const GstStructure *roi_classification : inference_roi->roi_classifications) {
-                UpdateClassificationHistory(meta_id, (*frame).filter, roi_classification);
-            }
-        }
-
         // 'output_frames' queue can be shared across streams and it is subject to HOL blocking
         // do not send frame to a blocked output, but check if there frames ready to non-blocked outputs
         GstObject *src = &(*frame).filter->base_transform.element.object;
@@ -1282,6 +1257,10 @@ void InferenceImpl::PushOutput() {
             output_full[src->name] = true;
             frame++; // output blocked, try next frame
         } else {
+            // Classification history must be updated right before the frame is pushed, as results are restored
+            // from history for subsequent frames on the src pad in the order frames leave the element
+            for (const std::shared_ptr<InferenceFrame> &inference_roi : (*frame).inference_rois)
+                UpdateClassificationHistory(*inference_roi);
             PushBufferToSrcPad(*frame);
             frame = output_frames.erase(frame);
         }
@@ -1461,6 +1440,10 @@ GstFlowReturn InferenceImpl::TransformFrameIp(GvaBaseInference *gva_base_inferen
         ITT_TASK("InferenceImpl::TransformFrameIp collectROIMetas");
         switch (gva_base_inference->effective_inference_region) {
         case ROI_LIST: {
+            /* ROI filter may be stateful (e.g. classification history), so it must not be evaluated for ROIs which
+             * will not be inferred anyway */
+            if (status != INFERENCE_EXECUTED)
+                break;
             /* iterates through buffer's meta and pushes it in vector if inference needed. */
             gpointer state = NULL;
             GstVideoRegionOfInterestMeta *meta = NULL;

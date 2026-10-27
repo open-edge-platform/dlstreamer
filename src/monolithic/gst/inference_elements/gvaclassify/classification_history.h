@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -19,6 +19,7 @@ struct ClassificationHistory;
 struct ClassificationHistory *create_classification_history(GstGvaClassify *gva_classify);
 void release_classification_history(struct ClassificationHistory *classification_history);
 void fill_roi_params_from_history(struct ClassificationHistory *classification_history, GstBuffer *buffer);
+void clear_classification_history(struct ClassificationHistory *classification_history);
 
 G_END_DECLS
 
@@ -26,35 +27,48 @@ G_END_DECLS
 #include "gst_smart_pointer_types.hpp"
 #include "lru_cache.h"
 
-#include <map>
 #include <mutex>
+#include <vector>
 
 const size_t CLASSIFICATION_HISTORY_SIZE = 100;
 
 struct ClassificationHistory {
   public:
-    struct ROIClassificationHistory {
-        uint64_t frame_of_last_update;
-        std::map<std::string, GstStructureSharedPtr> layers_to_roi_params;
+    struct ClassificationResult {
+        GstStructureSharedPtr tensor;
+        // Labels of the class descriptor the result was related to (empty if none), required to restore label_id
+        std::vector<GQuark> class_descriptor;
+    };
 
-        ROIClassificationHistory(uint64_t frame_of_last_update = {},
-                                 std::map<std::string, GstStructureSharedPtr> layers_to_roi_params = {})
-            : frame_of_last_update(frame_of_last_update), layers_to_roi_params(layers_to_roi_params) {
+    struct ROIClassificationHistory {
+        // Input frame number on which (re)classification was scheduled last time
+        uint64_t frame_of_last_update;
+        // Output frame number which carries the most recent results
+        uint64_t frame_of_last_result;
+        std::vector<ClassificationResult> results;
+
+        ROIClassificationHistory(uint64_t frame_of_last_update = {}, uint64_t frame_of_last_result = {},
+                                 std::vector<ClassificationResult> results = {})
+            : frame_of_last_update(frame_of_last_update), frame_of_last_result(frame_of_last_result),
+              results(std::move(results)) {
         }
     };
 
     ClassificationHistory(GstGvaClassify *gva_classify);
 
     bool IsROIClassificationNeeded(GstVideoRegionOfInterestMeta *roi, GstBuffer *buffer, uint64_t current_num_frame);
-    void UpdateROIParams(int roi_id, const GstStructure *roi_param);
+    void UpdateROIParams(GstBuffer *buffer, GstVideoRegionOfInterestMeta roi,
+                         const std::vector<GstStructure *> &classifications);
     void FillROIParams(GstBuffer *buffer);
+    void Clear();
     LRUCache<int, ROIClassificationHistory> &GetHistory();
 
   private:
-    void CheckExistingAndReaddObjectId(int roi_id);
+    void CheckExistingAndReaddObjectId(int object_id);
 
     GstGvaClassify *gva_classify;
-    uint64_t current_num_frame;
+    // Number of frames which left the element, counted on src pad in the order frames are pushed
+    uint64_t output_frame_num;
     LRUCache<int, ROIClassificationHistory> history;
     std::mutex history_mutex;
 };

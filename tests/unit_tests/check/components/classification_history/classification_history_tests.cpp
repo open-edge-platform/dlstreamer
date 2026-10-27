@@ -7,6 +7,7 @@
 #include "gst/analytics/analytics.h"
 #include "gva_utils.h"
 #include <classification_history.h>
+#include <dlstreamer/gst/videoanalytics/tensor.h>
 #include <gmock/gmock.h>
 #include <gst/gstmeta.h>
 #include <gstgvaclassify.h>
@@ -110,6 +111,50 @@ struct ClassificationHistoryTest : public ::testing::Test {
 
         return custom_buf;
     }
+    static GstStructure *MakeClassificationTensor(const char *label, gint label_id, gdouble confidence) {
+        return gst_structure_new("gender", "type", G_TYPE_STRING, GVA::GST_ANALYTICS_CLS_2_TENSOR, "label",
+                                 G_TYPE_STRING, label, "label_id", G_TYPE_INT, label_id, "confidence", G_TYPE_DOUBLE,
+                                 confidence, "model_name", G_TYPE_STRING, "gender_model", NULL);
+    }
+
+    static GstAnalyticsODMtd GetFirstOD(GstBuffer *buf) {
+        GstAnalyticsRelationMeta *relation_meta = gst_buffer_get_analytics_relation_meta(buf);
+        GstAnalyticsODMtd od = {0, nullptr};
+        gpointer state = nullptr;
+        if (!relation_meta ||
+            !gst_analytics_relation_meta_iterate(relation_meta, &state, gst_analytics_od_mtd_get_mtd_type(), &od))
+            throw std::runtime_error("ClassificationHistoryTest: no object detection metadata");
+        return od;
+    }
+
+    // Simulates how meta attacher attaches classification result to object detection metadata
+    static void AttachClassification(GstAnalyticsODMtd od, GstStructure *s, const std::vector<GQuark> &labels) {
+        std::vector<gfloat> levels(labels.size(), 0.0f);
+        std::vector<GQuark> quarks(labels);
+        GstAnalyticsClsMtd descriptor;
+        ASSERT_TRUE(gst_analytics_relation_meta_add_cls_mtd(od.meta, quarks.size(), levels.data(), quarks.data(),
+                                                            &descriptor));
+        gst_analytics_mtd_set_semantic_tag(reinterpret_cast<GstAnalyticsMtd *>(&descriptor), "class_descriptor");
+
+        GstAnalyticsMtd mtd;
+        ASSERT_TRUE(GVA::Tensor(s).convert_to_meta(&mtd, od.meta));
+        ASSERT_TRUE(gst_analytics_relation_meta_set_relation(od.meta, GST_ANALYTICS_REL_TYPE_CONTAIN, od.id, mtd.id));
+        ASSERT_TRUE(
+            gst_analytics_relation_meta_set_relation(od.meta, GST_ANALYTICS_REL_TYPE_IS_PART_OF, mtd.id, od.id));
+        ASSERT_TRUE(gst_analytics_relation_meta_set_relation(od.meta, GST_ANALYTICS_REL_TYPE_RELATE_TO, mtd.id,
+                                                             descriptor.id));
+    }
+
+    static std::vector<GstStructureUniquePtr> GetClassifications(GstAnalyticsODMtd od) {
+        std::vector<GstStructureUniquePtr> result;
+        gpointer state = nullptr;
+        GstAnalyticsMtd mtd;
+        while (gst_analytics_relation_meta_get_direct_related(od.meta, od.id, GST_ANALYTICS_REL_TYPE_CONTAIN,
+                                                              gst_analytics_cls_mtd_get_mtd_type(), &state, &mtd))
+            result.emplace_back(GVA::Tensor::convert_to_tensor(mtd), gst_structure_free);
+        return result;
+    }
+
     void SetUpModel(std::string _name, std::string _precision = "FP32") {
         model.name = _name;
         model.precision = _precision;
@@ -187,17 +232,26 @@ TEST_F(ClassificationHistoryTest, IsRoiClassificationNeeded_not_in_history_id) {
     ASSERT_TRUE(classification_history->IsROIClassificationNeeded(meta, buffer, 2));
 }
 
-TEST_F(ClassificationHistoryTest, UpdateRoiParamsHistory_test) {
-    set_object_id(meta, 1);
-    std::string structure_name = "some_params";
-    GstStructure *some_params = gst_structure_new_empty(structure_name.c_str());
-    gst_structure_set_name(some_params, structure_name.c_str());
-    gint id;
-    get_object_id(meta, &id);
-    classification_history->GetHistory().put(id);
-    classification_history->UpdateROIParams(id, some_params);
-    ASSERT_EQ(classification_history->GetHistory().count(id), 1);
-    ASSERT_EQ(classification_history->GetHistory().get(id).layers_to_roi_params.count(structure_name), 1);
+TEST_F(ClassificationHistoryTest, UpdateROIParams_test) {
+    set_od_id(od_mtd, 1);
+    GstStructureUniquePtr tensor(MakeClassificationTensor("male", 0, 0.8), gst_structure_free);
+
+    classification_history->UpdateROIParams(buffer, *meta, {tensor.get()});
+
+    ASSERT_EQ(classification_history->GetHistory().count(1), 1);
+    const auto &roi_history = classification_history->GetHistory().get(1);
+    EXPECT_EQ(roi_history.frame_of_last_result, 0u);
+    ASSERT_EQ(roi_history.results.size(), 1u);
+    EXPECT_STREQ(gst_structure_get_string(roi_history.results[0].tensor.get(), "label"), "male");
+    EXPECT_TRUE(roi_history.results[0].class_descriptor.empty());
+}
+
+TEST_F(ClassificationHistoryTest, UpdateROIParams_untracked_object_test) {
+    GstStructureUniquePtr tensor(MakeClassificationTensor("male", 0, 0.8), gst_structure_free);
+
+    classification_history->UpdateROIParams(buffer, *meta, {tensor.get()});
+
+    EXPECT_EQ(classification_history->GetHistory().size(), 0u);
 }
 
 TEST_F(ClassificationHistoryTest, ClassificationHistory_test) {
@@ -209,13 +263,11 @@ TEST_F(ClassificationHistoryTest, ClassificationHistory_test) {
     gint roi_id;
     get_object_id(meta, &roi_id);
     ASSERT_EQ(id, roi_id);
-    std::string structure_name = "some_params";
-    GstStructure *some_params = gst_structure_new_empty(structure_name.c_str());
-    gst_structure_set_name(some_params, structure_name.c_str());
+    GstStructureUniquePtr some_params(MakeClassificationTensor("male", 0, 0.8), gst_structure_free);
 
-    classification_history->IsROIClassificationNeeded(meta, buffer, 0);
+    ASSERT_TRUE(classification_history->IsROIClassificationNeeded(meta, buffer, 0));
 
-    classification_history->UpdateROIParams(id, some_params);
+    classification_history->UpdateROIParams(buffer, *meta, {some_params.get()});
     ASSERT_FALSE(classification_history->IsROIClassificationNeeded(meta, buffer, 1));
 }
 
@@ -228,73 +280,137 @@ TEST_F(ClassificationHistoryTest, ClassificationHistory_advance_test) {
     gint roi_id;
     get_object_id(meta, &roi_id);
     ASSERT_EQ(id, roi_id);
-    std::string structure_name = "some_params";
-    GstStructure *some_params = gst_structure_new_empty(structure_name.c_str());
-    gst_structure_set_name(some_params, structure_name.c_str());
+    GstStructureUniquePtr some_params(MakeClassificationTensor("male", 0, 0.8), gst_structure_free);
 
     size_t start_num_frame = 3;
     ASSERT_TRUE(classification_history->IsROIClassificationNeeded(meta, buffer, start_num_frame));
+    classification_history->UpdateROIParams(buffer, *meta, {some_params.get()});
     size_t i = 1;
     // we do not proceed reclassification until gva_classify->reclassify_interval-th frame.
     // So there must be <, not <=
     for (; i < gva_classify->reclassify_interval; ++i) {
-        classification_history->UpdateROIParams(id, some_params);
         ASSERT_FALSE(classification_history->IsROIClassificationNeeded(meta, buffer, i + start_num_frame));
     }
-    classification_history->UpdateROIParams(id, some_params);
     ASSERT_TRUE(classification_history->IsROIClassificationNeeded(meta, buffer, i + start_num_frame));
 }
 
 TEST_F(ClassificationHistoryTest, FillROIParams_test) {
-    GstBuffer *image_buf = SetUpBuffer(test_data["female"], 13);
-    gva_classify->base_inference.info = gst_video_info_new();
-    gst_video_info_set_format(gva_classify->base_inference.info, GST_VIDEO_FORMAT_BGRA, test_data["female"].width,
-                              test_data["female"].height);
     gva_classify->reclassify_interval = 4;
+    const int object_id = 13;
+    const std::vector<GQuark> labels = {g_quark_from_string("male"), g_quark_from_string("female")};
+    GstStructureUniquePtr tensor(MakeClassificationTensor("female", 1, 0.9), gst_structure_free);
 
-    void *state = nullptr;
+    // frame 0: object is classified, results are attached by inference (meta attacher)
+    GstBuffer *frame0 = SetUpBuffer(test_data["female"], object_id);
+    GstAnalyticsODMtd od0 = GetFirstOD(frame0);
+    GstVideoRegionOfInterestMeta *roi0 = gst_buffer_get_video_region_of_interest_meta_id(frame0, od0.id);
+    ASSERT_NE(roi0, nullptr);
+    ASSERT_TRUE(classification_history->IsROIClassificationNeeded(roi0, frame0, 0));
+    AttachClassification(od0, tensor.get(), labels);
+    classification_history->UpdateROIParams(frame0, *roi0, {tensor.get()});
 
-    GstAnalyticsRelationMeta *relation_meta = gst_buffer_get_analytics_relation_meta(image_buf);
-    ASSERT_NE(relation_meta, nullptr);
+    ASSERT_EQ(classification_history->GetHistory().get(object_id).results.size(), 1u);
+    EXPECT_EQ(classification_history->GetHistory().get(object_id).results[0].class_descriptor, labels);
 
-    GstAnalyticsODMtd od_meta;
-    gboolean ret =
-        gst_analytics_relation_meta_iterate(relation_meta, &state, gst_analytics_od_mtd_get_mtd_type(), &od_meta);
-    ASSERT_TRUE(ret);
+    // results must not be duplicated on the frame the object has been classified on
+    classification_history->FillROIParams(frame0);
+    EXPECT_EQ(GetClassifications(od0).size(), 1u);
 
-    GstVideoRegionOfInterestMeta *roi = gst_buffer_get_video_region_of_interest_meta_id(image_buf, od_meta.id);
-    ASSERT_NE(roi, nullptr);
+    // frame 1: object is not classified, results must be restored from history as GstAnalytics metadata
+    GstBuffer *frame1 = SetUpBuffer(test_data["female"], object_id);
+    GstAnalyticsODMtd od1 = GetFirstOD(frame1);
+    GstVideoRegionOfInterestMeta *roi1 = gst_buffer_get_video_region_of_interest_meta_id(frame1, od1.id);
+    ASSERT_NE(roi1, nullptr);
+    ASSERT_FALSE(classification_history->IsROIClassificationNeeded(roi1, frame1, 1));
+    ASSERT_TRUE(GetClassifications(od1).empty());
 
-    set_object_id(roi, 13);
-    set_od_id(od_meta, 13);
-    int id;
-    get_od_id(od_meta, &id);
-    int roi_id;
-    get_object_id(roi, &roi_id);
-    ASSERT_EQ(id, roi_id);
-    std::string structure_name = "some_params";
-    GstStructure *input_params = gst_structure_new_empty(structure_name.c_str());
-    gst_structure_set_name(input_params, structure_name.c_str());
+    classification_history->FillROIParams(frame1);
 
-    ASSERT_TRUE(classification_history->IsROIClassificationNeeded(roi, image_buf, 0));
-    classification_history->UpdateROIParams(id, input_params);
-    ASSERT_FALSE(classification_history->IsROIClassificationNeeded(roi, image_buf, 1));
+    auto classifications = GetClassifications(od1);
+    ASSERT_EQ(classifications.size(), 1u);
+    GVA::Tensor restored(classifications[0].get());
+    EXPECT_EQ(restored.label(), "female");
+    EXPECT_EQ(restored.get_int("label_id", -1), 1);
+    EXPECT_NEAR(restored.confidence(), 0.9, 1e-6);
+    EXPECT_EQ(restored.get_string("semantic_tag"), "gender_model");
 
-    ASSERT_NO_THROW(classification_history->FillROIParams(image_buf));
+    // legacy GstVideoRegionOfInterestMeta param is restored as well (still used by e.g. gvametaconvert)
+    const GstStructure *legacy = gst_video_region_of_interest_meta_get_param(roi1, gst_structure_get_name(tensor.get()));
+    ASSERT_NE(legacy, nullptr);
+    EXPECT_STREQ(gst_structure_get_string(legacy, "label"), "female");
+    gint frames_ago = -1;
+    EXPECT_TRUE(gst_structure_get_int(legacy, "frames_ago", &frames_ago));
+    EXPECT_EQ(frames_ago, 1);
 
-    state = nullptr;
-    roi = nullptr;
-    od_meta = {0, nullptr};
-    GstStructure *output_params = nullptr;
+    gst_buffer_unref(frame0);
+    gst_buffer_unref(frame1);
+}
 
-    ret = gst_analytics_relation_meta_iterate(relation_meta, &state, gst_analytics_od_mtd_get_mtd_type(), &od_meta);
-    ASSERT_TRUE(ret);
+TEST_F(ClassificationHistoryTest, FillROIParams_pending_reclassification_test) {
+    // Input side of the element runs ahead of the output side (asynchronous inference). Objects scheduled
+    // for reclassification on later frames must not affect results restored for earlier frames.
+    gva_classify->reclassify_interval = 2;
+    const int object_id = 7;
+    GstStructureUniquePtr result_a(MakeClassificationTensor("male", 0, 0.6), gst_structure_free);
+    GstStructureUniquePtr result_b(MakeClassificationTensor("female", 1, 0.7), gst_structure_free);
 
-    if ((roi = gst_buffer_get_video_region_of_interest_meta_id(image_buf, od_meta.id))) {
-        output_params = gst_video_region_of_interest_meta_get_param(roi, structure_name.c_str());
-    }
+    std::vector<GstBuffer *> frames;
+    for (int i = 0; i < 4; ++i)
+        frames.push_back(SetUpBuffer(test_data["female"], object_id));
+    auto roi_of = [&](int i) {
+        return gst_buffer_get_video_region_of_interest_meta_id(frames[i], GetFirstOD(frames[i]).id);
+    };
 
-    ASSERT_FALSE(output_params == nullptr);
+    // input side: frames 0..3
+    ASSERT_TRUE(classification_history->IsROIClassificationNeeded(roi_of(0), frames[0], 0));
+    ASSERT_FALSE(classification_history->IsROIClassificationNeeded(roi_of(1), frames[1], 1));
+    ASSERT_TRUE(classification_history->IsROIClassificationNeeded(roi_of(2), frames[2], 2));
+    ASSERT_FALSE(classification_history->IsROIClassificationNeeded(roi_of(3), frames[3], 3));
+
+    // output side: frame 0 classified with result A
+    classification_history->UpdateROIParams(frames[0], *roi_of(0), {result_a.get()});
+    classification_history->FillROIParams(frames[0]);
+    EXPECT_TRUE(GetClassifications(GetFirstOD(frames[0])).empty());
+
+    // frame 1 gets result A although reclassification on frame 2 has already been scheduled
+    classification_history->FillROIParams(frames[1]);
+    auto frame1_results = GetClassifications(GetFirstOD(frames[1]));
+    ASSERT_EQ(frame1_results.size(), 1u);
+    EXPECT_EQ(GVA::Tensor(frame1_results[0].get()).label(), "male");
+
+    // frame 2 classified with result B
+    classification_history->UpdateROIParams(frames[2], *roi_of(2), {result_b.get()});
+    classification_history->FillROIParams(frames[2]);
+    EXPECT_TRUE(GetClassifications(GetFirstOD(frames[2])).empty());
+
+    // frame 3 gets result B
+    classification_history->FillROIParams(frames[3]);
+    auto frame3_results = GetClassifications(GetFirstOD(frames[3]));
+    ASSERT_EQ(frame3_results.size(), 1u);
+    EXPECT_EQ(GVA::Tensor(frame3_results[0].get()).label(), "female");
+
+    for (GstBuffer *frame : frames)
+        gst_buffer_unref(frame);
+}
+
+TEST_F(ClassificationHistoryTest, ReclassifyIntervalChange_clears_outdated_history_test) {
+    classification_history->GetHistory().put(1);
+    classification_history->GetHistory().put(2);
+
+    // history is up to date when switching between intervals greater than 1
+    g_object_set(gva_classify, "reclassify-interval", 5, NULL);
+    g_object_set(gva_classify, "reclassify-interval", 3, NULL);
+    ASSERT_EQ(classification_history->GetHistory().size(), 0u); // cleared on initial 1 -> 5 switch
+
+    classification_history->GetHistory().put(1);
+    g_object_set(gva_classify, "reclassify-interval", 4, NULL);
+    EXPECT_EQ(classification_history->GetHistory().size(), 1u);
+
+    // history is not maintained with interval 1, so it is outdated after switching back
+    g_object_set(gva_classify, "reclassify-interval", 1, NULL);
+    EXPECT_EQ(classification_history->GetHistory().size(), 1u);
+    g_object_set(gva_classify, "reclassify-interval", 2, NULL);
+    EXPECT_EQ(classification_history->GetHistory().size(), 0u);
 }
 
 TEST_F(ClassificationHistoryTest, ClassificationHistory_LRUCache_api_test) {
@@ -303,18 +419,15 @@ TEST_F(ClassificationHistoryTest, ClassificationHistory_LRUCache_api_test) {
     gint id1 = 1;
     std::string struct1 = "struct1";
     auto some_params1 = GstStructureSharedPtr(gst_structure_new_empty(struct1.c_str()), gst_structure_free);
-    gst_structure_set_name(some_params1.get(), struct1.c_str());
 
     gint id2 = 2;
     std::string struct2 = "struct2";
     auto some_params2 = GstStructureSharedPtr(gst_structure_new_empty(struct2.c_str()), gst_structure_free);
-    gst_structure_set_name(some_params2.get(), struct2.c_str());
-    ClassificationHistory::ROIClassificationHistory id2_history(2, {{std::string("layer2"), some_params2}});
+    ClassificationHistory::ROIClassificationHistory id2_history(2, 2, {{some_params2, {}}});
 
     std::string struct2_new = "struct2_new";
     auto some_params2_new = GstStructureSharedPtr(gst_structure_new_empty(struct2_new.c_str()), gst_structure_free);
-    gst_structure_set_name(some_params2_new.get(), struct2_new.c_str());
-    ClassificationHistory::ROIClassificationHistory id2_new_history(3, {{std::string("layer3"), some_params2_new}});
+    ClassificationHistory::ROIClassificationHistory id2_new_history(3, 3, {{some_params2_new, {}}});
 
     ASSERT_TRUE(history_lru_cache.count(id1) == 0);
     ASSERT_THROW(history_lru_cache.get(id1), std::runtime_error);
@@ -322,12 +435,13 @@ TEST_F(ClassificationHistoryTest, ClassificationHistory_LRUCache_api_test) {
     // put new object and fill later (put key with no value and set value later)
     history_lru_cache.put(id1);
     ASSERT_TRUE(history_lru_cache.count(id1) == 1);
-    history_lru_cache.get(id1).layers_to_roi_params["layer1"] = some_params1;
+    history_lru_cache.get(id1).results.push_back({some_params1, {}});
     history_lru_cache.get(id1).frame_of_last_update = 1;
 
     ClassificationHistory::ROIClassificationHistory id1_history_test = history_lru_cache.get(id1);
     ASSERT_EQ(id1_history_test.frame_of_last_update, 1);
-    ASSERT_EQ(id1_history_test.layers_to_roi_params["layer1"], some_params1);
+    ASSERT_EQ(id1_history_test.results.size(), 1u);
+    ASSERT_EQ(id1_history_test.results[0].tensor, some_params1);
 
     // put already filled object (put key and value)
     history_lru_cache.put(id2, id2_history);
@@ -335,7 +449,8 @@ TEST_F(ClassificationHistoryTest, ClassificationHistory_LRUCache_api_test) {
 
     ClassificationHistory::ROIClassificationHistory id2_history_test = history_lru_cache.get(id2);
     ASSERT_EQ(id2_history_test.frame_of_last_update, 2);
-    ASSERT_EQ(id2_history_test.layers_to_roi_params["layer2"], some_params2);
+    ASSERT_EQ(id2_history_test.results.size(), 1u);
+    ASSERT_EQ(id2_history_test.results[0].tensor, some_params2);
 
     // update existing object (update existing key with new value)
     history_lru_cache.put(id2, id2_new_history);
@@ -343,8 +458,9 @@ TEST_F(ClassificationHistoryTest, ClassificationHistory_LRUCache_api_test) {
 
     ClassificationHistory::ROIClassificationHistory id2_new_history_test = history_lru_cache.get(id2);
     ASSERT_EQ(id2_new_history_test.frame_of_last_update, 3);
-    ASSERT_EQ(id2_new_history_test.layers_to_roi_params.count("layer2"), 0);
-    ASSERT_EQ(id2_new_history_test.layers_to_roi_params["layer3"], some_params2_new);
+    ASSERT_EQ(id2_new_history_test.frame_of_last_result, 3u);
+    ASSERT_EQ(id2_new_history_test.results.size(), 1u);
+    ASSERT_EQ(id2_new_history_test.results[0].tensor, some_params2_new);
 }
 
 TEST_F(ClassificationHistoryTest, ClassificationHistory_LRUCache_size_test) {
@@ -371,7 +487,7 @@ TEST_F(ClassificationHistoryTest, ClassificationHistory_LRUCache_size_test) {
     std::string test_struct = "struct";
     auto some_params = GstStructureSharedPtr(gst_structure_new_empty(test_struct.c_str()), gst_structure_free);
     gst_structure_set_name(some_params.get(), test_struct.c_str());
-    ClassificationHistory::ROIClassificationHistory test_history(1, {{std::string("test_layer"), some_params}});
+    ClassificationHistory::ROIClassificationHistory test_history(1, 1, {{some_params, {}}});
 
     history_lru_cache.get(CLASSIFICATION_HISTORY_SIZE);
     history_lru_cache.put(CLASSIFICATION_HISTORY_SIZE, {});

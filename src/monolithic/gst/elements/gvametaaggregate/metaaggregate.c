@@ -87,6 +87,26 @@ GstFlowReturn aggregate_metas(GstGvaMetaAggregate *magg, GstBuffer *outbuf) {
     return GST_FLOW_OK;
 }
 
+/**
+ * Copies a single GstAnalytics metadata entry 'mtd' (which may belong to another buffer) into the relation
+ * meta 'dst' and returns the handle of the created copy in 'new_mtd'.
+ *
+ * Supported types: object detection, classification, group, tracking, keypoint, segmentation and tensor.
+ * Unknown types are skipped and FALSE is returned. The semantic tag is copied for all types.
+ *
+ * - Object detection bounding boxes and segmentation mask locations are scaled by 'scale_x' / 'scale_y'
+ *   (pass 1.0 to keep them unchanged). Coordinates are not translated, so copies keep positions of the
+ *   source frame. Keypoint positions are copied verbatim (not scaled).
+ * - Data buffers of tensor and segmentation metadata are not copied, the copy holds a new reference to them.
+ * - For a group, all members are copied recursively and added to the new group. If 'id_map' is provided,
+ *   it is used to reuse already copied members (shared between groups) and is filled with
+ *   "source member id -> new member id" mapping.
+ * - Relations of 'mtd' (to other metadata and between group members) are NOT copied - this is the
+ *   responsibility of the caller (see copy_all_gst_analytics_mtd).
+ *
+ * TODO: when copying a group, also restore relations between its members (e.g. RELATE_TO links between
+ * keypoints which form a skeleton). Currently only group membership is preserved.
+ */
 gboolean copy_one_gst_analytics_mtd(GstAnalyticsRelationMeta *dst, const GstAnalyticsMtd *mtd, GstAnalyticsMtd *new_mtd,
                                     gdouble scale_x, gdouble scale_y, GHashTable *id_map) {
     if (!dst || !mtd->meta) {
@@ -296,6 +316,19 @@ gboolean copy_one_gst_analytics_mtd(GstAnalyticsRelationMeta *dst, const GstAnal
     return TRUE;
 }
 
+/**
+ * Copies all GstAnalytics metadata from relation meta 'src' into relation meta 'dst', including relations
+ * between them.
+ *
+ * - Each top-level entry is copied with copy_one_gst_analytics_mtd (with 'scale_x' / 'scale_y' applied).
+ *   Entries which are members of a group are not copied separately, they are copied together with their group.
+ * - Tracking metadata is skipped (it is not copied, and relations to it are dropped).
+ * - 'id_map' must be a valid hash table. It is filled with "source id -> new id" mapping of all copied entries
+ *   and then used to recreate relations: for every copied entry, each relation to another copied entry is set
+ *   in 'dst' with the same relation type. Relations to entries which were not copied are skipped.
+ *
+ * Returns FALSE if any entry or relation could not be copied ('dst' may then contain a partial copy).
+ */
 gboolean copy_all_gst_analytics_mtd(GstAnalyticsRelationMeta *src, GstAnalyticsRelationMeta *dst, GHashTable *id_map,
                                     gdouble scale_x, gdouble scale_y) {
     if (!src || !dst || !id_map) {

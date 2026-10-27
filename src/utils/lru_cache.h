@@ -75,4 +75,9 @@ class LRUCache {
     size_t size() const {
         return keys.size();
     }
+
+    void clear() {
+        keys.clear();
+        lru_values.clear();
+    }
 };
