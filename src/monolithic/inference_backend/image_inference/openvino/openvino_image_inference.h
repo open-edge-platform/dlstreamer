@@ -53,6 +53,9 @@ class OpenVINOImageInference : public InferenceBackend::ImageInference {
     // True if the NPU plugin/driver can consume strided input tensors (NPU_ENABLE_STRIDES_FOR).
     static bool IsNpuStridedInputSupported();
 
+    // Batch size the backend uses when batch-size is 0 (auto): ov::optimal_batch_size, or 1 if not supported.
+    static int GetDeviceOptimalBatchSize(const std::string &device);
+
     bool IsQueueFull() override;
 
     void Flush() override;

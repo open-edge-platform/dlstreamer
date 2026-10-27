@@ -848,13 +848,8 @@ class OpenVinoNewApiImpl {
         }
 
         _batch_size = config.batch_size();
-        if (_batch_size == 0) {
-            try {
-                _batch_size = core().get_property(config.device(), ov::optimal_batch_size);
-            } catch (...) {
-                _batch_size = 1; // Fallback if optimal batch size property is not supported
-            }
-        }
+        if (_batch_size == 0)
+            _batch_size = OpenVINOImageInference::GetDeviceOptimalBatchSize(config.device());
 
         _batch_timeout = config.batch_timeout();
 
@@ -1649,6 +1644,14 @@ bool OpenVINOImageInference::IsNpuStridedInputSupported() {
     } catch (const std::exception &e) {
         GVA_WARNING("Could not query NPU supported properties: %s", e.what());
         return false;
+    }
+}
+
+int OpenVINOImageInference::GetDeviceOptimalBatchSize(const std::string &device) {
+    try {
+        return static_cast<int>(OpenVinoNewApiImpl::core().get_property(device, ov::optimal_batch_size));
+    } catch (...) {
+        return 1; // Fallback if optimal batch size property is not supported
     }
 }
 

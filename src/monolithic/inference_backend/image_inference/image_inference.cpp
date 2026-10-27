@@ -31,10 +31,25 @@ ImagePreprocessorType getPreProcType(const std::map<std::string, std::string> &b
 // only read as a fallback. The GPU requires a 64-byte aligned row pitch, so for other widths the
 // DMA-BUF rows are padded and the NPU must support strided input tensors. Returns false (which keeps
 // the pipeline on the plain SYSTEM-memory path) if the width cannot be determined or the padded
-// layout cannot be consumed by the NPU.
-bool isNpuZeroCopyLayoutSupported(const InferenceConfig &config) {
+// layout cannot be consumed by the NPU, or if the model is batched (batch-size > 1).
+bool isNpuZeroCopyInputSupported(const InferenceConfig &config) {
     try {
         const auto &base_config = config.at(KEY_BASE);
+
+        // Resolve the effective model batch size the same way as the OpenVINO backend: 0 means auto
+        // (device optimal batch size), and auto-batching (batch timeout set) keeps the model at batch 1.
+        int batch_size = std::stoi(base_config.at(KEY_BATCH_SIZE));
+        const auto inf_it = config.find(KEY_INFERENCE);
+        const bool auto_batching = inf_it != config.end() && inf_it->second.count(ov::auto_batch_timeout.name()) &&
+                                   std::stoi(inf_it->second.at(ov::auto_batch_timeout.name())) > -1;
+        if (auto_batching)
+            batch_size = 1;
+        else if (batch_size == 0)
+            batch_size = OpenVINOImageInference::GetDeviceOptimalBatchSize(base_config.at(KEY_DEVICE));
+        if (batch_size > 1) {
+            GVA_WARNING("NPU zero-copy: batch-size %d is not supported, only batch-size 1 is", batch_size);
+            return false;
+        }
 
         uint32_t width = 0;
         uint32_t height = 0;
@@ -98,7 +113,7 @@ bool isNpuZeroCopyLayoutSupported(const InferenceConfig &config) {
                     width, DMA_BUF_PITCH_ALIGNMENT);
         return false;
     } catch (const std::exception &e) {
-        GVA_WARNING("NPU zero-copy layout check failed, zero-copy will be disabled: %s", e.what());
+        GVA_WARNING("NPU zero-copy input check failed, zero-copy will be disabled: %s", e.what());
         return false;
     }
 }
@@ -164,17 +179,18 @@ ImageInference::Ptr ImageInference::createImageInferenceInstance(MemoryType inpu
             // which deadlocks inference.
 
             // Enable zero-copy for NPU on PTL series CPUs
-            // if (Utils::isCPUPTLHSeries(false))
             {
+                // if (Utils::isCPUPTLHSeries(false)) {
                 if (isNpu) {
                     if (access("/dev/dma_heap/system", R_OK | W_OK) != 0) {
                         GVA_WARNING("Falling back to the slow NPU path (extra GPU->CPU->NPU copies): no access to "
                                     "DMA-BUF. To enable zero-copy, grant access to /dev/dma_heap/system, e.g. "
                                     "'sudo chgrp video /dev/dma_heap/system && sudo chmod 660 /dev/dma_heap/system'.");
-                    } else if (!isNpuZeroCopyLayoutSupported(config)) {
-                        GVA_WARNING("Falling back to the slow NPU path (extra GPU->CPU->NPU copies): the zero-copy "
-                                    "DMA-BUF layout is not supported by the NPU. Use a model input width that is a "
-                                    "multiple of 64 or an NPU driver with strided input support.");
+                    } else if (!isNpuZeroCopyInputSupported(config)) {
+                        GVA_WARNING("Falling back to the slow NPU path (extra GPU->CPU->NPU copies): the model input "
+                                    "cannot be fed to the NPU as a zero-copy DMA-BUF. Use batch-size=1 and a "
+                                    "model input width that is a multiple of 64 or an NPU driver with strided input "
+                                    "support.");
                     } else {
                         memory_type_to_use = MemoryType::DMA_BUFFER;
                         GVA_WARNING("NPU zero-copy enabled.");
