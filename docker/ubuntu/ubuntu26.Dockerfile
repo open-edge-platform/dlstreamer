@@ -82,6 +82,9 @@ RUN \
 # bindings for Python 3.11-3.13 while Ubuntu 26.04 provides Python 3.14 by default.
 RUN \
     apt-get update && \
+    apt-get install -y -q --no-install-recommends software-properties-common=\* && \
+    add-apt-repository -y ppa:deadsnakes/ppa && \
+    apt-get update && \
     apt-get install -y -q --no-install-recommends \
     python3.13=\* \
     python3.13-venv=\* \
@@ -622,10 +625,15 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/b
 # (.so files built for cpython-311/312/313 only).
 RUN \
     apt-get update && \
+    apt-get install -y -q --no-install-recommends software-properties-common=\* && \
+    add-apt-repository -y ppa:deadsnakes/ppa && \
+    apt-get update && \
     apt-get install -y -q --no-install-recommends \
     python3.13=\* \
-    python3.13-venv=\* && \
+    python3.13-venv=\* \
+    python3.13-dev=\* && \
     apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
     rm -rf /var/lib/apt/lists/*
 
 # Install onvif-zeep and remaining Python dependencies.
