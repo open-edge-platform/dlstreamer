@@ -1,5 +1,55 @@
+From 2299dabbaa39ba360d4bd19e1aeb15a4e5fa329f Mon Sep 17 00:00:00 2001
+From: Oskar Fiedot <oskar.fiedot@intel.com>
+Date: Tue, 27 Oct 2026 01:20:43 +0000
+Subject: [PATCH 20/23] analytics: adding group mtd
+
+analytics: fix annotation GstAnalyticsRelationMeta
+
+- gst_analytics_relation_meta_exist() can retrieve relation path. Annotation
+  should be (inout) as it can re-use allocated array. This would cause a crash
+  when using this api in python.
+
+Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/10551>
+
+(cherry picked from commit 80ff62731e59a609cc22130547d657271c5de5c5)
+
+analytics: adding group mtd
+
+- Adding GstAnalyticsGroupMtd that allow to group Mtd. The grouping can have a
+  specific semantic or not.
+- Adding KeypointMtd which is a new Mtd allowing to specify a location in the
+  image. Keypoits can be grouped according to a specific semantic (like
+  hand-21-kp) that represent the joints of a human hand.
+
+Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/10551>
+
+(cherry picked from commit ce13ec190c77ac15f0aed52bb8d693a1b394b39d)
+
+gst-python: overrides for GroupMtd and KeypointMtd
+
+- New iterator for GroupMtd members
+
+Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/10551>
+
+(cherry picked from commit ca7af3b5d76c314915f25b6149bce47de036f4c7)
+---
+ .../gst-libs/gst/analytics/analytics.h        |   2 +
+ .../gst/analytics/gstanalyticsgroupmtd.c      | 523 ++++++++++++++++
+ .../gst/analytics/gstanalyticsgroupmtd.h      |  90 +++
+ .../gst/analytics/gstanalyticskeypointmtd.c   | 559 ++++++++++++++++++
+ .../gst/analytics/gstanalyticskeypointmtd.h   | 138 +++++
+ .../gst-libs/gst/analytics/gstanalyticsmeta.c |   2 +-
+ .../gst-libs/gst/analytics/meson.build        |   4 +
+ .../gst-python/gi/overrides/GstAnalytics.py   |  29 +
+ .../gi/overrides/gstanalyticsmodule.c         | 137 +++++
+ 9 files changed, 1483 insertions(+), 1 deletion(-)
+ create mode 100644 subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsgroupmtd.c
+ create mode 100644 subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsgroupmtd.h
+ create mode 100644 subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticskeypointmtd.c
+ create mode 100644 subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticskeypointmtd.h
+
 diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/analytics.h b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/analytics.h
-index 7363cd6b6a..46602a4839 100644
+index 7363cd6b6ab..46602a48396 100644
 --- a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/analytics.h
 +++ b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/analytics.h
 @@ -31,6 +31,8 @@
@@ -13,10 +63,10 @@ index 7363cd6b6a..46602a4839 100644
  #include <gst/analytics/gstanalyticsbatchmeta.h>
 diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsgroupmtd.c b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsgroupmtd.c
 new file mode 100644
-index 0000000000..1100bc89ab
+index 00000000000..f67078196f6
 --- /dev/null
 +++ b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsgroupmtd.c
-@@ -0,0 +1,427 @@
+@@ -0,0 +1,523 @@
 +/* GStreamer
 + * Copyright (C) 2025 Collabora Ltd
 + *  @author: Daniel Morin <daniel.morin@collabora.com>
@@ -64,6 +114,8 @@ index 0000000000..1100bc89ab
 +
 +/*
 + * GstAnalyticsGroupMtdData:
++ * @semantic_tag: Semantic meaning of this grouping where a value of NULL means
++ *    no semantic is defined for the group.
 + * @members_len: Number of allocated member slots
 + * @members_count: Number of assigned member slot
 + * @members_allocated: TRUE if members was dynamically allocated, FALSE if using inplace storage
@@ -77,6 +129,7 @@ index 0000000000..1100bc89ab
 + */
 +struct _GstAnalyticsGroupMtdData
 +{
++  GstIdStr semantic_tag;
 +  gsize members_len;
 +  gsize members_count;
 +  gboolean members_allocated;
@@ -108,6 +161,58 @@ index 0000000000..1100bc89ab
 +gst_analytics_group_mtd_get_mtd_type (void)
 +{
 +  return (GstAnalyticsMtdType) & group_impl;
++}
++
++/**
++ * gst_analytics_group_mtd_has_semantic_tag:
++ * @handle: handle
++ * @tag: tag string to compare against
++ *
++ * Check if the group's semantic tag matches @tag. An empty or unset tag never
++ * matches.
++ *
++ * Returns: %TRUE if the group's semantic tag equals @tag.
++ *
++ * Since: 1.30
++ */
++gboolean
++gst_analytics_group_mtd_has_semantic_tag (const GstAnalyticsGroupMtd * handle,
++    const gchar * tag)
++{
++  GstAnalyticsGroupMtdData *mtddata;
++  g_return_val_if_fail (handle, FALSE);
++  g_return_val_if_fail (tag, FALSE);
++
++  mtddata = gst_analytics_relation_meta_get_mtd_data (handle->meta, handle->id);
++  g_return_val_if_fail (mtddata != NULL, FALSE);
++
++  return gst_id_str_is_equal_to_str (&mtddata->semantic_tag, tag);
++}
++
++/**
++ * gst_analytics_group_mtd_semantic_tag_has_prefix:
++ * @handle: handle
++ * @prefix: prefix string to test against
++ *
++ * Check if the group's semantic tag starts with @prefix. An empty or unset tag
++ * never matches.
++ *
++ * Returns: %TRUE if the group's semantic tag starts with @prefix.
++ *
++ * Since: 1.30
++ */
++gboolean
++gst_analytics_group_mtd_semantic_tag_has_prefix (const GstAnalyticsGroupMtd *
++    handle, const gchar * prefix)
++{
++  GstAnalyticsGroupMtdData *mtddata;
++  g_return_val_if_fail (handle, FALSE);
++  g_return_val_if_fail (prefix, FALSE);
++
++  mtddata = gst_analytics_relation_meta_get_mtd_data (handle->meta, handle->id);
++  g_return_val_if_fail (mtddata != NULL, FALSE);
++
++  return g_str_has_prefix (gst_id_str_as_str (&mtddata->semantic_tag), prefix);
 +}
 +
 +/**
@@ -264,6 +369,7 @@ index 0000000000..1100bc89ab
 +    group_mtd_data->members = g_malloc_n (pre_alloc_size, sizeof (guint));
 +    group_mtd_data->members_count = 0;
 +    group_mtd_data->members_allocated = TRUE;
++    gst_id_str_init (&group_mtd_data->semantic_tag);
 +  } else {
 +    return FALSE;
 +  }
@@ -304,6 +410,7 @@ index 0000000000..1100bc89ab
 +    group_data->members_count = 0;
 +    group_data->members = group_data->members_inplace;
 +    group_data->members_allocated = FALSE;
++    gst_id_str_init (&group_data->semantic_tag);
 +  } else {
 +    return FALSE;
 +  }
@@ -384,6 +491,38 @@ index 0000000000..1100bc89ab
 +}
 +
 +/**
++ * gst_analytics_group_mtd_set_semantic_tag:
++ * @handle: handle of #GstAnalyticsMtd where to set semantic_tag
++ * @tag: (nullable): string representing a semantic type of grouping, or %NULL
++ *   to clear the tag
++ *
++ * Set grouping semantic tag. This gives a context to understand the grouping.
++ * For example "hand-21-kp", "human-pose-17-kp" that give a specific context
++ * allowing to understand the grouping semantic. Pass %NULL to clear the tag.
++ *
++ * Returns: TRUE is semantic_tag was set successfully
++ *
++ * Since: 1.30
++ */
++gboolean
++gst_analytics_group_mtd_set_semantic_tag (GstAnalyticsGroupMtd * handle,
++    const gchar * tag)
++{
++  g_return_val_if_fail (handle, FALSE);
++
++  GstAnalyticsGroupMtdData *group_data =
++      gst_analytics_relation_meta_get_mtd_data (handle->meta, handle->id);
++  g_return_val_if_fail (group_data != NULL, FALSE);
++
++  if (tag)
++    gst_id_str_set (&group_data->semantic_tag, tag);
++  else
++    gst_id_str_clear (&group_data->semantic_tag);
++
++  return TRUE;
++}
++
++/**
 + * gst_analytics_relation_meta_get_group_mtd:
 + * @meta: Instance of #GstAnalyticsRelationMeta
 + * @an_meta_id: Id of #GstAnalyticsGroupMtd instance to retrieve
@@ -412,6 +551,11 @@ index 0000000000..1100bc89ab
 +  dst_data =
 +      gst_analytics_relation_meta_get_mtd_data (transmtd->meta, transmtd->id);
 +  g_return_val_if_fail (dst_data != NULL, FALSE);
++
++  GstIdStr tmp = GST_ID_STR_INIT;
++  gst_id_str_copy_into (&tmp, &dst_data->semantic_tag);
++  gst_id_str_init (&dst_data->semantic_tag);
++  gst_id_str_move (&dst_data->semantic_tag, &tmp);
 +
 +  /* For dynamically allocated members we need to make an independent copy.
 +   * For in-place storage, fix up the pointer to the new location since it
@@ -443,13 +587,15 @@ index 0000000000..1100bc89ab
 +  if (groupdata->members_allocated) {
 +    g_free (groupdata->members);
 +  }
++
++  gst_id_str_clear (&groupdata->semantic_tag);
 +}
 diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsgroupmtd.h b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsgroupmtd.h
 new file mode 100644
-index 0000000000..b52efbda1e
+index 00000000000..dce63b5a81b
 --- /dev/null
 +++ b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsgroupmtd.h
-@@ -0,0 +1,78 @@
+@@ -0,0 +1,90 @@
 +/* GStreamer
 + * Copyright (C) 2025 Collabora Ltd
 + *  @author: Daniel Morin <daniel.morin@collabora.com>
@@ -499,6 +645,14 @@ index 0000000000..b52efbda1e
 +GstAnalyticsMtdType gst_analytics_group_mtd_get_mtd_type (void);
 +
 +GST_ANALYTICS_META_API
++gboolean gst_analytics_group_mtd_has_semantic_tag (const GstAnalyticsGroupMtd *
++    handle, const gchar * tag);
++
++GST_ANALYTICS_META_API
++gboolean gst_analytics_group_mtd_semantic_tag_has_prefix (const GstAnalyticsGroupMtd *
++    handle, const gchar * prefix);
++
++GST_ANALYTICS_META_API
 +gsize gst_analytics_group_mtd_get_member_count (const GstAnalyticsGroupMtd *
 +    handle);
 +
@@ -523,6 +677,10 @@ index 0000000000..b52efbda1e
 +    guint an_meta_id);
 +
 +GST_ANALYTICS_META_API
++gboolean gst_analytics_group_mtd_set_semantic_tag (GstAnalyticsGroupMtd * handle,
++    const char * tag);
++
++GST_ANALYTICS_META_API
 +gboolean gst_analytics_relation_meta_get_group_mtd (GstAnalyticsRelationMeta * meta,
 +    guint an_meta_id, GstAnalyticsGroupMtd * rlt);
 +
@@ -530,7 +688,7 @@ index 0000000000..b52efbda1e
 +#endif /* __GST_ANALYTICS_GROUP_MTD_H__ */
 diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticskeypointmtd.c b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticskeypointmtd.c
 new file mode 100644
-index 0000000000..e19e59c1f1
+index 00000000000..5524ef5c253
 --- /dev/null
 +++ b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticskeypointmtd.c
 @@ -0,0 +1,559 @@
@@ -964,7 +1122,7 @@ index 0000000000..e19e59c1f1
 +  }
 +
 +  /* Set semantic tag */
-+  gst_analytics_mtd_set_semantic_tag (group_mtd, semantic_tag);
++  gst_analytics_group_mtd_set_semantic_tag (group_mtd, semantic_tag);
 +
 +  /* Allocate array to store keypoint IDs for skeleton processing */
 +  keypoint_ids = g_malloc_n (keypoint_count, sizeof (guint));
@@ -1095,7 +1253,7 @@ index 0000000000..e19e59c1f1
 +}
 diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticskeypointmtd.h b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticskeypointmtd.h
 new file mode 100644
-index 0000000000..f3c57d5313
+index 00000000000..f3c57d53136
 --- /dev/null
 +++ b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticskeypointmtd.h
 @@ -0,0 +1,138 @@
@@ -1238,164 +1396,10 @@ index 0000000000..f3c57d5313
 +
 +#endif /* __GST_ANALYTICS_KEYPOINT_MTD_H__ */
 diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsmeta.c b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsmeta.c
-index 39d770e3bf..178ed5917c 100644
+index 39d770e3bfc..48fa595eebc 100644
 --- a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsmeta.c
 +++ b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsmeta.c
-@@ -62,6 +62,7 @@ typedef struct
-   const GstAnalyticsMtdImpl *impl;
-   guint id;
-   gsize size;
-+  GstIdStr semantic_tag;
-   gpointer data[];
- } GstAnalyticsRelatableMtdData;
- 
-@@ -211,6 +212,121 @@ gst_analytics_mtd_type_get_name (GstAnalyticsMtdType type)
-     return impl->name;
- }
- 
-+/**
-+ * gst_analytics_mtd_set_semantic_tag:
-+ * @instance: Instance of #GstAnalyticsMtd
-+ * @tag: (nullable): string representing a semantic type, or %NULL to clear
-+ *   the tag
-+ *
-+ * Set semantic tag on any analytics metadata. This gives context to understand
-+ * the metadata. Pass %NULL to clear the tag.
-+ *
-+ * Returns: %TRUE if the semantic tag was set successfully.
-+ *
-+ * Since: 1.30
-+ */
-+gboolean
-+gst_analytics_mtd_set_semantic_tag (GstAnalyticsMtd * instance,
-+    const gchar * tag)
-+{
-+  GstAnalyticsRelatableMtdData *rlt;
-+
-+  g_return_val_if_fail (instance, FALSE);
-+
-+  rlt = gst_analytics_relation_meta_get_mtd_data_internal (instance->meta,
-+      instance->id);
-+  g_return_val_if_fail (rlt != NULL, FALSE);
-+
-+  if (tag)
-+    gst_id_str_set (&rlt->semantic_tag, tag);
-+  else
-+    gst_id_str_clear (&rlt->semantic_tag);
-+
-+  return TRUE;
-+}
-+
-+/**
-+ * gst_analytics_mtd_get_semantic_tag:
-+ * @instance: Instance of #GstAnalyticsMtd
-+ *
-+ * Get the semantic tag of the analytics metadata.
-+ *
-+ * Returns: (transfer full): A copy of the semantic tag string. Returns an
-+ *    empty string if no tag has been set. The caller must free the returned
-+ *    string with g_free() when no longer needed.
-+ *
-+ * Since: 1.30
-+ */
-+gchar *
-+gst_analytics_mtd_get_semantic_tag (const GstAnalyticsMtd * instance)
-+{
-+  GstAnalyticsRelatableMtdData *rlt;
-+
-+  g_return_val_if_fail (instance, NULL);
-+
-+  rlt = gst_analytics_relation_meta_get_mtd_data_internal (instance->meta,
-+      instance->id);
-+  g_return_val_if_fail (rlt != NULL, NULL);
-+
-+  return g_strdup (gst_id_str_as_str (&rlt->semantic_tag));
-+}
-+
-+/**
-+ * gst_analytics_mtd_has_semantic_tag:
-+ * @instance: Instance of #GstAnalyticsMtd
-+ * @tag: tag string to compare against
-+ *
-+ * Check if the metadata's semantic tag matches @tag. An empty or unset tag
-+ * never matches.
-+ *
-+ * Returns: %TRUE if the metadata's semantic tag equals @tag.
-+ *
-+ * Since: 1.30
-+ */
-+gboolean
-+gst_analytics_mtd_has_semantic_tag (const GstAnalyticsMtd * instance,
-+    const gchar * tag)
-+{
-+  GstAnalyticsRelatableMtdData *rlt;
-+
-+  g_return_val_if_fail (instance, FALSE);
-+  g_return_val_if_fail (tag, FALSE);
-+
-+  rlt = gst_analytics_relation_meta_get_mtd_data_internal (instance->meta,
-+      instance->id);
-+  g_return_val_if_fail (rlt != NULL, FALSE);
-+
-+  return gst_id_str_is_equal_to_str (&rlt->semantic_tag, tag);
-+}
-+
-+/**
-+ * gst_analytics_mtd_semantic_tag_has_prefix:
-+ * @instance: Instance of #GstAnalyticsMtd
-+ * @prefix: prefix string to test against
-+ *
-+ * Check if the metadata's semantic tag starts with @prefix. An empty or unset
-+ * tag never matches.
-+ *
-+ * Returns: %TRUE if the metadata's semantic tag starts with @prefix.
-+ *
-+ * Since: 1.30
-+ */
-+gboolean
-+gst_analytics_mtd_semantic_tag_has_prefix (const GstAnalyticsMtd * instance,
-+    const gchar * prefix)
-+{
-+  GstAnalyticsRelatableMtdData *rlt;
-+
-+  g_return_val_if_fail (instance, FALSE);
-+  g_return_val_if_fail (prefix, FALSE);
-+
-+  rlt = gst_analytics_relation_meta_get_mtd_data_internal (instance->meta,
-+      instance->id);
-+  g_return_val_if_fail (rlt != NULL, FALSE);
-+
-+  return g_str_has_prefix (gst_id_str_as_str (&rlt->semantic_tag), prefix);
-+}
-+
- /**
-  * gst_analytics_relation_get_length:
-  * @instance: Instance of #GstAnalyticsRelationMeta
-@@ -403,6 +519,15 @@ gst_analytics_relation_meta_transform (GstBuffer * transbuf,
- 
-     memcpy (dst_data, src_mtd_data->data, src_mtd_data->size);
- 
-+    /* Copy semantic tag from source to destination */
-+    {
-+      GstAnalyticsRelatableMtdData *dst_mtd_data =
-+          gst_analytics_relation_meta_get_mtd_data_internal (dst_rmeta,
-+          dst_mtd.id);
-+      gst_id_str_set (&dst_mtd_data->semantic_tag,
-+          gst_id_str_as_str (&src_mtd_data->semantic_tag));
-+    }
-+
-     if (src_mtd_data->impl->mtd_meta_transform) {
-       if (src_mtd_data->impl->mtd_meta_transform (transbuf, &dst_mtd, buffer,
-               type, data)) {
-@@ -463,6 +588,7 @@ gst_analytics_relation_meta_clear (GstBuffer * buffer, GstMeta * meta)
-       mtd.meta = rmeta;
-       rlt_mtd_data->impl->mtd_meta_clear (buffer, &mtd);
-     }
-+    gst_id_str_clear (&rlt_mtd_data->semantic_tag);
-   }
- 
-   gsize adj_mat_data_size =
-@@ -673,7 +799,7 @@ gst_analytics_relation_meta_set_relation (GstAnalyticsRelationMeta * meta,
+@@ -673,7 +673,7 @@ gst_analytics_relation_meta_set_relation (GstAnalyticsRelationMeta * meta,
   *    @an_meta_second_id.
   *    A value of 1 mean only only consider direct relation.
   * @cond_types: condition on relation types.
@@ -1404,102 +1408,8 @@ index 39d770e3bf..178ed5917c 100644
   *    (element-type gint):
   *    If not NULL this list will be filled with relation path between
   *    @an_meta_first_id and
-@@ -936,6 +1062,7 @@ gst_analytics_relation_meta_add_mtd (GstAnalyticsRelationMeta * meta,
-     dest->impl = impl;
-     dest->id = gst_analytics_relation_meta_get_next_id (meta);
-     dest->size = size;
-+    gst_id_str_init (&dest->semantic_tag);
-     meta->mtd_data_lookup[dest->id] = meta->offset;
-     meta->offset += object_size;
-     meta->length++;
-diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsmeta.h b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsmeta.h
-index a6e9ab816b..9add92f505 100644
---- a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsmeta.h
-+++ b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsmeta.h
-@@ -141,6 +141,22 @@ gsize gst_analytics_mtd_get_size (const GstAnalyticsMtd * instance);
- GST_ANALYTICS_META_API
- const gchar *gst_analytics_mtd_type_get_name (GstAnalyticsMtdType type);
- 
-+GST_ANALYTICS_META_API
-+gboolean gst_analytics_mtd_set_semantic_tag (GstAnalyticsMtd * instance,
-+    const gchar * tag);
-+
-+GST_ANALYTICS_META_API
-+gchar * gst_analytics_mtd_get_semantic_tag (const GstAnalyticsMtd *
-+    instance);
-+
-+GST_ANALYTICS_META_API
-+gboolean gst_analytics_mtd_has_semantic_tag (const GstAnalyticsMtd *
-+    instance, const gchar * tag);
-+
-+GST_ANALYTICS_META_API
-+gboolean gst_analytics_mtd_semantic_tag_has_prefix (const GstAnalyticsMtd *
-+    instance, const gchar * prefix);
-+
- typedef struct _GstAnalyticsRelationMetaInitParams
- GstAnalyticsRelationMetaInitParams;
- 
-diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsobjectdetectionmtd.c b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsobjectdetectionmtd.c
-index 0add38471c..39b547cb4e 100644
---- a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsobjectdetectionmtd.c
-+++ b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsobjectdetectionmtd.c
-@@ -114,6 +114,8 @@ gst_analytics_od_mtd_meta_transform (GstBuffer * transbuf,
-     oddata->y = rect.y;
-     oddata->w = rect.w;
-     oddata->h = rect.h;
-+
-+    return TRUE;
-   } else if (GST_VIDEO_META_TRANSFORM_IS_SCALE (type)) {
-     GstVideoMetaTransform *trans = data;
-     gint ow, oh, nw, nh;
-@@ -138,11 +140,14 @@ gst_analytics_od_mtd_meta_transform (GstBuffer * transbuf,
- 
-     oddata->h *= nh;
-     oddata->h /= oh;
--  } else {
--    return FALSE;
-+
-+    return TRUE;
-+  } else if (GST_META_TRANSFORM_IS_COPY (type)) {
-+    // Data already copied by generic transform function, nothing to do.
-+    return TRUE;
-   }
- 
--  return TRUE;
-+  return FALSE;
- }
- 
- static const GstAnalyticsMtdImpl od_impl = {
-diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticssegmentationmtd.c b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticssegmentationmtd.c
-index 7fb0a7cfe1..420c4c32fe 100644
---- a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticssegmentationmtd.c
-+++ b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticssegmentationmtd.c
-@@ -463,6 +463,8 @@ gst_analytics_segmentation_mtd_transform (GstBuffer * transbuf,
-     segdata->masks_loc_y = rect.y;
-     segdata->masks_loc_w = rect.w;
-     segdata->masks_loc_h = rect.h;
-+
-+    return TRUE;
-   } else if (GST_VIDEO_META_TRANSFORM_IS_SCALE (type)) {
-     GstVideoMetaTransform *trans = data;
-     gint ow, oh, nw, nh;
-@@ -484,9 +486,13 @@ gst_analytics_segmentation_mtd_transform (GstBuffer * transbuf,
-     segdata->masks_loc_h *= nh;
-     segdata->masks_loc_h /= oh;
- 
-+    return TRUE;
-+  } else if (GST_META_TRANSFORM_IS_COPY (type)) {
-+    // Data already copied by generic transform function, nothing to do.
-+    return TRUE;
-   }
- 
--  return TRUE;
-+  return FALSE;
- }
- 
- /**
 diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/meson.build b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/meson.build
-index b329d93cab..837be2914c 100644
+index b329d93cab6..837be2914c7 100644
 --- a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/meson.build
 +++ b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/meson.build
 @@ -3,6 +3,8 @@ analytics_sources = files( 'gstanalyticsmeta.c',
@@ -1520,94 +1430,11 @@ index b329d93cab..837be2914c 100644
                                'gstanalyticstensormtd.h',
                                'gstanalyticsbatchmeta.h',
                                'gsttensormeta.h',
-diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/modelinfo.c b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/modelinfo.c
-index af189ed8f9..92e3a66f18 100644
---- a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/modelinfo.c
-+++ b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/modelinfo.c
-@@ -773,7 +773,8 @@ gst_analytics_modelinfo_get_input_scales_offsets (GstAnalyticsModelInfo *
- 
-   *output_scales = NULL;
-   *output_offsets = NULL;
--  *num_output_ranges = 0;
-+  if (num_output_ranges)
-+    *num_output_ranges = 0;
- 
-   /* Get target ranges from modelinfo */
-   if (!gst_analytics_modelinfo_get_target_ranges (modelinfo, tensor_name,
-@@ -784,7 +785,7 @@ gst_analytics_modelinfo_get_input_scales_offsets (GstAnalyticsModelInfo *
-   }
- 
-   /* Validate that input ranges match target ranges */
--  if (num_input_ranges != num_target_ranges) {
-+  if (num_input_ranges != num_target_ranges && num_target_ranges != 1) {
-     GST_ERROR
-         ("Tensor '%s': number of input ranges (%zu) doesn't match number of "
-         "target ranges in modelinfo (%zu)", tensor_name, num_input_ranges,
-@@ -795,13 +796,18 @@ gst_analytics_modelinfo_get_input_scales_offsets (GstAnalyticsModelInfo *
-   }
- 
-   /* Allocate output arrays */
--  *output_scales = g_new (gdouble, num_target_ranges);
--  *output_offsets = g_new (gdouble, num_target_ranges);
-+  *output_scales = g_new (gdouble, num_input_ranges);
-+  *output_offsets = g_new (gdouble, num_input_ranges);
- 
-   /* Calculate scale and offset for each channel */
--  for (i = 0; i < num_target_ranges; i++) {
--    target_min = target_mins[i];
--    target_max = target_maxs[i];
-+  for (i = 0; i < num_input_ranges; i++) {
-+    if (num_target_ranges == 1) {
-+      target_min = target_mins[0];
-+      target_max = target_maxs[0];
-+    } else {
-+      target_min = target_mins[i];
-+      target_max = target_maxs[i];
-+    }
-     input_min = input_mins[i];
-     input_max = input_maxs[i];
- 
-@@ -820,7 +826,8 @@ gst_analytics_modelinfo_get_input_scales_offsets (GstAnalyticsModelInfo *
-         target_max, scale, offset);
-   }
- 
--  *num_output_ranges = num_target_ranges;
-+  if (num_output_ranges)
-+    *num_output_ranges = num_input_ranges;
-   g_free (target_mins);
-   g_free (target_maxs);
- 
 diff --git a/subprojects/gst-python/gi/overrides/GstAnalytics.py b/subprojects/gst-python/gi/overrides/GstAnalytics.py
-index b769d54513..14a57bb89b 100644
+index b769d545134..e8c8669d80c 100644
 --- a/subprojects/gst-python/gi/overrides/GstAnalytics.py
 +++ b/subprojects/gst-python/gi/overrides/GstAnalytics.py
-@@ -47,6 +47,25 @@ class Mtd(GstAnalytics.Mtd):
-             return False
-         return self.meta == other.meta and self.id == other.id
- 
-+    def _as_base_mtd(self):
-+        """Return a GstAnalytics.Mtd with the same id/meta so GIR methods on Mtd are reachable."""
-+        m = GstAnalytics.Mtd()
-+        m.id = self.id
-+        m.meta = self.meta
-+        return m
-+
-+    def set_semantic_tag(self, tag):
-+        return self._as_base_mtd().set_semantic_tag(tag)
-+
-+    def get_semantic_tag(self):
-+        return self._as_base_mtd().get_semantic_tag()
-+
-+    def has_semantic_tag(self, tag):
-+        return self._as_base_mtd().has_semantic_tag(tag)
-+
-+    def semantic_tag_has_prefix(self, prefix):
-+        return self._as_base_mtd().semantic_tag_has_prefix(prefix)
-+
-     def iter_direct_related(self, relation, mtd_type=GstAnalytics.Mtd):
-         if mtd_type != GstAnalytics.Mtd:
-             mtd_type = mtd_type.get_mtd_type()
-@@ -81,6 +100,9 @@ for c in dir(GstAnalytics):
+@@ -81,6 +81,9 @@ for c in dir(GstAnalytics):
  
  
  def _get_mtd(mtd_type, rmeta, mtd_id):
@@ -1617,13 +1444,13 @@ index b769d54513..14a57bb89b 100644
      res = __mtd_types__[mtd_type](rmeta, mtd_id)
      if not res[0]:
          raise Gst.AddError('Mtd with id={mtd_id} of rmeta={rmeta} is not known.')
-@@ -104,3 +126,29 @@ class RelationMeta(GstAnalytics.RelationMeta):
+@@ -104,3 +107,29 @@ class RelationMeta(GstAnalytics.RelationMeta):
  
  
  __all__.append('RelationMeta')
 +
 +
-+class GroupMtd(GstAnalytics.GroupMtd, Mtd):
++class GroupMtd(GstAnalytics.GroupMtd):
 +    def __iter__(self):
 +        return _gi_gst_analytics.AnalyticsGroupMtdIterator(sys.modules[__name__], self)
 +
@@ -1647,3 +1474,189 @@ index b769d54513..14a57bb89b 100644
 +KeypointDimensions_3D = getattr(GstAnalytics.KeypointDimensions, '3D')
 +
 +__all__.extend(['KeypointDimensions_2D', 'KeypointDimensions_3D'])
+diff --git a/subprojects/gst-python/gi/overrides/gstanalyticsmodule.c b/subprojects/gst-python/gi/overrides/gstanalyticsmodule.c
+index 75e34685e29..2772c871258 100644
+--- a/subprojects/gst-python/gi/overrides/gstanalyticsmodule.c
++++ b/subprojects/gst-python/gi/overrides/gstanalyticsmodule.c
+@@ -70,6 +70,17 @@ typedef struct
+   GstAnalyticsMtdType mtdtype;
+ } _GstAnalyticsMtdDirectRelatedIterator;
+ 
++typedef struct
++{
++  PyObject_HEAD PyObject *py_module;
++  PyObject *py_group;
++  PyObject *py_rmeta;
++  GstAnalyticsGroupMtd *group;
++  gpointer state;
++  gboolean ended;
++  GstAnalyticsMtdType filter;
++} _GstAnalyticsGroupMtdIterator;
++
+ static PyObject *
+ _gst_analytics_mtd_direct_related_iterator_new (PyTypeObject * type,
+     PyObject * args, PyObject * kwds)
+@@ -223,6 +234,82 @@ _gst_analytics_relation_meta_iterator_next (_GstAnalyticsRelationMetaIterator *
+   return py_result;
+ }
+ 
++static PyObject *
++_gst_analytics_group_mtd_iterator_new (PyTypeObject * type, PyObject * args,
++    PyObject * kwds)
++{
++  PyObject *py_module;
++  PyObject *py_group;
++  _GstAnalyticsGroupMtdIterator *self;
++  self = (_GstAnalyticsGroupMtdIterator *) type->tp_alloc (type, 0);
++  if (self != NULL) {
++
++    if (!PyArg_ParseTuple (args, "OO", &py_module, &py_group)) {
++      Py_DECREF (self);
++      return NULL;
++    }
++
++    self->py_module = py_module;
++    self->py_group = py_group;
++    self->py_rmeta = PyObject_GetAttrString (py_group, "meta");
++    self->state = NULL;
++    self->filter = GST_ANALYTICS_MTD_TYPE_ANY;
++    Py_INCREF (py_module);
++    Py_INCREF (py_group);
++    if (self->py_rmeta)
++      Py_INCREF (self->py_rmeta);
++    self->group = (GstAnalyticsGroupMtd *) (pygobject_get (py_group));
++    self->ended = FALSE;
++  }
++
++  return (PyObject *) self;
++}
++
++static void
++_gst_analytics_group_mtd_iterator_dtor (_GstAnalyticsGroupMtdIterator * self)
++{
++  Py_DECREF (self->py_group);
++  Py_DECREF (self->py_module);
++  if (self->py_rmeta)
++    Py_DECREF (self->py_rmeta);
++  Py_TYPE (self)->tp_free ((PyObject *) self);
++}
++
++static PyObject *
++_gst_analytics_group_mtd_iterator_next (_GstAnalyticsGroupMtdIterator * self)
++{
++  GstAnalyticsMtd mtd;
++  PyObject *py_mtd_id;
++  PyObject *py_mtd_type;
++  PyObject *py_args;
++  PyObject *py_func;
++  PyObject *py_result = NULL;
++
++  if (self->ended || !gst_analytics_group_mtd_iterate (self->group,
++          &self->state, self->filter, &mtd)) {
++
++    self->ended = TRUE;
++    return NULL;
++  }
++
++  py_mtd_type = PyLong_FromUnsignedLong (gst_analytics_mtd_get_mtd_type (&mtd));
++  py_mtd_id = PyLong_FromUnsignedLong (mtd.id);
++  py_args = PyTuple_Pack (3, py_mtd_type, self->py_rmeta, py_mtd_id);
++
++  py_func = PyObject_GetAttrString (self->py_module, "_get_mtd");
++
++  if (py_func) {
++    py_result = PyObject_Call (py_func, py_args, NULL);
++    Py_DECREF (py_func);
++  }
++
++  Py_DECREF (py_args);
++  Py_DECREF (py_mtd_id);
++  Py_DECREF (py_mtd_type);
++
++  return py_result;
++}
++
+ static PyObject *
+ _gi_gst_analytics_mtd_relation_path (PyObject * self, PyObject * args)
+ {
+@@ -281,6 +368,19 @@ static PyTypeObject GstAnalyticsMtdDirectRelatedIteratorType = {
+   .tp_dealloc = (destructor) _gst_analytics_mtd_direct_related_iterator_dtor
+ };
+ 
++static PyTypeObject GstAnalyticsGroupMtdIteratorType = {
++  PyVarObject_HEAD_INIT (NULL, 0)
++      .tp_name = "_gi_gst_analytics.AnalyticsGroupMtdIterator",
++  .tp_doc = "Iterator for Gst.AnalyticsGroupMtd",
++  .tp_basicsize = sizeof (_GstAnalyticsGroupMtdIterator),
++  .tp_itemsize = 0,
++  .tp_flags = Py_TPFLAGS_DEFAULT,
++  .tp_new = _gst_analytics_group_mtd_iterator_new,
++  .tp_iter = (getiterfunc) PyObject_SelfIter,
++  .tp_iternext = (iternextfunc) _gst_analytics_group_mtd_iterator_next,
++  .tp_dealloc = (destructor) _gst_analytics_group_mtd_iterator_dtor
++};
++
+ static PyObject *
+ _gi_gst_analytics_relation_meta_iterator_with_type_filter (PyObject * self,
+     PyObject * args)
+@@ -303,6 +403,28 @@ _gi_gst_analytics_relation_meta_iterator_with_type_filter (PyObject * self,
+   return iter;
+ }
+ 
++static PyObject *
++_gi_gst_analytics_group_mtd_iterator_with_type_filter (PyObject * self,
++    PyObject * args)
++{
++  PyObject *iter;
++  PyObject *py_group;
++  PyObject *py_module;
++  PyObject *py_args;
++  GstAnalyticsMtdType mtdtype;
++  if (!PyArg_ParseTuple (args, "OOk", &py_module, &py_group, &mtdtype)) {
++    return Py_None;
++  }
++
++  py_args = PyTuple_Pack (2, py_module, py_group);
++  iter =
++      _gst_analytics_group_mtd_iterator_new
++      (&GstAnalyticsGroupMtdIteratorType, py_args, NULL);
++  if (iter)
++    ((_GstAnalyticsGroupMtdIterator *) iter)->filter = mtdtype;
++  return iter;
++}
++
+ static PyMethodDef _gi_gst_analytics_functions[] = {
+   {"AnalyticsMtdRelationPath",
+         (PyCFunction) _gi_gst_analytics_mtd_relation_path,
+@@ -312,6 +434,10 @@ static PyMethodDef _gi_gst_analytics_functions[] = {
+         (PyCFunction) _gi_gst_analytics_relation_meta_iterator_with_type_filter,
+         METH_VARARGS,
+       "Return an iterator to iterate over specific Mtd type"},
++  {"AnalyticsGroupMtdIteratorWithMtdTypeFilter",
++        (PyCFunction) _gi_gst_analytics_group_mtd_iterator_with_type_filter,
++        METH_VARARGS,
++      "Return an iterator to iterate over specific Mtd type in a group"},
+   {NULL, NULL, 0, NULL}
+ };
+ 
+@@ -341,6 +467,17 @@ PYGLIB_MODULE_START (_gi_gst_analytics, "_gi_gst_analytics")
+     Py_DECREF (module);
+     return NULL;
+   }
++
++  if (PyType_Ready (&GstAnalyticsGroupMtdIteratorType) < 0)
++    return NULL;
++
++  Py_INCREF (&GstAnalyticsGroupMtdIteratorType);
++  if (PyModule_AddObject (module, "AnalyticsGroupMtdIterator", (PyObject *)
++          & GstAnalyticsGroupMtdIteratorType) < 0) {
++    Py_DECREF (&GstAnalyticsGroupMtdIteratorType);
++    Py_DECREF (module);
++    return NULL;
++  }
+ }
+ 
+ PYGLIB_MODULE_END;
+-- 
+2.43.0
+
