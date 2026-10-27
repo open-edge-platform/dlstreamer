@@ -82,6 +82,7 @@ void updateTensorNameIfNeeded(GstStructure *s, const std::string &default_name) 
 
 std::string resolveConverterName(const std::string &requested) {
     // model_type values from model_info metadata.
+    // The YOLO* names are also listed in convertYoloMeta2ModelApi() (model_api_converters.cpp); keep in sync.
     static const std::unordered_map<std::string, std::string> model_type_to_converter = {
         {"ssd", BoxesLabelsScoresConverter::getName()},      // Geti / Model API detection
         {"Classification", LabelConverter::getName()},       // Geti / Model API classification
