@@ -100,13 +100,10 @@ RUN \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Python 3.11 from deadsnakes PPA - needed because the OpenVINO since 2026.5.0 release
+# Install Python 3.11 - needed because the OpenVINO since 2026.5.0 release
 # only ships bindings for Python 3.11+ (cpython-311/312/313 .so files)
 # while Ubuntu 22.04 only provides Python 3.10 by default.
 RUN \
-    apt-get update && \
-    apt-get install -y -q --no-install-recommends software-properties-common=\* && \
-    add-apt-repository -y ppa:deadsnakes/ppa && \
     apt-get update && \
     apt-get install -y -q --no-install-recommends \
     python3.11=\* \
@@ -586,12 +583,10 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/b
 # load the OpenVINO Python bindings (.so files built for cpython-311+).
 RUN \
     apt-get update && \
-    apt-get install -y -q --no-install-recommends software-properties-common=\* && \
-    add-apt-repository -y ppa:deadsnakes/ppa && \
-    apt-get update && \
     apt-get install -y -q --no-install-recommends \
     python3.11=\* \
-    python3.11-venv=\* && \
+    python3.11-venv=\* \
+    python3.11-dev=\* && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
