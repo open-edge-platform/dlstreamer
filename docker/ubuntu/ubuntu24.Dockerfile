@@ -41,17 +41,10 @@
 # REALSENSE_VERSION       # RealSense
 # KAFKA_VERSION           # librdkafka
 ARG DOCKER_REGISTRY
-# OpenVINO Python API wheel version, used for build/test tooling in this
-# stage and for the Python API installed in the final image. The C++ runtime
-# used by DL Streamer itself comes from the OpenVINO GenAI archive instead
-# (see OPENVINO_GENAI_VERSION in the dlstreamer-dev stage), so keep the two
-# in sync manually when bumping versions.
-ARG OPENVINO_VERSION=2026.5.0.dev20261023
 FROM ${DOCKER_REGISTRY}ubuntu:24.04 AS builder
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG BUILD_ARG=Release
-ARG OPENVINO_VERSION
 
 LABEL description="This is the development image of Intel® Deep Learning Streamer (Intel® DL Streamer) Pipeline Framework"
 LABEL vendor="Intel Corporation"
@@ -148,10 +141,7 @@ RUN \
     pluggy==1.5.0 \
     exceptiongroup==1.2.2 \
     iniconfig==2.0.0 \
-    typing-extensions==4.15.0 && \
-    VIRTUAL_ENV=/python3venv uv pip install --no-cache-dir --no-deps \
-    --extra-index-url https://storage.openvinotoolkit.org/simple/wheels/nightly \
-    openvino==${OPENVINO_VERSION}
+    typing-extensions==4.15.0
 
 # hadolint ignore=DL3002
 USER root
@@ -378,7 +368,6 @@ FROM builder AS dlstreamer-dev
 
 ARG DLSTREAMER_VERSION=2026.3.0
 ARG DLSTREAMER_BUILD_NUMBER
-# DL Streamer development image and build proccess
 
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
@@ -403,6 +392,8 @@ WORKDIR /home/dlstreamer
 # runtime/lib/intel64 layout and setupvars.sh as the plain OpenVINO archive)
 # alongside the GenAI libraries, so installing it on its own is enough -
 # no separate OpenVINO Runtime archive download is needed.
+# The archive also contains Python bindings in python/openvino/ which are
+# made available via PYTHONPATH - no pip wheel installation needed.
 ARG OPENVINO_GENAI_VERSION=2026.5.0.0.dev20261023
 ARG OPENVINO_GENAI_VER=openvino_genai_ubuntu24_${OPENVINO_GENAI_VERSION}_x86_64
 ARG OPENVINO_GENAI_PKG=https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/${OPENVINO_GENAI_VERSION}/${OPENVINO_GENAI_VER}.tar.gz
@@ -429,7 +420,6 @@ RUN mkdir build
 
 WORKDIR $DLSTREAMER_DIR/build
 
-
 # DL Streamer environment variables
 ENV LIBDIR=${DLSTREAMER_DIR}/build/intel64/${BUILD_ARG}/lib
 ENV BINDIR=${DLSTREAMER_DIR}/build/intel64/${BUILD_ARG}/bin
@@ -444,7 +434,9 @@ ENV C_INCLUDE_PATH=/usr/local/include:${DLSTREAMER_DIR}/include:${DLSTREAMER_DIR
 ENV CPLUS_INCLUDE_PATH=/usr/local/include:${DLSTREAMER_DIR}/include:${DLSTREAMER_DIR}/include/dlstreamer/gst/metadata:${CPLUS_INCLUDE_PATH}
 ENV GST_PLUGIN_SCANNER=${GSTREAMER_DIR}/bin/gstreamer-1.0/gst-plugin-scanner
 ENV GI_TYPELIB_PATH=${GSTREAMER_DIR}/lib/girepository-1.0:${DLSTREAMER_DIR}/build/src/gst/metadata/
-ENV PYTHONPATH=${GSTREAMER_DIR}/lib/python3/dist-packages:${DLSTREAMER_DIR}/python:${DLSTREAMER_DIR}/scripts/optimizer:${PYTHONPATH}
+# OpenVINO Python bindings are provided from the GenAI archive via PYTHONPATH
+# The archive contains python/openvino/ with .so files for python3.11/3.12/3.13
+ENV PYTHONPATH=/opt/intel/openvino/python:${GSTREAMER_DIR}/lib/python3/dist-packages:${DLSTREAMER_DIR}/python:${DLSTREAMER_DIR}/scripts/optimizer:${PYTHONPATH}
 
 # Build DLStreamer
 # hadolint ignore=SC1091
@@ -533,7 +525,6 @@ ARG DOCKER_REGISTRY
 FROM ${DOCKER_REGISTRY}ubuntu:24.04 AS dlstreamer
 ARG DLSTREAMER_VERSION
 ARG DLSTREAMER_BUILD_NUMBER
-ARG OPENVINO_VERSION
 # Build final image for dlstreamer - using .deb packages for installation
 
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
@@ -576,28 +567,14 @@ RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.38.0
 
 WORKDIR /
 
-# OpenVINO GenAI (which bundles the full OpenVINO C++ runtime) is installed
-# here, alongside the DL Streamer .deb package, instead of being bundled
-# inside it. The archive already fetched/extracted in the dlstreamer-dev
-# stage is reused (no second download, and the exact binaries DL Streamer
-# was built/linked against), and its library directory is registered with
-# ldconfig so the DL Streamer plugins (which carry no RPATH and rely on the
-# default linker search path) can resolve libopenvino*/libopenvino_genai* at
-# runtime.
+# OpenVINO GenAI (which bundles the full OpenVINO C++ runtime and Python
+# bindings in python/openvino/ and python/openvino_genai/) is copied from
+# the dlstreamer-dev stage. No second download needed, and the exact same
+# binaries DL Streamer was built/linked against are reused.
+# Python bindings are exposed via PYTHONPATH - no pip install needed.
 COPY --from=dlstreamer-dev /opt/intel/openvino_genai /opt/intel/openvino_genai
 
-# Strip content that is never used at runtime by DL Streamer's GStreamer
-# plugins (which only need runtime/lib/*.so): Python bindings (the OpenVINO
-# Python API is installed separately below via pip, matching the system
-# Python's ABI), samples, docs, and devel-only headers/cmake config.
 RUN \
-    rm -rf \
-        /opt/intel/openvino_genai/python \
-        /opt/intel/openvino_genai/samples \
-        /opt/intel/openvino_genai/docs \
-        /opt/intel/openvino_genai/runtime/include \
-        /opt/intel/openvino_genai/runtime/cmake \
-        /opt/intel/openvino_genai/install_dependencies && \
     ln -s /opt/intel/openvino_genai /opt/intel/openvino && \
     echo "/opt/intel/openvino/runtime/lib/intel64" > /etc/ld.so.conf.d/openvino.conf && \
     ldconfig
@@ -614,27 +591,17 @@ RUN \
     rm -rf /var/lib/apt/lists/* && \
     rm -f /*.deb && \
     useradd -ms /bin/bash dlstreamer && \
-    # Scoped to the DL Streamer/third-party dirs only (not the whole /opt):
-    # recursing into /opt/intel/openvino_genai here would force a full
-    # copy-up of its ~370MB in this layer, even though nothing in it changed
-    # (its files are already world-readable, so dlstreamer can load them).
-    chown -R dlstreamer: /opt/intel/dlstreamer /opt/opencv /opt/librealsense /opt/rdkafka && \
-    chmod -R u+rw /opt/intel/dlstreamer /opt/opencv /opt/librealsense /opt/rdkafka
+    chown -R dlstreamer: /opt && \
+    chmod -R u+rw /opt
 
 RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
 
-# Install onvif-zeep Python package and the OpenVINO Python API.
-# NOTE: the OpenVINO C++ runtime libraries used by the DL Streamer GStreamer
-# plugins are installed separately above (alongside the .deb, via ldconfig),
-# not the Python bindings.
+# Install onvif-zeep and remaining Python dependencies.
 RUN \
     apt-get update && \
     apt-get install -y -q --no-install-recommends python3-pip=\* gcc=\* libcairo2-dev=\* libgirepository1.0-dev=\* && \
     uv pip install --system --no-cache-dir --break-system-packages onvif-zeep==0.2.12 && \
     uv pip install --system --no-cache-dir --break-system-packages -r /opt/intel/dlstreamer/requirements.txt && \
-    uv pip install --system --no-cache-dir --break-system-packages --no-deps \
-    --extra-index-url https://storage.openvinotoolkit.org/simple/wheels/nightly \
-    openvino==${OPENVINO_VERSION} && \
     apt-get remove -y gcc libcairo2-dev libgirepository1.0-dev && \
     apt-get autoremove -y && \
     cp -r /usr/local/lib/python3.12/site-packages/wsdl /usr/local/lib/python3.12/dist-packages/ && \
@@ -649,7 +616,10 @@ ENV LIBVA_DRIVERS_PATH=/usr/lib/x86_64-linux-gnu/dri
 ENV GST_VA_ALL_DRIVERS=1
 ENV MODEL_PROC_PATH=/opt/intel/dlstreamer/samples/gstreamer/model_proc
 ENV PATH=/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/bin:$PATH
-ENV PYTHONPATH=/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:
+# OpenVINO Python bindings (openvino + openvino_genai) from GenAI archive
+# added first in PYTHONPATH - archive contains python/openvino/ and
+# python/openvino_genai/ with .so files for python3.11/3.12/3.13
+ENV PYTHONPATH=/opt/intel/openvino/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:
 ENV TERM=xterm
 ENV GI_TYPELIB_PATH=/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/opt/intel/dlstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0
 
