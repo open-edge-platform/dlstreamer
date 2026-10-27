@@ -7,6 +7,10 @@ ROIs are processed in descending confidence order. Same-class detections with an
 intersection-over-union (IoU) above 0.5 are deduplicated, keeping the detection with the
 highest confidence.
 
+If an input buffer carries the marked shared ROI created by `gvaframeselect`, that ROI takes
+precedence over the detector boxes and produces one crop. In that case, target-class and
+confidence filtering has already been applied by `gvaframeselect`.
+
 | Property | Type | Range | Default | Description |
 |---|---|---|---|---|
 | `target-classes` | String | — | (empty) | Comma-separated detection labels to consider; an empty value allows all classes. |
@@ -29,7 +33,8 @@ When `target-classes` is set, only ROIs whose labels match one of the comma-sepa
 considered. Whitespace around labels is ignored.
 
 ```sh
-... ! gvaframeselect frame-budget=8 ! videoconvert ! video/x-raw,format=RGB ! \
+... ! gvaframeselect frame-budget=8 target-classes=person,vehicle confidence-threshold=0.5 ! \
+  videoconvert ! video/x-raw,format=RGB ! \
   gvaroiscale out-width=448 out-height=448 target-classes=person,vehicle ! gvagenai ...
 ```
 

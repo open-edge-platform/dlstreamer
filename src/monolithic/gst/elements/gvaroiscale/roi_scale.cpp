@@ -9,6 +9,8 @@
 #include <algorithm>
 #include <cstring>
 
+#include "aggregated_roi_meta.hpp"
+
 namespace gvaroiscale {
 namespace {
 
@@ -41,6 +43,28 @@ double intersection_over_union(const Roi &a, const Roi &b) {
 std::vector<Roi> collect_rois(GstBuffer *input_buffer, const GArray *target_classes, guint frame_width,
                               guint frame_height, float confidence_threshold) {
     std::vector<Roi> detections;
+    if (input_buffer && frame_width > 0 && frame_height > 0) {
+        gpointer meta_state = nullptr;
+        GstMeta *meta = nullptr;
+        const GQuark aggregated_roi_type = g_quark_from_static_string(dlstreamer::metadata::AGGREGATED_ROI_TYPE);
+        while ((meta = gst_buffer_iterate_meta_filtered(input_buffer, &meta_state,
+                                                        GST_VIDEO_REGION_OF_INTEREST_META_API_TYPE))) {
+            const auto *roi = reinterpret_cast<const GstVideoRegionOfInterestMeta *>(meta);
+            if (roi->roi_type != aggregated_roi_type || roi->w == 0 || roi->h == 0)
+                continue;
+
+            const gint64 left = std::max<gint64>(roi->x, 0);
+            const gint64 top = std::max<gint64>(roi->y, 0);
+            const gint64 right = std::min<gint64>(static_cast<gint64>(roi->x) + roi->w, frame_width);
+            const gint64 bottom = std::min<gint64>(static_cast<gint64>(roi->y) + roi->h, frame_height);
+            if (right > left && bottom > top) {
+                detections.push_back({aggregated_roi_type, 1.0f, static_cast<gint>(left), static_cast<gint>(top),
+                                      static_cast<gint>(right - left), static_cast<gint>(bottom - top)});
+                return detections;
+            }
+        }
+    }
+
     GstAnalyticsRelationMeta *relation_meta =
         input_buffer ? gst_buffer_get_analytics_relation_meta(input_buffer) : nullptr;
     if (!relation_meta || frame_width == 0 || frame_height == 0)

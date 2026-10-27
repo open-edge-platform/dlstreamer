@@ -22,6 +22,7 @@ target_include_directories(${TARGET_NAME} PUBLIC
     ${GSTREAMER_BASE_INCLUDE_DIRS}
     ${GSTREAMER_VIDEO_INCLUDE_DIRS}
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${DLSTREAMER_BASE_DIR}/src/monolithic/gst/common
 )
 
 target_link_libraries(${TARGET_NAME}

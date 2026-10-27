@@ -1,6 +1,6 @@
 # gvaframeselect Sample
 
-- `gvaframeselect` forwards a fixed budget of evenly spaced video frames from each input block. It can also save copies of the selected frames as JPEG images.
+- `gvaframeselect` selects evenly spaced frames from each input block, caches them until the frame budget is collected, computes a shared ROI, then forwards the selected buffers in order. It can also save copies of the selected frames as JPEG images.
 - This sample runs `gvadetect` with the supplied OpenVINO IR model, then selects up to eight frames from every 900-frame block. It saves selected frames as JPEG images and continues forwarding them to `fakesink`.
 
 ## Pipeline
@@ -42,7 +42,13 @@ The selection settings can also be passed explicitly using the same `--option va
     /path/to/video.mp4 /path/to/model.xml /path/to/output
 ```
 
+The element defaults to `target-classes=person,vehicle`, `confidence-threshold=0.5`, and
+`roi-padding=0`. When combining it with `gvaeventrecorder`, set the selector's confidence
+threshold to the same value configured on the recorder.
+
 For a full block of `N` frames and a budget of `k`, selected positions are evenly spaced from the first frame to the last. If `k=1`, only the first frame is selected; if `k >= N`, every frame is forwarded. The selection pattern restarts at each full block and when an input buffer has the `DISCONT` flag. A short final block uses the same pattern and is not recalculated for its shorter length.
+
+When used after `gvaeventrecorder`, the selector flushes a partial selection at `event=stop`. Set its `confidence-threshold` to the same value as the recorder; the property is configured independently and is not propagated automatically. The `target-classes` and `roi-padding` properties control which detections contribute to the shared ROI and how many pixels are added around it.
 
 ## Output
 
