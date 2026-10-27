@@ -597,7 +597,18 @@ WORKDIR /
 # runtime.
 COPY --from=dlstreamer-dev /opt/intel/openvino_genai /opt/intel/openvino_genai
 
+# Strip content that is never used at runtime by DL Streamer's GStreamer
+# plugins (which only need runtime/lib/*.so): Python bindings (the OpenVINO
+# Python API is installed separately below via pip, matching the system
+# Python's ABI), samples, docs, and devel-only headers/cmake config.
 RUN \
+    rm -rf \
+        /opt/intel/openvino_genai/python \
+        /opt/intel/openvino_genai/samples \
+        /opt/intel/openvino_genai/docs \
+        /opt/intel/openvino_genai/runtime/include \
+        /opt/intel/openvino_genai/runtime/cmake \
+        /opt/intel/openvino_genai/install_dependencies && \
     ln -s /opt/intel/openvino_genai /opt/intel/openvino && \
     echo "/opt/intel/openvino/runtime/lib/intel64" > /etc/ld.so.conf.d/openvino.conf && \
     ldconfig
@@ -614,8 +625,12 @@ RUN \
     rm -rf /var/lib/apt/lists/* && \
     rm -f /*.deb && \
     useradd -ms /bin/bash dlstreamer && \
-    chown -R dlstreamer: /opt && \
-    chmod -R u+rw /opt
+    # Scoped to the DL Streamer/third-party dirs only (not the whole /opt):
+    # recursing into /opt/intel/openvino_genai here would force a full
+    # copy-up of its ~370MB in this layer, even though nothing in it changed
+    # (its files are already world-readable, so dlstreamer can load them).
+    chown -R dlstreamer: /opt/intel/dlstreamer /opt/opencv /opt/librealsense /opt/rdkafka && \
+    chmod -R u+rw /opt/intel/dlstreamer /opt/opencv /opt/librealsense /opt/rdkafka
 
 RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
 
