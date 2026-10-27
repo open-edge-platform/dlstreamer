@@ -36,6 +36,7 @@
 #include <dlstreamer/gst/mappers/gst_to_d3d11.h>
 #endif
 
+#include "label_colors.h"
 #include "meta_extractor/meta_extractor.h"
 #include "renderer/color_converter.h"
 #include "renderer/cpu/create_renderer.h"
@@ -54,6 +55,7 @@
 #include <sstream>
 #include <string>
 #include <typeinfo>
+#include <unordered_map>
 #if !defined(ENABLE_VAAPI) || defined(_WIN32)
 // VAAPI disabled: provide minimal stub types/constants to satisfy signatures without libva.
 #ifndef VA_INVALID_SURFACE
@@ -87,15 +89,22 @@ typedef enum { DEVICE_CPU, DEVICE_GPU, DEVICE_GPU_AUTOSELECTED } DEVICE_SELECTOR
 
 namespace {
 
-const std::vector<Color> default_color_table = {
-    Color(255, 0, 0),   Color(0, 255, 0),   Color(0, 0, 255),   Color(255, 255, 0), Color(0, 255, 255),
-    Color(255, 0, 255), Color(255, 170, 0), Color(255, 0, 170), Color(0, 255, 170), Color(170, 255, 0),
-    Color(170, 0, 255), Color(0, 170, 255), Color(255, 85, 0),  Color(85, 255, 0),  Color(0, 255, 85),
-    Color(0, 85, 255),  Color(85, 0, 255),  Color(255, 0, 85),  Color{0, 0, 0},     Color{255, 255, 255}};
+const std::vector<Color> color_table = [] {
+    std::vector<Color> table;
+    table.reserve(label_colors::kPalette.size());
+    for (const auto &c : label_colors::kPalette)
+        table.emplace_back(c.r, c.g, c.b);
+    return table;
+}();
 
-// Reads a color table file: one color per line as R,G,B components in 0-255, separated by commas and/or spaces.
-// Text after '#' is a comment, empty lines are skipped.
-std::vector<Color> load_color_table(const std::string &path) {
+Color indexToColor(size_t index) {
+    return color_table[index % color_table.size()];
+}
+
+// Reads a color table file: one "label: R,G,B" entry per line, with color components in 0-255 separated by commas
+// and/or spaces. Labels are keyed by label_colors::normalize_label(), so they match the same way as the built-in label
+// colors. Text after '#' is a comment, empty lines are skipped.
+std::unordered_map<std::string, Color> load_color_table(const std::string &path) {
     if (!Utils::fileExists(path))
         throw std::invalid_argument("Color table file '" + path + "' does not exist");
     if (Utils::symLink(path))
@@ -104,25 +113,48 @@ std::vector<Color> load_color_table(const std::string &path) {
         throw std::invalid_argument("Color table file '" + path + "' size exceeds the allowable size (1 MB)");
 
     std::ifstream file(path);
-    std::vector<Color> colors;
+    std::unordered_map<std::string, Color> colors;
     std::string line;
     for (int line_number = 1; std::getline(file, line); line_number++) {
-        std::string values = line.substr(0, line.find('#'));
-        std::replace(values.begin(), values.end(), ',', ' ');
-        std::istringstream stream(values);
-        if ((stream >> std::ws).eof())
+        const std::string entry = line.substr(0, line.find('#'));
+        if ((std::istringstream(entry) >> std::ws).eof())
             continue;
 
+        auto fail = [&](const std::string &reason) {
+            throw std::invalid_argument("Color table file '" + path + "' line " + std::to_string(line_number) + ": " +
+                                        reason + ", got '" + line + "'");
+        };
+
+        // Colors never contain ':', so the last one separates the label from the color
+        const size_t separator = entry.rfind(':');
+        if (separator == std::string::npos)
+            fail("expected 'label: R,G,B'");
+        const std::string label = label_colors::normalize_label(entry.substr(0, separator));
+        if (label.empty())
+            fail("missing label");
+
+        std::string values = entry.substr(separator + 1);
+        std::replace(values.begin(), values.end(), ',', ' ');
+        std::istringstream stream(values);
         int r = -1, g = -1, b = -1;
         stream >> r >> g >> b;
         if (stream.fail() || !(stream >> std::ws).eof() || r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255)
-            throw std::invalid_argument("Color table file '" + path + "' line " + std::to_string(line_number) +
-                                        ": expected R,G,B with values from 0 to 255, got '" + line + "'");
-        colors.emplace_back(r, g, b);
+            fail("expected R,G,B with values from 0 to 255");
+
+        if (!colors.emplace(label, Color(r, g, b)).second)
+            fail("duplicate label");
     }
     if (colors.empty())
         throw std::invalid_argument("Color table file '" + path + "' contains no colors");
     return colors;
+}
+
+Color labelToColor(const std::string &label) {
+    return color_table[label_colors::label_to_palette_index(label)];
+}
+
+Color trackingIdToColor(int object_id) {
+    return color_table[label_colors::tracking_id_to_palette_index(object_id)];
 }
 
 void clip_rect(double &x, double &y, double &w, double &h, GstVideoInfo *info) {
@@ -190,7 +222,7 @@ struct Impl {
   private:
     void preparePrimsForRoi(GVA::RegionOfInterest &roi, std::vector<render::Prim> &prims) const;
     void preparePrimsForTensor(const GVA::Tensor &tensor, GVA::Rect<double> rect, std::vector<render::Prim> &prims,
-                               size_t color_index = 0) const;
+                               const Color &roi_color) const;
     void preparePrimsForKeypoints(const GVA::Tensor &tensor, GVA::Rect<double> rectangle,
                                   std::vector<render::Prim> &prims) const;
     void preparePrimsForKeypointConnections(GstStructure *s, const std::vector<float> &keypoints_data,
@@ -200,9 +232,7 @@ struct Impl {
     void parse_displ_config();
     inline bool is_ROI_filtered_out(const std::string &label) const;
     inline bool should_blur_roi(const std::string &label) const;
-    Color indexToColor(size_t index) const {
-        return _color_table[index % _color_table.size()];
-    }
+    Color objectColor(const std::string &label, int object_id) const;
 
     std::unique_ptr<Renderer> createRenderer(std::shared_ptr<ColorConverter> converter);
 
@@ -231,8 +261,8 @@ struct Impl {
     std::vector<render::Prim> prims;
 
     const double _radius_multiplier = 0.0025;
-    // Colors picked by label id, tracking id or point index (configurable via displ-cfg color-table)
-    std::vector<Color> _color_table = default_color_table;
+    // Object colors per normalized label (displ-cfg color-table), take precedence over the built-in colors
+    std::unordered_map<std::string, Color> _label_colors;
     Color _default_color = Color(0, 255, 0);
     // Position for full-frame text (configurable via displ-cfg text-x / text-y)
     cv::Point2f _ff_text_position = cv::Point2f(0, 25.f);
@@ -782,12 +812,16 @@ Impl::Impl(GstVideoInfo *info, InferenceBackend::MemoryType mem_type, GstElement
     // Treat unknown range as full range, the same way GStreamer (e.g. videoconvert) interprets it downstream
     bool full_range = colorimetry.range != GST_VIDEO_COLOR_RANGE_16_235;
 
-    // Parse display configuration, before the color converter is given the color table
+    // Parse display configuration, before the color converter is given the colors of the color table
     if (_displ_cfg)
         parse_displ_config();
 
     dlstreamer::ImageFormat format = dlstreamer::gst_format_to_video_format(GST_VIDEO_INFO_FORMAT(_vinfo));
-    _converter = create_color_converter(format, _color_table, Kr, Kb, full_range);
+    // Colors are converted once up front; the converters also handle colors outside this list
+    std::vector<Color> known_colors = color_table;
+    for (const auto &[label, color] : _label_colors)
+        known_colors.push_back(color);
+    _converter = create_color_converter(format, known_colors, Kr, Kb, full_range);
 
     _renderer = createRenderer(_converter);
 
@@ -868,7 +902,7 @@ bool Impl::extract_primitives(GstBuffer *buffer) {
     for (auto &tensor : video_frame.tensors()) {
         if (tensor.is_detection())
             continue;
-        preparePrimsForTensor(tensor, ff_rect, prims);
+        preparePrimsForTensor(tensor, ff_rect, prims, indexToColor(label_colors::RED));
         if (tensor.label().size() > 1) {
             appendStr(ff_text, tensor.label());
             if (tensor.confidence() > 0.0) {
@@ -1012,9 +1046,20 @@ inline bool Impl::should_blur_roi(const std::string &label) const {
                                                              : true;
 }
 
+Color Impl::objectColor(const std::string &label, int object_id) const {
+    if (!_label_colors.empty()) {
+        if (auto it = _label_colors.find(label_colors::normalize_label(label)); it != _label_colors.end())
+            return it->second;
+    }
+    if (object_id > 0)
+        return trackingIdToColor(object_id);
+    return labelToColor(label);
+}
+
 void Impl::preparePrimsForRoi(GVA::RegionOfInterest &roi, std::vector<render::Prim> &prims) const {
     if (!is_ROI_filtered_out(roi.label())) {
-        size_t color_index = roi.label_id();
+        const int object_id = roi.object_id();
+        const Color object_color = objectColor(roi.label(), object_id);
 
         auto rect_u32 = roi.rect();
         GVA::Rect<double> rect = {safe_convert<double>(rect_u32.x), safe_convert<double>(rect_u32.y),
@@ -1023,11 +1068,8 @@ void Impl::preparePrimsForRoi(GVA::RegionOfInterest &roi, std::vector<render::Pr
         clip_rect(rect.x, rect.y, rect.w, rect.h, _vinfo);
 
         std::ostringstream text;
-        const int object_id = roi.object_id();
-        if (object_id > 0) {
+        if (object_id > 0)
             text << object_id << ": ";
-            color_index = object_id;
-        }
 
         if (roi.label().size() > 1) {
             // Append label regardless of confidence , might be useful for the custom text labels.
@@ -1040,14 +1082,14 @@ void Impl::preparePrimsForRoi(GVA::RegionOfInterest &roi, std::vector<render::Pr
 
         // Prepare primitives for tensors
         for (auto &tensor : roi.tensors()) {
-            preparePrimsForTensor(tensor, rect, prims, color_index);
+            preparePrimsForTensor(tensor, rect, prims, object_color);
             if (!tensor.is_detection()) {
                 appendStr(text, tensor.label());
             }
         }
 
         // set color
-        Color color = indexToColor(color_index);
+        Color color = object_color;
         if (_displCfg.color_idx != DEFAULT_COLOR_IDX)
             color = _default_color;
 
@@ -1073,7 +1115,7 @@ void Impl::preparePrimsForRoi(GVA::RegionOfInterest &roi, std::vector<render::Pr
 }
 
 void Impl::preparePrimsForTensor(const GVA::Tensor &tensor, GVA::Rect<double> rect, std::vector<render::Prim> &prims,
-                                 size_t color_index) const {
+                                 const Color &roi_color) const {
     // landmarks rendering
     if (tensor.model_name().find("landmarks") != std::string::npos || tensor.format() == "landmark_points") {
         std::vector<float> data = tensor.data<float>();
@@ -1110,7 +1152,7 @@ void Impl::preparePrimsForTensor(const GVA::Tensor &tensor, GVA::Rect<double> re
         assert(dims.size() == 2);
         const cv::Size &mask_size{int(dims[0]), int(dims[1])};
         cv::Rect2f box(rect.x, rect.y, rect.w, rect.h);
-        Color color = indexToColor(color_index);
+        const Color &color = roi_color;
 
         if (!_obb) {
             // overlay mask on top of image pixels
@@ -1308,14 +1350,13 @@ void Impl::parse_displ_config() {
             }
             cfg.erase(iter);
         }
-        // Before color-idx, which picks an entry of the color table
         if (iter = cfg.find("color-table"); iter != cfg.end()) {
-            _color_table = load_color_table(iter->second);
+            _label_colors = load_color_table(iter->second);
             cfg.erase(iter);
         }
         if (iter = cfg.find("color-idx"); iter != cfg.end()) {
             int _color_idx = std::stoi(iter->second);
-            const int max_color_idx = static_cast<int>(_color_table.size()) - 1;
+            const int max_color_idx = static_cast<int>(color_table.size()) - 1;
             if (_color_idx >= 0 && _color_idx <= max_color_idx) {
                 _default_color = indexToColor(_color_idx);
                 _displCfg.color_idx = _color_idx;

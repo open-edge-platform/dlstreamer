@@ -70,11 +70,11 @@ enum { PROP_0, PROP_DEVICE, PROP_OBB, PROP_DISPL_AVGFPS, PROP_DISPL_CFG };
     "\t\t\tshow-labels=<bool> enable or disable displaying text labels, default true\n"                                \
     "\t\t\tfont-scale=<double 0.1 to 2.0> scale factor for text labels, default 0.5\n"                                 \
     "\t\t\tthickness=<uint 1 to 10> bounding box thickness, default 2\n"                                               \
-    "\t\t\tcolor-idx=<int> color-table entry for bounding box, keypoints, and text, default -1 (per-object colors). "  \
-    "Built-in table: 0 red, 1 green, 2 blue, 3 yellow, 4 cyan, 5 magenta, 6-17 intermediate hues, 18 black, 19 "       \
-    "white\n"                                                                                                          \
-    "\t\t\tcolor-table=<path> file with the colors picked by label id or tracking id, one R,G,B color (0 to 255) per " \
-    "line, '#' starts a comment, default built-in table of 20 colors\n"                                                \
+    "\t\t\tcolor-idx=<int> built-in color table entry for bounding box, keypoints, and text, default -1 (per-object "  \
+    "colors). Built-in table: 0 red, 1 green, 2 blue, 3 yellow, 4 cyan, 5 magenta, 6-17 intermediate hues, 18 "        \
+    "black, 19 white\n"                                                                                                \
+    "\t\t\tcolor-table=<path> file with object colors per label, one 'label: R,G,B' entry (0 to 255) per line, '#' "   \
+    "starts a comment, default empty (built-in colors derived from the label)\n"                                       \
     "\t\t\tfont-type=<string> font type for text labels (simplex, plain, duplex, complex, triplex, complex_small, "    \
     "script_simplex, script_complex), default triplex\n"                                                               \
     "\t\t\tdraw-txt-bg=<bool> enable or disable displaying text labels background, by enabling it the text color "     \

@@ -71,8 +71,8 @@ Element Properties:
                         * show-labels=<bool> enable or disable displaying text labels, default true
                         * font-scale=<double 0.1 to 2.0> scale factor for text labels, default 0.5
                         * thickness=<uint> bounding box thickness, default 2
-                        * color-idx=<int> color-table entry for bounding box, keypoints, and text, default -1 (per-object colors). Built-in table: 0 red, 1 green, 2 blue, 3 yellow, 4 cyan, 5 magenta, 6-17 intermediate hues, 18 black, 19 white
-                        * color-table=<path> file with the colors picked by label id or tracking id, one R,G,B color (0 to 255) per line, '#' starts a comment, default built-in table of 20 colors
+                        * color-idx=<int> built-in color table entry for bounding box, keypoints, and text, default -1 (per-object colors). Built-in table: 0 red, 1 green, 2 blue, 3 yellow, 4 cyan, 5 magenta, 6-17 intermediate hues, 18 black, 19 white
+                        * color-table=<path> file with object colors per label, one 'label: R,G,B' entry (0 to 255) per line, '#' starts a comment, default empty (built-in colors derived from the label)
                         * font-type=<string> font type for text labels, default triplex. Supported fonts: simplex, plain, duplex, complex, triplex, complex_small, script_simplex, script_complex
                         * draw-txt-bg=<bool> enable or disable displaying text labels background, by enabling it the text color is set to black or white, whichever contrasts better with the background, default true
                         * show-roi=<string> colon-separated list of labels to include (only these objects will be shown), default empty
@@ -156,22 +156,48 @@ such as blue and red.
 
 *Uses red color for bounding boxes and text*
 
+### Default Bounding Box Colors
+
+When `color-idx` is not set, the color of a bounding box is derived from the
+object label only, so a given class is always drawn with the same color,
+regardless of the model or the run:
+
+- Labels are compared case-insensitively, ignoring spaces, `_` and `-`
+  (`traffic light`, `traffic_light` and `trafficlight` are the same label).
+- COCO classes use the colors YOLO models have always been drawn with, e.g.
+  `person` red, `bicycle` green, `car` blue, `motorcycle` yellow, `bus` magenta,
+  `truck` pink.
+- Common labels of other models follow their COCO equivalents: `pedestrian` is
+  red like `person`, `vehicle` is blue like `car`, `bike` is green like `bicycle`.
+  `face` is green and `license plate` is yellow.
+- Labels of the pallet defect detection model are distinct: `box` is orange,
+  `defect` is magenta, `shipping_label` is cyan.
+- Any other label gets one of 18 saturated colors (the built-in table without
+  black and white), chosen by a fixed hash of the label text.
+- Tracked objects (with an object ID assigned by `gvatrack`) are colored by
+  their object ID instead, also without black and white.
+- Landmarks and keypoints are colored from the built-in table, by point index.
+
 ### Color Table
 
-Objects are colored from a table of 20 built-in colors, by their tracking id when they have one and by
-their label id otherwise. Landmarks and keypoints take their colors from the same table, by point index.
-`color-table=<path>` replaces the built-in table with colors read from a file:
+`color-table=<path>` assigns your own colors to selected labels. The file lists
+one label per line:
 
-- one color per line, as red, green and blue components from 0 to 255, separated by commas or spaces
+- `label: R,G,B`, with red, green and blue components from 0 to 255, separated
+  by commas or spaces
+- labels are matched the same way as above (case, spaces, `_` and `-` are
+  ignored), each label may appear only once
 - `#` starts a comment, empty lines are skipped
-- an id beyond the end of the table wraps around, so a single line draws every object in that color
-- `color-idx=<n>` picks entry `n` of this table for every bounding box and label, from 0 to the number of colors minus one
+- a color from the file takes precedence over the tracking ID color; labels
+  not listed in the file keep their default colors
+- `color-idx=<n>` still draws every bounding box and label in entry `n` of the
+  built-in table (0 to 19), regardless of the color table
 
 ```text
-# colors.txt, picked by label id: 0 person, 1 car, 2 bicycle
-255, 64, 64     # person
-64, 160, 255    # car
-255, 200, 0     # bicycle
+# colors.txt
+person: 255, 64, 64
+car: 64, 160, 255
+traffic light: 255 200 0
 ```
 
 e.g `displ-cfg=color-table=/path/to/colors.txt`

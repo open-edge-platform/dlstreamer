@@ -12,6 +12,7 @@
 #include <gst/analytics/analytics-meta-prelude.h>
 #include <gst/analytics/gstanalyticsmeta.h>
 #include <gst/analytics/gstanalyticsobjectdetectionmtd.h>
+#include <gst/analytics/gstanalyticsobjecttrackingmtd.h>
 #include <gst/video/gstvideometa.h>
 
 /* ---------- element name under test ---------- */
@@ -412,8 +413,8 @@ GST_START_TEST(test_invalid_config_value_fails) {
 GST_END_TEST;
 
 /* ========================================================================= */
-/*  Test: color-table replaces the colors picked by label/tracking id, and   */
-/*  label text on a background is black or white, whichever contrasts       */
+/*  Test: color-table sets the colors of the listed labels, and label text   */
+/*  on a background is black or white, whichever contrasts                   */
 /* ========================================================================= */
 
 /* Writes content to a new temporary file and returns its path, to be freed with g_free() */
@@ -438,6 +439,23 @@ static void setup_gray_buffer_with_roi(GstBuffer *buffer, gpointer /*user_data*/
     add_roi_to_buffer(buffer, "person", 50, 50, 100, 100);
 }
 
+constexpr guint64 TRACKED_OBJECT_ID = 5; /* built-in tracking color: entry 5, magenta */
+
+/* Same as setup_gray_buffer_with_roi, with the ROI tracked as object TRACKED_OBJECT_ID */
+static void setup_gray_buffer_with_tracked_roi(GstBuffer *buffer, gpointer user_data) {
+    setup_gray_buffer_with_roi(buffer, user_data);
+
+    GstAnalyticsRelationMeta *relation_meta = gst_buffer_get_analytics_relation_meta(buffer);
+    ck_assert(relation_meta != nullptr);
+    GstAnalyticsODMtd od_mtd;
+    ck_assert(gst_analytics_relation_meta_get_od_mtd(relation_meta, 0, &od_mtd));
+    GstAnalyticsTrackingMtd trk_mtd;
+    ck_assert(
+        gst_analytics_relation_meta_add_tracking_mtd(relation_meta, TRACKED_OBJECT_ID, GST_CLOCK_TIME_NONE, &trk_mtd));
+    ck_assert(gst_analytics_relation_meta_set_relation(relation_meta, GST_ANALYTICS_REL_TYPE_RELATE_TO, od_mtd.id,
+                                                       trk_mtd.id));
+}
+
 struct PixelStats {
     guint x, y;    /* pixel to sample */
     guint8 bgr[3]; /* filled by check callback */
@@ -453,14 +471,15 @@ static void record_pixel(GstBuffer *buffer, gpointer user_data) {
     gst_buffer_unmap(buffer, &info);
 }
 
-/* Draws the ROI box with the given displ-cfg (labels off) and checks its color */
-static void expect_box_color(const gchar *cfg, guint8 b, guint8 g, guint8 r) {
+/* Draws the "person" ROI box with the given displ-cfg (labels off) and checks its color */
+static void expect_box_color(const gchar *cfg, guint8 b, guint8 g, guint8 r,
+                             void (*setup)(GstBuffer *, gpointer) = setup_gray_buffer_with_roi) {
     gchar *full_cfg = g_strdup_printf("%s,show-labels=false", cfg);
 
     /* Left edge of the 100x100 box at 50,50 */
     PixelStats stats = {50, 100, {0, 0, 0}};
-    run_test(impl_name, WATERMARK_BGR_CAPS, test_resolution, &srctemplate, &sinktemplate, setup_gray_buffer_with_roi,
-             record_pixel, &stats, "displ-cfg", full_cfg, NULL);
+    run_test(impl_name, WATERMARK_BGR_CAPS, test_resolution, &srctemplate, &sinktemplate, setup, record_pixel, &stats,
+             "displ-cfg", full_cfg, NULL);
 
     ck_assert_msg(stats.bgr[0] == b && stats.bgr[1] == g && stats.bgr[2] == r,
                   "displ-cfg '%s': expected the box in BGR %d,%d,%d, got %d,%d,%d", full_cfg, b, g, r, stats.bgr[0],
@@ -471,11 +490,35 @@ static void expect_box_color(const gchar *cfg, guint8 b, guint8 g, guint8 r) {
 GST_START_TEST(test_color_table_sets_roi_color) {
     g_print("Starting test: test_color_table_sets_roi_color\n");
 
-    /* The ROI has label id 0, so it takes the first color; comments and both separators are accepted */
-    gchar *path = write_temp_file("# test colors\n\n10, 20, 30  # label 0\n40 50 60\n");
+    /* Labels match like the built-in colors (case is ignored); comments and both separators are accepted */
+    gchar *listed = write_temp_file("# test colors\n\nPerson: 10, 20, 30  # comment\ncar: 40 50 60\n");
+    gchar *not_listed = write_temp_file("car: 40,50,60\n");
+    gchar *listed_cfg = g_strdup_printf("color-table=%s", listed);
+    gchar *not_listed_cfg = g_strdup_printf("color-table=%s", not_listed);
+
+    expect_box_color(listed_cfg, 30, 20, 10);
+    /* A label that is not in the table keeps its built-in color: person is red */
+    expect_box_color(not_listed_cfg, 0, 0, 255);
+
+    g_unlink(listed);
+    g_unlink(not_listed);
+    g_free(listed_cfg);
+    g_free(not_listed_cfg);
+    g_free(listed);
+    g_free(not_listed);
+}
+GST_END_TEST;
+
+GST_START_TEST(test_color_table_overrides_tracking_color) {
+    g_print("Starting test: test_color_table_overrides_tracking_color\n");
+
+    /* Without a table entry, a tracked object is colored by its tracking id */
+    expect_box_color("thickness=2", 255, 0, 255, setup_gray_buffer_with_tracked_roi);
+
+    gchar *path = write_temp_file("person: 10,20,30\n");
     gchar *cfg = g_strdup_printf("color-table=%s", path);
 
-    expect_box_color(cfg, 30, 20, 10);
+    expect_box_color(cfg, 30, 20, 10, setup_gray_buffer_with_tracked_roi);
 
     g_unlink(path);
     g_free(cfg);
@@ -483,18 +526,19 @@ GST_START_TEST(test_color_table_sets_roi_color) {
 }
 GST_END_TEST;
 
-GST_START_TEST(test_color_idx_picks_color_table_entry) {
-    g_print("Starting test: test_color_idx_picks_color_table_entry\n");
+GST_START_TEST(test_color_idx_overrides_color_table) {
+    g_print("Starting test: test_color_idx_overrides_color_table\n");
 
     /* Built-in table, beyond the red/green/blue entries: 3 is yellow */
     expect_box_color("color-idx=3", 0, 255, 255);
 
-    gchar *path = write_temp_file("10,20,30\n40,50,60\n70,80,90\n");
+    gchar *path = write_temp_file("person: 10,20,30\n");
     gchar *in_range = g_strdup_printf("color-table=%s,color-idx=2", path);
-    gchar *out_of_range = g_strdup_printf("color-table=%s,color-idx=3", path);
+    gchar *out_of_range = g_strdup_printf("color-table=%s,color-idx=20", path);
 
-    expect_box_color(in_range, 90, 80, 70);
-    /* Only a warning: the ROI keeps its own color, entry 0 for label id 0 */
+    /* color-idx picks the built-in table entry for every object, 2 is blue */
+    expect_box_color(in_range, 255, 0, 0);
+    /* Only a warning: the ROI keeps its color from the color table */
     expect_box_color(out_of_range, 30, 20, 10);
 
     g_unlink(path);
@@ -524,8 +568,8 @@ static void count_black_and_white_pixels(GstBuffer *buffer, gpointer user_data) 
 GST_START_TEST(test_label_text_contrasts_with_background) {
     g_print("Starting test: test_label_text_contrasts_with_background\n");
 
-    gchar *yellow = write_temp_file("255,255,0\n");
-    gchar *blue = write_temp_file("0,0,255\n");
+    gchar *yellow = write_temp_file("person: 255,255,0\n");
+    gchar *blue = write_temp_file("person: 0,0,255\n");
     gchar *yellow_cfg = g_strdup_printf("color-table=%s", yellow);
     gchar *blue_cfg = g_strdup_printf("color-table=%s", blue);
 
@@ -554,10 +598,19 @@ GST_END_TEST;
 GST_START_TEST(test_invalid_color_table_fails) {
     g_print("Starting test: test_invalid_color_table_fails\n");
 
-    gchar *out_of_range = write_temp_file("255,0,0\n0,256,0\n");
-    gchar *missing_component = write_temp_file("255,0\n");
+    gchar *out_of_range = write_temp_file("person: 255,0,0\ncar: 0,256,0\n");
+    gchar *missing_component = write_temp_file("person: 255,0\n");
+    gchar *missing_label = write_temp_file("255,0,0\n");
+    gchar *empty_label = write_temp_file(" _-: 255,0,0\n");
+    gchar *duplicate_label = write_temp_file("traffic light: 255,0,0\ntraffic_light: 0,255,0\n");
     gchar *no_colors = write_temp_file("# no colors\n\n");
-    const gchar *paths[] = {out_of_range, missing_component, no_colors, "gvawatermark-no-such-file.txt"};
+    const gchar *paths[] = {out_of_range,
+                            missing_component,
+                            missing_label,
+                            empty_label,
+                            duplicate_label,
+                            no_colors,
+                            "gvawatermark-no-such-file.txt"};
 
     for (const gchar *path : paths) {
         gchar *cfg = g_strdup_printf("color-table=%s", path);
@@ -565,7 +618,7 @@ GST_START_TEST(test_invalid_color_table_fails) {
         g_free(cfg);
     }
 
-    for (gchar *path : {out_of_range, missing_component, no_colors}) {
+    for (gchar *path : {out_of_range, missing_component, missing_label, empty_label, duplicate_label, no_colors}) {
         g_unlink(path);
         g_free(path);
     }
@@ -718,7 +771,8 @@ static Suite *watermark_config_testing_suite(void) {
     tcase_set_timeout(tc_colors, 30);
     suite_add_tcase(s, tc_colors);
     tcase_add_test(tc_colors, test_color_table_sets_roi_color);
-    tcase_add_test(tc_colors, test_color_idx_picks_color_table_entry);
+    tcase_add_test(tc_colors, test_color_table_overrides_tracking_color);
+    tcase_add_test(tc_colors, test_color_idx_overrides_color_table);
     tcase_add_test(tc_colors, test_label_text_contrasts_with_background);
 
     /* Behavioral: multiple ROIs */
