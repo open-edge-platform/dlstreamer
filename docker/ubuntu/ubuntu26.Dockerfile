@@ -634,7 +634,6 @@ RUN \
     python3.13-dev=\* && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
-    rm -rf /var/lib/apt/lists/*
 
 # Install onvif-zeep and remaining Python dependencies.
 RUN \
