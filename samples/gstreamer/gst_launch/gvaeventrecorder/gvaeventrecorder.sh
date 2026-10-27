@@ -46,8 +46,7 @@ if ! command -v gst-launch-1.0 >/dev/null 2>&1; then
 fi
 
 OUTPUT_DIRECTORIES=(
-    "$OUTPUT_DIR/full-clip"
-    "$OUTPUT_DIR/downstream"
+    "$OUTPUT_DIR/event-clip"
     "$OUTPUT_DIR/events"
 )
 
@@ -78,8 +77,7 @@ PIPELINE="gst-launch-1.0 -e \
         pre-event-frames=30 \
         post-event-frames=30 \
         event-gap-frames=3 \
-        $(printf '%q' "full-clip-output-dir=$OUTPUT_DIR/full-clip") \
-        $(printf '%q' "downstream-output-dir=$OUTPUT_DIR/downstream") ! \
+        $(printf '%q' "event-clip-output-dir=$OUTPUT_DIR/event-clip") ! \
     gvametaconvert format=json ! \
     gvametapublish file-format=2 $(printf '%q' "file-path=$OUTPUT_DIR/events/events.json") ! \
     fakesink sync=false"

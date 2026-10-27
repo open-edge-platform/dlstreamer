@@ -1,6 +1,6 @@
 # gvaeventrecorder
 
-Caches pre/event/post video frames, triggers on detected classes with a per-class cooldown, writes full event clips to disk, and forwards only EVENT frames downstream. It can also save those forwarded EVENT frames separately. Pair it with `gvaframeselect` and `gvaroiscale` to prepare frames for a VLM.
+Caches pre/event/post video frames, triggers on detected classes with a per-class cooldown, writes full event clips to disk, and forwards PRE/EVENT/POST buffers downstream after a trigger. Pair it with `gvaframeselect` and `gvaroiscale` to prepare frames for a VLM.
 
 ## Overview
 
@@ -24,9 +24,10 @@ element (e.g. `gvadetect`) and a downstream consumer such as `gvagenai`. It read
 - **Cooldown**: each class has its own independent cooldown window of `cooldown-value`
   frames, restarted from the first qualifying detection in the
   window, to avoid a burst of repeat triggers for the same ongoing event.
-- **Filtering to downstream**: only frames while an accepted event is active are forwarded.
-  PRE frames remain in the recording ring but are not replayed downstream; POST frames are
-  written to the clip but are not forwarded. `gvaframeselect` samples the live EVENT stream.
+- **Filtering to downstream**: nothing is forwarded until an event is accepted. At that
+  moment, buffered PRE frames are replayed oldest first, followed immediately by the trigger
+  frame. Subsequent EVENT and POST frames are forwarded as they arrive. Overlapping windows
+  share a single chronological stream: a buffer already forwarded is never replayed again.
 - **Disk dump**: once a session's post-event window completes, its frames (pre + event +
   post) are encoded and muxed to a video file by a background worker thread, via an internal
   `appsrc ! videoconvert ! encoder ! muxer ! filesink` pipeline. This never blocks the main
@@ -45,8 +46,7 @@ element (e.g. `gvadetect`) and a downstream consumer such as `gvagenai`. It read
 | `event-gap-frames` | Unsigned Integer | [0, 4294967295] | 3 | Consecutive frames without a matching detection tolerated before the event is considered ended. |
 | `cooldown-value` | Unsigned Integer64 | [0, 18446744073709551615] | 150 | Per-class cooldown duration in frames. |
 | `max-concurrent-events` | Unsigned Integer | [1, 4294967295] | 4 | Maximum number of recording sessions active at the same time. New triggers beyond this limit are dropped and throttle-logged. |
-| `full-clip-output-dir` | String | — | `.` | Directory where full PRE/EVENT/POST clips are written. |
-| `downstream-output-dir` | String | — | (empty) | Optional directory for a separate per-event clip containing only EVENT frames forwarded downstream. The filename gets a `_downstream` suffix. |
+| `event-clip-output-dir` | String | — | `.` | Directory where full PRE/EVENT/POST clips are written. |
 | `encoder-mode` | Enum | `software` / `vaapi` / `auto` | `software` | Video encoder backend used to write triggered clips. See [Encoder Modes](#encoder-modes). |
 | `drop-log-interval-ms` | Unsigned Integer | [0, 4294967295] | 1500 | Minimum interval between aggregated "events dropped" log messages. |
 
@@ -90,16 +90,20 @@ classes are supported and do not interfere with each other.
 
 ### Downstream event stream
 
-The recorder does not replay buffered PRE frames. It forwards the trigger frame and
-subsequent frames in the active EVENT phase, including tolerated detection gaps, then drops
-frames once POST begins. A DISCONT flag marks each new event start so `gvaframeselect` resets
-its sub-stream sampling window. `post-event-frames` affects disk recordings only.
+The recorder starts forwarding as soon as a trigger is accepted, without waiting for the
+event or POST to finish. It first replays the available PRE frames, then forwards the trigger
+frame and subsequent EVENT and POST frames. It drops unrelated input frames after POST ends.
+There is no one-frame forwarding delay.
 
-When `downstream-output-dir` is set, a second file is written for each recording session.
-It contains the same active EVENT frames forwarded by the recorder, including tolerated
-detection gaps, but excludes PRE and POST. If sessions overlap, a shared forwarded frame is
-included in each corresponding session clip. These files capture the stream before
-`gvaframeselect` and `gvaroiscale` modify it.
+A DISCONT flag marks the first forwarded buffer of a new window, including PRE, so
+`gvaframeselect` resets its sub-stream sampling window. Original buffer timestamps and
+durations are preserved. For clock-synchronized downstream sinks, account for the PRE delay
+in the application; `sync=false` is suitable for offline consumers.
+
+If recording sessions overlap, each disk clip still contains its own complete PRE/EVENT/POST
+sequence. Downstream receives their chronological union, without duplicate buffers or
+timestamp rewinds. PRE frames already sent for an earlier window are not sent again.
+The recorder writes no separate EVENT-only files; `downstream-output-dir` has been removed.
 
 ```sh
 ... ! gvadetect ... ! gvaeventrecorder target-classes=person ! \
@@ -112,14 +116,11 @@ included in each corresponding session clip. These files capture the stream befo
 
 Each clip is an MP4 file whose name contains the triggering class, the UTC session start time, and a six-digit
 per-element counter. For example, the full clip of a `person` event is written to
-`full-clip-output-dir` as:
+`event-clip-output-dir` as:
 
 ```text
 event_person_20261015T142301Z_000003.mp4
 ```
-
-The optional EVENT-only clip of the same session is written to `downstream-output-dir` as
-`event_person_20261015T142301Z_000003_downstream.mp4`.
 
 ### Encoder modes
 
@@ -131,18 +132,21 @@ The optional EVENT-only clip of the same session is written to `downstream-outpu
 
 ## Metadata
 
-Forwarded EVENT buffers carry frame-level `GstAnalyticsClsMtd` entries in their
+Forwarded PRE/EVENT/POST buffers carry frame-level `GstAnalyticsClsMtd` entries in their
 `GstAnalyticsRelationMeta`. They are not related to any `GstAnalyticsODMtd` and are identified by
 their semantic tag:
 
 | Semantic tag | Labels | Present on |
 |---|---|---|
-| `event` | `start`, `continue` or `stop` (confidence 1.0) | every forwarded EVENT frame, including tolerated detection gaps |
+| `event` | `start`, `continue` or `stop` (confidence 1.0) | every forwarded PRE/EVENT/POST buffer |
 | `event_trigger` | class(es) that started a recording session, with their confidence | frames that start one or more sessions |
 
-`start` marks the first forwarded frame of an event, `continue` the frames after it, and `stop` the
-last one. If an event has only one frame, that frame gets `stop`. To know which frame is the last one,
-the element holds each frame until the next one arrives, so forwarding is delayed by one frame.
+`start` marks the first forwarded frame of a window (normally its oldest PRE frame),
+`continue` the frames after it, and `stop` the final POST frame when no other session remains
+active. Trigger metadata remains on the actual detection frame, not the first PRE frame.
+If a window has only one frame, that frame gets `stop`. Buffers are sent immediately; if EOS
+interrupts an active window, its already-forwarded last buffer cannot be relabeled `stop`.
+The EOS event terminates downstream in that case, and the partial clip is saved on stop.
 
 Place `gvametaconvert` after the recorder to serialize the entries to JSON; each frame then contains a
 full-frame object such as:
@@ -169,7 +173,7 @@ gst-launch-1.0 -v \
     gvaeventrecorder target-classes=person,vehicle confidence-threshold=0.6 \
              pre-event-frames=30 post-event-frames=30 event-gap-frames=3 \
                      cooldown-value=150 \
-                     full-clip-output-dir=./events downstream-output-dir=./downstream_events ! \
+                     event-clip-output-dir=./events ! \
     gvagenai model-path=$mVLM device=GPU prompt="Describe what is happening." ! \
     gvametaconvert format=json ! gvametapublish file-format=2 file-path=results.json ! \
     fakesink
@@ -271,9 +275,6 @@ Element Properties:
   drop-log-interval-ms: Minimum interval between aggregated 'events dropped' log messages
                         flags: readable, writable
                         Unsigned Integer. Range: 0 - 4294967295 Default: 1500
-  downstream-output-dir: Optional directory for per-event clips containing forwarded EVENT frames
-                        flags: readable, writable
-                        String. Default: null
   event-gap-frames    : Consecutive frames without a matching detection tolerated before the event is considered ended
                         flags: readable, writable
                         Unsigned Integer. Range: 0 - 4294967295 Default: 3
@@ -287,7 +288,7 @@ Element Properties:
                         beyond this limit are dropped (and throttle-logged)
                         flags: readable, writable
                         Unsigned Integer. Range: 1 - 4294967295 Default: 4
-  full-clip-output-dir: Directory where full PRE/EVENT/POST clips are written
+  event-clip-output-dir: Directory where full PRE/EVENT/POST clips are written
                         flags: readable, writable
                         String. Default: "."
   post-event-frames   : Number of frames to keep capturing after the detected event has ended

@@ -38,8 +38,7 @@ struct _GstGvaEventRecorder {
     guint event_gap_frames;
     guint64 cooldown_value; // frames
     guint max_concurrent_events;
-    gchar *full_clip_output_dir;
-    gchar *downstream_output_dir;
+    gchar *event_clip_output_dir;
     gint encoder_mode; // GstGvaEventRecorderEncoderMode
     guint drop_log_interval_ms;
     guint64 frame_counter; // cooldown tick source

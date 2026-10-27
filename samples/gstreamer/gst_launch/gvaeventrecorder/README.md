@@ -1,11 +1,11 @@
 # gvaeventrecorder Sample
 
-- `gvaeventrecorder` reads object-detection metadata and records video clips around detections of configured classes. It saves the complete PRE/EVENT/POST sequence to disk, but forwards only live EVENT-phase frames downstream; buffered PRE frames are not replayed, and POST frames are not forwarded.
-- This sample uses `gvadetect` to detect people. The full PRE/EVENT/POST video is saved in `full-clip/`; the EVENT-only frames also continue through the pipeline and are saved separately as an EVENT-only clip in `downstream/`. Detection and event metadata is published to JSON.
+- `gvaeventrecorder` reads object-detection metadata and records video clips around detections of configured classes. It saves the complete PRE/EVENT/POST sequence to disk and forwards the same sequence of video buffers downstream.
+- This sample uses `gvadetect` to detect people. Once a person triggers an event, cached PRE buffers are sent immediately, followed by EVENT and POST buffers as they arrive. Full video clips are saved in `event-clip/`. Detection and event metadata is published to JSON.
 
 ## Pipeline
 
-![gvaeventrecorder sample pipeline](gvaeventrecorder-sample-overview.jpeg)
+`filesrc ! decodebin3 ! videoconvert ! gvadetect ! queue ! gvaeventrecorder ! gvametaconvert ! gvametapublish ! fakesink`
 
 ## Requirements
 
@@ -40,12 +40,11 @@ Event clips use the default software encoder.
 
 ## Output
 
-- Full video clips containing PRE, EVENT, and POST frames: `<output-directory>/full-clip/`.
-- Separate EVENT-only clips containing the same EVENT-phase frames forwarded downstream: `<output-directory>/downstream/`.
+- Full video clips containing PRE, EVENT, and POST frames: `<output-directory>/event-clip/`.
 - Detection and event metadata: `<output-directory>/events/events.json`.
 
-The full PRE/EVENT/POST clips are written to disk; only EVENT-phase frames are sent onward. Saving the separate EVENT-only clip does not consume those buffers: they continue through `gvametapublish` to the next pipeline element, `fakesink` in this sample.
-Clip filenames follow `event_<class>_<timestamp>_<counter>.mp4`; downstream clips have the `_downstream` suffix.
+The full PRE/EVENT/POST clips are written to disk. Their video buffers also continue through `gvametapublish` to the next pipeline element, `fakesink` in this sample. No EVENT-only files are created. Overlapping recording windows share one downstream stream without duplicate frames.
+Clip filenames follow `event_<class>_<timestamp>_<counter>.mp4`.
 
 ## See Also
 

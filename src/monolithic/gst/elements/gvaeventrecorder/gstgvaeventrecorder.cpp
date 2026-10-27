@@ -44,8 +44,7 @@ enum {
     PROP_EVENT_GAP_FRAMES,
     PROP_COOLDOWN_VALUE,
     PROP_MAX_CONCURRENT_EVENTS,
-    PROP_FULL_CLIP_OUTPUT_DIR,
-    PROP_DOWNSTREAM_OUTPUT_DIR,
+    PROP_EVENT_CLIP_OUTPUT_DIR,
     PROP_ENCODER_MODE,
     PROP_DROP_LOG_INTERVAL_MS
 };
@@ -57,7 +56,7 @@ enum {
 #define DEFAULT_EVENT_GAP_FRAMES 3
 #define DEFAULT_COOLDOWN_VALUE 150
 #define DEFAULT_MAX_CONCURRENT_EVENTS 4
-#define DEFAULT_FULL_CLIP_OUTPUT_DIR "."
+#define DEFAULT_EVENT_CLIP_OUTPUT_DIR "."
 #define DEFAULT_DROP_LOG_INTERVAL_MS 1500
 
 #define GST_TYPE_GVAEVENTRECORDER_ENCODER_MODE (gst_gvaeventrecorder_encoder_mode_get_type())
@@ -86,6 +85,7 @@ namespace {
 
 struct CachedFrame {
     GstBuffer *buffer = nullptr;
+    uint64_t tick = 0;
 };
 
 // One recording session currently being assembled (snapshot + event + post-event frames).
@@ -94,16 +94,14 @@ struct ActiveSession {
     float confidence = 0.0f;
     std::vector<GstBuffer *> frames; // owning refs
     std::string output_path;
-    std::vector<GstBuffer *> downstream_frames; // owning refs
-    std::string downstream_output_path;
 };
 
-// Forwarded frame held back by one frame, since only the next frame tells whether it ends the event.
-struct PendingFrame {
+struct ForwardFrame {
     GstBuffer *buffer = nullptr;
     std::vector<GQuark> trigger_classes; // classes that started sessions on this frame
     std::vector<gfloat> trigger_confidences;
     bool first = false;
+    bool last = false;
 };
 
 } // namespace
@@ -118,7 +116,8 @@ struct GvaEventRecorderRuntime {
     guint64 file_counter = 0;
     GstVideoInfo video_info;
     gboolean video_info_valid = FALSE;
-    PendingFrame pending;
+    uint64_t last_forwarded_tick = 0;
+    bool downstream_active = false;
     std::mutex config_mutex; // guards engine/ring reconfiguration vs. transform_ip
 
     GvaEventRecorderRuntime()
@@ -127,10 +126,6 @@ struct GvaEventRecorderRuntime {
         gst_video_info_init(&video_info);
     }
 
-    ~GvaEventRecorderRuntime() {
-        if (pending.buffer)
-            gst_buffer_unref(pending.buffer);
-    }
 };
 
 static std::vector<std::string> parse_target_classes(const gchar *csv) {
@@ -186,7 +181,6 @@ static void enqueue_dump(GstGvaEventRecorder *self, GvaEventRecorderRuntime *rt,
 
 static void finish_session(GstGvaEventRecorder *self, GvaEventRecorderRuntime *rt, ActiveSession &s) {
     enqueue_dump(self, rt, s.output_path, s.frames);
-    enqueue_dump(self, rt, s.downstream_output_path, s.downstream_frames);
 }
 
 static TriggerEngine::Config make_engine_config(GstGvaEventRecorder *self) {
@@ -220,7 +214,6 @@ static gboolean gst_gvaeventrecorder_start(GstBaseTransform *base);
 static gboolean gst_gvaeventrecorder_stop(GstBaseTransform *base);
 static gboolean gst_gvaeventrecorder_set_caps(GstBaseTransform *base, GstCaps *incaps, GstCaps *outcaps);
 static GstFlowReturn gst_gvaeventrecorder_transform_ip(GstBaseTransform *base, GstBuffer *buf);
-static gboolean gst_gvaeventrecorder_sink_event(GstBaseTransform *base, GstEvent *event);
 
 static void gst_gvaeventrecorder_class_init(GstGvaEventRecorderClass *klass) {
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
@@ -233,7 +226,7 @@ static void gst_gvaeventrecorder_class_init(GstGvaEventRecorderClass *klass) {
     gst_element_class_set_static_metadata(
         element_class, "Event Recorder", "Video/AI",
         "Caches pre/post-event frames, triggers on detected classes with per-class cooldown, "
-        "dumps triggered clips to disk, and forwards frames while an event is active",
+        "dumps triggered clips to disk, and forwards PRE/EVENT/POST frames after a trigger",
         "Intel Corporation");
 
     gobject_class->set_property = gst_gvaeventrecorder_set_property;
@@ -244,7 +237,6 @@ static void gst_gvaeventrecorder_class_init(GstGvaEventRecorderClass *klass) {
     base_transform_class->stop = GST_DEBUG_FUNCPTR(gst_gvaeventrecorder_stop);
     base_transform_class->set_caps = GST_DEBUG_FUNCPTR(gst_gvaeventrecorder_set_caps);
     base_transform_class->transform_ip = GST_DEBUG_FUNCPTR(gst_gvaeventrecorder_transform_ip);
-    base_transform_class->sink_event = GST_DEBUG_FUNCPTR(gst_gvaeventrecorder_sink_event);
 
     g_object_class_install_property(
         gobject_class, PROP_TARGET_CLASSES,
@@ -289,16 +281,10 @@ static void gst_gvaeventrecorder_class_init(GstGvaEventRecorderClass *klass) {
                           "limit are dropped (and throttle-logged)",
                           1, G_MAXUINT, DEFAULT_MAX_CONCURRENT_EVENTS, G_PARAM_READWRITE));
 
-    g_object_class_install_property(gobject_class, PROP_FULL_CLIP_OUTPUT_DIR,
-                                    g_param_spec_string("full-clip-output-dir", "Full Clip Output Directory",
+    g_object_class_install_property(gobject_class, PROP_EVENT_CLIP_OUTPUT_DIR,
+                                    g_param_spec_string("event-clip-output-dir", "Event Clip Output Directory",
                                                         "Directory where full PRE/EVENT/POST clips are written",
-                                                        DEFAULT_FULL_CLIP_OUTPUT_DIR, G_PARAM_READWRITE));
-
-    g_object_class_install_property(
-        gobject_class, PROP_DOWNSTREAM_OUTPUT_DIR,
-        g_param_spec_string("downstream-output-dir", "Downstream Output Directory",
-                            "Optional directory for per-event clips containing only EVENT frames forwarded downstream",
-                            NULL, G_PARAM_READWRITE));
+                                                        DEFAULT_EVENT_CLIP_OUTPUT_DIR, G_PARAM_READWRITE));
 
     g_object_class_install_property(gobject_class, PROP_ENCODER_MODE,
                                     g_param_spec_enum("encoder-mode", "Encoder Mode",
@@ -323,8 +309,7 @@ static void gst_gvaeventrecorder_init(GstGvaEventRecorder *self) {
     self->event_gap_frames = DEFAULT_EVENT_GAP_FRAMES;
     self->cooldown_value = DEFAULT_COOLDOWN_VALUE;
     self->max_concurrent_events = DEFAULT_MAX_CONCURRENT_EVENTS;
-    self->full_clip_output_dir = g_strdup(DEFAULT_FULL_CLIP_OUTPUT_DIR);
-    self->downstream_output_dir = NULL;
+    self->event_clip_output_dir = g_strdup(DEFAULT_EVENT_CLIP_OUTPUT_DIR);
     self->encoder_mode = GST_GVAEVENTRECORDER_ENCODER_SOFTWARE;
     self->drop_log_interval_ms = DEFAULT_DROP_LOG_INTERVAL_MS;
     self->frame_counter = 0;
@@ -358,14 +343,9 @@ static void gst_gvaeventrecorder_set_property(GObject *object, guint prop_id, co
     case PROP_MAX_CONCURRENT_EVENTS:
         self->max_concurrent_events = g_value_get_uint(value);
         break;
-    case PROP_FULL_CLIP_OUTPUT_DIR:
-        g_free(self->full_clip_output_dir);
-        self->full_clip_output_dir = g_value_dup_string(value);
-        needs_reconfig = FALSE;
-        break;
-    case PROP_DOWNSTREAM_OUTPUT_DIR:
-        g_free(self->downstream_output_dir);
-        self->downstream_output_dir = g_value_dup_string(value);
+    case PROP_EVENT_CLIP_OUTPUT_DIR:
+        g_free(self->event_clip_output_dir);
+        self->event_clip_output_dir = g_value_dup_string(value);
         needs_reconfig = FALSE;
         break;
     case PROP_ENCODER_MODE:
@@ -409,11 +389,8 @@ static void gst_gvaeventrecorder_get_property(GObject *object, guint prop_id, GV
     case PROP_MAX_CONCURRENT_EVENTS:
         g_value_set_uint(value, self->max_concurrent_events);
         break;
-    case PROP_FULL_CLIP_OUTPUT_DIR:
-        g_value_set_string(value, self->full_clip_output_dir);
-        break;
-    case PROP_DOWNSTREAM_OUTPUT_DIR:
-        g_value_set_string(value, self->downstream_output_dir);
+    case PROP_EVENT_CLIP_OUTPUT_DIR:
+        g_value_set_string(value, self->event_clip_output_dir);
         break;
     case PROP_ENCODER_MODE:
         g_value_set_enum(value, self->encoder_mode);
@@ -431,8 +408,7 @@ static void gst_gvaeventrecorder_finalize(GObject *object) {
     GstGvaEventRecorder *self = GST_GVAEVENTRECORDER(object);
 
     g_free(self->target_classes);
-    g_free(self->full_clip_output_dir);
-    g_free(self->downstream_output_dir);
+    g_free(self->event_clip_output_dir);
 
     if (self->priv) {
         delete static_cast<GvaEventRecorderRuntime *>(self->priv);
@@ -523,8 +499,9 @@ static std::vector<DetectionInput> collect_detections(GstBuffer *buf) {
 }
 
 // Takes ownership of frame.buffer.
-static GstFlowReturn push_event_frame(GstGvaEventRecorder *self, PendingFrame frame, const char *state) {
+static GstFlowReturn push_event_frame(GstGvaEventRecorder *self, ForwardFrame frame) {
     GstBuffer *buf = gst_buffer_make_writable(frame.buffer);
+    const char *state = frame.last ? "stop" : (frame.first ? "start" : "continue");
     if (frame.first)
         GST_BUFFER_FLAG_SET(buf, GST_BUFFER_FLAG_DISCONT);
 
@@ -551,27 +528,6 @@ static GstFlowReturn push_event_frame(GstGvaEventRecorder *self, PendingFrame fr
     }
 
     return gst_pad_push(GST_BASE_TRANSFORM_SRC_PAD(self), buf);
-}
-
-static gboolean gst_gvaeventrecorder_sink_event(GstBaseTransform *base, GstEvent *event) {
-    GstGvaEventRecorder *self = GST_GVAEVENTRECORDER(base);
-    auto *rt = static_cast<GvaEventRecorderRuntime *>(self->priv);
-
-    if (rt && (GST_EVENT_TYPE(event) == GST_EVENT_EOS || GST_EVENT_TYPE(event) == GST_EVENT_FLUSH_STOP)) {
-        PendingFrame pending;
-        {
-            std::lock_guard<std::mutex> lock(rt->config_mutex);
-            pending = std::exchange(rt->pending, PendingFrame{});
-        }
-        if (pending.buffer) {
-            if (GST_EVENT_TYPE(event) == GST_EVENT_EOS)
-                push_event_frame(self, std::move(pending), "stop");
-            else
-                gst_buffer_unref(pending.buffer);
-        }
-    }
-
-    return GST_BASE_TRANSFORM_CLASS(gst_gvaeventrecorder_parent_class)->sink_event(base, event);
 }
 
 static GstFlowReturn gst_gvaeventrecorder_transform_ip(GstBaseTransform *base, GstBuffer *buf) {
@@ -607,33 +563,43 @@ static GstFlowReturn gst_gvaeventrecorder_transform_ip(GstBaseTransform *base, G
         session.confidence = trig.confidence;
         for (const CachedFrame &frame : rt->ring.snapshot())
             session.frames.push_back(gst_buffer_ref(frame.buffer));
-        const std::string full_clip_output_dir =
-            self->full_clip_output_dir ? self->full_clip_output_dir : DEFAULT_FULL_CLIP_OUTPUT_DIR;
+        const std::string event_clip_output_dir =
+            self->event_clip_output_dir ? self->event_clip_output_dir : DEFAULT_EVENT_CLIP_OUTPUT_DIR;
         session.output_path =
-            build_output_path(full_clip_output_dir, trig.class_label, trigger_timestamp.filename, rt->file_counter);
+            build_output_path(event_clip_output_dir, trig.class_label, trigger_timestamp.filename, rt->file_counter);
 
-        if (self->downstream_output_dir && self->downstream_output_dir[0] != '\0')
-            session.downstream_output_path =
-                build_output_path(self->downstream_output_dir, trig.class_label, trigger_timestamp.filename,
-                                  rt->file_counter, "_downstream");
         ++rt->file_counter;
         rt->active_sessions.emplace(trig.session_id, std::move(session));
     }
 
-    if (!outcome.new_triggers.empty())
-        GST_BUFFER_FLAG_SET(buf, GST_BUFFER_FLAG_DISCONT);
-
-    // The held frame's state depends on whether the event continues on the current frame.
-    PendingFrame to_push = std::exchange(rt->pending, PendingFrame{});
-    const char *push_state = !outcome.forward ? "stop" : (to_push.first ? "start" : "continue");
-    if (outcome.forward) {
-        rt->pending.buffer = gst_buffer_ref(buf);
-        for (const auto &trig : outcome.new_triggers) {
-            rt->pending.trigger_classes.push_back(g_quark_from_string(trig.class_label.c_str()));
-            rt->pending.trigger_confidences.push_back(trig.confidence);
+    std::vector<ForwardFrame> to_push;
+    bool first = !rt->downstream_active;
+    if (!outcome.new_triggers.empty()) {
+        for (const CachedFrame &frame : rt->ring.snapshot()) {
+            if (frame.tick <= rt->last_forwarded_tick)
+                continue;
+            ForwardFrame forwarded;
+            forwarded.buffer = gst_buffer_ref(frame.buffer);
+            forwarded.first = first;
+            to_push.push_back(std::move(forwarded));
+            first = false;
+            rt->last_forwarded_tick = frame.tick;
         }
-        rt->pending.first = to_push.buffer == nullptr;
     }
+    if (!active_ids_before.empty() || !outcome.new_triggers.empty()) {
+        ForwardFrame forwarded;
+        forwarded.buffer = gst_buffer_ref(buf);
+        forwarded.first = first;
+        for (const auto &trig : outcome.new_triggers) {
+            forwarded.trigger_classes.push_back(g_quark_from_string(trig.class_label.c_str()));
+            forwarded.trigger_confidences.push_back(trig.confidence);
+        }
+        to_push.push_back(std::move(forwarded));
+        rt->last_forwarded_tick = tick;
+    }
+    rt->downstream_active = !rt->engine->active_session_ids().empty();
+    if (!to_push.empty())
+        to_push.back().last = !rt->downstream_active;
 
     for (uint64_t id : active_ids_before) {
         auto it = rt->active_sessions.find(id);
@@ -648,16 +614,8 @@ static GstFlowReturn gst_gvaeventrecorder_transform_ip(GstBaseTransform *base, G
         }
     }
 
-    if (self->downstream_output_dir && self->downstream_output_dir[0] != '\0') {
-        for (auto &entry : rt->active_sessions) {
-            if (!rt->engine->is_event_active(entry.first))
-                continue;
-            entry.second.downstream_frames.push_back(gst_buffer_ref(buf));
-        }
-    }
-
     // The pre-event ring is shared and continuous: never reset by a trigger.
-    rt->ring.push({gst_buffer_ref(buf)});
+    rt->ring.push({gst_buffer_ref(buf), tick});
 
     for (uint64_t id : outcome.finished_sessions) {
         auto it = rt->active_sessions.find(id);
@@ -674,11 +632,12 @@ static GstFlowReturn gst_gvaeventrecorder_transform_ip(GstBaseTransform *base, G
 
     lock.unlock();
 
-    // Frames are forwarded one frame late via push_event_frame(); the current one is never passed through.
-    if (to_push.buffer) {
-        GstFlowReturn ret = push_event_frame(self, std::move(to_push), push_state);
-        if (ret != GST_FLOW_OK)
-            return ret;
+    GstFlowReturn ret = GST_FLOW_OK;
+    for (auto &frame : to_push) {
+        if (ret == GST_FLOW_OK)
+            ret = push_event_frame(self, std::move(frame));
+        else
+            gst_buffer_unref(frame.buffer);
     }
-    return GST_BASE_TRANSFORM_FLOW_DROPPED;
+    return ret == GST_FLOW_OK ? GST_BASE_TRANSFORM_FLOW_DROPPED : ret;
 }
