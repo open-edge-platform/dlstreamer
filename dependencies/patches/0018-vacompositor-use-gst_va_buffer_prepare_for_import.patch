@@ -1,8 +1,8 @@
 diff --git a/subprojects/gst-plugins-bad/sys/va/gstvacompositor.c b/subprojects/gst-plugins-bad/sys/va/gstvacompositor.c
-index 5e0afe66061c702e981c4b5d4cd7da188f0c9be0..249ee9a7985872b5a1a03bd5b4aa6d35c770c758 100644
+index e46aa63b4943797fb72af7bc0ed93dc99f338e7a..c060045e776737e5b16f35411d28139546ab8e82 100644
 --- a/subprojects/gst-plugins-bad/sys/va/gstvacompositor.c
 +++ b/subprojects/gst-plugins-bad/sys/va/gstvacompositor.c
-@@ -910,6 +910,7 @@ gst_va_compositor_sample_next (gpointer data)
+@@ -908,6 +908,7 @@ gst_va_compositor_sample_next (gpointer data)
    GstVaCompositorPad *pad;
    GstBuffer *inbuf;
    GstBuffer *buf;
@@ -10,7 +10,7 @@ index 5e0afe66061c702e981c4b5d4cd7da188f0c9be0..249ee9a7985872b5a1a03bd5b4aa6d35
    GstFlowReturn res;
    GstVideoCropMeta *crop = NULL;
  
-@@ -936,7 +937,13 @@ gst_va_compositor_sample_next (gpointer data)
+@@ -934,7 +935,13 @@ gst_va_compositor_sample_next (gpointer data)
      inbuf = gst_video_aggregator_pad_get_current_buffer (vaggpad);
      pad = GST_VA_COMPOSITOR_PAD (vaggpad);
  
@@ -25,7 +25,7 @@ index 5e0afe66061c702e981c4b5d4cd7da188f0c9be0..249ee9a7985872b5a1a03bd5b4aa6d35
      if (res != GST_FLOW_OK)
        return &generator->sample;
  
-@@ -946,6 +953,7 @@ gst_va_compositor_sample_next (gpointer data)
+@@ -944,6 +951,7 @@ gst_va_compositor_sample_next (gpointer data)
      /* *INDENT-OFF* */
      generator->sample = (GstVaComposeSample) {
        .buffer = buf,
@@ -34,10 +34,10 @@ index 5e0afe66061c702e981c4b5d4cd7da188f0c9be0..249ee9a7985872b5a1a03bd5b4aa6d35
          .x = crop ? crop->x : 0,
          .y = crop ? crop->y : 0,
 diff --git a/subprojects/gst-plugins-bad/sys/va/gstvafilter.c b/subprojects/gst-plugins-bad/sys/va/gstvafilter.c
-index 12806e64da4355213a7387691feafdf1ef68f3fd..636ccdc31cea7a752891574b549ad45a2d3bcc6f 100644
+index a9f9abe3174e67cb779e411be43205bf5380507a..e5870e599164238f7f3d1bb57fc6b9cff2f7364e 100644
 --- a/subprojects/gst-plugins-bad/sys/va/gstvafilter.c
 +++ b/subprojects/gst-plugins-bad/sys/va/gstvafilter.c
-@@ -1906,8 +1906,10 @@ gst_va_filter_compose (GstVaFilter * self, GstVaComposeTransaction * tx)
+@@ -1913,8 +1913,10 @@ gst_va_filter_compose (GstVaFilter * self, GstVaComposeTransaction * tx)
      status = vaEndPicture (dpy, self->context);
      if (status != VA_STATUS_SUCCESS) {
        GST_ERROR_OBJECT (self, "vaEndPicture: %s", vaErrorStr (status));
@@ -48,7 +48,7 @@ index 12806e64da4355213a7387691feafdf1ef68f3fd..636ccdc31cea7a752891574b549ad45a
    }
  
    return TRUE;
-@@ -1917,6 +1919,8 @@ fail_end_pic:
+@@ -1924,6 +1926,8 @@ fail_end_pic:
      status = vaEndPicture (dpy, self->context);
      if (status != VA_STATUS_SUCCESS)
        GST_ERROR_OBJECT (self, "vaEndPicture: %s", vaErrorStr (status));
@@ -58,7 +58,7 @@ index 12806e64da4355213a7387691feafdf1ef68f3fd..636ccdc31cea7a752891574b549ad45a
    }
  }
 diff --git a/subprojects/gst-plugins-bad/sys/va/gstvafilter.h b/subprojects/gst-plugins-bad/sys/va/gstvafilter.h
-index 7058dd963fd4cee68516ab8ef746e9db35e943aa..f5ab550e3255fb9f7db2ed2bd93ecc8d7caf14ef 100644
+index 1b3876c4f68f0d489f62196741818810156f37d9..8826501fc4dade6fdebd1d36fbd5a3b87272bb0b 100644
 --- a/subprojects/gst-plugins-bad/sys/va/gstvafilter.h
 +++ b/subprojects/gst-plugins-bad/sys/va/gstvafilter.h
 @@ -89,6 +89,7 @@ struct _GstVaComposeSample
