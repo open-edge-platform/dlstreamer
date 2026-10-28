@@ -291,7 +291,8 @@ static bool collect_frame_rois(GstGvaFrameSelect *self, GstGvaFrameSelectRuntime
     bool found = false;
     gpointer state = nullptr;
     GstAnalyticsODMtd detection;
-    while (gst_analytics_relation_meta_iterate(relation_meta, &state, gst_analytics_od_mtd_get_mtd_type(), &detection)) {
+    while (
+        gst_analytics_relation_meta_iterate(relation_meta, &state, gst_analytics_od_mtd_get_mtd_type(), &detection)) {
         if (!is_target_class(gst_analytics_od_mtd_get_obj_type(&detection), target_classes))
             continue;
 
@@ -361,8 +362,8 @@ static GstFlowReturn push_pending_frames(GstGvaFrameSelect *self, GstGvaFrameSel
         const gint64 right = frame.has_target_roi && padded_roi.valid ? padded_roi.right : frame_width;
         const gint64 bottom = frame.has_target_roi && padded_roi.valid ? padded_roi.bottom : frame_height;
         if (!gst_buffer_add_video_region_of_interest_meta(
-                buffer, dlstreamer::metadata::AGGREGATED_ROI_TYPE, static_cast<guint>(left),
-                static_cast<guint>(top), static_cast<guint>(right - left), static_cast<guint>(bottom - top)))
+                buffer, dlstreamer::metadata::AGGREGATED_ROI_TYPE, static_cast<guint>(left), static_cast<guint>(top),
+                static_cast<guint>(right - left), static_cast<guint>(bottom - top)))
             GST_WARNING_OBJECT(self, "Could not attach the aggregated ROI metadata");
 
         GST_OBJECT_LOCK(self);
@@ -447,8 +448,8 @@ static gboolean gst_gva_frame_select_sink_event(GstBaseTransform *transform, Gst
     if (runtime && GST_EVENT_TYPE(event) == GST_EVENT_EOS) {
         if (push_pending_frames(self, runtime) != GST_FLOW_OK)
             return FALSE;
-    } else if (runtime && (GST_EVENT_TYPE(event) == GST_EVENT_FLUSH_START ||
-                           GST_EVENT_TYPE(event) == GST_EVENT_FLUSH_STOP)) {
+    } else if (runtime &&
+               (GST_EVENT_TYPE(event) == GST_EVENT_FLUSH_START || GST_EVENT_TYPE(event) == GST_EVENT_FLUSH_STOP)) {
         clear_pending_frames(runtime);
     }
     if (GST_EVENT_TYPE(event) == GST_EVENT_STREAM_START) {
@@ -507,8 +508,7 @@ static void gst_gva_frame_select_class_init(GstGvaFrameSelectClass *klass) {
     g_object_class_install_property(
         object_class, PROP_ROI_PADDING,
         g_param_spec_uint("roi-padding", "ROI Padding", "Pixels added on each side of the shared ROI", 0, G_MAXUINT,
-                          DEFAULT_ROI_PADDING,
-                          static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                          DEFAULT_ROI_PADDING, static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
     g_object_class_install_property(
         object_class, PROP_OUTPUT_DIR,
         g_param_spec_string("output-dir", "Output Directory",
