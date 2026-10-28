@@ -507,6 +507,7 @@ static void gst_gvagenai_set_property(GObject *object, guint prop_id, const GVal
         break;
     case PROP_TRIGGER_MODE:
         gvagenai->trigger_mode = g_value_get_enum(value);
+        break;
     case PROP_MODEL_INSTANCE_ID:
         g_free(gvagenai->config.model_instance_id);
         gvagenai->config.model_instance_id = g_value_dup_string(value);
@@ -574,6 +575,7 @@ static void gst_gvagenai_get_property(GObject *object, guint prop_id, GValue *va
         break;
     case PROP_TRIGGER_MODE:
         g_value_set_enum(value, gvagenai->trigger_mode);
+        break;
     case PROP_MODEL_INSTANCE_ID:
         g_value_set_string(value, gvagenai->config.model_instance_id);
         break;
