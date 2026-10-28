@@ -88,7 +88,7 @@ The GStreamer Python plugin (`libgstpython.so`) must be available in `GST_PLUGIN
 This sample only needs the Python packages already provided by the DL
 Streamer installation (GStreamer Python bindings). If you installed DL
 Streamer natively and skipped them, see
-[Step 10: Install Python dependencies](../../../../../docs/user-guide/dev_guide/advanced_install/advanced_install_guide_compilation.md#step-10-install-python-dependencies-optional)
+[Step 9: Install Python dependencies](../../../../../docs/user-guide/dev_guide/advanced_install/advanced_install_guide_compilation.md#step-9-install-python-dependencies-optional)
 in the Advanced Install Guide. The Docker image already includes them.
 
 ## Running

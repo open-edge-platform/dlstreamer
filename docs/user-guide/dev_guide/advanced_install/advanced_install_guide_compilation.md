@@ -112,66 +112,12 @@ packages:
   cd dlstreamer
   ```
 
-## Step 5: Install OpenVINO™ Toolkit
-
-> **NOTE:** On Ubuntu, this step can be skipped if you plan to install
-> OpenVINO™ GenAI in [Step 6](#step-6-ubuntu-only-install-openvino-genai)
-> below instead - the OpenVINO™ GenAI archive already bundles the full
-> OpenVINO™ C++ runtime, so installing both is redundant. This step remains
-> required for Fedora and EMT, where no OpenVINO™ GenAI archive is currently
-> available.
-
-<!--hide_directive::::{tab-set}
-:::{tab-item}hide_directive--> Ubuntu/Fedora
-<!--hide_directive:sync: tab1hide_directive-->
-
-  ```bash
-  cd ~/dlstreamer
-  sudo ./scripts/install_dependencies/install_openvino.sh
-  ```
-
-  In case of any problems with the installation scripts, [Follow OpenVINO™
-  Toolkit instruction guide
-  here](https://docs.openvino.ai/2026/get-started/install-openvino/install-openvino-archive-linux.html)
-  to install OpenVINO™ on Linux.
-
-  - Environment: **Runtime**
-  - Operating System: **Linux**
-  - Version: **Latest**
-  - Distribution: **OpenVINO™ Archives**
-
-  After successful OpenVINO™ Toolkit package installation, run the
-  following commands to install OpenVINO™ Toolkit dependencies and enable
-  OpenVINO™ Toolkit development environment:
-
-  ```bash
-  sudo -E /opt/intel/openvino_2026/install_dependencies/install_openvino_dependencies.sh
-  source /opt/intel/openvino_2026/setupvars.sh
-  ```
-
-<!--hide_directive:::
-:::{tab-item}hide_directive--> EMT
-<!--hide_directive:sync: tab2hide_directive-->
-
-  ```bash
-  wget https://storage.openvinotoolkit.org/repositories/openvino/packages/nightly/2026.5.0-23594-7e507a4ca9a/openvino_toolkit_ubuntu24_2026.5.0.dev20261027_x86_64.tgz
-  tar -xvzf openvino_toolkit_ubuntu24_2026.5.0.dev20261027_x86_64.tgz
-  sudo mv openvino_toolkit_ubuntu24_2026.5.0.dev20261027_x86_64 /opt/intel/openvino_2026.5.0.dev20261027
-  cd /opt/intel/openvino_2026.5.0.dev20261027/
-  sudo -E python3 -m pip install -r ./python/requirements.txt
-  cd /opt/intel
-  sudo ln -s openvino_2026.5.0.dev20261027 openvino_2026
-  ```
-
-<!--hide_directive:::
-::::hide_directive-->
-
-### Step 6 (Ubuntu only): Install OpenVINO™ GenAI
+## Step 5: Install OpenVINO™ GenAI
 
 The OpenVINO™ GenAI archive bundles the full OpenVINO™ C++ runtime alongside
-the GenAI libraries, so on Ubuntu this step alone is enough to build DL
-Streamer - [Step 5](#step-5-install-openvino-toolkit) above can be skipped.
-This step is also required if you want to use the
+the GenAI libraries, so this step alone is enough to build DL Streamer - no
+separate "plain" OpenVINO™ Toolkit install is needed on any platform. This
+step is also required if you want to use the
 [gvagenai element](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvagenai.html),
 which needs the [OpenVINO GenAI archive](https://docs.openvino.ai/2026/get-started/install-openvino/install-openvino-genai.html) package.
 
@@ -196,9 +142,39 @@ which needs the [OpenVINO GenAI archive](https://docs.openvino.ai/2026/get-start
   ```
 
 <!--hide_directive:::
+:::{tab-item}hide_directive--> Fedora 41
+<!--hide_directive:sync: tab3hide_directive-->
+
+  ```bash
+  wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/2026.5.0.0.dev20261027/openvino_genai_rhel9_2026.5.0.0.dev20261027_x86_64.tar.gz | tar -xz &&
+  sudo mv openvino_genai_rhel9_2026.5.0.0.dev20261027_x86_64 /opt/intel/openvino_genai
+  source /opt/intel/openvino_genai/setupvars.sh
+  ```
+
+  > **NOTE:** No Fedora-specific OpenVINO™ GenAI archive is published; the
+  > `rhel9` archive is used instead - its runtime libraries only require
+  > glibc 2.34 / libstdc++ GLIBCXX 3.4.29 or older, both satisfied by Fedora
+  > 41's newer versions, and it bundles cp313 Python bindings matching
+  > Fedora 41's default Python 3.13.
+
+<!--hide_directive:::
+:::{tab-item}hide_directive--> EMT
+<!--hide_directive:sync: tab4hide_directive-->
+
+  ```bash
+  wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/2026.5.0.0.dev20261027/openvino_genai_ubuntu24_2026.5.0.0.dev20261027_x86_64.tar.gz | tar -xz &&
+  sudo mv openvino_genai_ubuntu24_2026.5.0.0.dev20261027_x86_64 /opt/intel/openvino_genai
+  source /opt/intel/openvino_genai/setupvars.sh
+  ```
+
+  > **NOTE:** No EMT-specific OpenVINO™ GenAI archive is published; the
+  > `ubuntu24` archive is used instead, matching the "plain" OpenVINO™
+  > Toolkit archive flavor EMT has always relied on for ABI compatibility.
+
+<!--hide_directive:::
 ::::hide_directive-->
 
-## Step 7: Build Deep Learning Streamer
+## Step 6: Build Deep Learning Streamer
 
 To build DL Streamer is it recommended to use the provided makefile for ease of use:
 
@@ -208,7 +184,7 @@ To build DL Streamer is it recommended to use the provided makefile for ease of 
 
 Running this command will build any major missing dependencies and then compile DL Streamer itself.
 
-## Step 8: Install Deep Learning Streamer (optional)
+## Step 7: Install Deep Learning Streamer (optional)
 
 After building DL Streamer you can install it on your local system by running:
 
@@ -216,7 +192,7 @@ After building DL Streamer you can install it on your local system by running:
   sudo -E make install
   ```
 
-## Step 9: Set up environment
+## Step 8: Set up environment
 
 Set up the required environment variables:
 
@@ -234,7 +210,7 @@ Set up the required environment variables:
   export PKG_CONFIG_PATH="/opt/intel/dlstreamer/Release/lib/pkgconfig:/opt/intel/dlstreamer/gstreamer/lib/pkgconfig::$HOME/dlstreamer/build/intel64/Release/lib/pkgconfig:$HOME/dlstreamer/build/deps/gstreamer-bin/lib/pkgconfig:$PKG_CONFIG_PATH"
   export GST_PLUGIN_FEATURE_RANK=${GST_PLUGIN_FEATURE_RANK},ximagesink:MAX
   export GI_TYPELIB_PATH="/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:$HOME/dlstreamer/build/src/gst/metadata/:$HOME/dlstreamer/build/deps/gstreamer-bin/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0"
-  export PYTHONPATH="/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:$PYTHONPATH"
+  export PYTHONPATH="/opt/intel/openvino_genai/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:$PYTHONPATH"
   ```
 
 <!--hide_directive:::
@@ -250,7 +226,7 @@ Set up the required environment variables:
   export PATH="/opt/intel/dlstreamer/Release/bin:/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/opencv/bin:$HOME/dlstreamer/build/intel64/Release/bin:$HOME/dlstreamer/build/deps/gstreamer-bin/bin:$HOME/dlstreamer/build/deps/opencv-bin/bin:$HOME/.local/bin:$HOME/python3venv/bin:$PATH"
   export PKG_CONFIG_PATH="/opt/intel/dlstreamer/Release/lib/pkgconfig:/opt/intel/dlstreamer/gstreamer/lib/pkgconfig::$HOME/dlstreamer/build/intel64/Release/lib/pkgconfig:$HOME/dlstreamer/build/deps/gstreamer-bin/lib/pkgconfig:$PKG_CONFIG_PATH"
   export GST_PLUGIN_FEATURE_RANK=${GST_PLUGIN_FEATURE_RANK},ximagesink:MAX
-  export PYTHONPATH="/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:$PYTHONPATH"
+  export PYTHONPATH="/opt/intel/openvino_genai/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:$PYTHONPATH"
   ```
 
 <!--hide_directive:::
@@ -278,7 +254,7 @@ Set up the required environment variables:
   export PATH="/opt/intel/dlstreamer/Release/bin:/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/opencv/bin:$HOME/dlstreamer/build/intel64/Release/bin:$HOME/dlstreamer/build/deps/gstreamer-bin/bin:$HOME/dlstreamer/build/deps/opencv-bin/bin:$HOME/.local/bin:$HOME/python3venv/bin:$PATH"
   export PKG_CONFIG_PATH="/opt/intel/dlstreamer/Release/lib/pkgconfig:/opt/intel/dlstreamer/gstreamer/lib/pkgconfig::$HOME/dlstreamer/build/intel64/Release/lib/pkgconfig:$HOME/dlstreamer/build/deps/gstreamer-bin/lib/pkgconfig:$PKG_CONFIG_PATH"
   export GST_PLUGIN_FEATURE_RANK=${GST_PLUGIN_FEATURE_RANK},ximagesink:MAX
-  export PYTHONPATH="/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:$PYTHONPATH"
+  export PYTHONPATH="/opt/intel/openvino_genai/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:$PYTHONPATH"
   ```
 
 <!--hide_directive:::
@@ -287,7 +263,7 @@ Set up the required environment variables:
 > **NOTE:**  For a permanent solution, open `\~/.bashrc` and add the variables above
 > to set up Linux to use them for every terminal session.
 
-## Step 10: Install Python dependencies (optional)
+## Step 9: Install Python dependencies (optional)
 
 If you intend to use Python elements or samples, you need to install the
 necessary dependencies using the following commands:
@@ -338,7 +314,7 @@ After installation, no `PYTHONPATH` configuration is needed:
   ```
 
 > **NOTE (advanced):** As an alternative to pip, `dlstreamer.onvif` is also
-> accessible via `PYTHONPATH` set in Step 9. This approach requires
+> accessible via `PYTHONPATH` set in Step 8. This approach requires
 > manual installation of the dependencies declared in `python/pyproject.toml`.
 
 ---

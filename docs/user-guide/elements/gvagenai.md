@@ -6,7 +6,7 @@ It can be used to generate text summarizations from video.
 
 [Visual Language Models supported by OpenVINO™ GenAI](https://openvinotoolkit.github.io/openvino.genai/docs/supported-models/#vision-language-models-vlms)
 
-[Prerequisites steps for Ubuntu](../dev_guide/advanced_install/advanced_install_guide_compilation.md#step-6-ubuntu-only-install-openvino-genai)
+[Prerequisites steps](../dev_guide/advanced_install/advanced_install_guide_compilation.md#step-5-install-openvino-genai)
 
 ## Overview
 

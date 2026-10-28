@@ -182,7 +182,7 @@ python3 detect.py
 cat output_from_python.json
 ```
 
-> If any Python dependencies are missing, refer to the [Python dependencies install guide](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/advanced_install/advanced_install_guide_compilation.html#step-10-install-python-dependencies-optional).
+> If any Python dependencies are missing, refer to the [Python dependencies install guide](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/advanced_install/advanced_install_guide_compilation.html#step-9-install-python-dependencies-optional).
 
 ---
 
