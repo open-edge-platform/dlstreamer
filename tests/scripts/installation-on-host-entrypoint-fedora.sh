@@ -6,6 +6,9 @@
 # ==============================================================================
 set -e
 dls_package=$1
+# Optional second argument overrides the version used in docker/fedora41/fedora41.Dockerfile.
+OPENVINO_GENAI_VERSION_OVERRIDE=${2:-}
+DEFAULT_OPENVINO_GENAI_VERSION=2026.5.0.0.dev20261027
 
 # Function to display text in a given color
 echo_color() {
@@ -38,6 +41,35 @@ handle_error() {
     exit 1
 }
 
+# Install the same OpenVINO GenAI archive used by the Fedora Docker image.
+# It bundles the OpenVINO runtime as well as the Python bindings.
+install_openvino() {
+    local openvino_genai_version="${OPENVINO_GENAI_VERSION_OVERRIDE:-$DEFAULT_OPENVINO_GENAI_VERSION}"
+    local openvino_genai_ver="openvino_genai_rhel9_${openvino_genai_version}_x86_64"
+    local openvino_genai_pkg="https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/${openvino_genai_version}/${openvino_genai_ver}.tar.gz"
+    local genai_version_marker=/opt/intel/openvino_genai/.installed_version
+
+    echo_color "Installing OpenVINO GenAI ${openvino_genai_version} alongside intel-dlstreamer..." "blue"
+    sudo mkdir -p /opt/intel
+
+    if [ -d /opt/intel/openvino_genai ] && [ "$(cat "$genai_version_marker" 2>/dev/null)" != "$openvino_genai_version" ]; then
+        sudo rm -rf /opt/intel/openvino_genai
+    fi
+    if [ ! -d /opt/intel/openvino_genai ]; then
+        local tmp_genai_dir
+        tmp_genai_dir=$(mktemp -d)
+        curl -fL "$openvino_genai_pkg" | tar -xz -C "$tmp_genai_dir"
+        sudo mv "${tmp_genai_dir}/${openvino_genai_ver}" /opt/intel/openvino_genai
+        rm -rf "$tmp_genai_dir"
+        echo "$openvino_genai_version" | sudo tee "$genai_version_marker" > /dev/null
+    fi
+
+    sudo ln -sfn /opt/intel/openvino_genai /opt/intel/openvino
+    echo "/opt/intel/openvino/runtime/lib/intel64" | sudo tee /etc/ld.so.conf.d/openvino.conf > /dev/null
+    sudo ldconfig
+    echo_color "OpenVINO installed and registered with ldconfig" "green"
+}
+
 # Stop and remove all running Docker containers
 echo_color "Stopping all running Docker containers" "blue"
 docker ps -q | xargs -r docker stop || true
@@ -55,18 +87,6 @@ if [ -f /home/labrat/.cache/gstreamer-1.0/ ]; then
     echo_color "Removed /home/labrat/.cache/gstreamer-1.0/" "blue"
 fi
 
-# Configure repositories before installation
-echo_color "Starting to configure OpenVINO™ repository access before DL Streamer installation" "blue"
-printf "[OpenVINO]\n\
-name=Intel(R) Distribution of OpenVINO\n\
-baseurl=https://yum.repos.intel.com/openvino\n\
-enabled=1\n\
-gpgcheck=1\n\
-repo_gpgcheck=1\n\
-gpgkey=https://yum.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB\n" >/tmp/openvino.repo && \
-sudo mv /tmp/openvino.repo /etc/yum.repos.d
-. /etc/os-release
- 
 #DLStreamer installation
 
 mkdir /home/labrat/intel/dls_package
@@ -75,6 +95,8 @@ cd /home/labrat/intel/dls_package
 echo_color "Downloading DLS rpm package version: $dls_package" "blue"
 wget -r -np -nH --cut-dirs=7 -A '*intel-dlstreamer*' "$dls_package"
 echo_color "Downloaded DLS package version: $dls_package" "magenta"
+
+install_openvino
 
 echo_color "Executing: sudo dnf install -y ./intel-dlstreamer*" "blue"
 sudo dnf install -y ./intel-dlstreamer*
