@@ -8,11 +8,8 @@
 
 #include <string>
 #include <variant>
-#include <vector>
 
 #include <opencv2/opencv.hpp>
-
-class ColorConverter;
 
 namespace render {
 
@@ -129,12 +126,5 @@ inline cv::Size computeBlurKernelSize(int roi_width, int roi_height) {
 }
 
 using Prim = std::variant<Text, Rect, Circle, Line, Polygon, InstanceSegmantationMask, SemanticSegmantationMask, Blur>;
-
-// Replaces every primitive colour with its representation in the frame's native
-// colour space, so the rasterizer only ever writes bytes. Blur and
-// SemanticSegmantationMask carry no colour and are left alone. Text with a
-// background also gets its contrast_color here, picked while the colour is
-// still RGB, so every renderer and frame format draws the same glyph colour.
-void convert_prims_color(std::vector<Prim> &prims, ColorConverter &converter);
 
 } // namespace render

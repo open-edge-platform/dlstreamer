@@ -44,40 +44,36 @@ std::vector<cv::Mat> Renderer::convertBufferToCvMats(dlstreamer::Frame &buffer) 
     return image_planes;
 }
 
-void render::convert_prims_color(std::vector<render::Prim> &prims, ColorConverter &converter) {
+void Renderer::convert_prims_color(std::vector<render::Prim> &prims) {
     for (auto &p : prims) {
         if (std::holds_alternative<render::Line>(p)) {
             render::Line line = std::get<render::Line>(p);
-            line.color = converter.convert(line.color);
+            line.color = _color_converter->convert(line.color);
             p = line;
         } else if (std::holds_alternative<render::Rect>(p)) {
             render::Rect rect = std::get<render::Rect>(p);
-            rect.color = converter.convert(rect.color);
+            rect.color = _color_converter->convert(rect.color);
             p = rect;
         } else if (std::holds_alternative<render::Text>(p)) {
             render::Text text = std::get<render::Text>(p);
             if (text.draw_bg)
-                text.contrast_color = converter.convert(contrast_text_color(text.color));
-            text.color = converter.convert(text.color);
+                text.contrast_color = _color_converter->convert(contrast_text_color(text.color));
+            text.color = _color_converter->convert(text.color);
             p = text;
         } else if (std::holds_alternative<render::Circle>(p)) {
             render::Circle circle = std::get<render::Circle>(p);
-            circle.color = converter.convert(circle.color);
+            circle.color = _color_converter->convert(circle.color);
             p = circle;
         } else if (std::holds_alternative<render::Polygon>(p)) {
             render::Polygon polygon = std::get<render::Polygon>(p);
-            polygon.color = converter.convert(polygon.color);
+            polygon.color = _color_converter->convert(polygon.color);
             p = polygon;
         } else if (std::holds_alternative<render::InstanceSegmantationMask>(p)) {
             render::InstanceSegmantationMask mask = std::get<render::InstanceSegmantationMask>(p);
-            mask.color = converter.convert(mask.color);
+            mask.color = _color_converter->convert(mask.color);
             p = mask;
         }
     }
-}
-
-void Renderer::convert_prims_color(std::vector<render::Prim> &prims) {
-    render::convert_prims_color(prims, *_color_converter);
 }
 
 void Renderer::draw(dlstreamer::FramePtr buffer, std::vector<render::Prim> prims) {

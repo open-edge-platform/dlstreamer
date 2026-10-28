@@ -3,48 +3,6 @@
 Overlays the metadata on the video frame to visualize the inference
 results.
 
-On Linux, with `device=GPU`, the element draws with OpenCL straight into the
-planes of `NV12` frames in `video/x-raw(memory:VAMemory)`. The frame is not
-copied to system memory, which the CPU renderer has to do for every frame in
-video memory.
-
-- The GPU renderer draws the same pixels as the CPU renderer: boxes, labels and
-  their backgrounds, keypoints and their connections, instance segmentation
-  masks, and blurred regions.
-- Its cost depends on the area the watermark covers, not on the frame size:
-  labels are rasterized on the CPU once and reused across frames. Blurring large
-  regions is the expensive part, see [Performance consideration](#performance-consideration).
-- Frames in another format, and frames with rotated regions (from oriented
-  detection models such as YOLO-OBB), are drawn by the CPU renderer instead,
-  one frame at a time.
-- Semantic segmentation masks are drawn only on `BGRx`, `BGRA` and `BGR` frames,
-  by the CPU renderer. Neither renderer draws them on `NV12`, and on `I420` the
-  CPU renderer draws no segmentation masks at all: such frames stop the pipeline
-  with an error.
-- The GPU renderer is built when OpenCL and VA-API are found. If the GPU cannot
-  share the frames with OpenCL, the element logs a warning and uses the CPU
-  renderer.
-- `device` defaults to `CPU`. Set `device=GPU` and keep the frames in VAMemory:
-
-  ```bash
-  gst-launch-1.0 filesrc location=${VIDEO_FILE} ! decodebin3 ! "video/x-raw(memory:VAMemory)" ! \
-    gvadetect model=${MODEL_FILE} device=GPU pre-process-backend=va-surface-sharing ! queue ! \
-    gvawatermark device=GPU ! vapostproc ! autovideosink
-  ```
-
-> **Note:** On Linux, the GPU renderer draws into the VA surface itself. A decoder
-> may still use that surface as a reference picture, and a `tee` shares it with
-> its other branches, so the watermark can show up in later frames and in the
-> other branches. The CPU renderer is not affected. To prevent it, copy the frame
-> right before `gvawatermark`. The copy does not change the pixels:
->
-> ```bash
-> ... ! vapostproc disable-passthrough=true ! "video/x-raw(memory:VAMemory),format=NV12" ! gvawatermark device=GPU ! ...
-> ```
-
-See [Displaying analysis results with gvawatermark](../dev_guide/performance_guide.md#8-displaying-analysis-results-with-gvawatermark)
-for when to choose the CPU or the GPU.
-
 On Windows, the element also accepts `video/x-raw(memory:D3D11Memory)` and
 `video/x-raw(memory:D3D12Memory)` in `NV12` and `BGRA`, and draws on them with
 the CPU renderer, which maps every frame to system memory.
@@ -126,6 +84,7 @@ Element Properties:
                         * enable-blur=<bool> enable ROI blurring for privacy protection, default false
                           NOTE : Blurring is applied only when "enable-blur=true"; if no "show-blur-roi" / "hide-blur-roi" filters are set, all ROIs are blurred
                           NOTE : show-blur-roi takes precedence over hide-blur-roi when both are specified
+                          NOTE : this option is supported only for CPU for now.
                         * show-blur-roi=<string> colon-separated list of object labels to blur (e.g., "face:person")
                         * hide-blur-roi=<string> colon-separated list of labels to exclude from blurring (show-blur-roi takes precedence)
                         * text-x=<float> x position (pixels) for full-frame text (e.g. from gvagenai), default 0
@@ -286,7 +245,7 @@ e.g `displ-cfg=show-labels=true,hide-roi=car`
 
 ### Blur Feature
 
-The gvawatermark element supports privacy protection through region of interest (ROI) blurring using a Gaussian blur with a dynamic kernel size as ~1/5 of each ROI dimension (minimum 7, always odd)
+The gvawatermark element supports privacy protection through region of interest (ROI) blurring using OpenCV GaussianBlur with a dynamic kernel size as ~1/5 of each ROI dimension (minimum 7, always odd)
 so the blur strength scales with the region. This feature is useful for anonymizing faces, license plates, or other sensitive content in video streams.
 
 #### Blur Configuration Parameters
@@ -348,12 +307,7 @@ displ-cfg=enable-blur=true,show-blur-roi=person:face,color-idx=0,font-scale=0.8
 
 ### Performance consideration
 
-Blurring runs on whichever device the element is set to, including `device=GPU`.
-
-Unlike the rest of the watermark, the cost of a blur is proportional to the area
-of the regions being blurred, on either device. Blurring a large share of the
-frame is therefore expensive no matter the device, and gets more so with
-resolution.
+**currently objects blur supported only on CPU**
 
 ### Configuration Examples
 
