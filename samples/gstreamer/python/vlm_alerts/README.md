@@ -49,11 +49,7 @@ python3 ../../../../scripts/download_models/download_hf_models.py \
 Exported this way, the model is picked up automatically: `--model-path` defaults to
 `public/OpenGVLab_InternVL3_5-2B`, which is resolved inside `$MODELS_PATH`. To use a different
 model, pass the exported directory explicitly. A relative path is looked up in the current
-directory and then in `$MODELS_PATH`:
-
-```code
-python3 vlm_alerts.py --model-path public/Qwen_Qwen2-VL-2B-Instruct ...
-```
+directory and then in `$MODELS_PATH`.
 
 ## Pipeline Architecture
 
