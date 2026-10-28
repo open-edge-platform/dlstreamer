@@ -154,13 +154,13 @@ packages:
 <!--hide_directive:sync: tab2hide_directive-->
 
   ```bash
-  wget https://storage.openvinotoolkit.org/repositories/openvino/packages/nightly/2026.5.0-23594-7e507a4ca9a/openvino_toolkit_ubuntu24_2026.5.0.dev20261023_x86_64.tgz
-  tar -xvzf openvino_toolkit_ubuntu24_2026.5.0.dev20261023_x86_64.tgz
-  sudo mv openvino_toolkit_ubuntu24_2026.5.0.dev20261023_x86_64 /opt/intel/openvino_2026.5.0.dev20261023
-  cd /opt/intel/openvino_2026.5.0.dev20261023/
+  wget https://storage.openvinotoolkit.org/repositories/openvino/packages/nightly/2026.5.0-23594-7e507a4ca9a/openvino_toolkit_ubuntu24_2026.5.0.dev20261027_x86_64.tgz
+  tar -xvzf openvino_toolkit_ubuntu24_2026.5.0.dev20261027_x86_64.tgz
+  sudo mv openvino_toolkit_ubuntu24_2026.5.0.dev20261027_x86_64 /opt/intel/openvino_2026.5.0.dev20261027
+  cd /opt/intel/openvino_2026.5.0.dev20261027/
   sudo -E python3 -m pip install -r ./python/requirements.txt
   cd /opt/intel
-  sudo ln -s openvino_2026.5.0.dev20261023 openvino_2026
+  sudo ln -s openvino_2026.5.0.dev20261027 openvino_2026
   ```
 
 <!--hide_directive:::
@@ -180,8 +180,8 @@ which needs the [OpenVINO GenAI archive](https://docs.openvino.ai/2026/get-start
 <!--hide_directive:sync: tab1hide_directive-->
 
   ```bash
-  wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/2026.5.0.0.dev20261023/openvino_genai_ubuntu24_2026.5.0.0.dev20261023_x86_64.tar.gz | tar -xz &&
-  sudo mv openvino_genai_ubuntu24_2026.5.0.0.dev20261023_x86_64 /opt/intel/openvino_genai
+  wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/2026.5.0.0.dev20261027/openvino_genai_ubuntu24_2026.5.0.0.dev20261027_x86_64.tar.gz | tar -xz &&
+  sudo mv openvino_genai_ubuntu24_2026.5.0.0.dev20261027_x86_64 /opt/intel/openvino_genai
   source /opt/intel/openvino_genai/setupvars.sh
   ```
 
@@ -190,8 +190,8 @@ which needs the [OpenVINO GenAI archive](https://docs.openvino.ai/2026/get-start
 <!--hide_directive:sync: tab2hide_directive-->
 
   ```bash
-  wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/2026.5.0.0.dev20261023/openvino_genai_ubuntu22_2026.5.0.0.dev20261023_x86_64.tar.gz | tar -xz &&
-  sudo mv openvino_genai_ubuntu22_2026.5.0.0.dev20261023_x86_64 /opt/intel/openvino_genai
+  wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/2026.5.0.0.dev20261027/openvino_genai_ubuntu22_2026.5.0.0.dev20261027_x86_64.tar.gz | tar -xz &&
+  sudo mv openvino_genai_ubuntu22_2026.5.0.0.dev20261027_x86_64 /opt/intel/openvino_genai
   source /opt/intel/openvino_genai/setupvars.sh
   ```
 
