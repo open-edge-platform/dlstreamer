@@ -20,8 +20,7 @@ param(
 )
 
 $GSTREAMER_VERSION = "1.28.8"
-$OPENVINO_VERSION = "2026.3.1"
-$OPENVINO_VERSION_SHORT = "2026.3.1"
+$OPENVINO_NIGHTLY_VERSION = "2026.5.0.0.dev20261027"
 $PYTHON_VERSION = "3.12.7"
 $OPENVINO_DEST_FOLDER = "$env:LOCALAPPDATA\Programs\openvino"
 $GSTREAMER_DEST_FOLDER = "$env:ProgramFiles\gstreamer\1.0\msvc_x86_64"
@@ -388,6 +387,13 @@ Write-Host "GStreamer setup type: $gstSetupType"
 # ============================================================================
 # OpenVINO
 # ============================================================================
+# NOTE: only the OpenVINO GenAI nightly archive is installed (no stable
+# release fallback). The archive's own runtime/version.txt uses a different
+# version scheme (e.g. "2026.5.0-23642-<hash>") than $OPENVINO_NIGHTLY_VERSION
+# (the PEP440-style dev version used in the download URL/filename), so the
+# two can't be compared directly; instead, a marker file recording the exact
+# nightly version we installed is used to decide whether a reinstall is needed.
+$OPENVINO_VERSION_MARKER = "$OPENVINO_DEST_FOLDER\.nightly_version"
 $OPENVINO_NEEDS_INSTALL = $true
 if (-Not (Test-Path "$OPENVINO_DEST_FOLDER\setupvars.ps1")) {
 	Write-Host "OpenVINO not found - installation needed"
@@ -396,23 +402,14 @@ if (-Not (Test-Path "$OPENVINO_DEST_FOLDER\setupvars.ps1")) {
 else {
 	Write-Host "OpenVINO found in folder $OPENVINO_DEST_FOLDER"
 
-	# Try to get installed version from version file
-	$VERSION_FILE = "$OPENVINO_DEST_FOLDER\runtime\version.txt"
-	if (Test-Path $VERSION_FILE) {
-		$VERSION_CONTENT = Get-Content $VERSION_FILE -First 1
-		if ($VERSION_CONTENT) {
-			if ($VERSION_CONTENT.StartsWith($OPENVINO_VERSION)) {
-				$INSTALLED_VERSION_FULL = ($VERSION_CONTENT -split '-')[0]
-				Write-Host "OpenVINO version $INSTALLED_VERSION_FULL verified - compatible with required $OPENVINO_VERSION"
-				$OPENVINO_NEEDS_INSTALL = $false
-			}
-			else {
-				$INSTALLED_VERSION_FULL = ($VERSION_CONTENT -split '-')[0]
-				Write-Host "OpenVINO version mismatch - installed: $INSTALLED_VERSION_FULL, required: $OPENVINO_VERSION"
-				$OPENVINO_NEEDS_INSTALL = $true
-			}
+	if (Test-Path $OPENVINO_VERSION_MARKER) {
+		$INSTALLED_NIGHTLY_VERSION = (Get-Content $OPENVINO_VERSION_MARKER -First 1).Trim()
+		if ($INSTALLED_NIGHTLY_VERSION -eq $OPENVINO_NIGHTLY_VERSION) {
+			Write-Host "OpenVINO GenAI nightly $INSTALLED_NIGHTLY_VERSION verified - matches required $OPENVINO_NIGHTLY_VERSION"
+			$OPENVINO_NEEDS_INSTALL = $false
 		}
 		else {
+			Write-Host "OpenVINO nightly version mismatch - installed: $INSTALLED_NIGHTLY_VERSION, required: $OPENVINO_NIGHTLY_VERSION"
 			$OPENVINO_NEEDS_INSTALL = $true
 		}
 	}
@@ -422,7 +419,7 @@ else {
 }
 
 if ($OPENVINO_NEEDS_INSTALL) {
-	Write-Section "Installing OpenVINO GenAI ${OPENVINO_VERSION}"
+	Write-Section "Installing OpenVINO GenAI nightly ${OPENVINO_NIGHTLY_VERSION}"
 
 	# Remove existing OpenVINO installation if present
 	if (Test-Path "${OPENVINO_DEST_FOLDER}") {
@@ -430,13 +427,14 @@ if ($OPENVINO_NEEDS_INSTALL) {
 		Remove-Item -LiteralPath "${OPENVINO_DEST_FOLDER}" -Recurse -Force
 	}
 
-	# Check if correct installer is already downloaded
-	$OPENVINO_INSTALLER = "${DLSTREAMER_TMP}\openvino_genai_windows_${OPENVINO_VERSION}.0_x86_64.zip"
-	Write-Host "Downloading OpenVINO GenAI ${OPENVINO_VERSION}..."
-	Invoke-DownloadFile -OutFile $OPENVINO_INSTALLER -Uri "https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/${OPENVINO_VERSION_SHORT}/windows/openvino_genai_windows_${OPENVINO_VERSION}.0_x86_64.zip"
+	$OPENVINO_INSTALLER = "${DLSTREAMER_TMP}\openvino_genai_windows_${OPENVINO_NIGHTLY_VERSION}_x86_64.zip"
+	Write-Host "Downloading OpenVINO GenAI nightly ${OPENVINO_NIGHTLY_VERSION}..."
+	Invoke-DownloadFile -OutFile $OPENVINO_INSTALLER -Uri "https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/${OPENVINO_NIGHTLY_VERSION}/openvino_genai_windows_${OPENVINO_NIGHTLY_VERSION}_x86_64.zip"
 
-	Write-Host "Extracting OpenVINO GenAI ${OPENVINO_VERSION}..."
-	$EXTRACTED_FOLDER = "$env:TEMP\openvino_genai_windows_${OPENVINO_VERSION}.0_x86_64"
+	Write-Host "Extracting OpenVINO GenAI nightly ${OPENVINO_NIGHTLY_VERSION}..."
+	# The archive's top-level folder is named after the nightly version with
+	# no extra suffix (matches the downloaded zip's filename stem).
+	$EXTRACTED_FOLDER = "$env:TEMP\openvino_genai_windows_${OPENVINO_NIGHTLY_VERSION}_x86_64"
 	if (Test-Path $EXTRACTED_FOLDER) {
 		Remove-Item -LiteralPath $EXTRACTED_FOLDER -Recurse -Force
 	}
@@ -447,11 +445,12 @@ if ($OPENVINO_NEEDS_INSTALL) {
 			New-Item -ItemType Directory -Path $OPENVINO_PARENT -Force | Out-Null
 		}
 		Move-Item -Path $EXTRACTED_FOLDER -Destination $OPENVINO_DEST_FOLDER -Force
+		Set-Content -Path $OPENVINO_VERSION_MARKER -Value $OPENVINO_NIGHTLY_VERSION
 	}
 	Write-Section "Done"
 }
 else {
-	Write-Section "OpenVINO GenAI ${OPENVINO_VERSION} already installed"
+	Write-Section "OpenVINO GenAI nightly ${OPENVINO_NIGHTLY_VERSION} already installed"
 }
 
 # ============================================================================
