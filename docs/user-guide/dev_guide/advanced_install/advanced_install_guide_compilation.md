@@ -97,12 +97,61 @@ For crating wirtual enviroment `uv` tool is recomended, and needs to be instaled
 Create a Python virtual environment and install required Python
 packages:
 
+> **NOTE:** OpenVINO™ GenAI only ships Python bindings for Python 3.11, 3.12
+> and 3.13. Ubuntu 24.04's default Python (3.12) and Fedora 41's default
+> Python (3.13) already satisfy this, but Ubuntu 22.04's default Python
+> (3.10) and Ubuntu 26.04's default Python (3.14) do not - Python 3.11
+> (Ubuntu 22.04) / Python 3.13 (Ubuntu 26.04) must be installed from the
+> `deadsnakes` PPA and used for the virtual environment below, otherwise
+> native extensions built inside the venv (e.g. PyGObject) will not match
+> the interpreter DL Streamer's Python elements (e.g. `gvapython`) are
+> loaded into, causing import/ABI errors.
+
+<!--hide_directive::::{tab-set}
+:::{tab-item}hide_directive--> Ubuntu 24, Fedora 41, EMT
+<!--hide_directive:sync: tab1hide_directive-->
+
   ```bash
   uv venv ~/python3venv
   source ~/python3venv/bin/activate
 
   uv pip install meson==1.4.1 ninja==1.11.1.1
   ```
+
+<!--hide_directive:::
+:::{tab-item}hide_directive--> Ubuntu 22
+<!--hide_directive:sync: tab2hide_directive-->
+
+  ```bash
+  sudo apt-get install -y -q --no-install-recommends software-properties-common
+  sudo add-apt-repository -y ppa:deadsnakes/ppa
+  sudo apt-get update
+  sudo apt-get install -y -q --no-install-recommends python3.11 python3.11-venv python3.11-dev
+
+  uv venv --python python3.11 ~/python3venv
+  source ~/python3venv/bin/activate
+
+  uv pip install meson==1.4.1 ninja==1.11.1.1
+  ```
+
+<!--hide_directive:::
+:::{tab-item}hide_directive--> Ubuntu 26
+<!--hide_directive:sync: tab4hide_directive-->
+
+  ```bash
+  sudo apt-get install -y -q --no-install-recommends software-properties-common
+  sudo add-apt-repository -y ppa:deadsnakes/ppa
+  sudo apt-get update
+  sudo apt-get install -y -q --no-install-recommends python3.13 python3.13-venv python3.13-dev
+
+  uv venv --python python3.13 ~/python3venv
+  source ~/python3venv/bin/activate
+
+  uv pip install meson==1.4.1 ninja==1.11.1.1
+  ```
+
+<!--hide_directive:::
+::::hide_directive-->
 
 ## Step 4: Clone Deep Learning Streamer repository
 
@@ -272,8 +321,18 @@ necessary dependencies using the following commands:
 > `uv` tool set up in [Step 3](#step-3-set-up-a-python-environment). If you
 > skipped that step, install `uv` and create the virtual environment first.
 
+> **NOTE:** `python3-dev` / `python-gi-dev` must match the Python version of
+> `~/python3venv` created in Step 3, otherwise native extensions built here
+> (e.g. PyGObject) won't be ABI-compatible with that interpreter. This means
+> using `python3.11-dev` on Ubuntu 22.04 and `python3.13-dev` on Ubuntu
+> 26.04, not the system-default `python3-dev`.
+
+<!--hide_directive::::{tab-set}
+:::{tab-item}hide_directive--> Ubuntu 24
+<!--hide_directive:sync: tab1hide_directive-->
+
   ```bash
-  sudo apt-get update 
+  sudo apt-get update
   sudo apt-get install -y -q --no-install-recommends gcc cmake python3-full python-gi-dev python3-dev python3-pip \
       libglib2.0-dev libcairo2-dev libopencv-objdetect-dev libopencv-photo-dev libopencv-stitching-dev libopencv-video-dev \
       libopencv-calib3d-dev libopencv-core-dev libopencv-dnn-dev libgirepository1.0-dev
@@ -282,6 +341,43 @@ necessary dependencies using the following commands:
   cd ~/dlstreamer
   uv pip install -r requirements.txt
   ```
+
+<!--hide_directive:::
+:::{tab-item}hide_directive--> Ubuntu 22
+<!--hide_directive:sync: tab2hide_directive-->
+
+  ```bash
+  sudo apt-get update
+  sudo apt-get install -y -q --no-install-recommends gcc cmake python3.11-dev python-gi-dev python3-pip \
+      libglib2.0-dev libcairo2-dev libopencv-objdetect-dev libopencv-photo-dev libopencv-stitching-dev libopencv-video-dev \
+      libopencv-calib3d-dev libopencv-core-dev libopencv-dnn-dev libgirepository1.0-dev
+
+  source ~/python3venv/bin/activate
+  cd ~/dlstreamer
+  uv pip install -r requirements.txt
+  ```
+
+<!--hide_directive:::
+:::{tab-item}hide_directive--> Ubuntu 26
+<!--hide_directive:sync: tab4hide_directive-->
+
+  ```bash
+  sudo apt-get update
+  sudo apt-get install -y -q --no-install-recommends gcc cmake python3.13-dev python-gi-dev python3-pip \
+      libglib2.0-dev libcairo2-dev libopencv-objdetect-dev libopencv-photo-dev libopencv-stitching-dev libopencv-video-dev \
+      libopencv-calib3d-dev libopencv-core-dev libopencv-dnn-dev libgirepository1.0-dev
+
+  source ~/python3venv/bin/activate
+  cd ~/dlstreamer
+  uv pip install -r requirements.txt
+  ```
+
+<!--hide_directive:::
+::::hide_directive-->
+
+> **NOTE:** Fedora 41 / EMT users: install the dnf equivalents of the
+> packages above (see [Step 2](#step-2-install-build-dependencies)) before
+> running `uv pip install`.
 
 ### (Optional) Install DL Streamer ONVIF Python package
 
