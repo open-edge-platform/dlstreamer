@@ -4,7 +4,7 @@
 --extra-index-url https://storage.openvinotoolkit.org/simple/wheels/nightly
 huggingface_hub==0.34.4
 timm==1.0.26
-openvino==2026.5.0.dev20261023
+openvino==2026.5.0.dev20261027
 optimum-intel==1.27.0
 torch==2.13.0
 nncf==3.0.0

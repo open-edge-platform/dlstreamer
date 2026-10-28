@@ -392,7 +392,7 @@ COPY --from=realsense-builder /usr/local/include/librealsense2 /usr/local/includ
 # no separate OpenVINO Runtime archive download is needed.
 # The archive also contains Python bindings in python/openvino/ and
 # python/openvino_genai/ for Python 3.11/3.12/3.13 - exposed via PYTHONPATH.
-ARG OPENVINO_GENAI_VERSION=2026.5.0.0.dev20261023
+ARG OPENVINO_GENAI_VERSION=2026.5.0.0.dev20261027
 ARG OPENVINO_GENAI_VER=openvino_genai_ubuntu22_${OPENVINO_GENAI_VERSION}_x86_64
 ARG OPENVINO_GENAI_PKG=https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/${OPENVINO_GENAI_VERSION}/${OPENVINO_GENAI_VER}.tar.gz
 

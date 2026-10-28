@@ -25,7 +25,7 @@ Before using the DLS Optimizer, ensure you have:
    source ~/python3venv/bin/activate
    source /opt/intel/dlstreamer/scripts/setup_dls_env.sh
    cd /opt/intel/dlstreamer/scripts/optimizer
-   uv pip install --extra-index-url https://storage.openvinotoolkit.org/simple/wheels/nightly openvino==2026.5.0.dev20261023
+   uv pip install --extra-index-url https://storage.openvinotoolkit.org/simple/wheels/nightly openvino==2026.5.0.dev20261027
 ```
 
 ## Using the optimizer as a tool

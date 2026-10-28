@@ -4,13 +4,13 @@ defusedxml>=0.7.1
 huggingface_hub==1.21.0
 # OpenVINO extra index needed when using nightly OpenVINO builds
 --extra-index-url https://storage.openvinotoolkit.org/simple/wheels/nightly
-openvino==2026.5.0.dev20261023
+openvino==2026.5.0.dev20261027
 # Transitive dependency of optimum-intel; must be pinned explicitly to the
 # matching nightly build. Both pip and uv exclude pre-releases for unpinned
 # transitive dependencies by default, so without this pin the resolver only
 # considers stable (non-matching) openvino-tokenizers releases from PyPI,
 # which depend on an older openvino version and conflict with the pin above.
-openvino-tokenizers==2026.5.0.0.dev20261023
+openvino-tokenizers==2026.5.0.0.dev20261027
 optimum-intel==2.1.0
 transformers==5.5.0
 pillow==13.0.0

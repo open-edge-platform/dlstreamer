@@ -4,7 +4,7 @@
 --extra-index-url https://storage.openvinotoolkit.org/simple/wheels/nightly
 
 # OpenVINO + NNCF for INT8 quantization
-openvino==2026.5.0.dev20261023
+openvino==2026.5.0.dev20261027
 nncf==3.0.0
 
 # Ultralytics YOLO model export

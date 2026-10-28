@@ -138,12 +138,12 @@ jobs:
           sudo rm -rf /opt/intel/openvino_genai
           if [[ ${{ matrix.os }} == "ubuntu-24.04" ]]; then
             echo "Executing Ubuntu 24.04 specific setup..."
-            wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/2026.5.0.0.dev20261023/openvino_genai_ubuntu24_2026.5.0.0.dev20261023_x86_64.tar.gz | tar -xz
-            sudo mv openvino_genai_ubuntu24_2026.5.0.0.dev20261023_x86_64 /opt/intel/openvino_genai
+            wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/2026.5.0.0.dev20261027/openvino_genai_ubuntu24_2026.5.0.0.dev20261027_x86_64.tar.gz | tar -xz
+            sudo mv openvino_genai_ubuntu24_2026.5.0.0.dev20261027_x86_64 /opt/intel/openvino_genai
           elif [[ ${{ matrix.os }} == "ubuntu-26.04" ]]; then
             echo "Executing Ubuntu 26.04 specific setup..."
-            wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/2026.5.0.0.dev20261023/openvino_genai_ubuntu26_2026.5.0.0.dev20261023_x86_64.tar.gz | tar -xz
-            sudo mv openvino_genai_ubuntu26_2026.5.0.0.dev20261023_x86_64 /opt/intel/openvino_genai
+            wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/2026.5.0.0.dev20261027/openvino_genai_ubuntu26_2026.5.0.0.dev20261027_x86_64.tar.gz | tar -xz
+            sudo mv openvino_genai_ubuntu26_2026.5.0.0.dev20261027_x86_64 /opt/intel/openvino_genai
           else
             echo "Unknown Ubuntu version: ${{ matrix.os }}"
             exit 1

@@ -338,7 +338,7 @@ Typical `requirements.txt` entries by model source:
 
 # OpenVINO extra index needed when using nightly OpenVINO builds
 --extra-index-url https://storage.openvinotoolkit.org/simple/wheels/nightly
-openvino==2026.5.0.dev20261023
+openvino==2026.5.0.dev20261027
 nncf==3.0.0  # required for int8=True quantization (query with: pip show nncf | grep Version)
 
 # Ultralytics YOLO (query with: pip show ultralytics | grep Version)

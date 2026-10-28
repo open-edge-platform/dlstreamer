@@ -8,7 +8,7 @@
 
 # OpenVINO extra index needed when using nightly OpenVINO builds
 # --extra-index-url https://storage.openvinotoolkit.org/simple/wheels/nightly
-# openvino==2026.5.0.dev20261023
+# openvino==2026.5.0.dev20261027
 
 # NNCF for INT8 quantization (required by ultralytics int8=True export)
 # Discover with: pip show nncf | grep Version

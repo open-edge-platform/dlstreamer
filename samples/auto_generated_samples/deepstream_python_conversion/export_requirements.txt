@@ -7,7 +7,7 @@
 --extra-index-url https://storage.openvinotoolkit.org/simple/wheels/nightly
 
 # OpenVINO Python version (pin to match DL Streamer runtime)
-openvino==2026.5.0.dev20261023
+openvino==2026.5.0.dev20261027
 
 # NNCF for INT8 quantization (required by ultralytics int8=True export)
 nncf==3.0.0

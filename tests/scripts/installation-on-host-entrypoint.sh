@@ -18,7 +18,7 @@ PREREQUISITES_SCRIPT_PATH="$(dirname "$0")/../../scripts"
 # full OpenVINO C++ runtime (same layout and setupvars.sh as the plain
 # OpenVINO archive) - keep in sync with OPENVINO_GENAI_VERSION in
 # docker/ubuntu/ubuntuNN.Dockerfile whenever OpenVINO is bumped.
-DEFAULT_OPENVINO_GENAI_VERSION=2026.5.0.0.dev20261023
+DEFAULT_OPENVINO_GENAI_VERSION=2026.5.0.0.dev20261027
 
 # Function to display text in a given color
 echo_color() {

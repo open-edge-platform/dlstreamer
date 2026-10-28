@@ -394,7 +394,7 @@ WORKDIR /home/dlstreamer
 # no separate OpenVINO Runtime archive download is needed.
 # The archive also contains Python bindings in python/openvino/ which are
 # made available via PYTHONPATH - no pip wheel installation needed.
-ARG OPENVINO_GENAI_VERSION=2026.5.0.0.dev20261023
+ARG OPENVINO_GENAI_VERSION=2026.5.0.0.dev20261027
 ARG OPENVINO_GENAI_VER=openvino_genai_ubuntu24_${OPENVINO_GENAI_VERSION}_x86_64
 ARG OPENVINO_GENAI_PKG=https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/${OPENVINO_GENAI_VERSION}/${OPENVINO_GENAI_VER}.tar.gz
 
