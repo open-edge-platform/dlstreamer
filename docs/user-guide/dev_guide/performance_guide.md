@@ -284,16 +284,3 @@ Examples:
   ```
 
 
-
-On Windows, `gvawatermark` defaults to the GPU on D3D11Memory and D3D12Memory. The
-GPU renderer draws into the frame's texture without copying it to system memory,
-whereas the CPU renderer has to download every frame it draws on and upload it
-again, so keep the default there even next to GPU inference. Keep the pipeline in
-D3D12Memory where possible (the default with `decodebin3` when every element
-accepts it): the watermark and the `d3d12-surface-sharing` pre-processing are both
-faster than their D3D11 counterparts.
-
-```bash
-gst-launch-1.0 filesrc location=${VIDEO_FILE} ! decodebin3 ! gvadetect model=${MODEL_FILE} device=GPU ! queue ! \
-  gvawatermark ! d3d12videosink
-```

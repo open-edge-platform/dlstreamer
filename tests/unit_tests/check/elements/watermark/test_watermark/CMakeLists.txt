@@ -24,7 +24,7 @@ add_executable(${TARGET_CONTRACT} ${CMAKE_CURRENT_SOURCE_DIR}/test_watermark_seg
 target_link_libraries(${TARGET_CONTRACT} PRIVATE ${COMMON_LIBS} inference_elements)
 add_test(NAME ${TARGET_CONTRACT} COMMAND ${TARGET_CONTRACT} WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
-# --- RGB to YUV color converter tests (no GStreamer pipeline) ---
+# --- Text color contrast tests (no GStreamer pipeline) ---
 find_package(OpenCV REQUIRED core)
 set(WATERMARK_RENDERER_DIR ${DLSTREAMER_BASE_DIR}/src/monolithic/gst/elements/gvawatermark/renderer)
 set(TARGET_COLOR_CONVERTER "test_gvawatermark_color_converter")

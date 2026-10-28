@@ -32,8 +32,6 @@
 #include <dlstreamer/vaapi/mappers/vaapi_to_dma.h>
 #endif
 #else
-#include <dlstreamer/d3d11/target_pool.h>
-#include <dlstreamer/d3d12/target_pool.h>
 #include <dlstreamer/gst/mappers/gst_to_d3d11.h>
 #endif
 
@@ -42,9 +40,10 @@
 #include "renderer/color_converter.h"
 #include "renderer/cpu/create_renderer.h"
 
-// Renders primitives straight into the NV12 planes of VA surfaces (Linux) or
-// D3D11 and D3D12 textures (Windows) with OpenCL, with no NV12<->BGR round trip.
-#ifdef ENABLE_GVAWATERMARK_GPU
+// Renders primitives straight into the VA surface planes with OpenCL, with no
+// NV12<->BGR round trip. Needs both VA (for the surface) and OpenCL.
+#if defined(ENABLE_GVAWATERMARK_GPU) && defined(ENABLE_VAAPI) && !defined(_WIN32)
+#define GVA_WATERMARK_GPU_RENDERER 1
 #include "renderer/gpu/renderer_gpu.h"
 #endif
 
@@ -52,8 +51,6 @@
 #include <array>
 #include <exception>
 #include <fstream>
-#include <map>
-#include <mutex>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -194,31 +191,6 @@ InferenceBackend::MemoryType memoryTypeFromCaps(GstCaps *caps) {
     }
 }
 
-#if defined(ENABLE_GVAWATERMARK_GPU) && defined(_WIN32)
-/* OpenCL shares D3D11 textures but not D3D12 ones, so the GPU renderer draws
- * D3D12 frames through the D3D11 views of their textures. This is the D3D11
- * device the views are opened on for the adapter of `device`: one per adapter
- * for the whole process, as GStreamer keeps its D3D12 devices, so that streams
- * also share the renderer's OpenCL context. nullptr if it cannot be created. */
-GstD3D11Device *d3d11_device_for(GstD3D12Device *device) {
-    gint64 luid = 0;
-    g_object_get(device, "adapter-luid", &luid, nullptr);
-
-    static std::mutex mutex;
-    static std::map<gint64, GstD3D11Device *> devices;
-    std::lock_guard<std::mutex> lock(mutex);
-    auto [it, created] = devices.try_emplace(luid, nullptr);
-    if (created) {
-        it->second = gst_d3d11_device_new_for_adapter_luid(luid, D3D11_CREATE_DEVICE_BGRA_SUPPORT);
-        if (it->second) // never released, like GStreamer's D3D12 devices: not a leak for leak tracers
-            GST_OBJECT_FLAG_SET(it->second, GST_OBJECT_FLAG_MAY_BE_LEAKED);
-        else
-            GST_WARNING("Cannot create a D3D11 device for D3D12 adapter %" G_GINT64_FORMAT, luid);
-    }
-    return it->second;
-}
-#endif
-
 } // namespace
 
 struct Impl {
@@ -227,29 +199,10 @@ struct Impl {
     bool extract_primitives(GstBuffer *buffer);
     int get_num_primitives() const;
     bool render(GstBuffer *buffer);
-#ifdef ENABLE_GVAWATERMARK_GPU
-    /* Renders into a frame in video memory with OpenCL. Returns false when the
-     * path is unavailable or the frame contains a primitive it cannot draw yet;
-     * the caller must then fall back to render(). */
-    [[nodiscard]] bool render_gpu(renderer_gpu::Device device, renderer_gpu::Surface surface);
-#ifdef _WIN32
-    /* The same for a D3D12 texture of dlstreamer::D3D12TargetPool, which the
-     * caller holds a GST_MAP_D3D12 write map of. */
-    [[nodiscard]] bool render_gpu(GstD3D12Memory *memory);
-#endif
-    /* The GPU renderer cannot be used for this stream at all. */
-    bool gpu_unavailable() const {
-        return _renderer_gpu_unavailable;
-    }
-#endif
-#ifdef _WIN32
-    dlstreamer::D3D11TargetPool &d3d11_targets() {
-        return _d3d11_targets;
-    }
-    dlstreamer::D3D12TargetPool &d3d12_targets() {
-        return _d3d12_targets;
-    }
-#endif
+    /* Renders into the VA surface with OpenCL. Returns false when the path is
+     * unavailable or the frame contains a primitive it cannot draw yet; the
+     * caller must then fall back to render(). */
+    [[nodiscard]] bool render_gpu(VADisplay display, VASurfaceID surface);
     const std::string &getBackendType() const {
         return _backend_type;
     }
@@ -279,19 +232,14 @@ struct Impl {
 
     std::unique_ptr<Renderer> _renderer;
 
-    /* Kept alive for the GPU renderer, which is created lazily on the first
-     * frame in video memory (its device is not known when Impl is constructed). */
+    /* Kept alive for the GPU renderer, which is created lazily on the first VA
+     * frame (the VADisplay is not known when Impl is constructed). */
     std::shared_ptr<ColorConverter> _converter;
-#ifdef ENABLE_GVAWATERMARK_GPU
+#ifdef GVA_WATERMARK_GPU_RENDERER
     std::unique_ptr<RendererGPU> _renderer_gpu;
-    renderer_gpu::Device _renderer_gpu_device = nullptr; // what _renderer_gpu was created for
-    bool _renderer_gpu_unavailable = false;              // sticky: do not retry creation per frame
-    bool _renderer_gpu_active = false;                   // logging only
-    std::string _renderer_gpu_declined;                  // logging only, last reported fallback reason
-#endif
-#ifdef _WIN32
-    dlstreamer::D3D11TargetPool _d3d11_targets{GST_CAT_DEFAULT};
-    dlstreamer::D3D12TargetPool _d3d12_targets{GST_CAT_DEFAULT};
+    bool _renderer_gpu_unavailable = false; // sticky: do not retry creation per frame
+    bool _renderer_gpu_active = false;      // logging only
+    std::string _renderer_gpu_declined;     // logging only, last reported fallback reason
 #endif
 
     std::vector<render::Prim> prims;
@@ -454,7 +402,7 @@ static gboolean gst_gva_watermark_impl_set_caps(GstBaseTransform *trans, GstCaps
 
     if (!gvawatermark->device) {
         switch (mem_type) {
-        // Video memory goes to the GPU renderer where it is built, otherwise to the CPU renderer
+        // For now use CPU renderer for d3d11 and d3d12
         case MemoryType::D3D11:
         case MemoryType::D3D12:
         case MemoryType::SYSTEM:
@@ -669,39 +617,6 @@ static VASurfaceID get_surface_from_buffer(GstBuffer *) {
 }
 #endif
 
-#if defined(ENABLE_GVAWATERMARK_GPU) && defined(_WIN32)
-/* Draws in place into the buffer's texture, which dlstreamer::D3D11TargetPool::replace()
- * has made a pooled, shared one. */
-static bool render_gpu_d3d11(GstGvaWatermarkImpl *self, GstBuffer *buf) {
-    if (GST_VIDEO_INFO_FORMAT(&self->info) != GST_VIDEO_FORMAT_NV12 || self->impl->gpu_unavailable())
-        return false;
-
-    GstMemory *mem = gst_buffer_peek_memory(buf, 0);
-    GstMapInfo info;
-    if (!gst_memory_map(mem, &info, static_cast<GstMapFlags>(GST_MAP_WRITE | GST_MAP_D3D11)))
-        return false;
-    const bool drawn =
-        self->impl->render_gpu(GST_D3D11_MEMORY_CAST(mem)->device, reinterpret_cast<ID3D11Texture2D *>(info.data));
-    gst_memory_unmap(mem, &info);
-    return drawn;
-}
-
-/* The same for the buffer's texture that dlstreamer::D3D12TargetPool::replace()
- * has made a pooled one. */
-static bool render_gpu_d3d12(GstGvaWatermarkImpl *self, GstBuffer *buf) {
-    if (GST_VIDEO_INFO_FORMAT(&self->info) != GST_VIDEO_FORMAT_NV12 || self->impl->gpu_unavailable())
-        return false;
-
-    GstMemory *mem = gst_buffer_peek_memory(buf, 0);
-    GstMapInfo info;
-    if (!gst_memory_map(mem, &info, GST_MAP_WRITE_D3D12))
-        return false;
-    const bool drawn = self->impl->render_gpu(GST_D3D12_MEMORY_CAST(mem));
-    gst_memory_unmap(mem, &info);
-    return drawn;
-}
-#endif
-
 static GstFlowReturn gst_gva_watermark_impl_transform_ip(GstBaseTransform *trans, GstBuffer *buf) {
     GstGvaWatermarkImpl *gvawatermark = GST_GVA_WATERMARK_IMPL(trans);
 
@@ -721,14 +636,9 @@ static GstFlowReturn gst_gva_watermark_impl_transform_ip(GstBaseTransform *trans
     bool have_va_context = false;
 #endif
     bool force_cpu = (gvawatermark->device && g_strcmp0(gvawatermark->device, "CPU") == 0);
-#ifdef _WIN32
-    bool use_gpu_path =
-        (mt == InferenceBackend::MemoryType::D3D11 || mt == InferenceBackend::MemoryType::D3D12) && !force_cpu;
-#else
     bool use_gpu_path = have_va_context && buffer_is_va_like && !force_cpu;
-#endif
-// Disable the GPU render path when it is not built.
-#ifndef ENABLE_GVAWATERMARK_GPU
+// Disable GPU/VA render path when VAAPI feature disabled at build time.
+#ifndef ENABLE_VAAPI
     use_gpu_path = false;
 #endif
 
@@ -744,23 +654,8 @@ static GstFlowReturn gst_gva_watermark_impl_transform_ip(GstBaseTransform *trans
             return GST_FLOW_OK;
         }
 
-#ifdef _WIN32
-        // Either renderer draws into a pooled copy of the frame, see dlstreamer::D3D11TargetPool
-        // and dlstreamer::D3D12TargetPool
-        [[maybe_unused]] const bool d3d11_target =
-            mt == InferenceBackend::MemoryType::D3D11 && gvawatermark->impl->d3d11_targets().replace(buf);
-        [[maybe_unused]] const bool d3d12_target =
-            mt == InferenceBackend::MemoryType::D3D12 &&
-            gvawatermark->impl->d3d12_targets().replace(buf, &gvawatermark->info);
-#endif
-#if defined(ENABLE_GVAWATERMARK_GPU) && defined(_WIN32)
-        if (use_gpu_path) {
-            GST_TRACE_OBJECT(gvawatermark, "Using D3D11/D3D12 GPU render path");
-            use_gpu_path = mt == InferenceBackend::MemoryType::D3D11
-                               ? d3d11_target && render_gpu_d3d11(gvawatermark, buf)
-                               : d3d12_target && render_gpu_d3d12(gvawatermark, buf);
-        }
-#elif defined(ENABLE_VAAPI) && !defined(_WIN32)
+// VA/GPU render path only when VAAPI enabled
+#if defined(ENABLE_VAAPI) && !defined(_WIN32)
         if (use_gpu_path) {
             GST_TRACE_OBJECT(gvawatermark, "Using VA/GPU render path");
 
@@ -771,12 +666,10 @@ static GstFlowReturn gst_gva_watermark_impl_transform_ip(GstBaseTransform *trans
                 use_gpu_path = false;
             } else {
                 GST_TRACE_OBJECT(gvawatermark, "Got VADisplay=%p, VASurfaceID=%d", gvawatermark->va_dpy, (int)sid);
-#ifdef ENABLE_GVAWATERMARK_GPU
                 use_gpu_path = gvawatermark->impl->render_gpu(gvawatermark->va_dpy, sid);
-#endif
             }
         }
-#endif
+#endif // ENABLE_VAAPI
 
         if (!use_gpu_path) {
             GST_TRACE_OBJECT(gvawatermark, "Using CPU/System render path");
@@ -868,8 +761,6 @@ Impl::Impl(GstVideoInfo *info, InferenceBackend::MemoryType mem_type, GstElement
     double Kb = 0, Kr = 0;
     GstVideoColorimetry colorimetry = GST_VIDEO_INFO_COLORIMETRY(_vinfo);
     gst_video_color_matrix_get_Kr_Kb(colorimetry.matrix, &Kr, &Kb);
-    // Treat unknown range as full range, the same way GStreamer (e.g. videoconvert) interprets it downstream
-    bool full_range = colorimetry.range != GST_VIDEO_COLOR_RANGE_16_235;
 
     // Parse display configuration, before the color converter is given the colors of the color table
     if (_displ_cfg)
@@ -880,7 +771,7 @@ Impl::Impl(GstVideoInfo *info, InferenceBackend::MemoryType mem_type, GstElement
     std::vector<Color> known_colors = color_table;
     for (const auto &[label, color] : _label_colors)
         known_colors.push_back(color);
-    _converter = create_color_converter(format, known_colors, Kr, Kb, full_range);
+    _converter = create_color_converter(format, known_colors, Kr, Kb);
 
     _renderer = createRenderer(_converter);
 
@@ -1046,16 +937,14 @@ bool Impl::render(GstBuffer *buffer) {
     return true;
 }
 
-#ifdef ENABLE_GVAWATERMARK_GPU
-bool Impl::render_gpu(renderer_gpu::Device device, renderer_gpu::Surface surface) {
+bool Impl::render_gpu(VADisplay display, VASurfaceID surface) {
     ITT_TASK(__FUNCTION__);
 
+#ifdef GVA_WATERMARK_GPU_RENDERER
+    if (prims.empty())
+        return true;
     if (_renderer_gpu_unavailable)
         return false;
-
-    // Frames moved to another device, e.g. after a D3D11 device change upstream
-    if (_renderer_gpu && device != _renderer_gpu_device)
-        _renderer_gpu.reset();
 
     if (!_renderer_gpu) {
         // NV12 only; anything else keeps using the CPU renderer.
@@ -1066,13 +955,12 @@ bool Impl::render_gpu(renderer_gpu::Device device, renderer_gpu::Surface surface
             return false;
         }
         _renderer_gpu =
-            RendererGPU::create(device, GST_VIDEO_INFO_WIDTH(_vinfo), GST_VIDEO_INFO_HEIGHT(_vinfo), _converter);
+            RendererGPU::create(display, GST_VIDEO_INFO_WIDTH(_vinfo), GST_VIDEO_INFO_HEIGHT(_vinfo), _converter);
         if (!_renderer_gpu) {
             GST_WARNING_OBJECT(_element, "Could not create the OpenCL watermark renderer; using the CPU renderer");
             _renderer_gpu_unavailable = true;
             return false;
         }
-        _renderer_gpu_device = device;
     }
 
     if (_renderer_gpu->draw_surface(surface, prims)) {
@@ -1091,29 +979,12 @@ bool Impl::render_gpu(renderer_gpu::Device device, renderer_gpu::Surface surface
                         _renderer_gpu_declined.c_str());
     }
     return false;
-}
-
-#ifdef _WIN32
-bool Impl::render_gpu(GstD3D12Memory *memory) {
-    if (_renderer_gpu_unavailable)
-        return false;
-
-    GstD3D11Device *device11 = d3d11_device_for(memory->device);
-    ID3D11Texture2D *texture =
-        device11 ? gst_d3d12_memory_get_d3d11_texture(memory, gst_d3d11_device_get_device_handle(device11)) : nullptr;
-    if (!texture) {
-        GST_WARNING_OBJECT(_element, "D3D12 textures cannot be opened in D3D11, which OpenCL needs to draw into "
-                                     "them; using the CPU renderer");
-        _renderer_gpu_unavailable = true;
-        return false;
-    }
-
-    // OpenCL sees no D3D12 fences, so the copy that filled the texture is waited for here
-    gst_d3d12_memory_sync(memory);
-    return render_gpu(device11, texture);
-}
+#else
+    UNUSED(display);
+    UNUSED(surface);
+    return false;
 #endif
-#endif
+}
 
 inline bool Impl::is_ROI_filtered_out(const std::string &label) const {
     return _displCfg.include_labels_filter.has_value()
