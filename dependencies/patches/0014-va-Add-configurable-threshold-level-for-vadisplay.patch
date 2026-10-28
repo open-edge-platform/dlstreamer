@@ -1,5 +1,5 @@
 diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvadisplay.c b/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvadisplay.c
-index 1a32e3b9c67706005628dfa979c0c279a7857468..a44d207a767ef8a87d8d019c144bd7dc803a4b3e 100644
+index ebf809294c1d8bbb0ce48a17fac37821e9751e1d..a084b87500048c283c946b3137d9a133d9b58e07 100644
 --- a/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvadisplay.c
 +++ b/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvadisplay.c
 @@ -485,3 +485,36 @@ gst_va_display_check_version (GstVaDisplay * self, guint major, guint minor)
