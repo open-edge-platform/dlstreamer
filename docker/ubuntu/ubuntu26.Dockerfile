@@ -659,17 +659,7 @@ ENV PATH=/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/bin:$PATH
 # OpenVINO Python bindings (openvino + openvino_genai) from GenAI archive
 # added first in PYTHONPATH - archive contains python/openvino/ and
 # python/openvino_genai/ with .so files for python3.11/3.12/3.13
-# /usr/local/lib/python3.13/dist-packages is where PyGObject (from
-# requirements.txt, installed above via "uv pip install --python python3.13
-# --system") actually lands. This is required: gvapython's embedded
-# interpreter is linked against the uv-managed python3.13 (not apt's
-# system-default python3.14), which has no matching gi package of its own,
-# so without this, "import gi" falls back to the system apt python3-gi
-# (built for python3.14) and gst-python's own cpython-313 compiled
-# gi/overrides/_gi_gst.so (from ${GSTREAMER_DIR}) can't be loaded, crashing
-# with "ImportError: cannot import name '_gi_gst' from 'gi.overrides'"
-# (seen as a SIGABRT/"pygobject_init failed" when triggered from C/C++).
-ENV PYTHONPATH=/opt/intel/openvino_genai/python:/usr/local/lib/python3.13/dist-packages:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:
+ENV PYTHONPATH=/opt/intel/openvino_genai/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:
 ENV TERM=xterm
 ENV GI_TYPELIB_PATH=/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/opt/intel/dlstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0
 
