@@ -177,24 +177,19 @@ ImageInference::Ptr ImageInference::createImageInferenceInstance(MemoryType inpu
             // (not later, per-surface) so the whole pipeline stays consistent: a partial fallback would
             // leave the pool/OpenVINO instance in DMA_BUFFER mode while individual surfaces are SYSTEM,
             // which deadlocks inference.
-
-            // Enable zero-copy for NPU on PTL series CPUs
-            {
-                // if (Utils::isCPUPTLHSeries(false)) {
-                if (isNpu) {
-                    if (access("/dev/dma_heap/system", R_OK | W_OK) != 0) {
-                        GVA_WARNING("Falling back to the slow NPU path (extra GPU->CPU->NPU copies): no access to "
-                                    "DMA-BUF. To enable zero-copy, grant access to /dev/dma_heap/system, e.g. "
-                                    "'sudo chgrp video /dev/dma_heap/system && sudo chmod 660 /dev/dma_heap/system'.");
-                    } else if (!isNpuZeroCopyInputSupported(config)) {
-                        GVA_WARNING("Falling back to the slow NPU path (extra GPU->CPU->NPU copies): the model input "
-                                    "cannot be fed to the NPU as a zero-copy DMA-BUF. Use batch-size=1 and a "
-                                    "model input width that is a multiple of 64 or an NPU driver with strided input "
-                                    "support.");
-                    } else {
-                        memory_type_to_use = MemoryType::DMA_BUFFER;
-                        GVA_WARNING("NPU zero-copy enabled.");
-                    }
+            if (isNpu) {
+                if (access("/dev/dma_heap/system", R_OK | W_OK) != 0) {
+                    GVA_WARNING("Falling back to the slow NPU path (extra GPU->CPU->NPU copies): no access to "
+                                "DMA-BUF. To enable zero-copy, grant access to /dev/dma_heap/system, e.g. "
+                                "'sudo chgrp video /dev/dma_heap/system && sudo chmod 660 /dev/dma_heap/system'.");
+                } else if (!isNpuZeroCopyInputSupported(config)) {
+                    GVA_WARNING("Falling back to the slow NPU path (extra GPU->CPU->NPU copies): the model input "
+                                "cannot be fed to the NPU as a zero-copy DMA-BUF. Use batch-size=1 and a "
+                                "model input width that is a multiple of 64 or an NPU driver with strided input "
+                                "support.");
+                } else {
+                    memory_type_to_use = MemoryType::DMA_BUFFER;
+                    GVA_INFO("NPU zero-copy enabled.");
                 }
             }
 #endif
