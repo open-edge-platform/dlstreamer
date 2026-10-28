@@ -5,7 +5,16 @@
 
 ## Pipeline
 
-![gvaroiscale sample pipeline](gvaroiscale-sample-overview.jpeg)
+The pipeline selects frames, converts them to RGB, then crops and scales matching ROIs. Both JPEG output paths are optional and configured with `output-dir`:
+
+```mermaid
+flowchart LR
+	source["filesrc"] --> decode["decodebin3"] --> convert["videoconvert"] --> detect["gvadetect"] --> queue["queue"] --> select["gvaframeselect"] --> rgb["RGB conversion"] --> scale["gvaroiscale"] --> sink["fakesink"]
+	select -. "output-dir" .-> selected["selected_frames/*.jpg"]
+	scale -. "output-dir" .-> roiFrames["roi_scaled_frames/*.jpg"]
+	classDef highlighted fill:#d9efff,stroke:#5b9bd5,color:#17324d
+	class scale highlighted
+```
 
 ## Requirements
 

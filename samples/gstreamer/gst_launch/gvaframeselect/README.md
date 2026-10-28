@@ -5,7 +5,17 @@
 
 ## Pipeline
 
-![gvaframeselect sample pipelin](gveframeselect-sample-overview.jpeg)
+The script reads and decodes the input video, converts it to raw video frames, and runs `gvadetect` before frame selection so detection metadata is available to `gvaframeselect`:
+
+```mermaid
+flowchart LR
+    source["filesrc"] --> decode["decodebin3"] --> convert["videoconvert"] --> detect["gvadetect"] --> queue["queue"] --> select["gvaframeselect"] --> sink["fakesink"]
+    select -. "optional output-dir" .-> disk["Save selected frames as JPEGs"]
+    classDef frameSelect fill:#d9efff,stroke:#5b9bd5,color:#17324d
+    class select frameSelect
+```
+
+`gvaframeselect` selects up to eight evenly spaced frames from each 900-frame block by default, calculates a shared ROI from their detections, and forwards the selected buffers in order. It also writes JPEG copies to the output directory. `fakesink` consumes the forwarded buffers without displaying or encoding them, keeping this sample focused on frame selection and export.
 
 ## Requirements
 

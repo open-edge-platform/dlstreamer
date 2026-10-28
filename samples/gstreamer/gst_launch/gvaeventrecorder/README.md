@@ -5,7 +5,16 @@
 
 ## Pipeline
 
-`filesrc ! decodebin3 ! videoconvert ! gvadetect ! queue ! gvaeventrecorder ! gvametaconvert ! gvametapublish ! fakesink`
+The pipeline detects people, records the complete PRE/EVENT/POST video sequence, and publishes event metadata:
+
+```mermaid
+flowchart LR
+	source["filesrc"] --> decode["decodebin3"] --> convert["videoconvert"] --> detect["gvadetect"] --> queue["queue"] --> record["gvaeventrecorder"] --> metaConvert["gvametaconvert"] --> publish["gvametapublish"] --> sink["fakesink"]
+	record -. "event-clip-output-dir" .-> clips["PRE / EVENT / POST clips"]
+	publish -. "file-path" .-> events["events/events.json"]
+	classDef highlighted fill:#d9efff,stroke:#5b9bd5,color:#17324d
+	class record highlighted
+```
 
 ## Requirements
 
@@ -26,7 +35,7 @@ Example with placeholder paths:
 ./gvaeventrecorder.sh /path/to/video.mp4 /path/to/model.xml /path/to/output
 ```
 
-The script creates the output directories if they do not exist. Pipeline settings are fixed in the script:
+The third argument sets the output directory for the recorded clips: the script configures the `gvaeventrecorder` property `event-clip-output-dir` as `<output-directory>/event-clip/`. This sample does not expose that property as a separate command-line option. The script creates the output directories if they do not exist. Other pipeline settings are fixed in the script:
 
 | Setting | Element | Value | Description |
 |---|---|---:|---|
