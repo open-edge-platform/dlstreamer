@@ -151,7 +151,7 @@ jobs:
           source /opt/intel/openvino_genai/setupvars.sh
 
           echo " "
-          echo "Installing OpenVINO dependencies..."
+          echo "Installing OpenVINO GenAI dependencies..."
           sudo -E /opt/intel/openvino_genai/install_dependencies/install_openvino_dependencies.sh
 
       - name: 📷 Build and install librealsense (for gvarealsense element)

@@ -10,9 +10,9 @@ from the source code provided in
 [Open Edge Platform repository](https://github.com/open-edge-platform/edge-ai-libraries).
 
 > **NOTE:** The `main` branch currently targets a **nightly (pre-release) build
-> of OpenVINO™**, not an official stable release. The exact nightly version/date
-> used below may become outdated over time; check the `OPENVINO_VERSION` /
-> `OPENVINO_GENAI_VERSION` build arguments in
+> of OpenVINO™ GenAI**, not an official stable release. The exact nightly
+> version/date used below may become outdated over time; check the
+> `OPENVINO_GENAI_VERSION` build argument in
 > [docker/ubuntu/ubuntu24.Dockerfile](https://github.com/open-edge-platform/dlstreamer/blob/main/docker/ubuntu/ubuntu24.Dockerfile)
 > for the version currently used in CI, and substitute it below if it differs.
 
