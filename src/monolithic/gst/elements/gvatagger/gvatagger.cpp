@@ -81,15 +81,13 @@ static void gst_gva_tagger_class_init(GstGvaTaggerClass *klass) {
                             0.0, 1.0, DEFAULT_ALPHA, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
     g_object_class_install_property(
         gobject_class, PROP_MARGIN,
-        g_param_spec_uint64("margin", "Threshold margin",
-                            "Minimum absolute byte margin added on top of k * baseline", 0, G_MAXUINT64,
-                            DEFAULT_MARGIN, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+        g_param_spec_uint64("margin", "Threshold margin", "Minimum absolute byte margin added on top of k * baseline",
+                            0, G_MAXUINT64, DEFAULT_MARGIN, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
     g_object_class_install_property(
         gobject_class, PROP_MIN_BASELINE,
         g_param_spec_uint64("min-baseline", "Minimum baseline",
-                            "Floor for the EMA baseline, in bytes, so it can never collapse to ~0", 1,
-                            G_MAXUINT64, DEFAULT_MIN_BASELINE,
-                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                            "Floor for the EMA baseline, in bytes, so it can never collapse to ~0", 1, G_MAXUINT64,
+                            DEFAULT_MIN_BASELINE, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 }
 
 static void gst_gva_tagger_reset(GstGvaTagger *self) {
@@ -198,8 +196,8 @@ static gboolean gst_gva_tagger_set_caps(GstBaseTransform *trans, GstCaps *incaps
     }
 
     self->nal_length_size = 4;
-    if (stream_format &&
-        (g_str_equal(stream_format, "avc") || g_str_equal(stream_format, "hvc1") || g_str_equal(stream_format, "hev1"))) {
+    if (stream_format && (g_str_equal(stream_format, "avc") || g_str_equal(stream_format, "hvc1") ||
+                          g_str_equal(stream_format, "hev1"))) {
         self->stream_format = GST_GVA_TAGGER_FORMAT_PACKETIZED;
         if (self->codec == GST_GVA_TAGGER_CODEC_H264) {
             const GValue *codec_data_value = gst_structure_get_value(s, "codec_data");
@@ -234,7 +232,7 @@ static gboolean gst_gva_tagger_sink_event(GstBaseTransform *trans, GstEvent *eve
  * entropy decoding, only NAL boundaries and the type byte are read. */
 
 static gboolean gst_gva_tagger_scan_h264(GstGvaTagger *self, const guint8 *data, gsize size, guint64 *vcl_bytes,
-                                          gboolean *is_idr, gboolean *has_vcl) {
+                                         gboolean *is_idr, gboolean *has_vcl) {
     guint offset = 0;
     while (offset < size) {
         GstH264NalUnit nalu;
@@ -259,14 +257,14 @@ static gboolean gst_gva_tagger_scan_h264(GstGvaTagger *self, const guint8 *data,
 }
 
 static gboolean gst_gva_tagger_scan_h265(GstGvaTagger *self, const guint8 *data, gsize size, guint64 *vcl_bytes,
-                                          gboolean *is_idr, gboolean *has_vcl) {
+                                         gboolean *is_idr, gboolean *has_vcl) {
     guint offset = 0;
     while (offset < size) {
         GstH265NalUnit nalu;
         GstH265ParserResult res = (self->stream_format == GST_GVA_TAGGER_FORMAT_BYTE_STREAM)
                                       ? gst_h265_parser_identify_nalu(self->h265_parser, data, offset, size, &nalu)
                                       : gst_h265_parser_identify_nalu_hevc(self->h265_parser, data, offset, size,
-                                                                          (guint8)self->nal_length_size, &nalu);
+                                                                           (guint8)self->nal_length_size, &nalu);
         if (res != GST_H265_PARSER_OK && res != GST_H265_PARSER_NO_NAL_END)
             return res == GST_H265_PARSER_NO_NAL;
 
@@ -290,8 +288,8 @@ static void gst_gva_tagger_scan_nals(GstGvaTagger *self, const guint8 *data, gsi
     *has_vcl = FALSE;
 
     gboolean ok = (self->codec == GST_GVA_TAGGER_CODEC_H264)
-                     ? gst_gva_tagger_scan_h264(self, data, size, vcl_bytes, is_idr, has_vcl)
-                     : gst_gva_tagger_scan_h265(self, data, size, vcl_bytes, is_idr, has_vcl);
+                      ? gst_gva_tagger_scan_h264(self, data, size, vcl_bytes, is_idr, has_vcl)
+                      : gst_gva_tagger_scan_h265(self, data, size, vcl_bytes, is_idr, has_vcl);
     if (!ok)
         GST_WARNING_OBJECT(self, "Failed to fully parse access unit NAL units; using partial size sum");
 }
@@ -374,8 +372,8 @@ static GstFlowReturn gst_gva_tagger_transform_ip(GstBaseTransform *trans, GstBuf
         GST_WARNING_OBJECT(self, "Failed to attach %s", GST_GVA_TAGGER_META_NAME);
         return GST_FLOW_OK;
     }
-    gst_structure_set(gst_custom_meta_get_structure(meta), "motion", G_TYPE_BOOLEAN, motion, "keyframe",
-                      G_TYPE_BOOLEAN, is_idr, NULL);
+    gst_structure_set(gst_custom_meta_get_structure(meta), "motion", G_TYPE_BOOLEAN, motion, "keyframe", G_TYPE_BOOLEAN,
+                      is_idr, NULL);
 
     /* Log for debugging. */
     GST_LOG_OBJECT(self, "pts=%" GST_TIME_FORMAT " size=%" G_GUINT64_FORMAT " baseline=%.1f keyframe=%d motion=%d",
