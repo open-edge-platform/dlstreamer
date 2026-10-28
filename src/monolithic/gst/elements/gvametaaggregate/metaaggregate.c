@@ -12,7 +12,7 @@
 #include "gst/gstinfo.h"
 #include "utils.h"
 #include <gst/analytics/gstanalyticsgroupmtd.h>
-#include <gst/analytics/gstanalyticskeypointmtd.h>
+#include "dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
 #include <gst/analytics/gstanalyticssegmentationmtd.h>
 #include <gst/analytics/gstanalyticstensormtd.h>
 #include <gst/analytics/gsttensor.h>
