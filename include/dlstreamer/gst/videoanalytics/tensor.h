@@ -16,7 +16,7 @@
 #include "../metadata/gva_tensor_meta.h"
 
 #include <gst/analytics/analytics.h>
-#include <gst/analytics/gstanalyticskeypointmtd.h>
+#include "../metadata/gstanalyticskeypointmtd.h"
 #include <gst/analytics/gstanalyticssegmentationmtd.h>
 #include <gst/analytics/gstanalyticstensormtd.h>
 #include <gst/analytics/gsttensor.h>

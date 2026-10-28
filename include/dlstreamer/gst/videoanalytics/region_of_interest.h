@@ -17,7 +17,7 @@
 #include "../metadata/gva_zone_meta.h"
 #include "tensor.h"
 
-#include <gst/analytics/gstanalyticskeypointmtd.h>
+#include "../metadata/gstanalyticskeypointmtd.h"
 
 #include <cstdint>
 #include <gst/analytics/analytics.h>

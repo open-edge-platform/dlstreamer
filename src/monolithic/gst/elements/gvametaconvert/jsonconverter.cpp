@@ -25,7 +25,7 @@
 #include <gst/analytics/gstanalyticsbatchmeta.h>
 #include <gst/analytics/gstanalyticsclassificationmtd.h>
 #include <gst/analytics/gstanalyticsgroupmtd.h>
-#include <gst/analytics/gstanalyticskeypointmtd.h>
+#include "dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
 #include <gst/analytics/gstanalyticsobjecttrackingmtd.h>
 #include <gst/rtp/rtp.h>
 #include <nlohmann/json.hpp>
