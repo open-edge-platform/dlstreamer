@@ -71,9 +71,10 @@ Element Properties:
                         * show-labels=<bool> enable or disable displaying text labels, default true
                         * font-scale=<double 0.1 to 2.0> scale factor for text labels, default 0.5
                         * thickness=<uint> bounding box thickness, default 2
-                        * color-idx=<int> color index for bounding box, keypoints, and text, default -1 (use default colors: 0 red, 1 green, 2 blue)
+                        * color-idx=<int> color-table entry for bounding box, keypoints, and text, default -1 (per-object colors). Built-in table: 0 red, 1 green, 2 blue, 3 yellow, 4 cyan, 5 magenta, 6-17 intermediate hues, 18 black, 19 white
+                        * color-table=<path> file with the colors picked by label id or tracking id, one R,G,B color (0 to 255) per line, '#' starts a comment, default built-in table of 20 colors
                         * font-type=<string> font type for text labels, default triplex. Supported fonts: simplex, plain, duplex, complex, triplex, complex_small, script_simplex, script_complex
-                        * draw-txt-bg=<bool> enable or disable displaying text labels background, by enabling it the text color is set to white, default true
+                        * draw-txt-bg=<bool> enable or disable displaying text labels background, by enabling it the text color is set to black or white, whichever contrasts better with the background, default true
                         * show-roi=<string> colon-separated list of labels to include (only these objects will be shown), default empty
                         * hide-roi=<string> colon-separated list of labels to exclude (these objects will be hidden), default empty
                         * enable-blur=<bool> enable ROI blurring for privacy protection, default false
@@ -88,6 +89,7 @@ Element Properties:
 
                         e.g.: displ-cfg=show-labels=false
                         e.g.: displ-cfg=font-scale=0.5,thickness=3,color-idx=2,font-type=plain
+                        e.g.: displ-cfg=color-table=/path/to/colors.txt
                         e.g.: displ-cfg=show-labels=true,show-roi=person:car:truck
                         e.g.: displ-cfg=show-labels=true,hide-roi=bottle:cup
                         e.g.: displ-cfg=enable-blur=true,show-blur-roi=face:person
@@ -143,12 +145,36 @@ Controls the size of text labels displayed on detected objects.
 
 *Blue background makes text more readable over complex backgrounds*
 
+The background takes the object's color and the text is drawn in black or white, whichever contrasts
+better with it: black on light colors such as yellow, green and cyan, white on dark and saturated ones
+such as blue and red.
+
 ### Color Index
 
 **Red Color (`color-idx=0`)**
 ![Color Index Red](../_images/color-idx-zero.png)
 
 *Uses red color for bounding boxes and text*
+
+### Color Table
+
+Objects are colored from a table of 20 built-in colors, by their tracking id when they have one and by
+their label id otherwise. Landmarks and keypoints take their colors from the same table, by point index.
+`color-table=<path>` replaces the built-in table with colors read from a file:
+
+- one color per line, as red, green and blue components from 0 to 255, separated by commas or spaces
+- `#` starts a comment, empty lines are skipped
+- an id beyond the end of the table wraps around, so a single line draws every object in that color
+- `color-idx=<n>` picks entry `n` of this table for every bounding box and label, from 0 to the number of colors minus one
+
+```text
+# colors.txt, picked by label id: 0 person, 1 car, 2 bicycle
+255, 64, 64     # person
+64, 160, 255    # car
+255, 200, 0     # bicycle
+```
+
+e.g `displ-cfg=color-table=/path/to/colors.txt`
 
 ### Font Types
 
@@ -268,6 +294,9 @@ displ-cfg=font-scale=2.0,draw-txt-bg=true
 
 # Colored thin boxes with simple font  
 displ-cfg=color-idx=0,thickness=1,font-type=simplex
+
+# Object colors from a custom color table
+displ-cfg=color-table=/path/to/colors.txt
 
 # Complete custom styling
 displ-cfg=font-scale=1.5,thickness=3,color-idx=2,font-type=complex,draw-txt-bg=true

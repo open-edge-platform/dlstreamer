@@ -1,6 +1,6 @@
 %define debug_package %{nil}
 Name:           gstreamer
-Version:        1.28.2
+Version:        1.28.8
 Release:        1%{?dist}
 Summary:        Intel optimized GStreamer build with VAAPI support
 
@@ -24,7 +24,19 @@ Patch13:        0016-vabaseenc-use-gst_va_buffer_prepare_for_import.patch
 Patch14:        0017-vavpp-use-gst_va_buffer_prepare_for_import.patch
 Patch15:        0018-vacompositor-use-gst_va_buffer_prepare_for_import.patch
 Patch16:        0019-vabasetransform-Copy-timestamp-for-vapostproc-output.patch
-Patch17:        0020-gst-analytics.patch
+# GstAnalytics backports from main (split per upstream MR)
+# https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/10551
+# (main: 80ff62731e5, ce13ec190c7, ca7af3b5d76)
+Patch17:        0020-analytics-adding-group-mtd.patch
+# https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/11155
+# (main: eee9c8e9d75)
+Patch18:        0021-analytics-add-semantic-tag-getter-to-GstAnalyticsGro.patch
+# https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/11319
+# (main: e09d21b70d9)
+Patch19:        0022-analyics-modelinfo-Allow-modelinfo-file-to-have-a-si.patch
+# https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/11423
+# (main: a80fc33a1f7)
+Patch20:        0023-analytics-move-semantic-tag-from-GstAnalyticsGroupMt.patch
 Packager:       DL Streamer Team <dlstreamer@intel.com>
 ExclusiveArch:  x86_64
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root
@@ -71,6 +83,9 @@ Development files and headers for Intel GStreamer.
 %patch 15 -p1
 %patch 16 -p1
 %patch 17 -p1
+%patch 18 -p1
+%patch 19 -p1
+%patch 20 -p1
 
 %build
 export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:/usr/lib/pkgconfig:${PKG_CONFIG_PATH}"
@@ -122,6 +137,8 @@ rm -rf %{buildroot}
 /opt/intel/dlstreamer/gstreamer/lib/pkgconfig/
 
 %changelog
+* Tue Oct 27 2026 Gstreamer build - 1.28.8-1
+- Update gstreamer version
 * Thu Jun 18 2026 Gstreamer build - 1.28.2-1
 - Update gstremer verison
 * Thu Dec 09 2025 Gstreamer build - 1.26.6-1

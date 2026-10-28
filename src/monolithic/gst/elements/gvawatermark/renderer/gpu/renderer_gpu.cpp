@@ -517,9 +517,6 @@ std::shared_ptr<RendererGPU::SharedContext> RendererGPU::SharedContext::get(rend
 RendererGPU::RendererGPU(std::shared_ptr<SharedContext> shared, std::shared_ptr<ColorConverter> color_converter,
                          int width, int height)
     : _shared(std::move(shared)), _color_converter(std::move(color_converter)), _width(width), _height(height) {
-    // Same white as RendererNV12::draw_text, so limited range video gets Y=235
-    const Color white = _color_converter->convert(Color(255, 255, 255));
-    _white = cv::Scalar(white[0], white[1], white[2]);
 }
 
 cl_command_queue RendererGPU::create_queue(cl_int *err) {
@@ -1398,7 +1395,7 @@ bool RendererGPU::flatten_text(const render::Text &text) {
 
     /* draw_text_bg fills the background with the primitive colour, extended to
      * whole 2x2 blocks like align_to_u_v_blocks() does, and draw_text then
-     * writes the label in white. */
+     * writes the label in the contrasting colour. */
     if (text.draw_bg) {
         int baseline = 0;
         const cv::Size size = cv::getTextSize(text.text, text.fonttype, text.fontscale, text.thick, &baseline);
@@ -1413,7 +1410,7 @@ bool RendererGPU::flatten_text(const render::Text &text) {
                  plane_color_uv(text.color));
     }
 
-    const cv::Scalar color = text.draw_bg ? _white : text.color;
+    const cv::Scalar color = text.draw_bg ? text.contrast_color : text.color;
 
     /* One glyph serves both planes: Y takes it pixel for pixel and UV blends by
      * how much of each 2x2 block it covers. */

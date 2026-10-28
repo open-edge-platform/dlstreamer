@@ -252,10 +252,8 @@ void RendererI420::draw_text(std::vector<cv::Mat> &mats, render::Text text) {
     cv::Mat &u = mats[1];
     cv::Mat &v = mats[2];
 
-    // Set text color, if draw text background is enabled, set text color to white
-    Color white = _color_converter->convert(Color(255, 255, 255));
-    cv::Scalar color = text.draw_bg ? cv::Scalar(white[0], white[1], white[2])
-                                    : cv::Scalar(text.color[0], text.color[1], text.color[2]);
+    // On a text background, draw the glyphs in the color that contrasts with it
+    const cv::Scalar color = text.draw_bg ? text.contrast_color : text.color;
 
     TextMasks masks = rasterize_text(text, y.size(), u.size());
     if (masks.mask_y.empty())
@@ -385,10 +383,8 @@ void RendererNV12::draw_text(std::vector<cv::Mat> &mats, render::Text text) {
     cv::Mat &y = mats[0];
     cv::Mat &u_v = mats[1];
 
-    // Set text color, if draw text background is enabled, set text color to white
-    Color white = _color_converter->convert(Color(255, 255, 255));
-    cv::Scalar color = text.draw_bg ? cv::Scalar(white[0], white[1], white[2])
-                                    : cv::Scalar(text.color[0], text.color[1], text.color[2]);
+    // On a text background, draw the glyphs in the color that contrasts with it
+    const cv::Scalar color = text.draw_bg ? text.contrast_color : text.color;
 
     TextMasks masks = rasterize_text(text, y.size(), u_v.size());
     if (masks.mask_y.empty())
@@ -534,8 +530,8 @@ void RendererBGR::draw_circle(std::vector<cv::Mat> &mats, render::Circle circle)
 }
 
 void RendererBGR::draw_text(std::vector<cv::Mat> &mats, render::Text text) {
-    // Set text color, if draw text background is enabled, set text color to white
-    cv::Scalar color = text.draw_bg ? cv::Scalar(255, 255, 255) : text.color;
+    // On a text background, draw the glyphs in the color that contrasts with it
+    const cv::Scalar color = text.draw_bg ? text.contrast_color : text.color;
     cv::putText(mats[0], text.text, text.org, text.fonttype, text.fontscale, color, text.thick);
 }
 

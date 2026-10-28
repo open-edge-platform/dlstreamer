@@ -46,9 +46,12 @@
 #include "renderer/gpu/renderer_gpu.h"
 #endif
 
+#include <algorithm>
 #include <array>
 #include <exception>
+#include <fstream>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <typeinfo>
 #if !defined(ENABLE_VAAPI) || defined(_WIN32)
@@ -77,25 +80,49 @@ GST_DEBUG_CATEGORY_STATIC(gst_gva_watermark_impl_debug_category);
 #define MIN_THICKNESS (1)
 #define MAX_THICKNESS (10)
 
-// Color index constants
-#define COLOR_IDX_RED (0)
-#define COLOR_IDX_GREEN (1)
-#define COLOR_IDX_BLUE (2)
-#define COLOR_IDX_BLACK (18)
-#define COLOR_IDX_WHITE (19)
+// Color table file (displ-cfg color-table) size limit
+#define MAX_COLOR_TABLE_FILE_SIZE (1024 * 1024)
 
 typedef enum { DEVICE_CPU, DEVICE_GPU, DEVICE_GPU_AUTOSELECTED } DEVICE_SELECTOR;
 
 namespace {
 
-const std::vector<Color> color_table = {
+const std::vector<Color> default_color_table = {
     Color(255, 0, 0),   Color(0, 255, 0),   Color(0, 0, 255),   Color(255, 255, 0), Color(0, 255, 255),
     Color(255, 0, 255), Color(255, 170, 0), Color(255, 0, 170), Color(0, 255, 170), Color(170, 255, 0),
     Color(170, 0, 255), Color(0, 170, 255), Color(255, 85, 0),  Color(85, 255, 0),  Color(0, 255, 85),
     Color(0, 85, 255),  Color(85, 0, 255),  Color(255, 0, 85),  Color{0, 0, 0},     Color{255, 255, 255}};
 
-Color indexToColor(size_t index) {
-    return color_table[index % color_table.size()];
+// Reads a color table file: one color per line as R,G,B components in 0-255, separated by commas and/or spaces.
+// Text after '#' is a comment, empty lines are skipped.
+std::vector<Color> load_color_table(const std::string &path) {
+    if (!Utils::fileExists(path))
+        throw std::invalid_argument("Color table file '" + path + "' does not exist");
+    if (Utils::symLink(path))
+        throw std::invalid_argument("Color table file '" + path + "' is a symbolic link");
+    if (!Utils::CheckFileSize(path, MAX_COLOR_TABLE_FILE_SIZE))
+        throw std::invalid_argument("Color table file '" + path + "' size exceeds the allowable size (1 MB)");
+
+    std::ifstream file(path);
+    std::vector<Color> colors;
+    std::string line;
+    for (int line_number = 1; std::getline(file, line); line_number++) {
+        std::string values = line.substr(0, line.find('#'));
+        std::replace(values.begin(), values.end(), ',', ' ');
+        std::istringstream stream(values);
+        if ((stream >> std::ws).eof())
+            continue;
+
+        int r = -1, g = -1, b = -1;
+        stream >> r >> g >> b;
+        if (stream.fail() || !(stream >> std::ws).eof() || r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255)
+            throw std::invalid_argument("Color table file '" + path + "' line " + std::to_string(line_number) +
+                                        ": expected R,G,B with values from 0 to 255, got '" + line + "'");
+        colors.emplace_back(r, g, b);
+    }
+    if (colors.empty())
+        throw std::invalid_argument("Color table file '" + path + "' contains no colors");
+    return colors;
 }
 
 void clip_rect(double &x, double &y, double &w, double &h, GstVideoInfo *info) {
@@ -173,6 +200,9 @@ struct Impl {
     void parse_displ_config();
     inline bool is_ROI_filtered_out(const std::string &label) const;
     inline bool should_blur_roi(const std::string &label) const;
+    Color indexToColor(size_t index) const {
+        return _color_table[index % _color_table.size()];
+    }
 
     std::unique_ptr<Renderer> createRenderer(std::shared_ptr<ColorConverter> converter);
 
@@ -201,7 +231,9 @@ struct Impl {
     std::vector<render::Prim> prims;
 
     const double _radius_multiplier = 0.0025;
-    Color _default_color = indexToColor(1);
+    // Colors picked by label id, tracking id or point index (configurable via displ-cfg color-table)
+    std::vector<Color> _color_table = default_color_table;
+    Color _default_color = Color(0, 255, 0);
     // Position for full-frame text (configurable via displ-cfg text-x / text-y)
     cv::Point2f _ff_text_position = cv::Point2f(0, 25.f);
     const bool _obb = false;
@@ -750,18 +782,18 @@ Impl::Impl(GstVideoInfo *info, InferenceBackend::MemoryType mem_type, GstElement
     // Treat unknown range as full range, the same way GStreamer (e.g. videoconvert) interprets it downstream
     bool full_range = colorimetry.range != GST_VIDEO_COLOR_RANGE_16_235;
 
+    // Parse display configuration, before the color converter is given the color table
+    if (_displ_cfg)
+        parse_displ_config();
+
     dlstreamer::ImageFormat format = dlstreamer::gst_format_to_video_format(GST_VIDEO_INFO_FORMAT(_vinfo));
-    _converter = create_color_converter(format, color_table, Kr, Kb, full_range);
+    _converter = create_color_converter(format, _color_table, Kr, Kb, full_range);
 
     _renderer = createRenderer(_converter);
 
     // Find gvafpscounter element in the pipeline to put avg-fps on output video
     if (_displ_avgfps)
         find_gvafpscounter_element();
-
-    // Parse display configuration
-    if (_displ_cfg)
-        parse_displ_config();
 }
 
 void Impl::find_gvafpscounter_element() {
@@ -858,7 +890,7 @@ bool Impl::extract_primitives(GstBuffer *buffer) {
             _ff_cst_txt_pos = cv::Point2f(_ff_text_position.x, _ff_text_position.y - 20.f);
 
         render::Text t(_displCfg.ff_custom_txt, _ff_cst_txt_pos, _displCfg.font_type, _displCfg.font_scale,
-                       indexToColor(COLOR_IDX_WHITE));
+                       Color(255, 255, 255));
         prims.emplace_back(t);
     }
 
@@ -871,8 +903,7 @@ bool Impl::extract_primitives(GstBuffer *buffer) {
             fpstext << "[avg " << std::fixed << std::setprecision(1) << avg_fps << " FPS]";
             if (fpstext.str().size() != 0) {
                 cv::Point2f pos(_vinfo->width * 0.8, _vinfo->height * 0.95);
-                render::Text t(fpstext.str(), pos, _displCfg.font_type, _displCfg.font_scale,
-                               indexToColor(COLOR_IDX_WHITE));
+                render::Text t(fpstext.str(), pos, _displCfg.font_type, _displCfg.font_scale, Color(255, 255, 255));
                 prims.emplace_back(t);
             }
         }
@@ -1277,21 +1308,21 @@ void Impl::parse_displ_config() {
             }
             cfg.erase(iter);
         }
+        // Before color-idx, which picks an entry of the color table
+        if (iter = cfg.find("color-table"); iter != cfg.end()) {
+            _color_table = load_color_table(iter->second);
+            cfg.erase(iter);
+        }
         if (iter = cfg.find("color-idx"); iter != cfg.end()) {
             int _color_idx = std::stoi(iter->second);
-            if (_color_idx >= COLOR_IDX_RED && _color_idx <= COLOR_IDX_BLUE) {
-                if (_color_idx == COLOR_IDX_RED)
-                    _default_color = Color(255, 0, 0); // Red
-                else if (_color_idx == COLOR_IDX_GREEN)
-                    _default_color = Color(0, 255, 0); // Green
-                else if (_color_idx == COLOR_IDX_BLUE)
-                    _default_color = Color(0, 0, 255); // Blue
-
+            const int max_color_idx = static_cast<int>(_color_table.size()) - 1;
+            if (_color_idx >= 0 && _color_idx <= max_color_idx) {
+                _default_color = indexToColor(_color_idx);
                 _displCfg.color_idx = _color_idx;
             } else {
-                GST_WARNING("[gvawatermarkimpl] 'color-idx' parameter value is out of range [%d, %d], using default "
+                GST_WARNING("[gvawatermarkimpl] 'color-idx' parameter value is out of range [0, %d], using default "
                             "colors %d",
-                            COLOR_IDX_RED, COLOR_IDX_BLUE, DEFAULT_COLOR_IDX);
+                            max_color_idx, DEFAULT_COLOR_IDX);
             }
             cfg.erase(iter);
         }
