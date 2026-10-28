@@ -43,7 +43,8 @@ Export the model once with the [Hugging Face model conversion](../../../../scrip
 export MODELS_PATH="$HOME"/models
 python3 ../../../../scripts/download_models/download_hf_models.py \
     --model OpenGVLab/InternVL3_5-2B \
-    --outdir "${MODELS_PATH}/public"
+    --outdir "${MODELS_PATH}/public" \
+    --extra_args --task image-text-to-text
 ```
 
 Exported this way, the model is picked up automatically: `--model-path` defaults to
