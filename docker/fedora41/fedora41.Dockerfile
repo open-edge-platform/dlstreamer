@@ -40,7 +40,7 @@
 # DLSTREAMER_BUILD_NUMBER # Build ID
 # GST_VERSION             # GStreamer
 # FFMPEG_VERSION          # FFmpeg
-# OPENVINO_GENAI_VERSION  # OpenVINO GenAI
+# OPENVINO_VERSION        # OpenVINO
 # OPENCV_VERSION          # OpenCV
 # REALSENSE_VERSION       # RealSense
 # KAFKA_VERSION           # librdkafka
@@ -54,6 +54,7 @@ LABEL vendor="Intel Corporation"
 
 ENV DLSTREAMER_DIR=/home/dlstreamer/dlstreamer
 ENV GSTREAMER_DIR=/opt/intel/dlstreamer/gstreamer
+ENV INTEL_OPENVINO_DIR=/opt/intel/openvino_$OPENVINO_VERSION
 ENV LIBVA_DRIVERS_PATH=/usr/lib64/dri-nonfree
 ENV LIBVA_DRIVER_NAME=iHD
 ENV GST_VA_ALL_DRIVERS=1
@@ -363,6 +364,7 @@ FROM builder AS dlstreamer-dev
 
 ARG DLSTREAMER_VERSION=2026.3.0
 ARG DLSTREAMER_BUILD_NUMBER
+ARG OPENVINO_VERSION=2026.3.1
 
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
@@ -381,25 +383,20 @@ COPY --from=kafka-builder /usr/local/include/librdkafka /usr/local/include/librd
 COPY --from=realsense-builder /copy_libs/ /usr/local/lib64/
 COPY --from=realsense-builder /usr/local/include/librealsense2 /usr/local/include/librealsense2
 
-# OpenVINO GenAI (which bundles the full OpenVINO C++ runtime) is installed
-# from the nightly archive instead of the stable openvino-<version> RPM from
-# Intel's yum repo, matching the approach used in docker/ubuntu/*.Dockerfile.
-# The rhel9-flavored archive is used (no fedora-specific build is published):
-# its runtime libraries only require glibc <= 2.34 / libstdc++ <= GLIBCXX
-# 3.4.29, both satisfied by Fedora 41's newer glibc 2.40 / libstdc++ (symbol
-# versioning in glibc/libstdc++ is backward compatible), and it bundles
-# cp313 Python bindings matching Fedora 41's default Python 3.13.
-ARG OPENVINO_GENAI_VERSION=2026.5.0.0.dev20261027
-ARG OPENVINO_GENAI_VER=openvino_genai_rhel9_${OPENVINO_GENAI_VERSION}_x86_64
-ARG OPENVINO_GENAI_PKG=https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/${OPENVINO_GENAI_VERSION}/${OPENVINO_GENAI_VER}.tar.gz
-
+# Intel® Distribution of OpenVINO™ Toolkit
 RUN \
-    mkdir -p /opt/intel && \
-    curl -L ${OPENVINO_GENAI_PKG} | tar -xz -C /opt/intel && \
-    mv "/opt/intel/${OPENVINO_GENAI_VER}" /opt/intel/openvino_genai && \
-    ln -s /opt/intel/openvino_genai /opt/intel/openvino && \
-    echo "/opt/intel/openvino/runtime/lib/intel64" > /etc/ld.so.conf.d/openvino.conf && \
-    ldconfig
+    printf "[OpenVINO]\n\
+name=Intel(R) Distribution of OpenVINO\n\
+baseurl=https://yum.repos.intel.com/openvino\n\
+enabled=1\n\
+gpgcheck=1\n\
+repo_gpgcheck=1\n\
+gpgkey=https://yum.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB\n" >/tmp/openvino.repo && \
+    mv /tmp/openvino.repo /etc/yum.repos.d
+
+RUN dnf install -y "openvino-${OPENVINO_VERSION}" && \
+    dnf clean all
+
 
 # Deep Learning Streamer
 WORKDIR "$DLSTREAMER_DIR"
@@ -422,17 +419,10 @@ ENV C_INCLUDE_PATH=/usr/local/include:${DLSTREAMER_DIR}/include:${DLSTREAMER_DIR
 ENV CPLUS_INCLUDE_PATH=/usr/local/include:${DLSTREAMER_DIR}/include:${DLSTREAMER_DIR}/include/dlstreamer/gst/metadata:${CPLUS_INCLUDE_PATH}
 ENV GST_PLUGIN_SCANNER=${GSTREAMER_DIR}/bin/gstreamer-1.0/gst-plugin-scanner
 ENV GI_TYPELIB_PATH=${GSTREAMER_DIR}/lib/girepository-1.0:${DLSTREAMER_DIR}/build/src/gst/metadata/
-# OpenVINO Python bindings are provided from the GenAI archive via PYTHONPATH
-# (the stable openvino-<version> RPM previously installed them into the
-# system Python site-packages transitively; the archive route needs this
-# explicit path instead). The archive contains python/openvino/ with a .so
-# file for python3.13, matching Fedora 41's default Python.
-ENV PYTHONPATH=/opt/intel/openvino_genai/python:${GSTREAMER_DIR}/lib/python3/dist-packages:${DLSTREAMER_DIR}/python:${PYTHONPATH}
+ENV PYTHONPATH=${GSTREAMER_DIR}/lib/python3/dist-packages:${DLSTREAMER_DIR}/python:${PYTHONPATH}
 
 # Build DLStreamer
-# hadolint ignore=SC1091
 RUN \
-    source /opt/intel/openvino/setupvars.sh && \
     if [ "${BUILD_ARG}" == "Debug" ]; then \
         C_FLAGS="-Og -g"; \
         CXX_FLAGS="-Og -g -Wno-error=deprecated-enum-enum-conversion"; \
@@ -527,20 +517,15 @@ RUN \
     "https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm" && \
     dnf clean all
 
-# OpenVINO GenAI (which bundles the full OpenVINO C++ runtime) is installed
-# here, alongside the DL Streamer .rpm package, instead of being bundled
-# inside it. The archive already fetched/extracted in the dlstreamer-dev
-# stage is reused (no second download, and the exact binaries DL Streamer
-# was built/linked against), and its library directory is registered with
-# ldconfig so the DL Streamer plugins (which carry no RPATH and rely on the
-# default linker search path) can resolve libopenvino*/libopenvino_genai* at
-# runtime.
-COPY --from=dlstreamer-dev /opt/intel/openvino_genai /opt/intel/openvino_genai
-
 RUN \
-    ln -s /opt/intel/openvino_genai /opt/intel/openvino && \
-    echo "/opt/intel/openvino/runtime/lib/intel64" > /etc/ld.so.conf.d/openvino.conf && \
-    ldconfig
+    printf "[OpenVINO]\n\
+name=Intel(R) Distribution of OpenVINO\n\
+baseurl=https://yum.repos.intel.com/openvino\n\
+enabled=1\n\
+gpgcheck=1\n\
+repo_gpgcheck=1\n\
+gpgkey=https://yum.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB\n" >/tmp/openvino.repo && \
+    mv /tmp/openvino.repo /etc/yum.repos.d
 
 RUN mkdir -p /rpms
 
@@ -565,9 +550,7 @@ ENV LIBVA_DRIVERS_PATH=/usr/lib64/dri-nonfree
 ENV GST_VA_ALL_DRIVERS=1
 ENV MODEL_PROC_PATH=/opt/intel/dlstreamer/samples/gstreamer/model_proc
 ENV PATH=/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/bin:$PATH
-# OpenVINO Python bindings from GenAI archive added first in PYTHONPATH -
-# archive contains python/openvino/ with a .so file for python3.13.
-ENV PYTHONPATH=/opt/intel/openvino_genai/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:
+ENV PYTHONPATH=/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:
 ENV TERM=xterm
 ENV GI_TYPELIB_PATH=/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/opt/intel/dlstreamer/lib/girepository-1.0:/usr/lib64/girepository-1.0
 

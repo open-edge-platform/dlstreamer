@@ -163,10 +163,12 @@ packages:
 
 ## Step 5: Install OpenVINO™ GenAI
 
-The OpenVINO™ GenAI archive bundles the full OpenVINO™ C++ runtime alongside
-the GenAI libraries, so this step alone is enough to build DL Streamer - no
-separate "plain" OpenVINO™ Toolkit install is needed on any platform. This
-step is also required if you want to use the
+On Ubuntu and EMT, the OpenVINO™ GenAI archive bundles the full OpenVINO™ C++
+runtime alongside the GenAI libraries, so this step alone is enough to build
+DL Streamer - no separate "plain" OpenVINO™ Toolkit install is needed on those
+platforms. Fedora 41 instead installs the official OpenVINO™ Toolkit 2026.3.1
+package from Intel's YUM repository, as in the Fedora 41 Dockerfile. The
+separate OpenVINO™ GenAI archive is required if you want to use the
 [gvagenai element](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvagenai.html),
 which needs the [OpenVINO GenAI archive](https://docs.openvino.ai/2026/get-started/install-openvino/install-openvino-genai.html) package.
 
@@ -195,16 +197,21 @@ which needs the [OpenVINO GenAI archive](https://docs.openvino.ai/2026/get-start
 <!--hide_directive:sync: tab3hide_directive-->
 
   ```bash
-  wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/2026.5.0.0.dev20261027/openvino_genai_rhel9_2026.5.0.0.dev20261027_x86_64.tar.gz | tar -xz &&
-  sudo mv openvino_genai_rhel9_2026.5.0.0.dev20261027_x86_64 /opt/intel/openvino_genai
-  source /opt/intel/openvino_genai/setupvars.sh
-  ```
+sudo tee /etc/yum.repos.d/openvino.repo >/dev/null <<'EOF'
+[OpenVINO]
+name=Intel(R) Distribution of OpenVINO
+baseurl=https://yum.repos.intel.com/openvino
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=https://yum.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
+EOF
+sudo dnf install -y openvino-2026.3.1
+```
 
-  > **NOTE:** No Fedora-specific OpenVINO™ GenAI archive is published; the
-  > `rhel9` archive is used instead - its runtime libraries only require
-  > glibc 2.34 / libstdc++ GLIBCXX 3.4.29 or older, both satisfied by Fedora
-  > 41's newer versions, and it bundles cp313 Python bindings matching
-  > Fedora 41's default Python 3.13.
+> **NOTE:** No Fedora-specific nightly OpenVINO™ GenAI archive is published.
+> These instructions install the official OpenVINO™ Toolkit 2026.3.1 package
+> from Intel's YUM repository, matching the Fedora 41 Dockerfile.
 
 <!--hide_directive:::
 :::{tab-item}hide_directive--> EMT
