@@ -32,6 +32,7 @@ class MemoryMapperGSTToD3D11 : public BaseMemoryMapper {
         auto ret = std::make_shared<D3D11Tensor>(d3d11_texture, src_gst->plane_index(), src->info(), _output_context);
 
         ret->set_handle(tensor::key::d3d11_subresource_index, subresource_idx);
+        ret->set_handle(tensor::key::gst_memory, reinterpret_cast<Tensor::handle_t>(mem));
         ret->set_handle(tensor::key::offset_x, src_gst->offset_x());
         ret->set_handle(tensor::key::offset_y, src_gst->offset_y());
         ret->set_parent(src);

@@ -69,6 +69,57 @@ correcting the pipeline.
 | CPU              | only `video/x-raw` available  | `ie` or `opencv`      |
 | GPU / NPU        | use `video/x-raw(memory:VAMemory)` for optimal performance | use `va-surface-sharing` to avoid memory copying |
 
+### Windows (D3D11 and D3D12)
+
+On Windows, hardware decoders output Direct3D memory instead of VAMemory, and
+inference elements use the D3D pre-processing backends described in
+[Model Preparation](./model_preparation.md#windows-pre-processing-backends).
+
+On Windows 10 and later, `decodebin3` uses the D3D12 decoders (`d3d12h264dec`,
+`d3d12h265dec`, ...). They output `video/x-raw(memory:D3D12Memory)` when every
+element downstream accepts it, and otherwise copy the frame into
+`video/x-raw(memory:D3D11Memory)`. If `pre-process-backend` is not set, inference
+elements accept both memory types and select the matching backend. On GPU, they
+select `d3d12-surface-sharing`, which keeps the frame on the GPU and avoids
+reading the converted image back to system memory. On NPU they select `d3d12`:
+
+```bash
+gst-launch-1.0 filesrc location=${VIDEO_FILE} ! decodebin3 ! gvadetect model=${MODEL_FILE} device=GPU ! queue ! gvafpscounter ! fakesink
+gst-launch-1.0 filesrc location=${VIDEO_FILE} ! decodebin3 ! gvadetect model=${MODEL_FILE} device=NPU ! queue ! gvafpscounter ! fakesink
+```
+
+A `d3d11` backend accepts only D3D11Memory, so the D3D12 decoder copies each frame
+into a D3D11 texture. Use it when an element downstream supports only D3D11Memory,
+or with the `d3d11h264dec`/`d3d11h265dec` decoders:
+
+```bash
+gst-launch-1.0 filesrc location=${VIDEO_FILE} ! parsebin ! d3d11h264dec ! gvadetect model=${MODEL_FILE} device=GPU pre-process-backend=d3d11-surface-sharing ! queue ! gvafpscounter ! fakesink
+```
+
+| Inference Device | Memory Type                              | Preprocessing Backend                     |
+|------------------|------------------------------------------|-------------------------------------------|
+| CPU              | `video/x-raw`                            | `ie` or `opencv`                          |
+| GPU              | `video/x-raw(memory:D3D12Memory)`        | `d3d12-surface-sharing` (or `d3d12`)      |
+| GPU              | `video/x-raw(memory:D3D11Memory)`        | `d3d11-surface-sharing` (or `d3d11`)      |
+| NPU              | `video/x-raw(memory:D3D12Memory)` or `video/x-raw(memory:D3D11Memory)` | `d3d12` or `d3d11` |
+
+For single-stage pipelines on GPU, the surface sharing backends are the fastest
+option, since no converted image is read back to system memory. In multi-stage
+pipelines such as `gvadetect ! gvaclassify`, the GPU is typically fully occupied by
+inference, so all D3D backends reach similar throughput. In that case, batch the
+per-object stage with `batch-size` to reduce the per-inference overhead. Batching
+benefits the surface sharing backends the most:
+
+```bash
+gst-launch-1.0 filesrc location=${VIDEO_FILE} ! decodebin3 ! \
+gvadetect model=${MODEL_FILE_1} device=GPU ! queue ! \
+gvaclassify model=${MODEL_FILE_2} device=GPU batch-size=8 ! queue ! gvafpscounter ! fakesink
+```
+
+By default, the inference element reuses the upstream D3D11/D3D12 device when
+it is on the same GPU as the inference `device`. Set `share-d3d-ctx=false` to
+create a separate device for inference.
+
 
 
 ## 2. Multi-stage pipeline with gvadetect and gvaclassify
@@ -216,3 +267,16 @@ Examples:
   ```
 
 
+
+On Windows, `gvawatermark` defaults to the GPU on D3D11Memory and D3D12Memory. The
+GPU renderer draws into the frame's texture without copying it to system memory,
+whereas the CPU renderer has to download every frame it draws on and upload it
+again, so keep the default there even next to GPU inference. Keep the pipeline in
+D3D12Memory where possible (the default with `decodebin3` when every element
+accepts it): the watermark and the `d3d12-surface-sharing` pre-processing are both
+faster than their D3D11 counterparts.
+
+```bash
+gst-launch-1.0 filesrc location=${VIDEO_FILE} ! decodebin3 ! gvadetect model=${MODEL_FILE} device=GPU ! queue ! \
+  gvawatermark ! d3d12videosink
+```

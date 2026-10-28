@@ -12,6 +12,7 @@
 #include "dlstreamer/gst/mappers/gst_to_vaapi.h"
 #else
 #include "dlstreamer/gst/mappers/gst_to_d3d11.h"
+#include "dlstreamer/gst/mappers/gst_to_d3d12.h"
 #endif
 #include "inference_backend/image.h"
 
@@ -87,8 +88,20 @@ class BufferToImageMapper final {
             auto d3d11_tensor = dlstreamer::ptr_cast<dlstreamer::D3D11Tensor>(tensor0);
             image->d3d11_texture = d3d11_tensor->d3d11_texture();
             image->d3d11_subresource_index = static_cast<uint32_t>(d3d11_tensor->subresource_index());
-            image->gst_d3d11_device = reinterpret_cast<void *>(
-                static_cast<GstD3D11Device *>(tensor0->context()->handle(dlstreamer::D3D11Context::key::d3d_device)));
+            // No context when the upstream device query failed: the consumer then takes the
+            // device from the GstMemory.
+            if (auto context = tensor0->context())
+                image->gst_d3d11_device = context->handle(dlstreamer::D3D11Context::key::d3d11_device);
+            image->gst_d3d11_memory =
+                reinterpret_cast<void *>(d3d11_tensor->handle(dlstreamer::tensor::key::gst_memory, 0));
+        } else if (_memory_type == MemoryType::D3D12) {
+            auto d3d12_tensor = dlstreamer::ptr_cast<dlstreamer::D3D12Tensor>(tensor0);
+            image->d3d12_resource = d3d12_tensor->d3d12_resource();
+            image->d3d12_subresource_index = static_cast<uint32_t>(d3d12_tensor->subresource_index());
+            image->gst_d3d12_memory =
+                reinterpret_cast<void *>(d3d12_tensor->handle(dlstreamer::tensor::key::gst_memory, 0));
+            if (auto context = tensor0->context()) // see the D3D11 case above
+                image->gst_d3d12_device = context->handle(dlstreamer::D3D12Context::key::d3d12_device);
         }
 #endif
         return image;
@@ -119,6 +132,8 @@ class BufferMapperFactory {
 #else
         case InferenceBackend::MemoryType::D3D11:
             return std::make_shared<dlstreamer::MemoryMapperGSTToD3D11>(nullptr, output_context);
+        case InferenceBackend::MemoryType::D3D12:
+            return std::make_shared<dlstreamer::MemoryMapperGSTToD3D12>(nullptr, output_context);
 #endif
         case InferenceBackend::MemoryType::ANY:
         default:

@@ -50,7 +50,11 @@ namespace renderer_gpu {
  * output included, the runtime goes through a staging copy that passes the
  * plane-encoded subresource straight to CopySubresourceRegion, so it copies the
  * wrong slice of a texture array and drops the UV plane of a single texture.
- * gvawatermarkimpl therefore copies every frame into such a texture first. */
+ * gvawatermarkimpl therefore copies every frame into such a texture first.
+ *
+ * OpenCL cannot share D3D12 resources at all, so D3D12 frames come as the
+ * D3D11 views of D3D12 textures created for interop, which are shared ones as
+ * well, on a D3D11 device of the same adapter. */
 using Device = GstD3D11Device *;
 using Surface = ID3D11Texture2D *;
 #else
@@ -63,7 +67,8 @@ using Surface = VASurfaceID;
 
 /**
  * Rasterizes watermark primitives straight into the planes of a frame in video
- * memory with OpenCL: a VA surface on Linux, a D3D11 texture on Windows.
+ * memory with OpenCL: a VA surface on Linux, a D3D11 or D3D12 texture on
+ * Windows.
  *
  * On Linux the planes are imported zero-copy through
  * cl_intel_va_api_media_sharing, on Windows those of a shared D3D11 texture
@@ -99,7 +104,9 @@ class RendererGPU {
      * On Windows the caller must hold a GST_MAP_D3D11 write map of the texture,
      * and must not hold the device lock: the renderer takes it itself, only
      * around the calls that use the D3D11 immediate context. D3D11 work already
-     * queued on the texture, such as the copy that filled it, is waited for. */
+     * queued on the texture, such as the copy that filled it, is waited for.
+     * For the D3D11 view of a D3D12 texture, the map is a GST_MAP_D3D12 one of
+     * the D3D12 texture, and the caller has to wait for its D3D12 work. */
     bool draw_surface(renderer_gpu::Surface surface, std::vector<render::Prim> prims);
 
     /* Human readable reason for the last false returned by draw_surface(). */

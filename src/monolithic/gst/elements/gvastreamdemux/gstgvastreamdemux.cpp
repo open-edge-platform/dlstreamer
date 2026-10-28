@@ -5,6 +5,7 @@
  ******************************************************************************/
 
 #include "gstgvastreamdemux.h"
+#include "gva_caps.h"
 #include <gst/analytics/gstanalyticsbatchmeta.h>
 
 #include <string.h>
@@ -24,8 +25,7 @@ enum {
  * Note: STREAMDEMUX_VIDEO_CAPS already ends with "; ", so concatenate directly. */
 #define STREAMDEMUX_VIDEO_CAPS                                                                                         \
     GST_VIDEO_CAPS_MAKE("{ BGRx, BGRA, BGR, NV12, I420, RGB, RGBA, RGBx }")                                            \
-    "; " GST_VIDEO_CAPS_MAKE_WITH_FEATURES("memory:VAMemory", "{ NV12 }") "; " GST_VIDEO_CAPS_MAKE_WITH_FEATURES(      \
-        "memory:DMABuf", "{ DMA_DRM }") "; "
+    "; " DMA_BUFFER_CAPS VAMEMORY_CAPS D3D11MEMORY_CAPS D3D12MEMORY_CAPS
 
 /* Non-video sources carried inside container batches (e.g. lidar). */
 #define STREAMDEMUX_NONVIDEO_CAPS "application/x-lidar"
