@@ -125,7 +125,6 @@ struct GvaEventRecorderRuntime {
           drop_throttle(DEFAULT_DROP_LOG_INTERVAL_MS) {
         gst_video_info_init(&video_info);
     }
-
 };
 
 static std::vector<std::string> parse_target_classes(const gchar *csv) {
