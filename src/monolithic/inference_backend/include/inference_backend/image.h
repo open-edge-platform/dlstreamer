@@ -103,9 +103,8 @@ struct Image {
 // padding between planes and every plane stride equals the image width.
 inline bool isImageContiguous(const Image &image) {
     return (image.planes[1] - image.planes[0] == image.width * image.height) &&
-           (image.planes[2] - image.planes[1] == image.width * image.height) &&
-           (image.stride[0] == image.stride[1]) && (image.stride[1] == image.stride[2]) &&
-           (image.stride[2] == image.width);
+           (image.planes[2] - image.planes[1] == image.width * image.height) && (image.stride[0] == image.stride[1]) &&
+           (image.stride[1] == image.stride[2]) && (image.stride[2] == image.width);
 }
 
 // The GPU (VPP) aligns the start of every row of a linear render target down to 64 bytes and silently
