@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <fstream>
 #include <regex>
+#include <set>
 
 namespace ModelApiConverters {
 
@@ -148,8 +149,15 @@ bool convertYoloMeta2ModelApi(const std::string model_file, ov::AnyMap &modelCon
     metadata_file.replace_filename("metadata.yaml");
     nlohmann::json yaml_json;
 
-    if (!std::filesystem::exists(metadata_file))
-        return false;
+    if (!std::filesystem::exists(metadata_file)) {
+        // Names mapped to a converter in resolveConverterName() (blob_to_meta_converter.cpp); keep in sync.
+        static const std::set<std::string> resolvable_without_metadata = {"YOLOv8", "YOLOv8-OBB", "YOLOv8-SEG"};
+        const std::string declared_type = modelConfig["model_type"].as<std::string>();
+        if (resolvable_without_metadata.count(declared_type))
+            return false;
+        throw std::runtime_error("****\nYOLO model (model_type \"" + declared_type + "\") requires " +
+                                 metadata_file.string() + " to determine the model version and task.\n****\n");
+    }
 
     if (!yaml2Json(metadata_file.string(), yaml_json))
         return false;
