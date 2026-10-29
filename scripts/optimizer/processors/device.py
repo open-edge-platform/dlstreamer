@@ -9,22 +9,64 @@ import json
 import heapq
 import itertools
 import os
+import shutil
+import subprocess  # nosec B404 - runs the DL Streamer dls_devices tool, no shell
+from functools import lru_cache
 
 from processors.utils import parse_element_parameters, assemble_parameters
 
-from openvino import Core
-from openvino.properties.device import Type
-
 logger = logging.getLogger(__name__)
+
+DLS_DEVICES_ENV = "DLS_DEVICES_BIN"
+_DLS_DEVICES_NAME = "dls_devices.exe" if os.name == "nt" else "dls_devices"
+
+
+def _find_dls_devices():
+    """Locate the dls_devices tool: $DLS_DEVICES_BIN, PATH, then the DL Streamer install layout."""
+    explicit = os.environ.get(DLS_DEVICES_ENV)
+    if explicit:
+        return explicit
+
+    on_path = shutil.which(_DLS_DEVICES_NAME)
+    if on_path:
+        return on_path
+
+    # <prefix>/scripts/optimizer/processors/device.py -> <prefix>/bin
+    prefix = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+    candidate = os.path.join(prefix, "bin", _DLS_DEVICES_NAME)
+    if os.path.isfile(candidate):
+        return candidate
+
+    raise RuntimeError(
+        f"'{_DLS_DEVICES_NAME}' not found. It is installed with DL Streamer (<install-dir>/bin); "
+        f"add it to PATH or point {DLS_DEVICES_ENV} to it.")
+
+
+@lru_cache(maxsize=1)
+def query_devices():
+    """Return the OpenVINO devices as reported by dls_devices: [{name, full_name, type}, ...]."""
+    executable = _find_dls_devices()
+    try:
+        result = subprocess.run([executable], capture_output=True, text=True,  # nosec B603
+                                check=True, timeout=120)
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError(f"{executable} failed: {exc.stderr.strip()}") from exc
+    return tuple(json.loads(result.stdout)["devices"])
+
+
+def available_devices():
+    """Return the names of the OpenVINO devices available to DL Streamer, e.g. ['CPU', 'GPU']."""
+    return [device["name"] for device in query_devices()]
+
 
 class DeviceGenerator: # pylint: disable=missing-class-docstring
     def __init__(self):
         self.tracked_elements = []
-        self.devices = Core().available_devices
+        self.devices = available_devices()
         self.candidates = []
 
     def set_allowed_devices(self, devices): # pylint: disable=missing-function-docstring
-        _devices = Core().available_devices
+        _devices = available_devices()
         for device in devices:
             if not any(device in d for d in _devices):
                 raise RuntimeError(f"Device {device} is not supported by this system! Available devices: {str(_devices)}") # pylint: disable=line-too-long
@@ -132,18 +174,13 @@ class DeviceGenerator: # pylint: disable=missing-class-docstring
 ###################################################################################################
 
 def _compile_device_info():
-    core = Core()
-    available_devices = core.available_devices
-
     device_info = {}
 
     # Do a first pass where we collect info about CPUs and discrete devices
-    for device in available_devices:
-        device_type = core.get_property(device, "DEVICE_TYPE")
-        device_name = core.get_property(device, "FULL_DEVICE_NAME")
-
-        if "CPU" in device or device_type == Type.DISCRETE:
-            device_info[device] = device_name
+    for entry in query_devices():
+        device = entry["name"]
+        if "CPU" in device or entry["type"] == "discrete":
+            device_info[device] = entry["full_name"]
         else:
             device_info[device] = "integrated"
 

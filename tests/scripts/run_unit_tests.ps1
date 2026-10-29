@@ -94,13 +94,9 @@ try {
         Write-Host "`n=== Python unit tests (pytest) ===" -ForegroundColor Cyan
         # Python paths come only from here and setup_python_env.ps1, so that an installed
         # DL Streamer's gstgva or typelibs can't shadow the ones from this repository.
-        # test_pipeline_optimizer imports openvino: use the bindings that come with the OpenVINO
-        # runtime, as setupvars.ps1 does (without its dependency on the py launcher). A pip openvino
-        # of another version loads its own openvino.dll, and the plugins then fail to load.
-        if (-not (Test-Path "$OpenVINODir\python")) {
-            Write-Host "OpenVINO Python bindings not found in $OpenVINODir\python. test_pipeline_optimizer will fail."
-        }
-        $env:PYTHONPATH = "$OpenVINODir\python;$repoDir\scripts\optimizer"
+        # test_pipeline_optimizer lists devices with dls_devices.exe from $binDir (on PATH), so
+        # no OpenVINO Python bindings are needed.
+        $env:PYTHONPATH = "$repoDir\scripts\optimizer"
         $env:PYTHONIOENCODING = "utf-8"
         Remove-Item env:PYGI_DLL_DIRS, env:GI_TYPELIB_PATH -ErrorAction SilentlyContinue
         if (-not $env:GSTREAMER_1_0_ROOT_MSVC_X86_64) {

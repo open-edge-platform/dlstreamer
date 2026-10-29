@@ -11,7 +11,7 @@ import re
 import os
 from optimizer import DLSOptimizer # pylint: disable=no-name-in-module
 from tests_gstgva.utils import get_model_path, get_video_path, to_gst_path
-from openvino import Core
+from processors.device import available_devices # pylint: disable=import-error
 
 # The optimizer's device candidates use VA-API elements (vapostproc, VAMemory), so on Windows they
 # return no results and only CPU candidates run. Tests that expect a result from every candidate, or
@@ -275,9 +275,8 @@ class TestOptimizer(unittest.TestCase):
     def test_set_allowed_devices_with_iter_optimize_for_fps(self):
         """Test that set_allowed_devices() excludes specified devices from optimization"""
 
-        # Get all available devices from OpenVINO
-        core = Core()
-        all_devices = core.available_devices
+        # Get all available devices from OpenVINO (via the dls_devices tool)
+        all_devices = available_devices()
         print(f"All available devices: {all_devices}")
         
         # Skip test if not enough devices

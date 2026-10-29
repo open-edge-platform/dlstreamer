@@ -215,6 +215,7 @@ add_subdirectory(include/dlstreamer/gst/videoanalytics)
 add_subdirectory(src)
 add_subdirectory(src/monolithic)
 add_subdirectory(thirdparty)
+add_subdirectory(tools)
 add_subdirectory(python)
 
 if(${ENABLE_SAMPLES})
