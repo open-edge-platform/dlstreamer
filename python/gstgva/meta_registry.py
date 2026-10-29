@@ -4,7 +4,8 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
-"""Register DLStreamerMeta metadata types (ZoneMtd, TripwireMtd, 3DODMtd) with the
+"""Register DLStreamerMeta metadata types (ZoneMtd, TripwireMtd, 3DODMtd, DwellTimeMtd, GroupMtd,
+KeypointMtd, SemanticTagMtd) with the
 GstAnalytics Python override so that the RelationMeta iterator wraps them
 into the correct Python types and isinstance() checks work.
 
@@ -46,5 +47,20 @@ _GstAnalyticsOverride._wrap_mtd(
     DLStreamerMeta,
     'DwellTimeMtd',
     DLStreamerMeta.relation_meta_get_dwelltime_mtd
+)
+_GstAnalyticsOverride._wrap_mtd(
+    DLStreamerMeta,
+    'GroupMtd',
+    DLStreamerMeta.relation_meta_get_group_mtd
+)
+_GstAnalyticsOverride._wrap_mtd(
+    DLStreamerMeta,
+    'KeypointMtd',
+    DLStreamerMeta.relation_meta_get_keypoint_mtd
+)
+_GstAnalyticsOverride._wrap_mtd(
+    DLStreamerMeta,
+    'SemanticTagMtd',
+    DLStreamerMeta.relation_meta_get_semantic_tag_mtd
 )
 # pylint: enable=protected-access
