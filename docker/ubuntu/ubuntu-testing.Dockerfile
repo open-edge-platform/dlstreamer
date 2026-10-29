@@ -36,6 +36,7 @@ USER dlstreamer
 
 COPY ./requirements.txt /home/dlstreamer/requirements.txt
 
+# hadolint ignore=SC1091
 RUN \
     . /etc/os-release && \
     case "$VERSION_ID" in \
