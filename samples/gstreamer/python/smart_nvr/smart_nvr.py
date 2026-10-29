@@ -52,7 +52,8 @@ def parse_args():
 
 def ensure_file(path, description):
     """Return resolved path if file exists; exit with error otherwise."""
-    p = Path(path)
+    file_src = path.split('!')[0].strip()
+    p = Path(file_src)
     if not p.is_file():
         sys.stderr.write(f"Error: {description} not found: {path}\n")
         sys.exit(1)
@@ -90,6 +91,13 @@ def run_pipeline(pipeline):
         signal.signal(signal.SIGINT, prev)
         pipeline.set_state(Gst.State.NULL)
 
+def split_input(input_arg):
+    """Split 'video.mp4 ! identity eos-after=600' into path and identity fragment."""
+    if "!" not in input_arg:
+        return input_arg.strip(), ""
+    path, rest = input_arg.split("!", 1)
+    return path.strip(), rest.strip() + " ! "   # e.g. "identity eos-after=600 ! "
+
 
 # ── main ─────────────────────────────────────────────────────────────────────
 
@@ -114,7 +122,8 @@ def main():
         )
 
     # Prepare assets
-    video_file = ensure_file(args.input, "input video")
+    input_path, identity = split_input(args.input)
+    video_file = ensure_file(input_path, "input video")
     model_path = args.model or os.path.join(os.environ.get("MODELS_PATH", "./models"), DEFAULT_MODEL_REL)
     detection_model = ensure_file(model_path, "detection model")
 
@@ -135,12 +144,12 @@ def main():
 
     # Build pipeline
     pipe = (
-        f'filesrc location="{video_file}" ! decodebin3 ! '
+        f'filesrc location="{video_file}" ! {identity} decodebin3 !'
         f'gvadetect model="{detection_model}" device={args.device} '
         f"batch-size={args.batch_size} threshold={args.threshold} ! queue ! "
         f"gvaanalytics_py distance=500 angle=-135,-45 ! queue ! "
         f"{sink}"
-    )
+)
     print(f'Pipeline: "{pipe}"')
     pipeline = Gst.parse_launch(pipe)
 

@@ -99,16 +99,25 @@ if [[ ! "$DEVICE" =~ ^(CPU|GPU|NPU)$ ]]; then
     exit 1
 fi
 
+
 # Validate INPUT and select source element
+# Allow extra pipeline elements after the path, e.g.:
+#   video.mp4 ! identity eos-after=300
+#   video.mp4 ! identity start-after=100 eos-after=200
 if [[ "$INPUT" =~ ^https?:// ]]; then
     SOURCE_ELEMENT="urisourcebin uri=${INPUT}"
 else
-    if [ ! -f "$INPUT" ]; then
-        echo "Error: Input file not found: $INPUT"
+    # Extract pure file path (everything before the first '!')
+    INPUT_PATH=$(echo "$INPUT" | awk -F'!' '{print $1}' | xargs)
+
+    if [ ! -f "$INPUT_PATH" ]; then
+        echo "Error: Input file not found: $INPUT_PATH"
         echo "Run '$(basename "$0") --help' for usage information."
         exit 1
     fi
-    SOURCE_ELEMENT="filesrc location=${INPUT} "
+
+    # Keep the full argument (path + optional identity etc.)
+    SOURCE_ELEMENT="filesrc location=${INPUT}"
 fi
 
 # Validate CONFIG_FILE exists (optional but recommended)
@@ -137,7 +146,7 @@ if gst-inspect-1.0 vah264enc &>/dev/null; then
 else
     ENCODER="videoconvert ! openh264enc"
 fi
-    
+
 gst-launch-1.0 -e ${SOURCE_ELEMENT} ! decodebin3 ! \
     gvadetect model=${MODEL} ${GVADETECT_OPTIONS} ! queue ! \
     gvatrack tracking-type=zero-term ! queue ! \

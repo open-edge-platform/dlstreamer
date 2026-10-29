@@ -79,8 +79,10 @@ def prepare_input_video(input_arg):
     """Prepare the input video, downloading the default clip if needed."""
     runtime_dir = get_runtime_dir()
 
+# adding another element after ! support:
     if input_arg:
-        if not os.path.isfile(input_arg):
+        file_src = input_arg.split('!')[0].strip()
+        if not os.path.isfile(file_src):
             sys.stderr.write("Input video file does not exist\n")
             sys.exit(1)
         return input_arg

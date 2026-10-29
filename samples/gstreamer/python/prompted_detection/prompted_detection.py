@@ -21,7 +21,8 @@ DEFAULT_MODEL_REL = f"public/{WEIGHTS}/FP16/{WEIGHTS}.xml"
 
 def ensure_file(path, description):
     """Return resolved path if file exists; exit with error otherwise."""
-    if not os.path.isfile(path):
+    file_src = path.split('!')[0].strip()
+    if not os.path.isfile(file_src):
         sys.stderr.write(f"Error: {description} not found: {path}\n")
         sys.stderr.write("Set MODELS_PATH or prepare the model with download_ultralytics_models.py\n")
         sys.exit(1)

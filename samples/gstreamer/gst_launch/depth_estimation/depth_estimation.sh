@@ -72,12 +72,18 @@ echo "DEPTH_MODEL: ${DEPTH_MODEL}"
 echo "DETECT_DEVICE: ${DETECT_DEVICE}"
 echo "DEPTH_DEVICE: ${DEPTH_DEVICE}"
 
-if [[ $INPUT == "/dev/video"* ]]; then
-  SOURCE_ELEMENT="v4l2src device=\"${INPUT}\""
-elif [[ $INPUT == *"://"* ]]; then
-  SOURCE_ELEMENT="urisourcebin buffer-size=4096 uri=\"${INPUT}\""
+
+# Allow extra pipeline elements after path, e.g.:
+#   video.mp4 ! identity eos-after=400
+INPUT_PATH=$(echo "$INPUT" | awk -F'!' '{print $1}' | xargs)
+
+if [[ $INPUT_PATH == "/dev/video"* ]]; then
+  SOURCE_ELEMENT="v4l2src device=\"${INPUT_PATH}\""
+elif [[ $INPUT_PATH == *"://"* ]]; then
+  SOURCE_ELEMENT="urisourcebin buffer-size=4096 uri=\"${INPUT_PATH}\""
 else
-  SOURCE_ELEMENT="filesrc location=\"${INPUT}\""
+  # keep full $INPUT so identity stays in the pipeline
+  SOURCE_ELEMENT="filesrc location=${INPUT}"
 fi
 
 CONVERSION_ELEMENT=""
