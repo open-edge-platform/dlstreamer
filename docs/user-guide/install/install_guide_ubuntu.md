@@ -97,6 +97,15 @@ drivers. For more details see [prerequisites](#prerequisites).
   sudo bash -c 'echo "deb [signed-by=/usr/share/keyrings/intel-gpg-archive-keyring.gpg] https://apt.repos.intel.com/openvino ubuntu24 main" | sudo tee /etc/apt/sources.list.d/intel-openvino.list'
   ```
 
+- **Ubuntu 26**
+
+  ```bash
+  sudo -E wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | sudo tee /usr/share/keyrings/intel-gpg-archive-keyring.gpg > /dev/null
+  sudo -E wget -O- https://apt.repos.intel.com/edgeai/dlstreamer/GPG-PUB-KEY-INTEL-DLS.gpg | sudo tee /usr/share/keyrings/dls-archive-keyring.gpg > /dev/null
+  echo "deb [signed-by=/usr/share/keyrings/dls-archive-keyring.gpg] https://apt.repos.intel.com/edgeai/dlstreamer/ubuntu26 ubuntu26 main" | sudo tee /etc/apt/sources.list.d/intel-dlstreamer.list
+  sudo bash -c 'echo "deb [signed-by=/usr/share/keyrings/intel-sw-products.gpg] https://apt.repos.intel.com/openvino ubuntu26 main" | sudo tee /etc/apt/sources.list.d/intel-openvino.list'
+  ```
+
   > **NOTE:** If you have OpenVINO™ installed in any version other than 2026.3.1,
   > please uninstall the OpenVINO™ packages using the following commands.
 
@@ -170,6 +179,20 @@ following command:
 > **NOTE:** To set up Linux with the relevant environment variables every time a new
 > terminal is opened, open `~/.bashrc` and add the following lines:
 
+- **Ubuntu 22**
+
+  ```bash
+
+  export LIBVA_DRIVER_NAME=iHD
+  export GST_PLUGIN_PATH=/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0:/opt/intel/dlstreamer/gstreamer/lib/
+  export LD_LIBRARY_PATH=/opt/intel/dlstreamer/gstreamer/lib:/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/lib/gstreamer-1.0:/usr/lib:/opt/intel/dlstreamer/lib:/usr/local/lib/gstreamer-1.0:/usr/local/lib:/opt/opencv:/opt/rdkafka:/opt/librealsense
+  export LIBVA_DRIVERS_PATH=/usr/lib/x86_64-linux-gnu/dri
+  export GST_VA_ALL_DRIVERS=1
+  export PATH=/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/bin:$PATH
+  export GST_PLUGIN_FEATURE_RANK=${GST_PLUGIN_FEATURE_RANK},ximagesink:MAX
+  export GI_TYPELIB_PATH=/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/opt/intel/dlstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0
+  ```
+
 - **Ubuntu 24**
 
   ```bash
@@ -183,10 +206,9 @@ following command:
   export GI_TYPELIB_PATH=/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/opt/intel/dlstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0
   ```
 
-- **Ubuntu 22**
+- **Ubuntu 26**
 
   ```bash
-
   export LIBVA_DRIVER_NAME=iHD
   export GST_PLUGIN_PATH=/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0:/opt/intel/dlstreamer/gstreamer/lib/
   export LD_LIBRARY_PATH=/opt/intel/dlstreamer/gstreamer/lib:/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/lib/gstreamer-1.0:/usr/lib:/opt/intel/dlstreamer/lib:/usr/local/lib/gstreamer-1.0:/usr/local/lib:/opt/opencv:/opt/rdkafka:/opt/librealsense
@@ -284,6 +306,7 @@ select the most appropriate version. By default, the latest docker image points 
 For **Ubuntu 22.04**, specify the tag e.g. **2026.2.0-ubuntu22**.
 For **Ubuntu 24.04**, use the **latest** tag or specify the version, such as
 **2026.2.0-ubuntu24**.
+For **Ubuntu 26.04**, specify the tag e.g. **2026.2.0-ubuntu26**.
 
 - **Ubuntu 22**
 
@@ -295,6 +318,12 @@ For **Ubuntu 24.04**, use the **latest** tag or specify the version, such as
 
   ```bash
   docker pull intel/dlstreamer:latest
+  ```
+
+- **Ubuntu 26**
+
+  ```bash
+  docker pull intel/dlstreamer:2026.2.0-ubuntu26
   ```
 
 ### Step 5: Run Deep Learning Streamer Pipeline Framework container
@@ -312,6 +341,12 @@ a container
 
   ```bash
   docker run -it intel/dlstreamer:latest
+  ```
+
+- **Ubuntu 26**
+
+  ```bash
+  docker run -it intel/dlstreamer:2026.2.0-ubuntu26
   ```
 
 In the container, please run the command `gst-inspect-1.0 gvadetect` to confirm
