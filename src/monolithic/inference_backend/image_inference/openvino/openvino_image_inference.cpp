@@ -1143,32 +1143,32 @@ class OpenVinoNewApiImpl {
 
     // NPU zero-copy DMA-BUFs use a padded row pitch when the model input width is not 64-byte aligned.
     // Let the NPU consume such strided input tensors directly instead of copying them on the CPU.
-    // Returns true if the property was added.
-    bool enable_npu_dmabuf_strides(ov::AnyMap &ov_params) {
+    void enable_npu_dmabuf_strides(ov::AnyMap &ov_params) {
         if (_memory_type != MemoryType::DMA_BUFFER || _device.find("NPU") == std::string::npos ||
             _image_input_name.empty() || ov_params.count(ov::intel_npu::enable_strides_for.name()))
-            return false;
+            return;
 
         size_t width = 0, height = 0, batch = 0;
         int format = 0, memory_type = 0;
         get_model_image_input_info(width, height, batch, format, memory_type);
         if (width == 0 || alignDmaBufPitch(safe_convert<uint32_t>(width)) == width)
-            return false;
+            return;
 
         GVA_INFO("NPU zero-copy: model input width %zu is not %u-byte aligned, enabling strided input '%s'", width,
                  DMA_BUF_PITCH_ALIGNMENT, _image_input_name.c_str());
         ov_params[ov::intel_npu::enable_strides_for.name()] = _image_input_name;
-        return true;
     }
 
     // Loads network to the device
     void load_network(const ConfigHelper &config) {
         assert(!_compiled_model);
         ov::AnyMap ov_params = config.inference_cfg();
-        const bool npu_strides_added = enable_npu_dmabuf_strides(ov_params);
+
+        // Check if enabling strided input for NPU zero-copy is applicable and required.
+        enable_npu_dmabuf_strides(ov_params);
+
         std::string params = fmt::format("Params for compile_model:\n  {}", fmt::join(ov_params, "\n  "));
         GVA_INFO("%s", params.c_str());
-        // adjust_ie_config(ov_params);
 
         GVA_INFO("Loading network to device %s", _device.c_str());
         if (_openvino_context) {
@@ -1176,23 +1176,19 @@ class OpenVinoNewApiImpl {
         }
 
         // print_input_and_outputs_info(*_model);
-        if (_openvino_context) {
-            _compiled_model = core().compile_model(_model, _openvino_context->remote_context(), ov_params);
-        } else {
-            std::string formatted_device = _device;
-            if (_batch_timeout > -1) {
-                formatted_device = fmt::format("BATCH:{}({})", _device, _auto_batch_num_requests);
-            }
-            try {
+        try {
+            if (_openvino_context) {
+                _compiled_model = core().compile_model(_model, _openvino_context->remote_context(), ov_params);
+            } else {
+                std::string formatted_device = _device;
+                if (_batch_timeout > -1) {
+                    formatted_device = fmt::format("BATCH:{}({})", _device, _auto_batch_num_requests);
+                }
                 _compiled_model = core().compile_model(_model, formatted_device, ov_params);
-            } catch (const std::exception &) {
-                if (!npu_strides_added)
-                    throw;
-                std::throw_with_nested(std::runtime_error(
-                    "NPU rejected strided input required for DMA-BUF zero-copy with a non 64-byte aligned model "
-                    "input width; to disable zero-copy, remove access to /dev/dma_heap/system, e.g. "
-                    "'sudo chmod 600 /dev/dma_heap/system'"));
             }
+        } catch (const std::exception &e) {
+            GVA_ERROR("Failed to compile model for device %s: %s", _device.c_str(), e.what());
+            std::throw_with_nested(std::runtime_error("Failed to compile model for device " + _device));
         }
         GVA_INFO("Network loaded to device");
 
