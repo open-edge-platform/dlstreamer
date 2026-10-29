@@ -15,8 +15,9 @@
 #include "../metadata/gstanalyticskeypointdescriptor.h"
 #include "../metadata/gva_tensor_meta.h"
 
-#include <gst/analytics/analytics.h>
 #include "../metadata/gstanalyticskeypointmtd.h"
+#include "../metadata/gstanalyticssemantictagmtd.h"
+#include <gst/analytics/analytics.h>
 #include <gst/analytics/gstanalyticssegmentationmtd.h>
 #include <gst/analytics/gstanalyticstensormtd.h>
 #include <gst/analytics/gsttensor.h>
@@ -692,15 +693,14 @@ class Tensor {
                 skeleton_data = descriptor->skeleton_connections;
             }
 
-            // build semantic tag for group: model_name/format
             std::string group_semantic_tag;
-            std::string mn = model_name();
-            if (!fmt.empty() && !mn.empty())
-                group_semantic_tag = mn + "/" + fmt;
+            const std::string group_model = model_name();
+            if (!fmt.empty() && !group_model.empty())
+                group_semantic_tag = group_model + "/" + fmt;
             else if (!fmt.empty())
                 group_semantic_tag = fmt;
-            else if (!mn.empty())
-                group_semantic_tag = mn;
+            else
+                group_semantic_tag = group_model;
 
             // create group with keypoints and skeleton in one call
             if (!gst_analytics_relation_meta_add_keypoints_group(meta, group_semantic_tag.c_str(), dim,

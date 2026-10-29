@@ -18,6 +18,7 @@
 #include "tensor.h"
 
 #include "../metadata/gstanalyticskeypointmtd.h"
+#include "../metadata/gstanalyticssemantictagmtd.h"
 
 #include <cstdint>
 #include <gst/analytics/analytics.h>
