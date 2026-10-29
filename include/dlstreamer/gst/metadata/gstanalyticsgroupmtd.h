@@ -46,12 +46,6 @@ GST_ANALYTICS_META_API
 GstAnalyticsMtdType gst_analytics_group_mtd_get_mtd_type(void);
 
 GST_ANALYTICS_META_API
-gboolean gst_analytics_group_mtd_has_semantic_tag(const GstAnalyticsGroupMtd *handle, const gchar *tag);
-
-GST_ANALYTICS_META_API
-gboolean gst_analytics_group_mtd_semantic_tag_has_prefix(const GstAnalyticsGroupMtd *handle, const gchar *prefix);
-
-GST_ANALYTICS_META_API
 gsize gst_analytics_group_mtd_get_member_count(const GstAnalyticsGroupMtd *handle);
 
 GST_ANALYTICS_META_API
@@ -73,14 +67,8 @@ GST_ANALYTICS_META_API
 gboolean gst_analytics_group_mtd_add_member(GstAnalyticsGroupMtd *handle, guint an_meta_id);
 
 GST_ANALYTICS_META_API
-gboolean gst_analytics_group_mtd_set_semantic_tag(GstAnalyticsGroupMtd *handle, const char *tag);
-
-GST_ANALYTICS_META_API
 gboolean gst_analytics_relation_meta_get_group_mtd(GstAnalyticsRelationMeta *meta, guint an_meta_id,
                                                    GstAnalyticsGroupMtd *rlt);
-
-GST_ANALYTICS_META_API
-gchar *gst_analytics_group_mtd_get_semantic_tag(const GstAnalyticsGroupMtd *handle);
 
 G_END_DECLS
 #endif /* __GST_ANALYTICS_GROUP_MTD_H__ */

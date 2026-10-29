@@ -28,7 +28,8 @@
 #include <gtest/gtest.h>
 
 #include "dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h"
-#include <gst/analytics/gstanalyticskeypointmtd.h>
+#include "dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
+#include "dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h"
 
 // ── Test constants ──────────────────────────────────────────────────────────
 

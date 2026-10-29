@@ -9,11 +9,12 @@
  * @brief Unit tests for copy_one_gst_analytics_mtd() and copy_all_gst_analytics_mtd()
  */
 
+#include <dlstreamer/gst/metadata/gstanalyticsgroupmtd.h>
+#include <dlstreamer/gst/metadata/gstanalyticskeypointmtd.h>
+#include <dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h>
 #include <glib.h>
 #include <gst/analytics/analytics.h>
 #include <gst/analytics/gstanalyticsclassificationmtd.h>
-#include <gst/analytics/gstanalyticsgroupmtd.h>
-#include <gst/analytics/gstanalyticskeypointmtd.h>
 #include <gst/analytics/gstanalyticssegmentationmtd.h>
 #include <gst/analytics/gstanalyticstensormtd.h>
 #include <gst/analytics/gsttensor.h>

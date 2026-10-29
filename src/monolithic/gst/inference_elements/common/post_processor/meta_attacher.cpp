@@ -11,6 +11,7 @@
 #include "gva_utils.h"
 #include "processor_types.h"
 #include <dlstreamer/gst/metadata/camera_3d_od_mtd.h>
+#include <dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h>
 #include <dlstreamer/gst/videoanalytics/tensor.h>
 #include <gst/analytics/analytics.h>
 

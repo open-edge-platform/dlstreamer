@@ -28,6 +28,7 @@
 #endif
 
 #include "dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
+#include "dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h"
 #include <gst/video/gstvideometa.h>
 #include <gst/video/video.h>
 
@@ -401,8 +402,10 @@ gboolean gst_analytics_relation_meta_add_keypoints_group(GstAnalyticsRelationMet
         return FALSE;
     }
 
-    /* Set semantic tag */
-    gst_analytics_group_mtd_set_semantic_tag(group_mtd, semantic_tag);
+    if (!gst_analytics_mtd_set_semantic_tag(group_mtd, semantic_tag)) {
+        GST_WARNING("Failed to set semantic tag on keypoint group");
+        return FALSE;
+    }
 
     /* Allocate array to store keypoint IDs for skeleton processing */
     keypoint_ids = g_malloc_n(keypoint_count, sizeof(guint));

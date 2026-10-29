@@ -20,12 +20,13 @@
 
 #include <dlstreamer/gst/metadata/camera_3d_od_mtd.h>
 #include <dlstreamer/gst/metadata/g3d_od_mtd.h>
+#include <dlstreamer/gst/metadata/gstanalyticsgroupmtd.h>
 #include <dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h>
+#include <dlstreamer/gst/metadata/gstanalyticskeypointmtd.h>
+#include <dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h>
 #include <gst/analytics/analytics.h>
 #include <gst/analytics/gstanalyticsbatchmeta.h>
 #include <gst/analytics/gstanalyticsclassificationmtd.h>
-#include <gst/analytics/gstanalyticsgroupmtd.h>
-#include "dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
 #include <gst/analytics/gstanalyticsobjecttrackingmtd.h>
 #include <gst/rtp/rtp.h>
 #include <nlohmann/json.hpp>

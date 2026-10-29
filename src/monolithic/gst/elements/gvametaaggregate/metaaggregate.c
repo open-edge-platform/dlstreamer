@@ -11,8 +11,9 @@
 #include "gst/gstclock.h"
 #include "gst/gstinfo.h"
 #include "utils.h"
-#include <gst/analytics/gstanalyticsgroupmtd.h>
-#include "dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
+#include <dlstreamer/gst/metadata/gstanalyticsgroupmtd.h>
+#include <dlstreamer/gst/metadata/gstanalyticskeypointmtd.h>
+#include <dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h>
 #include <gst/analytics/gstanalyticssegmentationmtd.h>
 #include <gst/analytics/gstanalyticstensormtd.h>
 #include <gst/analytics/gsttensor.h>
@@ -330,6 +331,11 @@ gboolean copy_all_gst_analytics_mtd(GstAnalyticsRelationMeta *src, GstAnalyticsR
         }
 
         if (gst_analytics_mtd_get_mtd_type(&mtd) == gst_analytics_tracking_mtd_get_mtd_type()) {
+            continue;
+        }
+
+        // Semantic tags are copied together with their owner in copy_one_gst_analytics_mtd()
+        if (gst_analytics_mtd_get_mtd_type(&mtd) == gst_analytics_semantic_tag_mtd_get_mtd_type()) {
             continue;
         }
 

@@ -14,6 +14,7 @@
 
 #include "region_of_interest.h"
 
+#include "../metadata/gstanalyticssemantictagmtd.h"
 #include "../metadata/gva_json_meta.h"
 #include "../metadata/gva_tensor_meta.h"
 
