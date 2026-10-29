@@ -622,7 +622,7 @@ RUN uv python install 3.13 && \
 RUN \
     apt-get update && \
     apt-get install -y -q --no-install-recommends gcc=\* libcairo2-dev=\* libgirepository1.0-dev=\* && \
-    uv pip install --python python3.13 --system --no-cache-dir \
+    uv pip install --python python3.13 --system --no-cache-dir --break-system-packages \
         onvif-zeep==0.2.12 \
         -r /opt/intel/dlstreamer/requirements.txt && \
     apt-get remove -y gcc libcairo2-dev libgirepository1.0-dev && \
