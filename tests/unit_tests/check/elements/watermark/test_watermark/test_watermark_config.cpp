@@ -439,7 +439,8 @@ static void setup_gray_buffer_with_roi(GstBuffer *buffer, gpointer /*user_data*/
     add_roi_to_buffer(buffer, "person", 50, 50, 100, 100);
 }
 
-constexpr guint64 TRACKED_OBJECT_ID = 5; /* built-in tracking color: entry 5, magenta */
+/* Built-in tracking color is entry id % 20 of the built-in table: 23 % 20 = 3, yellow */
+constexpr guint64 TRACKED_OBJECT_ID = 23;
 
 /* Same as setup_gray_buffer_with_roi, with the ROI tracked as object TRACKED_OBJECT_ID */
 static void setup_gray_buffer_with_tracked_roi(GstBuffer *buffer, gpointer user_data) {
@@ -513,7 +514,7 @@ GST_START_TEST(test_color_table_overrides_tracking_color) {
     g_print("Starting test: test_color_table_overrides_tracking_color\n");
 
     /* Without a table entry, a tracked object is colored by its tracking id */
-    expect_box_color("thickness=2", 255, 0, 255, setup_gray_buffer_with_tracked_roi);
+    expect_box_color("thickness=2", 0, 255, 255, setup_gray_buffer_with_tracked_roi);
 
     gchar *path = write_temp_file("person: 10,20,30\n");
     gchar *cfg = g_strdup_printf("color-table=%s", path);

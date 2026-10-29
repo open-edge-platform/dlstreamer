@@ -201,10 +201,4 @@ inline Rgb label_to_rgb(std::string_view label) {
     return kPalette[label_to_palette_index(label)];
 }
 
-// Index into kPalette for a tracked object, skipping black and white.
-inline size_t tracking_id_to_palette_index(int64_t object_id) {
-    const int64_t n = static_cast<int64_t>(kNumChromaticColors);
-    return static_cast<size_t>(((object_id % n) + n) % n);
-}
-
 } // namespace label_colors

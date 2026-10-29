@@ -153,10 +153,6 @@ Color labelToColor(const std::string &label) {
     return color_table[label_colors::label_to_palette_index(label)];
 }
 
-Color trackingIdToColor(int object_id) {
-    return color_table[label_colors::tracking_id_to_palette_index(object_id)];
-}
-
 void clip_rect(double &x, double &y, double &w, double &h, GstVideoInfo *info) {
     x = (x < 0) ? 0 : (x > info->width) ? (info->width - 1) : x;
     y = (y < 0) ? 0 : (y > info->height) ? (info->height - 1) : y;
@@ -1052,7 +1048,7 @@ Color Impl::objectColor(const std::string &label, int object_id) const {
             return it->second;
     }
     if (object_id > 0)
-        return trackingIdToColor(object_id);
+        return indexToColor(object_id);
     return labelToColor(label);
 }
 

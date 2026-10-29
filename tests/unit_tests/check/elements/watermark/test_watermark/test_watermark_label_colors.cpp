@@ -147,14 +147,6 @@ GST_START_TEST(test_unknown_labels_use_fallback_palette_and_are_stable) {
 }
 GST_END_TEST;
 
-GST_START_TEST(test_tracking_ids_skip_black_and_white) {
-    for (int64_t id = -100; id < 1000; id++)
-        ck_assert(label_colors::tracking_id_to_palette_index(id) < label_colors::kNumChromaticColors);
-    for (int64_t id = 0; id < 18; id++)
-        ck_assert(label_colors::tracking_id_to_palette_index(id) == static_cast<size_t>(id));
-}
-GST_END_TEST;
-
 /* ========================================================================= */
 /*  Rendering tests: color of the rendered bounding box                      */
 /* ========================================================================= */
@@ -253,7 +245,6 @@ static Suite *watermark_label_colors_suite(void) {
     tcase_add_test(tc_mapping, test_empty_label_is_red);
     tcase_add_test(tc_mapping, test_no_black_or_white_for_labels);
     tcase_add_test(tc_mapping, test_unknown_labels_use_fallback_palette_and_are_stable);
-    tcase_add_test(tc_mapping, test_tracking_ids_skip_black_and_white);
 
     TCase *tc_render = tcase_create("rendering");
     tcase_set_timeout(tc_render, 30);

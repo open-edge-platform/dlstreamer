@@ -175,7 +175,7 @@ regardless of the model or the run:
 - Any other label gets one of 18 saturated colors (the built-in table without
   black and white), chosen by a fixed hash of the label text.
 - Tracked objects (with an object ID assigned by `gvatrack`) are colored by
-  their object ID instead, also without black and white.
+  their object ID instead, as entry `ID % 20` of the built-in table.
 - Landmarks and keypoints are colored from the built-in table, by point index.
 
 ### Color Table
