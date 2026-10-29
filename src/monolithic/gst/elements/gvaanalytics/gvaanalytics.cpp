@@ -163,8 +163,8 @@ static void gva_analytics_class_init(GvaAnalyticsClass *klass) {
     g_object_class_install_property(
         gobject_class, PROP_TRACK_TIMEOUT,
         g_param_spec_double("track-timeout", "Track Timeout",
-                            "Stream-time seconds without observation before tracking history expires; 0 disables",
-                            0.0, G_MAXDOUBLE, 30.0,
+                            "Stream-time seconds without observation before tracking history expires; 0 disables", 0.0,
+                            G_MAXDOUBLE, 30.0,
                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | GST_PARAM_MUTABLE_READY)));
 
     base_transform_class->start = GST_DEBUG_FUNCPTR(gva_analytics_start);
