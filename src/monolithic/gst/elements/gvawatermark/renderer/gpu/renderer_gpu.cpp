@@ -290,6 +290,10 @@ struct RendererGPU::SharedContext {
      * watermark itself runs slower than with per-frame imports. */
     bool cache_imports = true;
 
+    SharedContext() = default;
+    SharedContext(const SharedContext &) = delete;
+    SharedContext &operator=(const SharedContext &) = delete;
+
     ~SharedContext() {
         if (program)
             clReleaseProgram(program);
@@ -1079,7 +1083,8 @@ void RendererGPU::calibrate_blur_fma() {
             uint32_t seed = 1;
             for (int it = 0; it < (1 << 24) && p.fused == p.plain; ++it) {
                 for (uint8_t &v : p.px) {
-                    seed = seed * 1664525u + 1013904223u;
+                    /* Widened so the mod 2^32 wrap is explicit; same sequence. */
+                    seed = static_cast<uint32_t>(uint64_t{seed} * 1664525u + 1013904223u);
                     v = static_cast<uint8_t>(seed >> 24);
                 }
                 p.fused = cvRound(sum(k, p.px, TAPS, true));
