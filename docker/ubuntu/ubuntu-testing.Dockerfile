@@ -34,18 +34,11 @@ RUN \
 WORKDIR /home/dlstreamer
 USER dlstreamer
 
-COPY ./requirements.txt /home/dlstreamer/requirements.txt
-
+# Test venv on top of the system python3 DL Streamer is built against;
+# setup_python_env.sh also links DL Streamer's Python modules in via dlstreamer.pth.
 RUN \
-    . /etc/os-release && \
-    case "$VERSION_ID" in \
-        22.04) UV_PYTHON_PREFERENCE=managed uv venv --python 3.11 /python3venv ;; \
-        24.04) UV_PYTHON_PREFERENCE=only-system uv venv --python python3 /python3venv ;; \
-        26.04) UV_PYTHON_PREFERENCE=managed uv venv --python 3.13 /python3venv ;; \
-        *) echo "Unsupported Ubuntu base version: $VERSION_ID" >&2; exit 1 ;; \
-    esac && \
-    PATH=/python3venv/bin:$PATH uv pip install --python /python3venv/bin/python --no-cache-dir --no-deps pycairo==1.26.0 && \
-    PATH=/python3venv/bin:$PATH uv pip install --python /python3venv/bin/python --no-cache-dir --no-deps -r /home/dlstreamer/requirements.txt
+    /opt/intel/dlstreamer/scripts/setup_python_env.sh --venv /python3venv \
+        --dlstreamer-dir /opt/intel/dlstreamer --groups runtime,optimizer --no-deps
 
 ENV PATH=/python3venv/bin:$PATH
 

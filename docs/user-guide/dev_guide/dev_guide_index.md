@@ -16,6 +16,7 @@
   - [3. Specify model files in GStreamer elements](./model_preparation.md#3-specify-model-files-in-gstreamer-elements)
 - [OpenVINO Custom Operations](./openvino_custom_operations.md)
 - [Model Info Section](./model_info_xml.md)
+- [Python Environment](./python_environment.md)
 - [Python Bindings](./python_bindings.md)
   - [1. GStreamer Python bindings](./python_bindings.md#1-gstreamer-python-bindings)
   - [2. Video-analytics specific Python bindings](./python_bindings.md#2-video-analytics-specific-python-bindings)
@@ -83,6 +84,7 @@ metadata
 model_preparation
 openvino_custom_operations
 model_info_xml
+python_environment
 python_bindings
 custom_plugin_installation
 custom_processing

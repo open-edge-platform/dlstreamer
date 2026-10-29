@@ -77,10 +77,15 @@ Download and conversion are handled automatically by [`prepare_models.py`](prepa
 
 The GStreamer Python plugin (`libgstpython.so`) must be available in `GST_PLUGIN_PATH`. The sample shell script automatically adds the local `plugins/` directory to `GST_PLUGIN_PATH`.
 
-If Python requirements are not installed yet:
+The Python element runs in the DL Streamer Python environment (it provides
+NumPy and OpenCV). The Docker image already provides it; on a native
+installation create it (for a build from source, use `~/dlstreamer/scripts/setup_python_env.sh` and `--dlstreamer-dir` pointing to your installation). `prepare_models.py` additionally needs the
+model preparation tools from `requirements.txt`:
 
 ```sh
-uv pip install opencv-python-headless numpy
+/opt/intel/dlstreamer/scripts/setup_python_env.sh --venv ~/python3venv --dlstreamer-dir /opt/intel/dlstreamer
+source ~/python3venv/bin/activate
+uv pip install -r requirements.txt
 ```
 
 ## Running

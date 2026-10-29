@@ -122,9 +122,9 @@ jobs:
       - name: Set up a Python environment
         if: needs.setup.outputs.should_run == 'true'
         run: |
-          uv venv ~/python3venv
-          source ~/python3venv/bin/activate
-          uv pip install meson==1.4.1 ninja==1.11.1.1
+          # Same as the documentation: a venv on the system python3, which DL Streamer's
+          # Python plugins are then built against
+          ${{ env.DLS_REL_PATH }}/scripts/setup_python_env.sh --venv ~/python3venv --groups build --no-pth
 
       # OpenVINO GenAI already bundles the full OpenVINO C++ runtime (same
       # layout and setupvars.sh as the plain OpenVINO archive), so installing
@@ -231,7 +231,6 @@ jobs:
           export PKG_CONFIG_PATH="/opt/intel/dlstreamer/Release/lib/pkgconfig:/opt/intel/dlstreamer/gstreamer/lib/pkgconfig:$PKG_CONFIG_PATH"
           export GST_PLUGIN_FEATURE_RANK=${GST_PLUGIN_FEATURE_RANK},ximagesink:MAX
           export GI_TYPELIB_PATH="/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/opt/intel/dlstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0"
-          export PYTHONPATH="/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:$PYTHONPATH"
           echo " "
 
           echo "Verifying DL Streamer installation..."
@@ -272,9 +271,9 @@ jobs:
               libglib2.0-dev libcairo2-dev libopencv-objdetect-dev libopencv-photo-dev libopencv-stitching-dev libopencv-video-dev \
               libopencv-calib3d-dev libopencv-core-dev libopencv-dnn-dev libgirepository1.0-dev
 
-          source ~/python3venv/bin/activate
-          cd ${{ env.DLS_REL_PATH }}
-          uv pip install -r requirements.txt
+          export GI_TYPELIB_PATH="/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/opt/intel/dlstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0"
+          export LD_LIBRARY_PATH="/opt/intel/dlstreamer/Release/lib:/opt/intel/dlstreamer/gstreamer/lib:$LD_LIBRARY_PATH"
+          /opt/intel/dlstreamer/scripts/setup_python_env.sh --venv ~/python3venv --dlstreamer-dir /opt/intel/dlstreamer
 
       - name: 🐍 Build and test intel-dlstreamer Python wheel
         if: needs.setup.outputs.should_run == 'true'

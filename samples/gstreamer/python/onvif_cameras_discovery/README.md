@@ -73,10 +73,19 @@ Install the `intel-dlstreamer` Python package (includes `dlstreamer.onvif`):
 uv pip install https://github.com/open-edge-platform/dlstreamer/releases/download/v2026.2.0/intel_dlstreamer-2026.2.0-py3-none-any.whl
 ```
 
-Alternatively, if you have DL Streamer installed locally:
+Alternatively, if you have DL Streamer installed locally, the DL Streamer Python
+environment already provides `dlstreamer.onvif` and its dependencies:
 
 ```bash
-uv pip install /opt/intel/dlstreamer/python/intel_dlstreamer-*.whl
+/opt/intel/dlstreamer/scripts/setup_python_env.sh --venv ~/python3venv --dlstreamer-dir /opt/intel/dlstreamer
+source ~/python3venv/bin/activate
+```
+
+or you can build the wheel from the installed sources:
+
+```bash
+uv build --wheel /opt/intel/dlstreamer/python --out-dir /tmp/dlstreamer-wheel
+uv pip install /tmp/dlstreamer-wheel/intel_dlstreamer-*.whl
 ```
 
 ---

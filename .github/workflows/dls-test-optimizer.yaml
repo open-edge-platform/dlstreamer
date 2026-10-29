@@ -249,8 +249,8 @@ jobs:
         if: always() && matrix.runner_print_label != 'SKIP'
         run: |
           sudo apt-get install -y --no-install-recommends libcairo2-dev libgirepository1.0-dev
-          uv venv --system-site-packages $HOME/optimizer-venv
-          VIRTUAL_ENV=$HOME/optimizer-venv uv pip install --no-cache-dir -r /opt/intel/dlstreamer/requirements.txt
+          /opt/intel/dlstreamer/scripts/setup_python_env.sh --venv $HOME/optimizer-venv \
+              --dlstreamer-dir /opt/intel/dlstreamer --groups runtime,optimizer
           echo "$HOME/optimizer-venv/bin" >> $GITHUB_PATH
 
       - name: 🚀 Run Optimizer on host

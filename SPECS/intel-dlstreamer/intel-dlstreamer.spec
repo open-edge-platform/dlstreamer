@@ -124,6 +124,12 @@ export GST_PLUGIN_FEATURE_RANK=${GST_PLUGIN_FEATURE_RANK},ximagesink:MAX
 export GI_TYPELIB_PATH="/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:$GI_TYPELIB_PATH"
 EOF
 
+# Make DL Streamer's Python modules and the GStreamer Python overrides
+# importable by the system python3 without PYTHONPATH
+mkdir -p %{buildroot}%{python3_sitelib}
+printf '%s\n' /opt/intel/dlstreamer/python /opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages \
+    > %{buildroot}%{python3_sitelib}/intel-dlstreamer.pth
+
 %clean
 rm -rf %{buildroot}
 
@@ -133,6 +139,7 @@ rm -rf %{buildroot}
 %license LICENSE
 /opt/intel/dlstreamer/*
 /opt/intel/dlstreamer/setupvars.sh
+%{python3_sitelib}/intel-dlstreamer.pth
 
 %files devel
 %defattr(-,root,root,-)

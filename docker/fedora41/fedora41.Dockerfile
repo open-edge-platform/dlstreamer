@@ -77,6 +77,11 @@ RUN \
 
 RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
 
+# Python requirements and the environment setup script, needed before the
+# sources are copied (GStreamer's Python plugin is built with this venv).
+COPY requirements/ /tmp/dls-python/requirements/
+COPY scripts/setup_python_env.sh /tmp/dls-python/scripts/
+
 RUN \
     useradd -ms /bin/bash dlstreamer && \
     mkdir /python3venv && \
@@ -85,29 +90,13 @@ RUN \
 
 USER dlstreamer
 
+# The venv is based on the system python3: DL Streamer's Python plugins are
+# linked against it, and Python elements run in that interpreter.
 RUN \
-    uv venv /python3venv && \
+    UV_PYTHON_PREFERENCE=only-system uv venv --python /usr/bin/python3 /python3venv && \
     VIRTUAL_ENV=/python3venv uv pip install --no-cache-dir --upgrade pip==26.1.2 && \
-    VIRTUAL_ENV=/python3venv uv pip install --no-cache-dir --no-deps \
-    meson==1.4.1 \
-    ninja==1.11.1.1 \
-    numpy==2.2.0 \
-    tabulate==0.9.0 \
-    tqdm==4.67.1 \
-    junit-xml==1.9 \
-    opencv-python==4.11.0.86 \
-    XlsxWriter==3.2.0 \
-    zxing-cpp==2.2.0 \
-    pyzbar==0.1.9 \
-    six==1.16.0 \
-    pycairo==1.26.0 \
-    PyGObject==3.50.0 \
-    setuptools==84.1.0 \
-    pytest==8.3.3 \
-    pluggy==1.5.0 \
-    exceptiongroup==1.2.2 \
-    iniconfig==2.0.0 \
-    typing-extensions==4.15.0
+    /tmp/dls-python/scripts/setup_python_env.sh --venv /python3venv --dlstreamer-dir /tmp/dls-python \
+        --groups build,runtime,test --no-deps --no-pth
 
 # hadolint ignore=DL3002
 USER root
@@ -419,7 +408,6 @@ ENV C_INCLUDE_PATH=/usr/local/include:${DLSTREAMER_DIR}/include:${DLSTREAMER_DIR
 ENV CPLUS_INCLUDE_PATH=/usr/local/include:${DLSTREAMER_DIR}/include:${DLSTREAMER_DIR}/include/dlstreamer/gst/metadata:${CPLUS_INCLUDE_PATH}
 ENV GST_PLUGIN_SCANNER=${GSTREAMER_DIR}/bin/gstreamer-1.0/gst-plugin-scanner
 ENV GI_TYPELIB_PATH=${GSTREAMER_DIR}/lib/girepository-1.0:${DLSTREAMER_DIR}/build/src/gst/metadata/
-ENV PYTHONPATH=${GSTREAMER_DIR}/lib/python3/dist-packages:${DLSTREAMER_DIR}/python:${PYTHONPATH}
 
 # Build DLStreamer
 RUN \
@@ -444,8 +432,11 @@ RUN \
     usermod -a -G video dlstreamer && \
     chown -R dlstreamer:dlstreamer /home/dlstreamer
 
-# Install python dependencies
-RUN VIRTUAL_ENV=/python3venv uv pip install --no-cache-dir --break-system-packages -r "${DLSTREAMER_DIR}/requirements.txt"
+# Install Python dependencies and expose DL Streamer's Python modules, the
+# GStreamer Python overrides and the optimizer through dlstreamer.pth
+RUN "${DLSTREAMER_DIR}/scripts/setup_python_env.sh" --venv /python3venv \
+        --dlstreamer-dir "${DLSTREAMER_DIR}" --gstreamer-dir "${GSTREAMER_DIR}" \
+        --extra-path "${DLSTREAMER_DIR}/scripts/optimizer"
 
 WORKDIR /home/dlstreamer
 USER dlstreamer
@@ -479,6 +470,7 @@ RUN \
     cp -r "${DLSTREAMER_DIR}/include/" /${RPM_PKG_NAME}/opt/intel/dlstreamer/ && \
     cp "${DLSTREAMER_DIR}/README.md" /${RPM_PKG_NAME}/opt/intel/dlstreamer && \
     cp "${DLSTREAMER_DIR}/requirements.txt" /${RPM_PKG_NAME}/opt/intel/dlstreamer && \
+    cp -r "${DLSTREAMER_DIR}/requirements/" /${RPM_PKG_NAME}/opt/intel/dlstreamer/ && \
     cp -rT "${GSTREAMER_DIR}" /${RPM_PKG_NAME}/opt/intel/dlstreamer/gstreamer && \
     mkdir -p /${RPM_PKG_NAME}/opt/intel/dlstreamer/share/gir-1.0/ && \
     mkdir -p /${RPM_PKG_NAME}/opt/intel/dlstreamer/lib/girepository-1.0/ && \
@@ -497,7 +489,7 @@ RUN \
     cp "${DLSTREAMER_DIR}"/docker/fedora41/intel-dlstreamer.spec ~/rpmbuild/SPECS/ && \
     sed -i -e "s/DLSTREAMER_VERSION/${DLSTREAMER_VERSION}/g" ~/rpmbuild/SPECS/intel-dlstreamer.spec && \
     sed -i -e "s/CURRENT_DATE_TIME/$(date '+%a %b %d %Y')/g" ~/rpmbuild/SPECS/intel-dlstreamer.spec && \
-    find /${RPM_PKG_NAME}/opt/intel/dlstreamer/bin -type f ! -name "liblibrarymock1.so" ! -name "liblibrarymock2.so" ! -name "draw_face_attributes" -exec rm -f {} + && \
+    find /${RPM_PKG_NAME}/opt/intel/dlstreamer/bin -type f ! -name "liblibrarymock1.so" ! -name "liblibrarymock2.so" ! -name "draw_face_attributes" ! -name "dls_devices" -exec rm -f {} + && \
     find /${RPM_PKG_NAME}/opt/intel/dlstreamer/bin -type d -empty -delete && \
     find /${RPM_PKG_NAME}/opt/intel -name "*.a" -delete && \
     rpmbuild -bb ~/rpmbuild/SPECS/intel-dlstreamer.spec
@@ -533,16 +525,6 @@ COPY --from=rpm-builder /rpms/*.rpm /rpms/
 
 RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
 
-# Download and install DLS rpm package
-RUN \
-    dnf install -y /rpms/*.rpm cairo-devel cairo-gobject-devel gobject-introspection-devel && \
-    uv pip install --system --no-cache-dir -r /opt/intel/dlstreamer/requirements.txt && \
-    dnf remove -y cairo-devel cairo-gobject-devel gobject-introspection-devel && \
-    dnf clean all && \
-    useradd -ms /bin/bash dlstreamer && \
-    chown -R dlstreamer: /opt && \
-    chmod -R u+rw /opt
-
 ENV LIBVA_DRIVER_NAME=iHD
 ENV GST_PLUGIN_PATH=/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0:/opt/intel/dlstreamer/gstreamer/lib/
 ENV LD_LIBRARY_PATH=/opt/intel/dlstreamer/gstreamer/lib:/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/lib/gstreamer-1.0:/usr/lib:/opt/intel/dlstreamer/lib:/opt/opencv:/opt/rdkafka:/opt/ffmpeg:/opt/librealsense:/usr/local/lib
@@ -550,9 +532,21 @@ ENV LIBVA_DRIVERS_PATH=/usr/lib64/dri-nonfree
 ENV GST_VA_ALL_DRIVERS=1
 ENV MODEL_PROC_PATH=/opt/intel/dlstreamer/samples/gstreamer/model_proc
 ENV PATH=/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/bin:$PATH
-ENV PYTHONPATH=/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:
 ENV TERM=xterm
 ENV GI_TYPELIB_PATH=/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/opt/intel/dlstreamer/lib/girepository-1.0:/usr/lib64/girepository-1.0
+
+# Download and install DLS rpm package plus the Python requirements (into the
+# system python3 DL Streamer is built against). DL Streamer's own Python
+# modules are found through intel-dlstreamer.pth installed by the .rpm, so no
+# PYTHONPATH is needed.
+RUN \
+    dnf install -y /rpms/*.rpm cairo-devel cairo-gobject-devel gobject-introspection-devel && \
+    /opt/intel/dlstreamer/scripts/setup_python_env.sh --system --dlstreamer-dir /opt/intel/dlstreamer --no-pth && \
+    dnf remove -y cairo-devel cairo-gobject-devel gobject-introspection-devel && \
+    dnf clean all && \
+    useradd -ms /bin/bash dlstreamer && \
+    chown -R dlstreamer: /opt && \
+    chmod -R u+rw /opt
 
 RUN \
     usermod -a -G video dlstreamer && \

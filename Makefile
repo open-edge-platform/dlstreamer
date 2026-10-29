@@ -106,6 +106,8 @@ install: build ## Build and install Deep Learning Streamer
 	@cp -r samples/ ${DLSTREAMER_INSTALL_PREFIX}
 	@cp -r python/ ${DLSTREAMER_INSTALL_PREFIX}
 	@cp -r scripts/ ${DLSTREAMER_INSTALL_PREFIX}
+	@cp -r requirements/ ${DLSTREAMER_INSTALL_PREFIX}
+	@cp requirements.txt ${DLSTREAMER_INSTALL_PREFIX}
 	@cp -r include/ ${DLSTREAMER_INSTALL_PREFIX}
 	@cp README.md ${DLSTREAMER_INSTALL_PREFIX}
 	@mkdir -p ${DLSTREAMER_INSTALL_PREFIX}/lib/girepository-1.0

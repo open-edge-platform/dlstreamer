@@ -116,38 +116,23 @@ RUN \
 
 RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
 
-ENV UV_PYTHON_INSTALL_DIR=/opt/uv/python
-RUN uv python install 3.13
-
 # Force uv to build gst-python against the apt-installed system python3 instead of
 # silently downloading/using a different managed Python ABI.
 ENV UV_PYTHON_PREFERENCE=only-system
 
+# Python requirements and the environment setup script, needed before the
+# sources are copied (GStreamer's Python plugin is built with this venv).
+COPY requirements/ /tmp/dls-python/requirements/
+COPY scripts/setup_python_env.sh /tmp/dls-python/scripts/
+
 USER dlstreamer
 
+# The venv is based on the system python3: DL Streamer's Python plugins are
+# linked against it, and Python elements run in that interpreter.
 RUN \
-    UV_PYTHON_PREFERENCE=managed uv venv --python 3.13 /python3venv && \
-    VIRTUAL_ENV=/python3venv uv pip install --no-cache-dir --no-deps \
-    meson==1.4.1 \
-    ninja==1.11.1.1 \
-    numpy==2.2.0 \
-    tabulate==0.9.0 \
-    tqdm==4.67.1 \
-    junit-xml==1.9 \
-    defusedxml==0.7.1 \
-    opencv-python==4.11.0.86 \
-    XlsxWriter==3.2.0 \
-    zxing-cpp==2.2.0 \
-    pyzbar==0.1.9 \
-    six==1.16.0 \
-    pycairo==1.26.0 \
-    PyGObject==3.50.0 \
-    setuptools==84.1.0 \
-    pytest==8.3.3 \
-    pluggy==1.5.0 \
-    exceptiongroup==1.2.2 \
-    iniconfig==2.0.0 \
-    typing-extensions==4.15.0
+    uv venv --python /usr/bin/python3 /python3venv && \
+    /tmp/dls-python/scripts/setup_python_env.sh --venv /python3venv --dlstreamer-dir /tmp/dls-python \
+        --groups build,runtime,test --no-deps --no-pth
 
 # hadolint ignore=DL3002
 USER root
@@ -398,9 +383,9 @@ WORKDIR /home/dlstreamer
 # runtime/lib/intel64 layout and setupvars.sh as the plain OpenVINO archive)
 # alongside the GenAI libraries, so installing it on its own is enough -
 # no separate OpenVINO Runtime archive download is needed.
-# The archive also contains Python bindings in python/openvino/ and
-# python/openvino_genai/ which are made available via PYTHONPATH -
-# no pip wheel installation needed.
+# DL Streamer's Python code does not use the OpenVINO Python bindings (devices
+# are listed with the dls_devices tool), so the Python runtime stays on the
+# system python3 regardless of the Python versions the archive supports.
 ARG OPENVINO_GENAI_VERSION=2026.5.0.0.dev20261027
 ARG OPENVINO_GENAI_VER=openvino_genai_ubuntu26_${OPENVINO_GENAI_VERSION}_x86_64
 ARG OPENVINO_GENAI_PKG=https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/${OPENVINO_GENAI_VERSION}/${OPENVINO_GENAI_VER}.tar.gz
@@ -441,9 +426,6 @@ ENV C_INCLUDE_PATH=/usr/local/include:${DLSTREAMER_DIR}/include:${DLSTREAMER_DIR
 ENV CPLUS_INCLUDE_PATH=/usr/local/include:${DLSTREAMER_DIR}/include:${DLSTREAMER_DIR}/include/dlstreamer/gst/metadata:${CPLUS_INCLUDE_PATH}
 ENV GST_PLUGIN_SCANNER=${GSTREAMER_DIR}/bin/gstreamer-1.0/gst-plugin-scanner
 ENV GI_TYPELIB_PATH=${GSTREAMER_DIR}/lib/girepository-1.0:${DLSTREAMER_DIR}/build/src/gst/metadata/
-# OpenVINO Python bindings are provided from the GenAI archive via PYTHONPATH
-# The archive contains python/openvino/ with .so files for python3.11/3.12/3.13
-ENV PYTHONPATH=/opt/intel/openvino_genai/python:${GSTREAMER_DIR}/lib/python3/dist-packages:${DLSTREAMER_DIR}/python:${DLSTREAMER_DIR}/scripts/optimizer:${PYTHONPATH}
 
 # Build DLStreamer
 # hadolint ignore=SC1091
@@ -463,8 +445,11 @@ RUN \
        usermod -a -G video dlstreamer && \
        chown -R dlstreamer:dlstreamer /home/dlstreamer
 
-# Install python dependencies
-RUN VIRTUAL_ENV=/python3venv uv pip install --no-cache-dir --break-system-packages -r "${DLSTREAMER_DIR}/requirements.txt"
+# Install Python dependencies and expose DL Streamer's Python modules, the
+# GStreamer Python overrides and the optimizer through dlstreamer.pth
+RUN "${DLSTREAMER_DIR}/scripts/setup_python_env.sh" --venv /python3venv \
+        --dlstreamer-dir "${DLSTREAMER_DIR}" --gstreamer-dir "${GSTREAMER_DIR}" \
+        --extra-path "${DLSTREAMER_DIR}/scripts/optimizer"
 
 WORKDIR /home/dlstreamer
 USER dlstreamer
@@ -497,6 +482,10 @@ RUN \
     cp -r "${DLSTREAMER_DIR}/include/" /deb-pkg/opt/intel/dlstreamer/ && \
     cp "${DLSTREAMER_DIR}/README.md" /deb-pkg/opt/intel/dlstreamer && \
     cp "${DLSTREAMER_DIR}/requirements.txt" /deb-pkg/opt/intel/dlstreamer && \
+    cp -r "${DLSTREAMER_DIR}/requirements/" /deb-pkg/opt/intel/dlstreamer/ && \
+    mkdir -p /deb-pkg/usr/lib/python3/dist-packages && \
+    printf '%s\n' /opt/intel/dlstreamer/python /opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages \
+        > /deb-pkg/usr/lib/python3/dist-packages/intel-dlstreamer.pth && \
     cp -rT "${GSTREAMER_DIR}" /deb-pkg/opt/intel/dlstreamer/gstreamer && \
     mkdir -p /deb-pkg/opt/intel/dlstreamer/lib/girepository-1.0 && \
     mkdir -p /deb-pkg/opt/intel/dlstreamer/share/gir-1.0 && \
@@ -511,7 +500,7 @@ RUN \
     rm -rf /deb-pkg/opt/intel/dlstreamer/docs && \
     rm -rf /deb-pkg/opt/intel/dlstreamer/infrastructure && \
     rm -rf /deb-pkg/opt/intel/dlstreamer/tests && \
-    find /deb-pkg/opt/intel/dlstreamer/bin -type f ! -name "liblibrarymock1.so" ! -name "liblibrarymock2.so" ! -name "draw_face_attributes" -exec rm -f {} + && \
+    find /deb-pkg/opt/intel/dlstreamer/bin -type f ! -name "liblibrarymock1.so" ! -name "liblibrarymock2.so" ! -name "draw_face_attributes" ! -name "dls_devices" -exec rm -f {} + && \
     find /deb-pkg/opt/intel/dlstreamer/bin -type d -empty -delete && \
     find /deb-pkg/opt/intel -name "*.a" -delete
 
@@ -581,11 +570,9 @@ RUN curl -fLO https://github.com/intel/linux-npu-driver/releases/download/v1.38.
 
 WORKDIR /
 
-# OpenVINO GenAI (which bundles the full OpenVINO C++ runtime and Python
-# bindings in python/openvino/ and python/openvino_genai/) is copied from
+# OpenVINO GenAI (which bundles the full OpenVINO C++ runtime) is copied from
 # the dlstreamer-dev stage. No second download needed, and the exact same
 # binaries DL Streamer was built/linked against are reused.
-# Python bindings are exposed via PYTHONPATH - no pip install needed.
 COPY --from=dlstreamer-dev /opt/intel/openvino_genai /opt/intel/openvino_genai
 
 RUN \
@@ -610,28 +597,6 @@ RUN \
 
 RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
 
-ENV UV_PYTHON_INSTALL_DIR=/opt/uv/python
-RUN uv python install 3.13 && \
-    PYTHON_BIN="$(uv python find 3.13)" && \
-    PYTHON_LIBDIR="$("$PYTHON_BIN" -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')" && \
-    printf '%s\n' "$PYTHON_LIBDIR" > /etc/ld.so.conf.d/uv-python.conf && \
-    ldconfig && \
-    ln -s "$PYTHON_BIN" /usr/local/bin/python3.13
-
-# Install onvif-zeep and remaining Python dependencies.
-RUN \
-    apt-get update && \
-    apt-get install -y -q --no-install-recommends gcc=\* libcairo2-dev=\* libgirepository1.0-dev=\* && \
-    uv pip install --python python3.13 --system --no-cache-dir \
-        onvif-zeep==0.2.12 \
-        -r /opt/intel/dlstreamer/requirements.txt && \
-    apt-get remove -y gcc libcairo2-dev libgirepository1.0-dev && \
-    apt-get autoremove -y && \
-    PYTHON_SITE_PACKAGES=$(python3.13 -c "import site; print(site.getsitepackages()[0])") && \
-    if [ -d "$PYTHON_SITE_PACKAGES/wsdl" ]; then cp -r "$PYTHON_SITE_PACKAGES/wsdl" /usr/local/lib/python3.13/dist-packages/; fi && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
 # DL Streamer environment variables
 ENV LIBVA_DRIVER_NAME=iHD
 ENV GST_PLUGIN_PATH=/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0:/opt/intel/dlstreamer/gstreamer/lib/
@@ -640,12 +605,21 @@ ENV LIBVA_DRIVERS_PATH=/usr/lib/x86_64-linux-gnu/dri
 ENV GST_VA_ALL_DRIVERS=1
 ENV MODEL_PROC_PATH=/opt/intel/dlstreamer/samples/gstreamer/model_proc
 ENV PATH=/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/bin:$PATH
-# OpenVINO Python bindings (openvino + openvino_genai) from GenAI archive
-# added first in PYTHONPATH - archive contains python/openvino/ and
-# python/openvino_genai/ with .so files for python3.11/3.12/3.13
-ENV PYTHONPATH=/opt/intel/openvino_genai/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:
 ENV TERM=xterm
 ENV GI_TYPELIB_PATH=/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/opt/intel/dlstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0
+
+# Install the Python dependencies into the system python3 (the one DL Streamer
+# is built against). DL Streamer's own Python modules are found through
+# /usr/lib/python3/dist-packages/intel-dlstreamer.pth installed by the .deb,
+# so no PYTHONPATH is needed.
+RUN \
+    apt-get update && \
+    apt-get install -y -q --no-install-recommends gcc=\* libcairo2-dev=\* libgirepository1.0-dev=\* && \
+    /opt/intel/dlstreamer/scripts/setup_python_env.sh --system --dlstreamer-dir /opt/intel/dlstreamer --no-pth && \
+    apt-get remove -y gcc libcairo2-dev libgirepository1.0-dev && \
+    apt-get autoremove -y && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 RUN \
     usermod -a -G video dlstreamer && \

@@ -11,9 +11,9 @@ from the source code provided in
 
 > **NOTE:** The `main` branch currently targets a **nightly (pre-release) build
 > of OpenVINO™ GenAI**, not an official stable release. The exact nightly
-> version/date used below may become outdated over time; check the
-> `OPENVINO_GENAI_VERSION` build argument in
-> [docker/ubuntu/ubuntu24.Dockerfile](https://github.com/open-edge-platform/dlstreamer/blob/main/docker/ubuntu/ubuntu24.Dockerfile)
+> version/date used below may become outdated over time; check
+> `OPENVINO_GENAI_VERSION` in
+> [dependencies/versions.env](https://github.com/open-edge-platform/dlstreamer/blob/main/dependencies/versions.env)
 > for the version currently used in CI, and substitute it below if it differs.
 
 ## Step 1: Install prerequisites (only for Ubuntu)
@@ -87,83 +87,33 @@ Follow the instructions in
 <!--hide_directive:::
 ::::hide_directive-->
 
-## Step 3: Set up a Python environment
-
-For crating wirtual enviroment `uv` tool is recomended, and needs to be instaled:
-
-   ```bash
-  curl -LsSf https://astral.sh/uv/install.sh | sh
-  ```
-Create a Python virtual environment and install required Python
-packages:
-
-> **NOTE:** OpenVINO™ GenAI only ships Python bindings for Python 3.11, 3.12
-> and 3.13. Ubuntu 24.04's default Python (3.12) and Fedora 41's default
-> Python (3.13) already satisfy this, but Ubuntu 22.04's default Python
-> (3.10) and Ubuntu 26.04's default Python (3.14) do not - Python 3.11
-> (Ubuntu 22.04) / Python 3.13 (Ubuntu 26.04) must be installed with `uv` and
-> used for the virtual environment below. Build native extensions such as
-> PyGObject inside that same environment so their Python ABI matches the
-> interpreter used by DL Streamer's Python elements (e.g. `gvapython`). Add
-> the uv-managed Python library directory to the dynamic linker cache so
-> `libgstpython.so` can load `libpython`.
-
-<!--hide_directive::::{tab-set}
-:::{tab-item}hide_directive--> Ubuntu 24, Fedora 41, EMT
-<!--hide_directive:sync: tab1hide_directive-->
-
-  ```bash
-  UV_PYTHON_PREFERENCE=only-system uv venv --python python3 ~/python3venv
-  source ~/python3venv/bin/activate
-
-  uv pip install meson==1.4.1 ninja==1.11.1.1
-  ```
-
-<!--hide_directive:::
-:::{tab-item}hide_directive--> Ubuntu 22
-<!--hide_directive:sync: tab2hide_directive-->
-
-  ```bash
-  uv python install 3.11
-
-  python_bin="$(uv python find 3.11)"
-  python_libdir="$("$python_bin" -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')"
-  echo "$python_libdir" | sudo tee /etc/ld.so.conf.d/uv-python.conf >/dev/null
-  sudo ldconfig
-
-  UV_PYTHON_PREFERENCE=managed uv venv --python 3.11 ~/python3venv
-  source ~/python3venv/bin/activate
-
-  uv pip install meson==1.4.1 ninja==1.11.1.1
-  ```
-
-<!--hide_directive:::
-:::{tab-item}hide_directive--> Ubuntu 26
-<!--hide_directive:sync: tab4hide_directive-->
-
-  ```bash
-  uv python install 3.13
-
-  python_bin="$(uv python find 3.13)"
-  python_libdir="$("$python_bin" -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')"
-  echo "$python_libdir" | sudo tee /etc/ld.so.conf.d/uv-python.conf >/dev/null
-  sudo ldconfig
-
-  UV_PYTHON_PREFERENCE=managed uv venv --python 3.13 ~/python3venv
-  source ~/python3venv/bin/activate
-
-  uv pip install meson==1.4.1 ninja==1.11.1.1
-  ```
-
-<!--hide_directive:::
-::::hide_directive-->
-
-## Step 4: Clone Deep Learning Streamer repository
+## Step 3: Clone Deep Learning Streamer repository
 
   ```bash
   cd ~
   git clone --branch main --recursive https://github.com/open-edge-platform/dlstreamer.git
   cd dlstreamer
+  ```
+
+## Step 4: Set up a Python environment
+
+DL Streamer's Python plugins (`gvapython` and GStreamer Python elements) embed
+the **system `python3`** of your distribution, so the Python virtual environment
+must be based on it - do not use a Python downloaded by `uv` or another tool.
+The `scripts/setup_python_env.sh` script takes care of that on every supported
+distribution. Installing `uv` is recommended (the script falls back to
+`python3 -m venv` and `pip` otherwise):
+
+  ```bash
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  ```
+
+Create the virtual environment with the build tools (`meson`, `ninja`):
+
+  ```bash
+  cd ~/dlstreamer
+  ./scripts/setup_python_env.sh --venv ~/python3venv --groups build --no-pth
+  source ~/python3venv/bin/activate
   ```
 
 ## Step 5: Install OpenVINO™ GenAI
@@ -198,6 +148,16 @@ which needs the [OpenVINO GenAI archive](https://docs.openvino.ai/2026/get-start
   ```
 
 <!--hide_directive:::
+:::{tab-item}hide_directive--> Ubuntu 26
+<!--hide_directive:sync: tab5hide_directive-->
+
+  ```bash
+  wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/2026.5.0.0.dev20261027/openvino_genai_ubuntu26_2026.5.0.0.dev20261027_x86_64.tar.gz | tar -xz &&
+  sudo mv openvino_genai_ubuntu26_2026.5.0.0.dev20261027_x86_64 /opt/intel/openvino_genai
+  source /opt/intel/openvino_genai/setupvars.sh
+  ```
+
+<!--hide_directive:::
 :::{tab-item}hide_directive--> Fedora 41
 <!--hide_directive:sync: tab3hide_directive-->
 
@@ -217,6 +177,12 @@ sudo dnf install -y openvino-2026.3.1
 > **NOTE:** No Fedora-specific nightly OpenVINO™ GenAI archive is published.
 > These instructions install the official OpenVINO™ Toolkit 2026.3.1 package
 > from Intel's YUM repository, matching the Fedora 41 Dockerfile.
+>
+> The model download scripts (`scripts/download_models`) install the nightly
+> OpenVINO™ Python wheels pinned in `requirements/constraints.txt`. A model
+> exported with a newer OpenVINO™ may not load in this older runtime, so on
+> Fedora reinstall the matching wheel in the download environment before
+> exporting: `uv pip install openvino~=2026.3.1`.
 
 <!--hide_directive:::
 :::{tab-item}hide_directive--> EMT
@@ -271,7 +237,6 @@ Set up the required environment variables:
   export PKG_CONFIG_PATH="/opt/intel/dlstreamer/Release/lib/pkgconfig:/opt/intel/dlstreamer/gstreamer/lib/pkgconfig::$HOME/dlstreamer/build/intel64/Release/lib/pkgconfig:$HOME/dlstreamer/build/deps/gstreamer-bin/lib/pkgconfig:$PKG_CONFIG_PATH"
   export GST_PLUGIN_FEATURE_RANK=${GST_PLUGIN_FEATURE_RANK},ximagesink:MAX
   export GI_TYPELIB_PATH="/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:$HOME/dlstreamer/build/src/gst/metadata/:$HOME/dlstreamer/build/deps/gstreamer-bin/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0"
-  export PYTHONPATH="/opt/intel/openvino_genai/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:$PYTHONPATH"
   ```
 
 <!--hide_directive:::
@@ -287,7 +252,6 @@ Set up the required environment variables:
   export PATH="/opt/intel/dlstreamer/Release/bin:/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/opencv/bin:$HOME/dlstreamer/build/intel64/Release/bin:$HOME/dlstreamer/build/deps/gstreamer-bin/bin:$HOME/dlstreamer/build/deps/opencv-bin/bin:$HOME/.local/bin:$HOME/python3venv/bin:$PATH"
   export PKG_CONFIG_PATH="/opt/intel/dlstreamer/Release/lib/pkgconfig:/opt/intel/dlstreamer/gstreamer/lib/pkgconfig::$HOME/dlstreamer/build/intel64/Release/lib/pkgconfig:$HOME/dlstreamer/build/deps/gstreamer-bin/lib/pkgconfig:$PKG_CONFIG_PATH"
   export GST_PLUGIN_FEATURE_RANK=${GST_PLUGIN_FEATURE_RANK},ximagesink:MAX
-  export PYTHONPATH="/opt/intel/openvino_genai/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:$PYTHONPATH"
   ```
 
 <!--hide_directive:::
@@ -315,7 +279,6 @@ Set up the required environment variables:
   export PATH="/opt/intel/dlstreamer/Release/bin:/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/opencv/bin:$HOME/dlstreamer/build/intel64/Release/bin:$HOME/dlstreamer/build/deps/gstreamer-bin/bin:$HOME/dlstreamer/build/deps/opencv-bin/bin:$HOME/.local/bin:$HOME/python3venv/bin:$PATH"
   export PKG_CONFIG_PATH="/opt/intel/dlstreamer/Release/lib/pkgconfig:/opt/intel/dlstreamer/gstreamer/lib/pkgconfig::$HOME/dlstreamer/build/intel64/Release/lib/pkgconfig:$HOME/dlstreamer/build/deps/gstreamer-bin/lib/pkgconfig:$PKG_CONFIG_PATH"
   export GST_PLUGIN_FEATURE_RANK=${GST_PLUGIN_FEATURE_RANK},ximagesink:MAX
-  export PYTHONPATH="/opt/intel/openvino_genai/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:$PYTHONPATH"
   ```
 
 <!--hide_directive:::
@@ -323,23 +286,19 @@ Set up the required environment variables:
 
 > **NOTE:**  For a permanent solution, open `\~/.bashrc` and add the variables above
 > to set up Linux to use them for every terminal session.
+>
+> `PYTHONPATH` is not needed: DL Streamer's Python modules are linked into the
+> Python environment by `scripts/setup_python_env.sh` (Step 9).
 
 ## Step 9: Install Python dependencies (optional)
 
-If you intend to use Python elements or samples, you need to install the
-necessary dependencies using the following commands:
-
-> **NOTE:** This step requires the `~/python3venv` virtual environment and the
-> `uv` tool set up in [Step 3](#step-3-set-up-a-python-environment). If you
-> skipped that step, install `uv` and create the virtual environment first.
-
-> **NOTE:** Install PyGObject into the activated `~/python3venv` from Step 3
-> so it is built for that environment's Python ABI. Ubuntu 22.04 and 26.04
-> use uv-managed Python versions, which include their own development headers;
-> Ubuntu 24.04 uses the system Python, so install its matching `python3-dev`.
+If you intend to use Python elements, Python samples or the pipeline optimizer,
+install the Python dependencies into the `~/python3venv` environment from
+[Step 4](#step-4-set-up-a-python-environment). PyGObject is built from source,
+so install its build dependencies first:
 
 <!--hide_directive::::{tab-set}
-:::{tab-item}hide_directive--> Ubuntu 24
+:::{tab-item}hide_directive--> Ubuntu
 <!--hide_directive:sync: tab1hide_directive-->
 
   ```bash
@@ -347,48 +306,40 @@ necessary dependencies using the following commands:
   sudo apt-get install -y -q --no-install-recommends gcc cmake python-gi-dev python3-dev \
       libglib2.0-dev libcairo2-dev libopencv-objdetect-dev libopencv-photo-dev libopencv-stitching-dev libopencv-video-dev \
       libopencv-calib3d-dev libopencv-core-dev libopencv-dnn-dev libgirepository1.0-dev
-
-  source ~/python3venv/bin/activate
-  cd ~/dlstreamer
-  uv pip install -r requirements.txt
   ```
 
 <!--hide_directive:::
-:::{tab-item}hide_directive--> Ubuntu 22
+:::{tab-item}hide_directive--> Fedora / EMT
 <!--hide_directive:sync: tab2hide_directive-->
 
   ```bash
-  sudo apt-get update
-  sudo apt-get install -y -q --no-install-recommends gcc cmake python-gi-dev \
-      libglib2.0-dev libcairo2-dev libopencv-objdetect-dev libopencv-photo-dev libopencv-stitching-dev libopencv-video-dev \
-      libopencv-calib3d-dev libopencv-core-dev libopencv-dnn-dev libgirepository1.0-dev
-
-  source ~/python3venv/bin/activate
-  cd ~/dlstreamer
-  uv pip install -r requirements.txt
-  ```
-
-<!--hide_directive:::
-:::{tab-item}hide_directive--> Ubuntu 26
-<!--hide_directive:sync: tab4hide_directive-->
-
-  ```bash
-  sudo apt-get update
-  sudo apt-get install -y -q --no-install-recommends gcc cmake python-gi-dev \
-      libglib2.0-dev libcairo2-dev libopencv-objdetect-dev libopencv-photo-dev libopencv-stitching-dev libopencv-video-dev \
-      libopencv-calib3d-dev libopencv-core-dev libopencv-dnn-dev libgirepository1.0-dev
-
-  source ~/python3venv/bin/activate
-  cd ~/dlstreamer
-  uv pip install -r requirements.txt
+  sudo dnf install -y gcc cmake python3-devel python3-gobject-devel glib2-devel cairo-devel \
+      cairo-gobject-devel gobject-introspection-devel
   ```
 
 <!--hide_directive:::
 ::::hide_directive-->
 
-> **NOTE:** Fedora 41 / EMT users: install the dnf equivalents of the
-> packages above (see [Step 2](#step-2-install-build-dependencies)) before
-> running `uv pip install`.
+Then install the dependencies and link DL Streamer's Python modules into the
+environment. Use `--dlstreamer-dir /opt/intel/dlstreamer` if you installed
+DL Streamer in [Step 7](#step-7-install-deep-learning-streamer-optional), or
+`--dlstreamer-dir ~/dlstreamer` to use the build tree:
+
+  ```bash
+  ~/dlstreamer/scripts/setup_python_env.sh --venv ~/python3venv --dlstreamer-dir /opt/intel/dlstreamer
+  source ~/python3venv/bin/activate
+  ```
+
+The script installs the requirement groups from
+[requirements/](https://github.com/open-edge-platform/dlstreamer/tree/main/requirements)
+(`runtime`, `onvif` and `optimizer` by default), writes a `dlstreamer.pth` file
+that makes `gstgva`, `dlstreamer.onvif` and the GStreamer Python overrides
+importable without `PYTHONPATH`, and verifies that the environment's Python
+matches the one DL Streamer's Python plugins were built against.
+
+> **NOTE:** Python elements run in an interpreter embedded in GStreamer, which
+> uses the first `python3` found on `PATH`. Keep `~/python3venv` activated (or
+> its `bin/` directory first on `PATH`) when running pipelines.
 
 ### (Optional) Install DL Streamer ONVIF Python package
 
@@ -417,12 +368,12 @@ This installs:
 After installation, no `PYTHONPATH` configuration is needed:
 
   ```python
-  from dlstreamer.onvif import DlsOnvifDiscoveryEngine, discover_onvif_cameras
+  from dlstreamer.onvif import create_video_engine, discover_onvif_cameras
   ```
 
-> **NOTE (advanced):** As an alternative to pip, `dlstreamer.onvif` is also
-> accessible via `PYTHONPATH` set in Step 8. This approach requires
-> manual installation of the dependencies declared in `python/pyproject.toml`.
+> **NOTE:** The `~/python3venv` environment from Step 9 already provides
+> `dlstreamer.onvif` (through `dlstreamer.pth`) together with its dependencies,
+> so the wheel is only needed for other Python environments.
 
 ---
 

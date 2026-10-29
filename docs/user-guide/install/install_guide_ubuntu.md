@@ -82,33 +82,48 @@ drivers. For more details see [prerequisites](#prerequisites).
 - **In Ubuntu 22**
 
   ```bash
-  sudo -E wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | sudo tee /usr/share/keyrings/intel-gpg-archive-keyring.gpg > /dev/null
   sudo -E wget -O- https://apt.repos.intel.com/edgeai/dlstreamer/GPG-PUB-KEY-INTEL-DLS.gpg | sudo tee /usr/share/keyrings/dls-archive-keyring.gpg > /dev/null
   echo "deb [signed-by=/usr/share/keyrings/dls-archive-keyring.gpg] https://apt.repos.intel.com/edgeai/dlstreamer/ubuntu22 ubuntu22 main" | sudo tee /etc/apt/sources.list.d/intel-dlstreamer.list
-  sudo bash -c 'echo "deb [signed-by=/usr/share/keyrings/intel-gpg-archive-keyring.gpg] https://apt.repos.intel.com/openvino ubuntu22 main" | sudo tee /etc/apt/sources.list.d/intel-openvino.list'
   ```
 
 - **Ubuntu 24**
 
   ```bash
-  sudo -E wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | sudo tee /usr/share/keyrings/intel-gpg-archive-keyring.gpg > /dev/null
   sudo -E wget -O- https://apt.repos.intel.com/edgeai/dlstreamer/GPG-PUB-KEY-INTEL-DLS.gpg | sudo tee /usr/share/keyrings/dls-archive-keyring.gpg > /dev/null
   echo "deb [signed-by=/usr/share/keyrings/dls-archive-keyring.gpg] https://apt.repos.intel.com/edgeai/dlstreamer/ubuntu24 ubuntu24 main" | sudo tee /etc/apt/sources.list.d/intel-dlstreamer.list
-  sudo bash -c 'echo "deb [signed-by=/usr/share/keyrings/intel-gpg-archive-keyring.gpg] https://apt.repos.intel.com/openvino ubuntu24 main" | sudo tee /etc/apt/sources.list.d/intel-openvino.list'
   ```
 
-  > **NOTE:** If you have OpenVINO™ installed in any version other than 2026.3.1,
-  > please uninstall the OpenVINO™ packages using the following commands.
+### Step 3: Install OpenVINO™ GenAI
 
-  ```bash
-  sudo apt remove -y openvino* libopenvino-* python3-openvino*
-  sudo apt-get autoremove
-  ```
+The `intel-dlstreamer` package does not include OpenVINO™. Install the
+OpenVINO™ GenAI archive (it bundles the full OpenVINO™ runtime) in the version
+DL Streamer was built with - see `OPENVINO_GENAI_VERSION` in
+[dependencies/versions.env](https://github.com/open-edge-platform/dlstreamer/blob/main/dependencies/versions.env).
+Use `ubuntu22` or `ubuntu24` in the archive name to match your system:
 
-### Step 3: Install the Deep Learning Streamer Pipeline Framework
+```bash
+OV_GENAI_VERSION=2026.5.0.0.dev20261027
+OV_GENAI_NAME=openvino_genai_ubuntu24_${OV_GENAI_VERSION}_x86_64
+sudo mkdir -p /opt/intel
+wget -O- "https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/${OV_GENAI_VERSION}/${OV_GENAI_NAME}.tar.gz" | sudo tar -xz -C /opt/intel
+sudo mv "/opt/intel/${OV_GENAI_NAME}" /opt/intel/openvino_genai
+sudo ln -sfn /opt/intel/openvino_genai /opt/intel/openvino
+echo "/opt/intel/openvino/runtime/lib/intel64" | sudo tee /etc/ld.so.conf.d/openvino.conf
+sudo ldconfig
+```
 
-> **NOTE:** This step will also install the required dependencies, including the
-> OpenVINO™ toolkit and GStreamer.
+> **NOTE:** If you have OpenVINO™ installed from APT packages, uninstall them
+> to avoid loading a different OpenVINO™ runtime:
+>
+> ```bash
+> sudo apt remove -y openvino* libopenvino-* python3-openvino*
+> sudo apt-get autoremove
+> ```
+
+### Step 4: Install the Deep Learning Streamer Pipeline Framework
+
+> **NOTE:** This step will also install the required dependencies, including
+> GStreamer.
 
 ```bash
 sudo apt update
@@ -121,14 +136,26 @@ use!**
 To see the full list of installed components check the
 [Dockerfile content for Ubuntu 24](https://github.com/open-edge-platform/dlstreamer/blob/main/docker/ubuntu/ubuntu24.Dockerfile)
 
-### [Optional] Step 4: Python dependencies
+### [Optional] Step 5: Python dependencies
 
-The Python packages required to run Deep Learning Streamer python elements
-or samples are not installed by default. You can install them using
-the commands from
+The package makes DL Streamer's own Python modules (`gstgva`,
+`dlstreamer.onvif`) available to the system `python3`, but the Python packages
+required to run Deep Learning Streamer Python elements, samples or the
+optimizer are not installed by default. Install them into a virtual
+environment based on the system `python3`:
+
+```bash
+sudo apt-get install -y -q --no-install-recommends gcc cmake python3-dev python3-venv \
+    libglib2.0-dev libcairo2-dev libgirepository1.0-dev
+/opt/intel/dlstreamer/scripts/setup_python_env.sh --venv ~/python3venv --dlstreamer-dir /opt/intel/dlstreamer
+source ~/python3venv/bin/activate
+```
+
+Keep the environment activated when running pipelines with Python elements.
+See also
 [Advanced Install Guide Compilation / Install Python dependencies](../dev_guide/advanced_install/advanced_install_guide_compilation.md#step-9-install-python-dependencies-optional).
 
-### [Optional] Step 5: Post installation steps
+### [Optional] Step 6: Post installation steps
 
 #### Download the model and run hello_dlstreamer script
 
@@ -156,6 +183,7 @@ source "$HOME/.virtualenvs/download-models/bin/activate"
 export MODELS_PATH="$HOME/models"
 python3 /opt/intel/dlstreamer/scripts/download_models/download_ultralytics_models.py \
   --model yolo11s --int8 --outdir "$MODELS_PATH/public/yolo11s/INT8"
+deactivate  # the model download venv is not the DL Streamer Python environment
 ```
 
 The `hello_dlstreamer.sh` script will set up the required environment
@@ -218,7 +246,7 @@ following command:
 
   to configure environment variables for the current terminal session.
 
-### [Optional] Step 6: Auxiliary installation steps
+### [Optional] Step 7: Auxiliary installation steps
 
 A. Check for installed packages and versions
 

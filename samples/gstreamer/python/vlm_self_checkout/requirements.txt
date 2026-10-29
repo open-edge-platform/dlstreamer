@@ -1,3 +1,3 @@
-PyGObject==3.50.0
+# Model export tools on top of the DL Streamer Python environment
 --extra-index-url https://download.pytorch.org/whl/cpu
 ultralytics==8.4.57

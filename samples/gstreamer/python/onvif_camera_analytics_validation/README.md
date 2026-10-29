@@ -101,8 +101,11 @@ Gemma 3 4B (~3.3 GB in int4) is recommended and fits well on
 
 ### 5. Create virtual environment and install dependencies
 
+Create a DL Streamer Python environment (for a build from source, use `~/dlstreamer/scripts/setup_python_env.sh` and `--dlstreamer-dir` pointing to your installation) and add the
+sample's own dependencies:
+
 ```bash
-uv venv --system-site-packages .venv
+/opt/intel/dlstreamer/scripts/setup_python_env.sh --venv .venv --dlstreamer-dir /opt/intel/dlstreamer
 source .venv/bin/activate
 uv pip install -r requirements.txt
 ```

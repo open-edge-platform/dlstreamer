@@ -29,10 +29,12 @@
 > Ultralytics, PaddlePaddle), needed only for one-time model conversion.
 > `requirements.txt` contains only lightweight runtime dependencies.
 
-Requires [`uv`](https://astral.sh/uv) (`curl -LsSf https://astral.sh/uv/install.sh | sh`):
+Requires [`uv`](https://astral.sh/uv) (`curl -LsSf https://astral.sh/uv/install.sh | sh`).
+The environment is a DL Streamer Python environment (system `python3`, DL Streamer
+Python modules linked in) with the application's dependencies added on top:
 
 ```bash
-uv venv .{{APP_NAME}}-venv
+/opt/intel/dlstreamer/scripts/setup_python_env.sh --venv .{{APP_NAME}}-venv --dlstreamer-dir /opt/intel/dlstreamer
 source .{{APP_NAME}}-venv/bin/activate
 uv pip install -r export_requirements.txt -r requirements.txt
 ```

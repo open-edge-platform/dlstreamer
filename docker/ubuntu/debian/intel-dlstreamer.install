@@ -2,3 +2,4 @@ opt/intel/dlstreamer/ /opt/intel/
 opt/opencv/ /opt/
 opt/rdkafka/ /opt/
 opt/librealsense/ /opt/
+usr/lib/python3/dist-packages/intel-dlstreamer.pth /usr/lib/python3/dist-packages/

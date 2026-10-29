@@ -65,6 +65,12 @@ mkdir -p %{buildroot}/usr
 
 cp -a opt/* %{buildroot}/opt/
 
+# Make DL Streamer's Python modules and the GStreamer Python overrides
+# importable by the system python3 without PYTHONPATH
+mkdir -p %{buildroot}%{python3_sitelib}
+printf '%s\n' /opt/intel/dlstreamer/python /opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages \
+    > %{buildroot}%{python3_sitelib}/intel-dlstreamer.pth
+
 find %{buildroot} -type f \( -name "*.so*" -o -perm -111 \) | while read -r file; do
     if patchelf --print-rpath "$file" &>/dev/null; then
         rpath=$(patchelf --print-rpath "$file")
@@ -85,6 +91,7 @@ done
 /opt/rdkafka/
 /opt/ffmpeg/
 /opt/librealsense/
+%{python3_sitelib}/intel-dlstreamer.pth
 
 %changelog
 * CURRENT_DATE_TIME DL Streamer Team <dlstreamer@intel.com> - DLSTREAMER_VERSION

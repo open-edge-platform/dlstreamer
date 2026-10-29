@@ -16,16 +16,19 @@ Multi-stream pipelines (those utilizing the `tee` element) are also currently no
 ## Prerequisites
 Before using the DLS Optimizer, ensure you have:
 - Installed DL Streamer [intallation steps.](../install/install_guide_ubuntu.md)
-- Installed any necessary [DL Streamer python dependencies.](./advanced_install/advanced_install_guide_compilation.md#step-9-install-python-dependencies-optional)
+- Installed the [DL Streamer python dependencies](./advanced_install/advanced_install_guide_compilation.md#step-9-install-python-dependencies-optional)
+  (the `optimizer` requirement group).
 - Configured environment variables for the current terminal session.
-- Installed the OpenVINO python library.
+
+The optimizer lists the available inference devices with the `dls_devices`
+tool installed with DL Streamer (`/opt/intel/dlstreamer/bin`), so the OpenVINO
+Python bindings are not needed. Set `DLS_DEVICES_BIN` if the tool is not on `PATH`.
 
 ```bash
-   uv  venv ~/python3venv
+   /opt/intel/dlstreamer/scripts/setup_python_env.sh --venv ~/python3venv --dlstreamer-dir /opt/intel/dlstreamer
    source ~/python3venv/bin/activate
    source /opt/intel/dlstreamer/scripts/setup_dls_env.sh
    cd /opt/intel/dlstreamer/scripts/optimizer
-   uv pip install --extra-index-url https://storage.openvinotoolkit.org/simple/wheels/nightly openvino==2026.5.0.dev20261027
 ```
 
 ## Using the optimizer as a tool
@@ -173,7 +176,9 @@ In this case the optimizer started with a pipeline that ran at ~45fps, and found
 ## Using the optimizer as a library
 
 The easiest way of importing the optimizer into your scripts is to include it in your `PYTHONPATH` environment variable: \
-```export PYTHONPATH=/opt/intel/dlstreamer/scripts/optimizer```
+```export PYTHONPATH=/opt/intel/dlstreamer/scripts/optimizer``` \
+or to add it to the `dlstreamer.pth` file of your DL Streamer Python environment: \
+```/opt/intel/dlstreamer/scripts/setup_python_env.sh --venv ~/python3venv --dlstreamer-dir /opt/intel/dlstreamer --extra-path /opt/intel/dlstreamer/scripts/optimizer```
 
 Targets which are exported in order to facilitate usage inside of scripts:
 

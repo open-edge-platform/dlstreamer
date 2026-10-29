@@ -64,10 +64,12 @@ A **GObject signal bridge** communicates analytics results from Path 2 back to P
 
 - DL Streamer installed on host, or DL Streamer docker image
 - Intel EdgeAI System with integrated GPU/NPU (or set `--detect-device CPU --genai-device CPU`)
-- Python dependencies installed with:
+- Python dependencies installed into a DL Streamer Python environment
+  (for a build from source, use `~/dlstreamer/scripts/setup_python_env.sh` and `--dlstreamer-dir` pointing to your installation). The sample exports its models at runtime, so the model export
+  tools are added to that environment:
 
 ```bash
-uv venv .vlm-self-checkout-venv
+/opt/intel/dlstreamer/scripts/setup_python_env.sh --venv .vlm-self-checkout-venv --dlstreamer-dir /opt/intel/dlstreamer
 source .vlm-self-checkout-venv/bin/activate
 curl -LO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/3/samples/export-requirements.txt
 uv pip install -r export-requirements.txt -r requirements.txt

@@ -1,5 +1,4 @@
-PyGObject==3.50.0
+# Model preparation tools (prepare_models.py) on top of the DL Streamer
+# Python environment, which provides PyGObject, NumPy and OpenCV.
 huggingface_hub>=0.20.0
 ultralytics==8.4.57
-opencv-python-headless>=4.8.0
-numpy>=1.24.0

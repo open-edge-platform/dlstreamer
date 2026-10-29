@@ -36,14 +36,10 @@ The sample attaches the following primitives to every frame:
 DLStreamer must be installed. The `DLStreamerWatermarkMeta` GIR typelib must be on the
 `GI_TYPELIB_PATH` (installed automatically with DLStreamer).
 
-Install Python dependencies:
-
-```sh
-cd samples/gstreamer/python/watermark_meta
-uv venv .watermark_meta_venv
-source .watermark_meta_venv/bin/activate
-uv pip install -r requirements.txt
-```
+This sample only needs the DL Streamer Python environment (GStreamer Python
+bindings). The Docker image already provides it; on a native installation see
+[Step 9: Install Python dependencies](../../../../docs/user-guide/dev_guide/advanced_install/advanced_install_guide_compilation.md#step-9-install-python-dependencies-optional)
+and keep that environment activated.
 
 ### Run the Sample
 

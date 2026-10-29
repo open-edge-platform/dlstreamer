@@ -114,6 +114,7 @@ python3 /opt/intel/dlstreamer/scripts/download_models/download_ultralytics_model
   --model yolo11n.pt \
   --outdir ~/models/yolo11n \
   --int8
+deactivate  # the model download venv is not the DL Streamer Python environment
 source /opt/intel/dlstreamer/scripts/setup_dls_env.sh
 ```
 
