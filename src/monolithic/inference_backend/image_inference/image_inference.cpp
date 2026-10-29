@@ -177,7 +177,8 @@ ImageInference::Ptr ImageInference::createImageInferenceInstance(MemoryType inpu
             // (not later, per-surface) so the whole pipeline stays consistent: a partial fallback would
             // leave the pool/OpenVINO instance in DMA_BUFFER mode while individual surfaces are SYSTEM,
             // which deadlocks inference.
-            if (isNpu) {
+            // Enable zero-copy for NPU on Intel® Core™ Ultra Series 3 processor only
+            if (isNpu && Utils::isCPUPTLHSeries(false)) {
                 if (access("/dev/dma_heap/system", R_OK | W_OK) != 0) {
                     GVA_WARNING("Falling back to the slow NPU path (extra GPU->CPU->NPU copies): no access to "
                                 "DMA-BUF. To enable zero-copy, grant access to /dev/dma_heap/system, e.g. "
