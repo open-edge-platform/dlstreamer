@@ -443,7 +443,10 @@ ENV GST_PLUGIN_SCANNER=${GSTREAMER_DIR}/bin/gstreamer-1.0/gst-plugin-scanner
 ENV GI_TYPELIB_PATH=${GSTREAMER_DIR}/lib/girepository-1.0:${DLSTREAMER_DIR}/build/src/gst/metadata/
 # OpenVINO Python bindings are provided from the GenAI archive via PYTHONPATH
 # The archive contains python/openvino/ with .so files for python3.11/3.12/3.13
-ENV PYTHONPATH=/opt/intel/openvino_genai/python:${GSTREAMER_DIR}/lib/python3/dist-packages:${DLSTREAMER_DIR}/python:${DLSTREAMER_DIR}/scripts/optimizer:${PYTHONPATH}
+# gvapython embeds Python, so expose the active interpreter's packages and both
+# GStreamer Python install layouts to its import path.
+ENV PYTHONPATH=/opt/intel/openvino_genai/python:/python3venv/lib/python3.13/site-packages:${GSTREAMER_DIR}/lib/python3.13/site-packages:${GSTREAMER_DIR}/lib/python3.13/dist-packages:${GSTREAMER_DIR}/lib/python3/dist-packages:${DLSTREAMER_DIR}/python:${DLSTREAMER_DIR}/scripts/optimizer
+ENV DLSTREAMER_PYTHON=/python3venv/bin/python
 
 # Build DLStreamer
 # hadolint ignore=SC1091
@@ -641,7 +644,8 @@ ENV PATH=/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/bin:$PATH
 # OpenVINO Python bindings (openvino + openvino_genai) from GenAI archive
 # added first in PYTHONPATH - archive contains python/openvino/ and
 # python/openvino_genai/ with .so files for python3.11/3.12/3.13
-ENV PYTHONPATH=/opt/intel/openvino_genai/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:
+ENV DLSTREAMER_PYTHON=/usr/local/bin/python3.13
+ENV PYTHONPATH=/opt/intel/openvino_genai/python:/opt/intel/dlstreamer/gstreamer/lib/python3.13/site-packages:/opt/intel/dlstreamer/gstreamer/lib/python3.13/dist-packages:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python
 ENV TERM=xterm
 ENV GI_TYPELIB_PATH=/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/opt/intel/dlstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0
 
