@@ -18,6 +18,7 @@
 
 #include "dlstreamer/gst/utils.h"
 
+#include <cmath>
 #include <fstream>
 #include <map>
 #include <memory>
@@ -37,6 +38,7 @@ enum {
     PROP_DRAW_ZONES,
     PROP_DRAW_TRIPWIRES,
     PROP_EVALUATION_POINT,
+    PROP_TRACK_TIMEOUT,
 };
 
 static GType gva_analytics_evaluation_point_get_type(void) {
@@ -56,6 +58,7 @@ static void gva_analytics_finalize(GObject *object);
 static gboolean gva_analytics_start(GstBaseTransform *base);
 static gboolean gva_analytics_stop(GstBaseTransform *base);
 static GstFlowReturn gva_analytics_transform_ip(GstBaseTransform *base, GstBuffer *buf);
+static gboolean gva_analytics_sink_event(GstBaseTransform *base, GstEvent *event);
 
 #define GVA_ANALYTICS_GET_TYPE(type_name) G_DEFINE_TYPE(GvaAnalytics, type_name, GST_TYPE_BASE_TRANSFORM)
 
@@ -66,11 +69,44 @@ struct GvaAnalyticsPrivate {
     gboolean draw_zones;
     gboolean draw_tripwires;
     ObjectEvaluationPoint evaluation_point;
+    gdouble track_timeout = 30.0;
+    GstClockTime previous_stream_time = GST_CLOCK_TIME_NONE;
+    bool missing_time_warned = false;
 
     std::vector<Tripwire> tripwires;
     std::vector<Zone> zones;
     std::map<guint64, ObjectTrackingState> tracking_states;
 };
+
+static void expire_tracking_states(GstBaseTransform *base, GstClockTime now) {
+    auto *priv = GVA_ANALYTICS_CAST(base)->impl;
+    if (priv->track_timeout == 0.0)
+        return;
+    if (!GST_CLOCK_TIME_IS_VALID(now)) {
+        if (!priv->missing_time_warned)
+            GST_WARNING_OBJECT(base, "Missing valid buffer time; tracking-state expiration is suspended");
+        priv->missing_time_warned = true;
+        return;
+    }
+    priv->missing_time_warned = false;
+    if (GST_CLOCK_TIME_IS_VALID(priv->previous_stream_time) && now < priv->previous_stream_time) {
+        GST_DEBUG_OBJECT(base, "Stream time moved backwards; clearing tracking history");
+        priv->tracking_states.clear();
+    }
+    priv->previous_stream_time = now;
+    for (auto it = priv->tracking_states.begin(); it != priv->tracking_states.end();) {
+        auto &state = it->second;
+        // An observation without a timestamp gets a fresh grace period when valid time resumes.
+        if (!GST_CLOCK_TIME_IS_VALID(state.last_seen))
+            state.last_seen = now;
+        if (now >= state.last_seen && (now - state.last_seen) / (gdouble)GST_SECOND >= priv->track_timeout) {
+            GST_LOG_OBJECT(base, "Expiring tracking ID %" G_GUINT64_FORMAT, it->first);
+            it = priv->tracking_states.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
 
 static GstStaticPadTemplate gva_analytics_sink_template =
     GST_STATIC_PAD_TEMPLATE("sink", GST_PAD_SINK, GST_PAD_ALWAYS, GST_STATIC_CAPS_ANY);
@@ -124,9 +160,17 @@ static void gva_analytics_class_init(GvaAnalyticsClass *klass) {
                           gva_analytics_evaluation_point_get_type(), EVAL_POINT_CENTER,
                           (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
+    g_object_class_install_property(
+        gobject_class, PROP_TRACK_TIMEOUT,
+        g_param_spec_double("track-timeout", "Track Timeout",
+                            "Stream-time seconds without observation before tracking history expires; 0 disables",
+                            0.0, G_MAXDOUBLE, 30.0,
+                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | GST_PARAM_MUTABLE_READY)));
+
     base_transform_class->start = GST_DEBUG_FUNCPTR(gva_analytics_start);
     base_transform_class->stop = GST_DEBUG_FUNCPTR(gva_analytics_stop);
     base_transform_class->transform_ip = GST_DEBUG_FUNCPTR(gva_analytics_transform_ip);
+    base_transform_class->sink_event = GST_DEBUG_FUNCPTR(gva_analytics_sink_event);
 
     base_transform_class->passthrough_on_same_caps = TRUE;
 
@@ -168,6 +212,17 @@ static void gva_analytics_set_property(GObject *object, guint prop_id, const GVa
     GvaAnalyticsPrivate *priv = self->impl;
 
     switch (prop_id) {
+    case PROP_TRACK_TIMEOUT: {
+        gdouble timeout = g_value_get_double(value);
+        if (GST_STATE(self) > GST_STATE_READY) {
+            GST_WARNING_OBJECT(object, "track-timeout can only be changed in NULL or READY state");
+        } else if (!std::isfinite(timeout) || timeout < 0.0) {
+            GST_WARNING_OBJECT(object, "track-timeout must be finite and non-negative");
+        } else {
+            priv->track_timeout = timeout;
+        }
+        break;
+    }
     case PROP_CONFIG: {
         if (priv->config_path)
             g_free(priv->config_path);
@@ -216,6 +271,9 @@ static void gva_analytics_get_property(GObject *object, guint prop_id, GValue *v
     GvaAnalyticsPrivate *priv = self->impl;
 
     switch (prop_id) {
+    case PROP_TRACK_TIMEOUT:
+        g_value_set_double(value, priv->track_timeout);
+        break;
     case PROP_CONFIG:
         g_value_set_string(value, priv->config_path);
         break;
@@ -402,8 +460,24 @@ static gboolean gva_analytics_stop(GstBaseTransform *base) {
     priv->zones.clear();
     priv->tripwires.clear();
     priv->tracking_states.clear();
+    priv->previous_stream_time = GST_CLOCK_TIME_NONE;
+    priv->missing_time_warned = false;
 
     return TRUE;
+}
+
+static gboolean gva_analytics_sink_event(GstBaseTransform *base, GstEvent *event) {
+    auto *priv = GVA_ANALYTICS_CAST(base)->impl;
+    if (priv->track_timeout > 0.0 &&
+        (GST_EVENT_TYPE(event) == GST_EVENT_STREAM_START || GST_EVENT_TYPE(event) == GST_EVENT_SEGMENT ||
+         GST_EVENT_TYPE(event) == GST_EVENT_FLUSH_STOP)) {
+        GST_DEBUG_OBJECT(base, "Resetting tracking history on %s", GST_EVENT_TYPE_NAME(event));
+        priv->tracking_states.clear();
+        priv->previous_stream_time = GST_CLOCK_TIME_NONE;
+        priv->missing_time_warned = false;
+    }
+    auto *parent = GST_BASE_TRANSFORM_CLASS(g_type_class_peek_parent(G_OBJECT_GET_CLASS(base)));
+    return parent->sink_event(base, event);
 }
 
 static GstFlowReturn gva_analytics_transform_ip(GstBaseTransform *base, GstBuffer *buf) {
@@ -417,13 +491,16 @@ static GstFlowReturn gva_analytics_transform_ip(GstBaseTransform *base, GstBuffe
     // Extract and process tracking metadata from buffer
     GstAnalyticsRelationMeta *analytics_meta = gst_buffer_get_analytics_relation_meta(buf);
 
-    GstClockTime stream_time = gst_segment_to_stream_time(&base->segment, GST_FORMAT_TIME, GST_BUFFER_PTS(buf));
+    GstClockTime stream_time = GST_CLOCK_TIME_NONE;
+    if (base->segment.format == GST_FORMAT_TIME && GST_CLOCK_TIME_IS_VALID(GST_BUFFER_PTS(buf)))
+        stream_time = gst_segment_to_stream_time(&base->segment, GST_FORMAT_TIME, GST_BUFFER_PTS(buf));
     GstClockTime time_for_dwell = GST_CLOCK_TIME_IS_VALID(stream_time) ? stream_time : GST_BUFFER_PTS(buf);
     gdouble current_time_sec = GST_CLOCK_TIME_IS_VALID(time_for_dwell) ? (gdouble)time_for_dwell / GST_SECOND : 0.0;
 
+    expire_tracking_states(base, time_for_dwell);
     // Process detection metadata and check for zone membership and tripwire crossings
     process_object_detections(base, analytics_meta, priv->zones, priv->tripwires, priv->tracking_states,
-                              priv->evaluation_point, current_time_sec);
+                              priv->evaluation_point, current_time_sec, time_for_dwell);
 
     // Always add zone drawing metadata if draw_zones is enabled
     if (priv->draw_zones && !priv->zones.empty()) {

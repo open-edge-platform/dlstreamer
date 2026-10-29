@@ -131,7 +131,8 @@ void attach_tripwire_drawing_metadata(GstBaseTransform *base, GstBuffer *buf, co
 void process_object_detections(GstBaseTransform *base, GstAnalyticsRelationMeta *analytics_meta,
                                const std::vector<Zone> &zones, const std::vector<Tripwire> &tripwires,
                                std::map<guint64, ObjectTrackingState> &tracking_states,
-                               ObjectEvaluationPoint evaluation_point, gdouble current_time_sec) {
+                               ObjectEvaluationPoint evaluation_point, gdouble current_time_sec,
+                               GstClockTime observation_time) {
     if (!analytics_meta) {
         GST_DEBUG_OBJECT(base, "No analytics metadata found in buffer");
         return;
@@ -295,6 +296,7 @@ void process_object_detections(GstBaseTransform *base, GstAnalyticsRelationMeta 
                 // Update tracking state in-place to preserve zone_entry_times
                 ObjectTrackingState &state = tracking_states[tracking_id];
                 state.tracking_id = tracking_id;
+                state.last_seen = observation_time;
                 state.last_point = object_point;
                 state.has_previous_position = true;
                 GST_LOG_OBJECT(base,
