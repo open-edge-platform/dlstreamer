@@ -627,8 +627,6 @@ RUN \
         -r /opt/intel/dlstreamer/requirements.txt && \
     apt-get remove -y gcc libcairo2-dev libgirepository1.0-dev && \
     apt-get autoremove -y && \
-    PYTHON_SITE_PACKAGES=$(python3.13 -c "import site; print(site.getsitepackages()[0])") && \
-    if [ -d "$PYTHON_SITE_PACKAGES/wsdl" ]; then cp -r "$PYTHON_SITE_PACKAGES/wsdl" /usr/local/lib/python3.13/dist-packages/; fi && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
