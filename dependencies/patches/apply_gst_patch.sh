@@ -40,11 +40,33 @@ apply_one() {
   return 0
 }
 
+# ExternalProject re-runs the patch step after every update step, and
+# `patch --forward` cannot detect a patch whose hunks a later patch rewrote
+# (e.g. 0021 then 0023), so it gets applied again with fuzz. Record the applied
+# patch set in the checkout's git dir; skip if unchanged, else start clean.
+stamp=""
+if git_dir="$(git rev-parse --absolute-git-dir 2>/dev/null)"; then
+  stamp="${git_dir}/dlstreamer-patches.sha256"
+  patch_set_hash="$(cat "$@" | sha256sum | cut -d' ' -f1)"
+  if [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$patch_set_hash" ]; then
+    echo "Patch set unchanged since last apply, skipping."
+    exit 0
+  fi
+  echo "Resetting source tree before applying patches..."
+  git reset --hard --quiet
+  git clean -fdq
+  rm -f "$stamp"
+fi
+
 overall_rc=0
 for p in "$@"; do
   if ! apply_one "$p"; then
     overall_rc=1
   fi
 done
+
+if [ "$overall_rc" -eq 0 ] && [ -n "$stamp" ]; then
+  echo "$patch_set_hash" > "$stamp"
+fi
 
 exit $overall_rc
