@@ -104,7 +104,9 @@ packages:
 > (Ubuntu 22.04) / Python 3.13 (Ubuntu 26.04) must be installed with `uv` and
 > used for the virtual environment below. Build native extensions such as
 > PyGObject inside that same environment so their Python ABI matches the
-> interpreter used by DL Streamer's Python elements (e.g. `gvapython`).
+> interpreter used by DL Streamer's Python elements (e.g. `gvapython`). Add
+> the uv-managed Python library directory to the dynamic linker cache so
+> `libgstpython.so` can load `libpython`.
 
 <!--hide_directive::::{tab-set}
 :::{tab-item}hide_directive--> Ubuntu 24, Fedora 41, EMT
@@ -124,6 +126,11 @@ packages:
   ```bash
   uv python install 3.11
 
+  python_bin="$(uv python find 3.11)"
+  python_libdir="$("$python_bin" -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')"
+  echo "$python_libdir" | sudo tee /etc/ld.so.conf.d/uv-python.conf >/dev/null
+  sudo ldconfig
+
   UV_PYTHON_PREFERENCE=managed uv venv --python 3.11 ~/python3venv
   source ~/python3venv/bin/activate
 
@@ -136,6 +143,11 @@ packages:
 
   ```bash
   uv python install 3.13
+
+  python_bin="$(uv python find 3.13)"
+  python_libdir="$("$python_bin" -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')"
+  echo "$python_libdir" | sudo tee /etc/ld.so.conf.d/uv-python.conf >/dev/null
+  sudo ldconfig
 
   UV_PYTHON_PREFERENCE=managed uv venv --python 3.13 ~/python3venv
   source ~/python3venv/bin/activate

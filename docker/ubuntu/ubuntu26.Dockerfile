@@ -612,7 +612,11 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/b
 
 ENV UV_PYTHON_INSTALL_DIR=/opt/uv/python
 RUN uv python install 3.13 && \
-    ln -s "$(uv python find 3.13)" /usr/local/bin/python3.13
+    PYTHON_BIN="$(uv python find 3.13)" && \
+    PYTHON_LIBDIR="$("$PYTHON_BIN" -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')" && \
+    printf '%s\n' "$PYTHON_LIBDIR" > /etc/ld.so.conf.d/uv-python.conf && \
+    ldconfig && \
+    ln -s "$PYTHON_BIN" /usr/local/bin/python3.13
 
 # Install onvif-zeep and remaining Python dependencies.
 RUN \
