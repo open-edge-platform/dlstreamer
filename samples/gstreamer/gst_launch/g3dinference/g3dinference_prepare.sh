@@ -38,7 +38,11 @@ Environment:
   MODELS_PATH               Model root. Default: ../models next to the dlstreamer repo
   POINTPILLARS_ROOT         Existing modules/3d/pointPillars directory
   POINTPILLARS_CACHE_DIR    Cache directory for data/config/source checkout
-  PYTHON                    Preferred Python interpreter with openvino installed
+  OpenVINO_DIR              OpenVINO CMake config directory used to build the extension
+                            (set by setupvars.sh). Default: the OpenVINO runtime DL Streamer
+                            uses (/opt/intel/openvino/runtime/cmake)
+  PYTHON                    Fallback only: Python interpreter with the openvino package,
+                            used when no OpenVINO C++ installation is found
 EOF
   exit 0
 fi
@@ -85,7 +89,34 @@ select_python_with_openvino() {
     fi
   done
 
-  fail "Unable to find a Python interpreter with the openvino package installed"
+  return 1
+}
+
+# The extension is loaded into the OpenVINO runtime used by DL Streamer, so build
+# it against that runtime's CMake config; the openvino Python package is only a
+# fallback for setups without an OpenVINO C++ installation.
+resolve_openvino_cmake_dir() {
+  local candidates=(
+    "${OpenVINO_DIR:-}"
+    "${INTEL_OPENVINO_DIR:+${INTEL_OPENVINO_DIR}/runtime/cmake}"
+    "/opt/intel/openvino/runtime/cmake"
+    "/opt/intel/openvino_genai/runtime/cmake"
+  )
+
+  local python_with_openvino
+  if python_with_openvino="$(select_python_with_openvino)"; then
+    candidates+=("$("${python_with_openvino}" -c 'import openvino, os; print(os.path.join(os.path.dirname(openvino.__file__), "cmake"))')")
+  fi
+
+  local candidate
+  for candidate in "${candidates[@]}"; do
+    if [[ -n "${candidate}" && -f "${candidate}/OpenVINOConfig.cmake" ]]; then
+      printf '%s\n' "${candidate}"
+      return 0
+    fi
+  done
+
+  fail "OpenVINO CMake config not found: source the OpenVINO setupvars.sh or set OpenVINO_DIR"
 }
 
 resolve_pointpillars_root() {
@@ -141,18 +172,22 @@ ensure_model_files() {
 }
 
 build_extension() {
-  local python_with_openvino
-  python_with_openvino="$(select_python_with_openvino)"
-  export PATH="$(dirname "${python_with_openvino}"):${PATH}"
+  local ext_source_dir="${POINTPILLARS_ROOT}/ov_extensions"
+  local ext_build_dir="${ext_source_dir}/build"
+  local ext_library="${ext_build_dir}/libov_pointpillars_extensions.so"
 
-  local ext_build_script="${POINTPILLARS_ROOT}/ov_extensions/build.sh"
-  local ext_library="${POINTPILLARS_ROOT}/ov_extensions/build/libov_pointpillars_extensions.so"
-
-  [[ -f "${ext_build_script}" ]] || fail "PointPillars extension build script not found: ${ext_build_script}"
+  [[ -f "${ext_source_dir}/CMakeLists.txt" ]] || fail "PointPillars extension sources not found: ${ext_source_dir}"
 
   if [[ ! -f "${ext_library}" ]]; then
-    log "Building PointPillars OpenVINO extension via ${ext_build_script}"
-    bash "${ext_build_script}" 
+    local openvino_cmake_dir
+    openvino_cmake_dir="$(resolve_openvino_cmake_dir)"
+    log "Building PointPillars OpenVINO extension against ${openvino_cmake_dir}"
+    # Same configuration as ov_extensions/build.sh, without its Python-based OpenVINO lookup
+    cmake -S "${ext_source_dir}" -B "${ext_build_dir}" \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_CXX_FLAGS="-fPIC" \
+      -DOpenVINO_DIR="${openvino_cmake_dir}"
+    cmake --build "${ext_build_dir}" -j "$(nproc)"
   fi
 
   [[ -f "${ext_library}" ]] || fail "Expected extension library was not produced: ${ext_library}"

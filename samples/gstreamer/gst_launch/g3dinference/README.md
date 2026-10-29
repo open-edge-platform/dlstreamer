@@ -40,14 +40,16 @@ You need:
 - a DL Streamer build where `g3dlidarparse`, `g3dinference`, `gvametaconvert`, and `gvametapublish` are available
 - `gst-launch-1.0` and `gst-inspect-1.0`
 - `git`, `cmake`, `make`, and a C++ compiler
-- a Python interpreter with the `openvino` package installed, because the PointPillars extension build script resolves OpenVINO through Python
+- the OpenVINO™ runtime DL Streamer uses (e.g. `/opt/intel/openvino`, or `source setupvars.sh`), because the
+  PointPillars extension is built against its CMake config. A Python interpreter with the `openvino` package
+  (`PYTHON`) is only used as a fallback when no OpenVINO™ C++ installation is found
 
 Quick checks:
 
 ```bash
 gst-inspect-1.0 g3dlidarparse
 gst-inspect-1.0 g3dinference
-python3 -c "import openvino"
+ls /opt/intel/openvino/runtime/cmake/OpenVINOConfig.cmake
 ```
 
 ## Usage
