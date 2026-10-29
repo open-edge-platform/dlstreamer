@@ -100,24 +100,35 @@ if [[ ! "$DEVICE" =~ ^(CPU|GPU|NPU)$ ]]; then
 fi
 
 
-# Validate INPUT and select source element
-# Allow extra pipeline elements after the path, e.g.:
-#   video.mp4 ! identity eos-after=300
-#   video.mp4 ! identity start-after=100 eos-after=200
-if [[ "$INPUT" =~ ^https?:// ]]; then
-    SOURCE_ELEMENT="urisourcebin uri=${INPUT}"
-else
-    # Extract pure file path (everything before the first '!')
-    INPUT_PATH=$(echo "$INPUT" | awk -F'!' '{print $1}' | xargs)
+# ---------------------------------------------------------------------------
+# Support for optional extra GStreamer elements after the input path.
+# Example:  "video.mp4 ! identity eos-after=300"
+#
+# Why: useful for testing (limit number of processed frames). Fully optional.
+# How: split on '!' only when a known video extension appears before it.
+# ---------------------------------------------------------------------------
+VIDEO_EXTS="mp4|avi|mkv|mov|webm|m4v|ts|mts|m2ts|wmv|flv|mpeg|mpg"
+EXTRA=""
+INPUT_PATH="$INPUT"
 
+if [[ "$INPUT" == *"!"* ]]; then
+    CANDIDATE=$(echo "$INPUT" | awk -F'!' '{print $1}' | xargs)
+    if echo "$CANDIDATE" | grep -qiE "\.(${VIDEO_EXTS})$"; then
+        INPUT_PATH="$CANDIDATE"
+        EXTRA=$(echo "$INPUT" | cut -d'!' -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        EXTRA="${EXTRA} ! "
+    fi
+fi
+
+if [[ "$INPUT_PATH" =~ ^https?:// ]]; then
+    SOURCE_ELEMENT="urisourcebin uri=${INPUT_PATH}"
+else
     if [ ! -f "$INPUT_PATH" ]; then
         echo "Error: Input file not found: $INPUT_PATH"
         echo "Run '$(basename "$0") --help' for usage information."
         exit 1
     fi
-
-    # Keep the full argument (path + optional identity etc.)
-    SOURCE_ELEMENT="filesrc location=${INPUT}"
+    SOURCE_ELEMENT="filesrc location=\"${INPUT_PATH}\""
 fi
 
 # Validate CONFIG_FILE exists (optional but recommended)
@@ -147,7 +158,7 @@ else
     ENCODER="videoconvert ! openh264enc"
 fi
 
-gst-launch-1.0 -e ${SOURCE_ELEMENT} ! decodebin3 ! \
+gst-launch-1.0 -e ${SOURCE_ELEMENT} ! ${EXTRA}decodebin3 ! \
     gvadetect model=${MODEL} ${GVADETECT_OPTIONS} ! queue ! \
     gvatrack tracking-type=zero-term ! queue ! \
     gvaanalytics config=${CONFIG_FILE} evaluation-point=bottom-center ! queue ! \

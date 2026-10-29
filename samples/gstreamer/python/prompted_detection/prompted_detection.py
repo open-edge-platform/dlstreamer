@@ -20,14 +20,35 @@ DEFAULT_MODEL_REL = f"public/{WEIGHTS}/FP16/{WEIGHTS}.xml"
 
 
 def ensure_file(path, description):
-    """Return resolved path if file exists; exit with error otherwise."""
+    """Return resolved path if file exists; exit with error otherwise.
+
+    Supports optional extra GStreamer elements after the path, e.g.:
+        video.mp4 ! identity eos-after=300
+    Only the part before '!' is validated and returned as the file path.
+    """
     file_src = path.split('!')[0].strip()
     if not os.path.isfile(file_src):
         sys.stderr.write(f"Error: {description} not found: {path}\n")
         sys.stderr.write("Set MODELS_PATH or prepare the model with download_ultralytics_models.py\n")
         sys.exit(1)
-    return os.path.abspath(path)
+    return os.path.abspath(file_src)
 
+
+def get_extra_elements(path):
+    """Return extra GStreamer elements after '!' if present, otherwise empty string.
+
+    Example: "video.mp4 ! identity eos-after=300" -> "identity eos-after=300 ! "
+    Only splits when a known video extension appears before '!'.
+    """
+    VIDEO_EXTENSIONS = (".mp4", ".avi", ".mkv", ".mov", ".webm", ".m4v",
+                        ".ts", ".mts", ".m2ts", ".wmv", ".flv", ".mpeg", ".mpg")
+    if "!" not in path:
+        return ""
+    path_candidate = path.split("!", 1)[0].strip().lower()
+    if any(path_candidate.endswith(ext) for ext in VIDEO_EXTENSIONS):
+        rest = path.split("!", 1)[1].strip()
+        return rest + " ! "
+    return ""
 
 # wrapper to run the gstreamer pipeline loop
 def pipeline_loop(pipeline):
@@ -77,6 +98,7 @@ def main(args):
     parsed = p.parse_args(args[1:])
 
     video_file = ensure_file(parsed.input, "input video")
+    extra = get_extra_elements(parsed.input)
     object_to_find = parsed.prompt
     device = parsed.device
     output = parsed.output
@@ -106,7 +128,7 @@ def main(args):
     # Create GStreamer pipeline, pass input video file and OpenVINO model file
     Gst.init([])
     pipeline = Gst.parse_launch(
-            f"filesrc location={video_file} ! decodebin3 ! "
+            f'filesrc location="{video_file}" ! {extra}decodebin3 ! '
             f"gvadetect model={model_file} device={device} batch-size=4 ! queue ! "
             f"{sink}"
         )

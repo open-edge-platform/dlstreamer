@@ -52,8 +52,7 @@ def parse_args():
 
 def ensure_file(path, description):
     """Return resolved path if file exists; exit with error otherwise."""
-    file_src = path.split('!')[0].strip()
-    p = Path(file_src)
+    p = Path(path)
     if not p.is_file():
         sys.stderr.write(f"Error: {description} not found: {path}\n")
         sys.exit(1)
@@ -92,11 +91,23 @@ def run_pipeline(pipeline):
         pipeline.set_state(Gst.State.NULL)
 
 def split_input(input_arg):
-    """Split 'video.mp4 ! identity eos-after=600' into path and identity fragment."""
+    """Split 'path ! extra elements' into (path, 'extra elements ! ').
+
+    Supports optional extra GStreamer elements after the input path, e.g.:
+        video.mp4 ! identity eos-after=600
+    Only splits when a known video extension appears before '!'. This reduces
+    the risk of incorrectly parsing paths that contain a literal '!'.
+    The feature is fully optional and backward compatible.
+    """
+    VIDEO_EXTENSIONS = (".mp4", ".avi", ".mkv", ".mov", ".webm", ".m4v",
+                        ".ts", ".mts", ".m2ts", ".wmv", ".flv", ".mpeg", ".mpg")
     if "!" not in input_arg:
         return input_arg.strip(), ""
-    path, rest = input_arg.split("!", 1)
-    return path.strip(), rest.strip() + " ! "   # e.g. "identity eos-after=600 ! "
+    path_candidate = input_arg.split("!", 1)[0].strip().lower()
+    if any(path_candidate.endswith(ext) for ext in VIDEO_EXTENSIONS):
+        path, rest = input_arg.split("!", 1)
+        return path.strip(), rest.strip() + " ! "
+    return input_arg.strip(), ""
 
 
 # ── main ─────────────────────────────────────────────────────────────────────

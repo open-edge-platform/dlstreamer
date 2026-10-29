@@ -76,23 +76,36 @@ def parse_args(args):
 
 
 def prepare_input_video(input_arg):
-    """Prepare the input video, downloading the default clip if needed."""
-    runtime_dir = get_runtime_dir()
+    """Prepare the input video, downloading the default clip if needed.
 
-# adding another element after ! support:
+    Supports optional extra GStreamer elements after the path, e.g.:
+        video.mp4 ! identity eos-after=300
+    Returns (path, extra_elements). Extra is empty string when not present.
+    Only splits on '!' when a known video extension appears before it.
+    """
+    runtime_dir = get_runtime_dir()
+    VIDEO_EXTENSIONS = (".mp4", ".avi", ".mkv", ".mov", ".webm", ".m4v",
+                        ".ts", ".mts", ".m2ts", ".wmv", ".flv", ".mpeg", ".mpg")
+
     if input_arg:
-        file_src = input_arg.split('!')[0].strip()
+        extra = ""
+        file_src = input_arg
+        if "!" in input_arg:
+            path_candidate = input_arg.split("!", 1)[0].strip().lower()
+            if any(path_candidate.endswith(ext) for ext in VIDEO_EXTENSIONS):
+                file_src = input_arg.split("!", 1)[0].strip()
+                extra = input_arg.split("!", 1)[1].strip() + " ! "
         if not os.path.isfile(file_src):
             sys.stderr.write("Input video file does not exist\n")
             sys.exit(1)
-        return input_arg
+        return file_src, extra
 
     input_video = os.path.join(runtime_dir, "default_video.mp4")
     if not os.path.isfile(input_video):
         print("\nNo input provided. Downloading default video...\n")
         download_https(DEFAULT_VIDEO_URL, input_video, {"videos.pexels.com"})
 
-    return input_video
+    return input_video, ""
 
 
 def pipeline_loop(pipeline):
@@ -117,7 +130,7 @@ def pipeline_loop(pipeline):
     pipeline.set_state(Gst.State.NULL)
 
 
-def main(input_video, device, output, detection_model_path, classification_model_path):
+def main(input_video, extra_elements, device, output, detection_model_path, classification_model_path):
     """Build and run the DL Streamer GStreamer pipeline."""
     models_path = os.environ.get("MODELS_PATH", "./models")
     runtime_dir = get_runtime_dir()
@@ -153,7 +166,7 @@ def main(input_video, device, output, detection_model_path, classification_model
         )
 
     pipeline_string = (
-        f"filesrc location={input_video} ! decodebin3 ! "
+        f'filesrc location="{input_video}" ! {extra_elements}decodebin3 ! '
         f"gvadetect model={ov_detection_model_path} device={device} batch-size=4 ! queue ! "
         f"gvaclassify model={ov_classification_model_path} device={device} batch-size=4 ! queue ! "
         f"{sink}"
@@ -168,5 +181,5 @@ def main(input_video, device, output, detection_model_path, classification_model
 
 if __name__ == "__main__":
     input_argument, device_argument, output_argument, det_model, cls_model = parse_args(sys.argv)
-    video_path = prepare_input_video(input_argument)
-    sys.exit(main(video_path, device_argument, output_argument, det_model, cls_model))
+    video_path, extra = prepare_input_video(input_argument)
+    sys.exit(main(video_path, extra, device_argument, output_argument, det_model, cls_model))
