@@ -80,6 +80,27 @@ jobs:
         run: |
           sudo rm -rf dlstreamer-repo
 
+  dls-check-dependency-versions:
+    permissions:
+      contents: read
+    name: "DLS SCAN: dependency versions"
+    runs-on: dlstreamer
+    steps:
+      - name: Check out dlstreamer repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #7.0.1
+        with:
+          persist-credentials: false
+          path: dlstreamer-repo
+
+      - name: Check versions against dependencies/versions.env
+        run: |
+          python3 dlstreamer-repo/scripts/check_versions.py
+
+      - name: Clean up
+        if: always()
+        run: |
+          sudo rm -rf dlstreamer-repo
+
   # dls-static-code-analysis-for-c-cpp:
   #   permissions:
   #     security-events: write

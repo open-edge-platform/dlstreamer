@@ -1,0 +1,15 @@
+# Python packages of the DL Streamer Python runtime: Python bindings (gstgva),
+# Python elements (gvapython, *_py) and Python samples. They are installed into
+# the interpreter DL Streamer was built against, see scripts/setup_python_env.sh.
+numpy==2.2.0
+opencv-python==4.11.0.86
+tqdm==4.67.1
+defusedxml==0.7.1
+setuptools==84.1.0
+typing-extensions==4.15.0
+
+# gstreamer-python provides PyGObject and GStreamer Python bindings on Windows.
+# It is not available on Linux.
+PyGObject==3.50.0; sys_platform != "win32"
+pycairo==1.26.0; sys_platform != "win32"
+gstreamer-python==1.28.8; sys_platform == "win32"

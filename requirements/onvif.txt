@@ -1,0 +1,4 @@
+# Python packages of dlstreamer.onvif (python/dlstreamer/onvif).
+# Keep in sync with the dependencies in python/pyproject.toml.
+onvif-zeep==0.2.12
+urllib3>=2.0.7

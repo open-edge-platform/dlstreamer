@@ -93,9 +93,8 @@ jobs:
           libswscale-dev libswresample-dev libavutil-dev libavformat-dev libavcodec-dev libtbb12 ocl-icd-opencl-dev
 
           echo "Setting up a Python environment"
-          uv venv python3venv
+          dlstreamer-repo/scripts/setup_python_env.sh --venv python3venv --groups build --no-pth
           source python3venv/bin/activate
-          uv pip install meson==1.4.1 ninja==1.11.1.1
 
           echo "Build gstreamer"
           git clone https://gitlab.freedesktop.org/gstreamer/gstreamer.git
@@ -108,12 +107,11 @@ jobs:
           sudo env PATH="$PWD/../python3venv/bin:$PATH" meson install -C build/
           cd ..
 
-          echo "Install OpenVINO"
-          echo "deb https://apt.repos.intel.com/openvino ubuntu24 main" | sudo tee /etc/apt/sources.list.d/intel-openvino.list
-          curl -sSL -O https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
-          sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
-          sudo apt-get update && sudo apt-get install --no-install-recommends -y openvino-2026.3.1
-          sudo apt-get clean
+          echo "Install OpenVINO GenAI (bundles the OpenVINO runtime), as in the Ubuntu 24 Dockerfile"
+          sudo mkdir -p /opt/intel
+          wget -qO- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/2026.5.0.0.dev20261027/openvino_genai_ubuntu24_2026.5.0.0.dev20261027_x86_64.tar.gz | sudo tar -xz -C /opt/intel
+          sudo mv /opt/intel/openvino_genai_ubuntu24_2026.5.0.0.dev20261027_x86_64 /opt/intel/openvino_genai
+          sudo -E /opt/intel/openvino_genai/install_dependencies/install_openvino_dependencies.sh -y
 
       - name: Download Coverity Scan Tool
         run: |
@@ -129,6 +127,7 @@ jobs:
           cd dlstreamer-repo
           mkdir build && cd build
           export PKG_CONFIG_PATH="/opt/intel/dlstreamer/gstreamer/lib/pkgconfig:${PKG_CONFIG_PATH}"
+          source /opt/intel/openvino_genai/setupvars.sh
           ../cov-analysis/bin/cov-build --dir cov-int cmake -DENABLE_PAHO_INSTALLATION=ON -DENABLE_RDKAFKA_INSTALLATION=ON -DENABLE_VAAPI=ON -DENABLE_SAMPLES=ON ..
           ../cov-analysis/bin/cov-build --dir cov-int make -j$(nproc)
 

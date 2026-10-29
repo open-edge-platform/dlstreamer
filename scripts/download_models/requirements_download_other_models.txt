@@ -1,11 +1,14 @@
 # Dependencies for download_other_models.py
 # yolox-tiny / deeplabv3 (openvino-dev) and PP-OCRv5 (paddlepaddle / paddle2onnx / huggingface_hub)
 # install their tools into separate temporary venvs at runtime.
+# OpenVINO pins (openvino, openvino-tokenizers) come from DL Streamer's
+# dependencies/versions.env, so models are exported with the OpenVINO version
+# DL Streamer runs. Nightly OpenVINO wheels need the extra index below.
+-c ../../requirements/constraints.txt
+--extra-index-url https://storage.openvinotoolkit.org/simple/wheels/nightly
 --extra-index-url https://download.pytorch.org/whl/cpu
 numpy==2.2.6
-# OpenVINO extra index needed when using nightly OpenVINO builds
---extra-index-url https://storage.openvinotoolkit.org/simple/wheels/nightly
-openvino==2026.5.0.dev20261027
+openvino
 onnx==1.22.0
 onnxscript==0.7.1
 seaborn==0.13.2

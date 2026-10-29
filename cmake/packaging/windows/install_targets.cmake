@@ -56,9 +56,13 @@ install(DIRECTORY ${CMAKE_SOURCE_DIR}/python/
     PATTERN "CMakeLists.txt" EXCLUDE
 )
 
-# Install requirements.txt
+# Install requirements.txt and the requirement groups it includes
 install(FILES ${CMAKE_SOURCE_DIR}/requirements.txt
     DESTINATION "."
+    COMPONENT c02_python
+)
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/requirements/
+    DESTINATION requirements
     COMPONENT c02_python
 )
 

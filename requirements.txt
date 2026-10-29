@@ -1,15 +1,8 @@
-numpy==2.2.0
-tqdm==4.67.1
-opencv-python==4.11.0.86
-setuptools==84.1.0
-typing-extensions==4.15.0
-defusedxml==0.7.1
-
-# optimizer-specific deps
-sshkeyboard==2.3.1
-prometheus-client==0.25.0
-requests==2.34.2
-
-# gstreamer-python provides PyGObject and GStreamer Python bindings. It is not available on Linux.
-PyGObject==3.50.0; sys_platform != "win32"
-gstreamer-python==1.28.8; sys_platform == "win32"
+# DL Streamer Python runtime requirements (Python elements, samples, optimizer).
+# The individual groups live in requirements/; see
+# docs/user-guide/dev_guide/python_environment.md.
+# Prefer scripts/setup_python_env.sh (Linux) or scripts/setup_python_env.ps1
+# (Windows), which also wire DL Streamer's own Python modules into the
+# environment.
+-r requirements/runtime.txt
+-r requirements/optimizer.txt

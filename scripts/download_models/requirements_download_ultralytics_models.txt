@@ -1,9 +1,12 @@
 # Dependencies for download_ultralytics_models.py
---extra-index-url https://download.pytorch.org/whl/cpu
-# OpenVINO extra index needed when using nightly OpenVINO builds
+# OpenVINO pins (openvino, openvino-tokenizers) come from DL Streamer's
+# dependencies/versions.env, so models are exported with the OpenVINO version
+# DL Streamer runs. Nightly OpenVINO wheels need the extra index below.
+-c ../../requirements/constraints.txt
 --extra-index-url https://storage.openvinotoolkit.org/simple/wheels/nightly
+--extra-index-url https://download.pytorch.org/whl/cpu
 ultralytics==8.4.57
-openvino==2026.5.0.dev20261027
+openvino
 nncf==3.0.0
 huggingface_hub==1.21.0
 torch==2.13.0

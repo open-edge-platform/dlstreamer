@@ -1,0 +1,7 @@
+# GENERATED from dependencies/versions.env by scripts/check_versions.py --fix.
+# Do not edit by hand.
+#
+# OpenVINO Python wheels must match the OpenVINO runtime used by DL Streamer.
+# Requirements files of DL Streamer tools reference this file with -c.
+openvino==2026.5.0.dev20261027
+openvino-tokenizers==2026.5.0.0.dev20261027

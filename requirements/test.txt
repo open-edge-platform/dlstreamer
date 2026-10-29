@@ -1,0 +1,11 @@
+# Python packages used by DL Streamer unit and functional tests.
+pytest==8.3.3
+pluggy==1.5.0
+exceptiongroup==1.2.2
+iniconfig==2.0.0
+tabulate==0.9.0
+junit-xml==1.9
+XlsxWriter==3.2.0
+zxing-cpp==2.2.0
+pyzbar==0.1.9
+six==1.16.0
