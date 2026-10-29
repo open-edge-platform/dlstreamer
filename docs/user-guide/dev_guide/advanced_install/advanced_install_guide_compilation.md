@@ -101,18 +101,17 @@ packages:
 > and 3.13. Ubuntu 24.04's default Python (3.12) and Fedora 41's default
 > Python (3.13) already satisfy this, but Ubuntu 22.04's default Python
 > (3.10) and Ubuntu 26.04's default Python (3.14) do not - Python 3.11
-> (Ubuntu 22.04) / Python 3.13 (Ubuntu 26.04) must be installed from the
-> `deadsnakes` PPA and used for the virtual environment below, otherwise
-> native extensions built inside the venv (e.g. PyGObject) will not match
-> the interpreter DL Streamer's Python elements (e.g. `gvapython`) are
-> loaded into, causing import/ABI errors.
+> (Ubuntu 22.04) / Python 3.13 (Ubuntu 26.04) must be installed with `uv` and
+> used for the virtual environment below. Build native extensions such as
+> PyGObject inside that same environment so their Python ABI matches the
+> interpreter used by DL Streamer's Python elements (e.g. `gvapython`).
 
 <!--hide_directive::::{tab-set}
 :::{tab-item}hide_directive--> Ubuntu 24, Fedora 41, EMT
 <!--hide_directive:sync: tab1hide_directive-->
 
   ```bash
-  uv venv ~/python3venv
+  UV_PYTHON_PREFERENCE=only-system uv venv --python python3 ~/python3venv
   source ~/python3venv/bin/activate
 
   uv pip install meson==1.4.1 ninja==1.11.1.1
@@ -123,12 +122,9 @@ packages:
 <!--hide_directive:sync: tab2hide_directive-->
 
   ```bash
-  sudo apt-get install -y -q --no-install-recommends software-properties-common
-  sudo add-apt-repository -y ppa:deadsnakes/ppa
-  sudo apt-get update
-  sudo apt-get install -y -q --no-install-recommends python3.11 python3.11-venv python3.11-dev
+  uv python install 3.11
 
-  uv venv --python python3.11 ~/python3venv
+  UV_PYTHON_PREFERENCE=managed uv venv --python 3.11 ~/python3venv
   source ~/python3venv/bin/activate
 
   uv pip install meson==1.4.1 ninja==1.11.1.1
@@ -139,12 +135,9 @@ packages:
 <!--hide_directive:sync: tab4hide_directive-->
 
   ```bash
-  sudo apt-get install -y -q --no-install-recommends software-properties-common
-  sudo add-apt-repository -y ppa:deadsnakes/ppa
-  sudo apt-get update
-  sudo apt-get install -y -q --no-install-recommends python3.13 python3.13-venv python3.13-dev
+  uv python install 3.13
 
-  uv venv --python python3.13 ~/python3venv
+  UV_PYTHON_PREFERENCE=managed uv venv --python 3.13 ~/python3venv
   source ~/python3venv/bin/activate
 
   uv pip install meson==1.4.1 ninja==1.11.1.1
@@ -328,11 +321,10 @@ necessary dependencies using the following commands:
 > `uv` tool set up in [Step 3](#step-3-set-up-a-python-environment). If you
 > skipped that step, install `uv` and create the virtual environment first.
 
-> **NOTE:** `python3-dev` / `python-gi-dev` must match the Python version of
-> `~/python3venv` created in Step 3, otherwise native extensions built here
-> (e.g. PyGObject) won't be ABI-compatible with that interpreter. This means
-> using `python3.11-dev` on Ubuntu 22.04 and `python3.13-dev` on Ubuntu
-> 26.04, not the system-default `python3-dev`.
+> **NOTE:** Install PyGObject into the activated `~/python3venv` from Step 3
+> so it is built for that environment's Python ABI. Ubuntu 22.04 and 26.04
+> use uv-managed Python versions, which include their own development headers;
+> Ubuntu 24.04 uses the system Python, so install its matching `python3-dev`.
 
 <!--hide_directive::::{tab-set}
 :::{tab-item}hide_directive--> Ubuntu 24
@@ -340,7 +332,7 @@ necessary dependencies using the following commands:
 
   ```bash
   sudo apt-get update
-  sudo apt-get install -y -q --no-install-recommends gcc cmake python3-full python-gi-dev python3-dev python3-pip \
+  sudo apt-get install -y -q --no-install-recommends gcc cmake python-gi-dev python3-dev \
       libglib2.0-dev libcairo2-dev libopencv-objdetect-dev libopencv-photo-dev libopencv-stitching-dev libopencv-video-dev \
       libopencv-calib3d-dev libopencv-core-dev libopencv-dnn-dev libgirepository1.0-dev
 
@@ -355,7 +347,7 @@ necessary dependencies using the following commands:
 
   ```bash
   sudo apt-get update
-  sudo apt-get install -y -q --no-install-recommends gcc cmake python3.11-dev python-gi-dev python3-pip \
+  sudo apt-get install -y -q --no-install-recommends gcc cmake python-gi-dev \
       libglib2.0-dev libcairo2-dev libopencv-objdetect-dev libopencv-photo-dev libopencv-stitching-dev libopencv-video-dev \
       libopencv-calib3d-dev libopencv-core-dev libopencv-dnn-dev libgirepository1.0-dev
 
@@ -370,7 +362,7 @@ necessary dependencies using the following commands:
 
   ```bash
   sudo apt-get update
-  sudo apt-get install -y -q --no-install-recommends gcc cmake python3.13-dev python-gi-dev python3-pip \
+  sudo apt-get install -y -q --no-install-recommends gcc cmake python-gi-dev \
       libglib2.0-dev libcairo2-dev libopencv-objdetect-dev libopencv-photo-dev libopencv-stitching-dev libopencv-video-dev \
       libopencv-calib3d-dev libopencv-core-dev libopencv-dnn-dev libgirepository1.0-dev
 

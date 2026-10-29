@@ -78,20 +78,6 @@ RUN \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Python 3.13 - needed because the OpenVINO GenAI archive only ships
-# bindings for Python 3.11-3.13 while Ubuntu 26.04 provides Python 3.14 by default.
-RUN \
-    apt-get update && \
-    apt-get install -y -q --no-install-recommends software-properties-common=\* && \
-    add-apt-repository -y ppa:deadsnakes/ppa && \
-    apt-get update && \
-    apt-get install -y -q --no-install-recommends \
-    python3.13=\* \
-    python3.13-venv=\* \
-    python3.13-dev=\* && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
 # Intel NPU drivers and prerequisites installation
 WORKDIR /tmp/npu_deps
 
@@ -130,6 +116,9 @@ RUN \
 
 RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
 
+ENV UV_PYTHON_INSTALL_DIR=/opt/uv/python
+RUN uv python install 3.13
+
 # Force uv to build gst-python against the apt-installed system python3 instead of
 # silently downloading/using a different managed Python ABI.
 ENV UV_PYTHON_PREFERENCE=only-system
@@ -137,7 +126,7 @@ ENV UV_PYTHON_PREFERENCE=only-system
 USER dlstreamer
 
 RUN \
-    uv venv --python python3.13 /python3venv && \
+    UV_PYTHON_PREFERENCE=managed uv venv --python 3.13 /python3venv && \
     VIRTUAL_ENV=/python3venv uv pip install --no-cache-dir --no-deps \
     meson==1.4.1 \
     ninja==1.11.1.1 \
@@ -621,26 +610,17 @@ RUN \
 
 RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
 
-# Install Python 3.13 - needed to load the OpenVINO Python bindings
-# (.so files built for cpython-311/312/313 only).
-RUN \
-    apt-get update && \
-    apt-get install -y -q --no-install-recommends software-properties-common=\* && \
-    add-apt-repository -y ppa:deadsnakes/ppa && \
-    apt-get update && \
-    apt-get install -y -q --no-install-recommends \
-    python3.13=\* \
-    python3.13-venv=\* \
-    python3.13-dev=\* && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+ENV UV_PYTHON_INSTALL_DIR=/opt/uv/python
+RUN uv python install 3.13 && \
+    ln -s "$(uv python find 3.13)" /usr/local/bin/python3.13
 
 # Install onvif-zeep and remaining Python dependencies.
 RUN \
     apt-get update && \
-    apt-get install -y -q --no-install-recommends python3-pip=\* gcc=\* libcairo2-dev=\* libgirepository1.0-dev=\* && \
-    uv pip install --python python3.13 --system --no-cache-dir --break-system-packages onvif-zeep==0.2.12 && \
-    uv pip install --python python3.13 --system --no-cache-dir --break-system-packages -r /opt/intel/dlstreamer/requirements.txt && \
+    apt-get install -y -q --no-install-recommends gcc=\* libcairo2-dev=\* libgirepository1.0-dev=\* && \
+    uv pip install --python python3.13 --system --no-cache-dir \
+        onvif-zeep==0.2.12 \
+        -r /opt/intel/dlstreamer/requirements.txt && \
     apt-get remove -y gcc libcairo2-dev libgirepository1.0-dev && \
     apt-get autoremove -y && \
     PYTHON_SITE_PACKAGES=$(python3.13 -c "import site; print(site.getsitepackages()[0])") && \

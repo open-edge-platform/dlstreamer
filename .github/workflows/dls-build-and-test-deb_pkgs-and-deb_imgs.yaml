@@ -470,29 +470,22 @@ jobs:
               sudo apt install -y libopencv-dev
           fi
 
-          # On Ubuntu 26 (PTL), system Python is 3.14 which is not supported by OpenVINO Python bindings.
-          # OpenVINO provides bindings only for Python 3.11, 3.12, 3.13.
-          # Install Python 3.13 via deadsnakes PPA and use it for the virtualenv.
-          if [[ ${ubuntu_version} == "ubuntu26" ]]; then
-              sudo apt install -y software-properties-common
-              sudo add-apt-repository -y ppa:deadsnakes/ppa
-              sudo apt update
-              sudo apt install -y python3.13 python3.13-dev python3.13-venv
-              PYTHON_BIN=python3.13
-          else
-              PYTHON_BIN=python3
-          fi
-
           if [ -d "$HOME/.virtualenvs" ]; then
             echo "Directory $HOME/.virtualenvs exists - removing it"
             rm -rf $HOME/.virtualenvs
           fi
           mkdir -p $HOME/.virtualenvs/dlstreamer
 
-          # Use the system python3 (not a uv-managed one) so its ABI matches libgstpython.so,
-          # which was built against the system python3 inside the deb build image.
-          # Exception: on Ubuntu 26, use python3.13 due to OpenVINO binding compatibility.
-          UV_PYTHON_PREFERENCE=only-system uv venv --python ${PYTHON_BIN} $HOME/.virtualenvs/dlstreamer
+          # On Ubuntu 26 (PTL), system Python is 3.14 which is not supported by OpenVINO Python bindings.
+          # OpenVINO provides bindings only for Python 3.11, 3.12, 3.13.
+          if [[ ${ubuntu_version} == "ubuntu26" ]]; then
+              uv python install 3.13
+              UV_PYTHON_PREFERENCE=managed uv venv --python 3.13 $HOME/.virtualenvs/dlstreamer
+          else
+              # Match the system Python ABI used by libgstpython.so.
+              UV_PYTHON_PREFERENCE=only-system uv venv --python python3 $HOME/.virtualenvs/dlstreamer
+          fi
+
           VIRTUAL_ENV=$HOME/.virtualenvs/dlstreamer uv pip install --no-cache-dir -r $DLS_REL_PATH/requirements.txt
 
       - name: 🚀 Run on host tests

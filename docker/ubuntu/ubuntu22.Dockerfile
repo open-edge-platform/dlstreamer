@@ -100,19 +100,10 @@ RUN \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Python 3.11 - needed because the OpenVINO since 2026.5.0 release
-# only ships bindings for Python 3.11+ (cpython-311/312/313 .so files)
-# while Ubuntu 22.04 only provides Python 3.10 by default.
-RUN \
-    apt-get update && \
-    apt-get install -y -q --no-install-recommends \
-    python3.11=\* \
-    python3.11-venv=\* \
-    python3.11-dev=\* && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
 RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
+
+ENV UV_PYTHON_INSTALL_DIR=/opt/uv/python
+RUN uv python install 3.11
 
 RUN \
     useradd -ms /bin/bash dlstreamer && \
@@ -123,7 +114,7 @@ RUN \
 USER dlstreamer
 
 RUN \
-    uv venv --python python3.11 /python3venv && \
+    UV_PYTHON_PREFERENCE=managed uv venv --python 3.11 /python3venv && \
     VIRTUAL_ENV=/python3venv uv pip install --no-cache-dir --upgrade pip==26.1.2 && \
     VIRTUAL_ENV=/python3venv uv pip install --no-cache-dir --no-deps \
     meson==1.4.1 \
@@ -434,7 +425,7 @@ ENV GST_PLUGIN_SCANNER=${GSTREAMER_DIR}/bin/gstreamer-1.0/gst-plugin-scanner
 ENV GI_TYPELIB_PATH=${GSTREAMER_DIR}/lib/girepository-1.0:${DLSTREAMER_DIR}/build/src/gst/metadata/
 # OpenVINO Python bindings (openvino + openvino_genai) are provided from the
 # GenAI archive via PYTHONPATH. Python 3.11 .so files match the python3.11
-# installed from deadsnakes PPA.
+# managed by uv.
 ENV PYTHONPATH=/opt/intel/openvino_genai/python:${GSTREAMER_DIR}/lib/python3/dist-packages:${DLSTREAMER_DIR}/python:${DLSTREAMER_DIR}/scripts/optimizer:${PYTHONPATH}
 
 # Build DLStreamer
@@ -579,16 +570,9 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
 
-# Install Python 3.11 from deadsnakes PPA in the final image too - needed to
-# load the OpenVINO Python bindings (.so files built for cpython-311+).
-RUN \
-    apt-get update && \
-    apt-get install -y -q --no-install-recommends \
-    python3.11=\* \
-    python3.11-venv=\* \
-    python3.11-dev=\* && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+ENV UV_PYTHON_INSTALL_DIR=/opt/uv/python
+RUN uv python install 3.11 && \
+    ln -s "$(uv python find 3.11)" /usr/local/bin/python3.11
 
 # Install the .deb package plus the DL Streamer Python requirements.
 RUN \
@@ -616,7 +600,7 @@ ENV MODEL_PROC_PATH=/opt/intel/dlstreamer/samples/gstreamer/model_proc
 ENV PATH=/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/bin:$PATH
 # OpenVINO Python bindings (openvino + openvino_genai) from GenAI archive
 # added first in PYTHONPATH. Python 3.11 .so files match the python3.11
-# installed from deadsnakes PPA.
+# managed by uv.
 ENV PYTHONPATH=/opt/intel/openvino_genai/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:
 ENV TERM=xterm
 ENV GI_TYPELIB_PATH=/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/opt/intel/dlstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0
