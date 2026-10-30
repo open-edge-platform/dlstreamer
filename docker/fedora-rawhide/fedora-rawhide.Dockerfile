@@ -1,4 +1,10 @@
-# Build: docker build -f docker/fedora/fedora-rawhide-system-gst.Dockerfile -t dlstreamer-fedora-rawhide-system-gst .
+# ==============================================================================
+# Copyright (C) 2026 Intel Corporation
+#
+# SPDX-License-Identifier: MIT
+# ==============================================================================
+
+# Build: docker build -f docker/fedora-rawhide/fedora-rawhide.Dockerfile -t dlstreamer-fedora-rawhide .
 # Run from the repository root.
 
 # ==============================================================================
@@ -11,8 +17,8 @@ RUN dnf install -y --setopt=install_weak_deps=False rpm-build rpmdevtools dnf-pl
     dnf clean all && \
     rpmdev-setuptree
 
-COPY docker/fedora/dlstreamer-system-gst.spec /root/rpmbuild/SPECS/dlstreamer.spec
-COPY docker/fedora/patches/ /root/rpmbuild/SOURCES/
+COPY docker/fedora-rawhide/dlstreamer.spec /root/rpmbuild/SPECS/
+COPY docker/fedora-rawhide/patches/ /root/rpmbuild/SOURCES/
 
 RUN spectool -g -R /root/rpmbuild/SPECS/dlstreamer.spec && \
     dnf builddep -y /root/rpmbuild/SPECS/dlstreamer.spec && \
