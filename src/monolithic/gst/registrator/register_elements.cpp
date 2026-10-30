@@ -9,6 +9,9 @@
 #include <gst/gst.h>
 
 #include "gstgvaaudiodetect.h"
+#include "gstgvaeventrecorder.h"
+#include "gstgvaframeselect.h"
+#include "gstgvaroiscale.h"
 #include "gstgvastreamdemux.h"
 #include "gstgvastreammux.h"
 #ifdef ENABLE_GENAI
@@ -83,6 +86,12 @@ static gboolean plugin_init(GstPlugin *plugin) {
     if (!gst_element_register(plugin, "gvastreamdemux", GST_RANK_NONE, GST_TYPE_GVA_STREAMDEMUX))
         return FALSE;
     if (!gst_element_register(plugin, "gvafpscounter", GST_RANK_NONE, GST_TYPE_GVA_FPSCOUNTER))
+        return FALSE;
+    if (!gst_element_register(plugin, "gvaeventrecorder", GST_RANK_NONE, GST_TYPE_GVAEVENTRECORDER))
+        return FALSE;
+    if (!gst_element_register(plugin, "gvaframeselect", GST_RANK_NONE, GST_TYPE_GVA_FRAME_SELECT))
+        return FALSE;
+    if (!gst_element_register(plugin, "gvaroiscale", GST_RANK_NONE, GST_TYPE_GVA_ROI_SCALE))
         return FALSE;
 
     // register metadata
