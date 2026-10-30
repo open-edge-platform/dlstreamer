@@ -56,6 +56,10 @@ Element Properties:
                         flags: readable, writable
                         Boolean. Default: false
 
+  track-timeout       : Stream-time seconds without observation before tracking history expires; 0 disables
+                        flags: readable, writable, changeable only in NULL or READY state
+                        Double. Range: 0 - 1.797693e+308 Default: 30
+
   tripwires           : Inline JSON tripwires configuration
                         flags: readable, writable
                         String. Default: null
@@ -63,6 +67,24 @@ Element Properties:
   zones               : Inline JSON zones configuration
                         flags: readable, writable
                         String. Default: null
+```
+
+## Tracking-state expiration
+
+`track-timeout` controls how long an unobserved tracking ID retains its tripwire and dwell-time history.
+It is a finite, non-negative number of seconds, defaults to **30.0**, and can only be changed in NULL or READY.
+Set `track-timeout=0` to disable expiration and preserve the previous behavior of retaining all IDs until stop.
+
+On each buffer, expired IDs are removed before detections are processed, including on buffers without detections
+or analytics metadata. An ID expires when its age is greater than or equal to the timeout. Removing an ID also
+releases its dwell-zone entries. A returning ID starts fresh after expiration: dwell time restarts and no tripwire
+crossing is calculated against its old position. Before expiration, existing zone `object-retention` rules still apply.
+Choose a timeout that accommodates expected occlusions and zone retention requirements.
+
+For example:
+
+```bash
+gvaanalytics config=/path/to/analytics-config.json track-timeout=30.0
 ```
 
 ## Configuration
