@@ -75,10 +75,17 @@ const int TWO_TENSORS_OFFSET_Y2 = 6; // y coordinate of the bottom right corner 
 const std::string TWO_TENSORS_BOXES_KEY = "reshape_do_2d";
 const std::string TWO_TENSORS_MASKS_KEY = "SecondStageBoxPredictor_1/Conv_3/BiasAdd";
 
+/*
+DETR instance segmentation (model_type "DETRInstSeg", e.g. Geti RF-DETR-Seg) uses the three tensors layout, except:
+    labels - class ids index the labels list directly (no background shift)
+    masks  - [B, N, H, W] masks covering the whole model input; each is cropped to its box
+*/
 class MaskRCNNConverter : public BlobToROIConverter {
   public:
-    MaskRCNNConverter(BlobToMetaConverter::Initializer initializer, double confidence_threshold, double iou_threshold)
-        : BlobToROIConverter(std::move(initializer), confidence_threshold, true, iou_threshold) {
+    MaskRCNNConverter(BlobToMetaConverter::Initializer initializer, double confidence_threshold, double iou_threshold,
+                      bool detr_inst_seg = false)
+        : BlobToROIConverter(std::move(initializer), confidence_threshold, true, iou_threshold),
+          detr_inst_seg(detr_inst_seg) {
     }
 
     TensorsTable convert(const OutputBlobs &output_blobs) override;
@@ -87,8 +94,15 @@ class MaskRCNNConverter : public BlobToROIConverter {
         return "mask_rcnn";
     }
 
+    static std::string getDetrInstSegName() {
+        return "detr_inst_seg";
+    }
+
     static std::string getDeprecatedName() {
         return "tensor_to_bbox_mask_rcnn";
     }
+
+  private:
+    const bool detr_inst_seg;
 };
 } // namespace post_processing

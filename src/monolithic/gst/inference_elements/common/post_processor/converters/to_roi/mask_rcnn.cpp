@@ -12,7 +12,10 @@
 #include "safe_arithmetic.hpp"
 
 #include <gst/gst.h>
+#include <opencv2/imgproc.hpp>
 
+#include <algorithm>
+#include <cmath>
 #include <map>
 #include <memory>
 #include <string>
@@ -41,6 +44,9 @@ TensorsTable MaskRCNNConverter::convert(const OutputBlobs &output_blobs) {
             BOXES_KEY = THREE_TENSORS_BOXES_KEY;
             LABELS_KEY = THREE_TENSORS_LABELS_KEY;
             MASKS_KEY = THREE_TENSORS_MASKS_KEY;
+        } else if (detr_inst_seg) {
+            throw std::invalid_argument("DETR instance segmentation expects 3 outputs (boxes, labels, masks), got " +
+                                        std::to_string(output_blobs.size()) + ".");
         }
 
         for (size_t batch_number = 0; batch_number < batch_size; ++batch_number) {
@@ -117,7 +123,8 @@ TensorsTable MaskRCNNConverter::convert(const OutputBlobs &output_blobs) {
                     h = output_data[THREE_TENSORS_OFFSET_Y2] - y;
                     confidence = output_data[THREE_TENSORS_OFFSET_BS];
 
-                    main_class = labels_data[box_index] + 1;
+                    // Mask R-CNN ids skip the background entry at labels[0]; DETR ids are already label indices.
+                    main_class = labels_data[box_index] + (detr_inst_seg ? 0 : 1);
                     mask = &masks_data[box_index * box_stride];
                 } else {
                     x = output_data[TWO_TENSORS_OFFSET_X1] * input_width;
@@ -146,19 +153,38 @@ TensorsTable MaskRCNNConverter::convert(const OutputBlobs &output_blobs) {
                 gst_structure_set(tensor, "format", G_TYPE_STRING, GVA::TENSOR_FORMAT_INSTANCE_SEGMENTATION, NULL);
                 gst_structure_set(tensor, "type", G_TYPE_STRING, GVA::GST_ANALYTICS_SEGMENTATION_2_TENSOR, NULL);
 
+                size_t mask_out_width = masks_width;
+                size_t mask_out_height = masks_height;
+                cv::Mat box_mask;
+                if (detr_inst_seg) {
+                    // The mask covers the whole input image: resample the box area, sized in input pixels.
+                    mask_out_width = static_cast<size_t>(std::max(1.0f, std::round(w)));
+                    mask_out_height = static_cast<size_t>(std::max(1.0f, std::round(h)));
+                    const double sx = static_cast<double>(masks_width) / input_width;
+                    const double sy = static_cast<double>(masks_height) / input_height;
+                    // Pixel-center mapping (as cv::resize): src = (x + col + 0.5) * sx - 0.5
+                    const cv::Matx23d to_mask(sx, 0, (x + 0.5) * sx - 0.5, 0, sy, (y + 0.5) * sy - 0.5);
+                    const cv::Mat full_mask(safe_convert<int>(masks_height), safe_convert<int>(masks_width), CV_32FC1,
+                                            const_cast<float *>(mask));
+                    cv::warpAffine(full_mask, box_mask, to_mask,
+                                   cv::Size(safe_convert<int>(mask_out_width), safe_convert<int>(mask_out_height)),
+                                   cv::INTER_LINEAR | cv::WARP_INVERSE_MAP, cv::BORDER_REPLICATE);
+                    mask = box_mask.ptr<float>();
+                }
+
                 GValueArray *data = g_value_array_new(2);
                 GValue gvalue = G_VALUE_INIT;
                 g_value_init(&gvalue, G_TYPE_UINT);
                 // dims = [W, H], matching the convention used by other instance-segmentation converters
-                g_value_set_uint(&gvalue, safe_convert<uint32_t>(masks_width));
+                g_value_set_uint(&gvalue, safe_convert<uint32_t>(mask_out_width));
                 g_value_array_append(data, &gvalue);
-                g_value_set_uint(&gvalue, safe_convert<uint32_t>(masks_height));
+                g_value_set_uint(&gvalue, safe_convert<uint32_t>(mask_out_height));
                 g_value_array_append(data, &gvalue);
                 gst_structure_set_array(tensor, "dims", data);
                 g_value_array_free(data);
 
                 copy_buffer_to_structure(tensor, reinterpret_cast<const void *>(mask),
-                                         masks_height * masks_width * sizeof(float));
+                                         mask_out_height * mask_out_width * sizeof(float));
                 detected_object.tensors.push_back(tensor);
 
                 objects.push_back(detected_object);
