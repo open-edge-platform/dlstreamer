@@ -132,6 +132,9 @@ option(ENABLE_GENAI "Enables GenAI elements" OFF)
 # fmt is the only part of spdlog used by DL Streamer. Distribution packages can use the system fmt instead of the copy
 # bundled with thirdparty/spdlog.
 option(ENABLE_SYSTEM_FMT "Use system fmt library instead of the one bundled with thirdparty/spdlog" OFF)
+# nlohmann_json and json-schema-validator are downloaded at configure time by default. Distribution packages can use
+# the system libraries instead.
+option(ENABLE_SYSTEM_JSON "Use system nlohmann_json and json-schema-validator instead of downloading them" OFF)
 # Enable GenAI by default on Windows.
 # It can be enabled on Ubuntu but there is no support for Fedora.
 if(WIN32)
@@ -207,6 +210,13 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DHAVE_CONFIG_H")
 
 find_package(Threads REQUIRED)
 find_package(PkgConfig REQUIRED)
+
+# Imported targets are visible only in the directory where they are found and below, so system libraries
+# are found here, before the subdirectories that link them.
+if(ENABLE_SYSTEM_JSON)
+    find_package(nlohmann_json CONFIG REQUIRED)
+    find_package(nlohmann_json_schema_validator CONFIG REQUIRED)
+endif()
 
 pkg_check_modules(GSTREAMER gstreamer-1.0>=1.16 REQUIRED)
 link_directories(${GSTREAMER_LIBRARY_DIRS})
