@@ -67,7 +67,8 @@ if ($InputSource -match "://") {
 if ($Device -eq "CPU") {
     $PREPROC_BACKEND = "opencv"
 } else {
-    $PREPROC_BACKEND = "d3d11"
+    # GPU passes the pre-processed frame to OpenVINO in GPU memory; NPU and AUTO do not support it
+    $PREPROC_BACKEND = if ($Device -like "GPU*") { "d3d12-surface-sharing" } else { "d3d12" }
 }
 
 # Set sink element based on output type
@@ -83,7 +84,7 @@ switch ($OutputType) {
         if ($Device -eq "CPU") {
             $SINK_STR = "gvawatermark ! videoconvert ! gvafpscounter ! autovideosink sync=false"
         } else {
-            $SINK_STR = "d3d11convert ! gvawatermark ! videoconvert ! gvafpscounter ! d3d11videosink sync=false"
+            $SINK_STR = "d3d12convert ! gvawatermark ! gvafpscounter ! d3d12videosink sync=false"
         }
     }
     "display-and-json" {
@@ -91,7 +92,7 @@ switch ($OutputType) {
         if ($Device -eq "CPU") {
             $SINK_STR = "gvawatermark ! gvametaconvert add-tensor-data=true ! gvametapublish file-format=json-lines file-path=output.json ! videoconvert ! gvafpscounter ! autovideosink sync=false"
         } else {
-            $SINK_STR = "d3d11convert ! gvawatermark ! gvametaconvert add-tensor-data=true ! gvametapublish file-format=json-lines file-path=output.json ! videoconvert ! gvafpscounter ! d3d11videosink sync=false"
+            $SINK_STR = "d3d12convert ! gvawatermark ! gvametaconvert add-tensor-data=true ! gvametapublish file-format=json-lines file-path=output.json ! gvafpscounter ! d3d12videosink sync=false"
         }
     }
     default {
