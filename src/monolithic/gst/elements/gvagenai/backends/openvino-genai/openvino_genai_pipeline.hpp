@@ -86,6 +86,13 @@ class OpenVINOGenAIContext {
     float get_last_confidence() const;
 
     /**
+     * @brief Get the performance of the last inference request only
+     * @return Metrics taken from that request's PerfMetrics, before they are merged into the
+     *         lifetime accumulator used by create_json_metadata()
+     */
+    GenAIRequestMetrics get_last_request_metrics() const;
+
+    /**
      * @brief Create JSON metadata from the last result and metrics
      * @param timestamp Frame timestamp in nanoseconds (GST_CLOCK_TIME)
      * @param include_metrics Whether to include performance metrics
@@ -100,6 +107,7 @@ class OpenVINOGenAIContext {
     ov::genai::VLMPerfMetrics metrics = {};
     std::string last_result = "";
     float last_confidence = -1.0f; // -1.0f = unavailable (greedy decoding fills scores with 0)
+    GenAIRequestMetrics last_request_metrics = {};
 };
 
 } // namespace genai
