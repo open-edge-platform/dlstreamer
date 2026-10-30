@@ -60,11 +60,6 @@ static GstStaticPadTemplate src_template =
 
 namespace {
 
-struct CachedFrame {
-    GstBuffer *buffer = nullptr;
-    bool has_target_roi = false;
-};
-
 struct RoiBounds {
     bool valid = false;
     gint64 left = 0;
@@ -76,7 +71,7 @@ struct RoiBounds {
 struct GstGvaFrameSelectRuntime {
     GstVideoInfo video_info;
     gboolean video_info_valid = FALSE;
-    std::vector<CachedFrame> pending_frames;
+    std::vector<GstBuffer *> pending_frames;
     RoiBounds aggregate_roi;
 
     GstGvaFrameSelectRuntime() {
@@ -104,8 +99,8 @@ static GArray *parse_target_classes(const gchar *csv) {
 }
 
 static void clear_pending_frames(GstGvaFrameSelectRuntime *runtime) {
-    for (const CachedFrame &frame : runtime->pending_frames)
-        gst_buffer_unref(frame.buffer);
+    for (GstBuffer *buffer : runtime->pending_frames)
+        gst_buffer_unref(buffer);
     runtime->pending_frames.clear();
     runtime->aggregate_roi = {};
 }
@@ -274,10 +269,10 @@ static bool is_target_class(GQuark label, const GArray *target_classes) {
     return std::find(labels, labels + target_classes->len, label) != labels + target_classes->len;
 }
 
-static bool collect_frame_rois(GstGvaFrameSelect *self, GstGvaFrameSelectRuntime *runtime, GstBuffer *buffer) {
+static void collect_frame_rois(GstGvaFrameSelect *self, GstGvaFrameSelectRuntime *runtime, GstBuffer *buffer) {
     GstAnalyticsRelationMeta *relation_meta = gst_buffer_get_analytics_relation_meta(buffer);
     if (!relation_meta || !runtime->video_info_valid)
-        return false;
+        return;
 
     GArray *target_classes;
     gdouble confidence_threshold;
@@ -288,7 +283,6 @@ static bool collect_frame_rois(GstGvaFrameSelect *self, GstGvaFrameSelectRuntime
 
     const gint64 frame_width = GST_VIDEO_INFO_WIDTH(&runtime->video_info);
     const gint64 frame_height = GST_VIDEO_INFO_HEIGHT(&runtime->video_info);
-    bool found = false;
     gpointer state = nullptr;
     GstAnalyticsODMtd detection;
     while (
@@ -318,11 +312,9 @@ static bool collect_frame_rois(GstGvaFrameSelect *self, GstGvaFrameSelectRuntime
             roi.right = std::max(roi.right, right);
             roi.bottom = std::max(roi.bottom, bottom);
         }
-        found = true;
     }
 
     g_array_unref(target_classes);
-    return found;
 }
 
 static GstFlowReturn push_pending_frames(GstGvaFrameSelect *self, GstGvaFrameSelectRuntime *runtime) {
@@ -349,18 +341,18 @@ static GstFlowReturn push_pending_frames(GstGvaFrameSelect *self, GstGvaFrameSel
     }
 
     GstFlowReturn flow = GST_FLOW_OK;
-    for (CachedFrame &frame : runtime->pending_frames) {
-        GstBuffer *buffer = gst_buffer_make_writable(frame.buffer);
-        frame.buffer = nullptr;
+    for (GstBuffer *&frame : runtime->pending_frames) {
+        GstBuffer *buffer = gst_buffer_make_writable(frame);
+        frame = nullptr;
         if (!buffer) {
             flow = GST_FLOW_ERROR;
             continue;
         }
 
-        const gint64 left = frame.has_target_roi && padded_roi.valid ? padded_roi.left : 0;
-        const gint64 top = frame.has_target_roi && padded_roi.valid ? padded_roi.top : 0;
-        const gint64 right = frame.has_target_roi && padded_roi.valid ? padded_roi.right : frame_width;
-        const gint64 bottom = frame.has_target_roi && padded_roi.valid ? padded_roi.bottom : frame_height;
+        const gint64 left = padded_roi.valid ? padded_roi.left : 0;
+        const gint64 top = padded_roi.valid ? padded_roi.top : 0;
+        const gint64 right = padded_roi.valid ? padded_roi.right : frame_width;
+        const gint64 bottom = padded_roi.valid ? padded_roi.bottom : frame_height;
         if (!gst_buffer_add_video_region_of_interest_meta(
                 buffer, dlstreamer::metadata::AGGREGATED_ROI_TYPE, static_cast<guint>(left), static_cast<guint>(top),
                 static_cast<guint>(right - left), static_cast<guint>(bottom - top)))
@@ -428,8 +420,8 @@ static GstFlowReturn gst_gva_frame_select_transform_ip(GstBaseTransform *transfo
     if (selected_frame) {
         // For video, GstBuffer offset is defined as the frame number.
         GST_BUFFER_OFFSET(buffer) = stream_frame_number;
-        const bool has_target_roi = collect_frame_rois(self, runtime, buffer);
-        runtime->pending_frames.push_back({gst_buffer_ref(buffer), has_target_roi});
+        collect_frame_rois(self, runtime, buffer);
+        runtime->pending_frames.push_back(gst_buffer_ref(buffer));
     }
 
     const bool block_complete = self->frame_index == 0;

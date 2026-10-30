@@ -59,6 +59,9 @@ threshold to the same value configured on the recorder.
 For a full block of `N` frames and a budget of `k`, selected positions are evenly spaced from the first frame to the last. If `k=1`, only the first frame is selected; if `k >= N`, every frame is forwarded. The selection pattern restarts at each full block and when an input buffer has the `DISCONT` flag. A short final block uses the same pattern and is not recalculated for its shorter length.
 
 When used after `gvaeventrecorder`, the selector flushes a partial selection at `event=stop`. Set its `confidence-threshold` to the same value as the recorder; the property is configured independently and is not propagated automatically. The `target-classes` and `roi-padding` properties control which detections contribute to the shared ROI and how many pixels are added around it.
+Every selected frame in the block receives that same ROI, including PRE and POST event frames
+without accepted detections, so a downstream `gvaroiscale` crops the same area from all of them.
+If the entire selection has no accepted detections, the shared ROI covers the full frame.
 
 ## Output
 

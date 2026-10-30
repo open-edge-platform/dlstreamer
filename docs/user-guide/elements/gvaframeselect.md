@@ -21,9 +21,10 @@ For each selection block, the element caches the selected frames until it has co
 `frame-budget` frames. It computes the union of the bounding boxes for all objects whose labels
 match `target-classes` and whose confidence meets `confidence-threshold`, across all classes and
 cached frames. The configured `roi-padding` is then added on every side, with the result clipped
-to the image bounds. The same marked ROI metadata is attached to each cached frame containing an
-accepted target detection; original analytics detections are preserved. A cached frame without
-an accepted target detection gets a full-frame ROI instead.
+to the image bounds. The same marked ROI metadata is attached to every cached frame, including
+PRE and POST event frames without an accepted target detection, so `gvaroiscale` crops the same
+area throughout the selection block. Original analytics detections are preserved. If none of
+the cached frames has an accepted target detection, every frame gets a full-frame ROI instead.
 
 This buffering adds latency: a full block is not forwarded until its selected-frame budget is
 collected. A partial block is flushed at `event=stop` from `gvaeventrecorder`, at a block boundary,
