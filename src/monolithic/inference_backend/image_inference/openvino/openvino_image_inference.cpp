@@ -6,7 +6,13 @@
 
 #include "gst/gststructure.h"
 #include "inference_backend/image_inference.h"
+#ifdef DLS_USE_SYSTEM_FMT
+#include <fmt/format.h>
+#include <fmt/ranges.h>
+#else
+#include <spdlog/fmt/bundled/ranges.h>
 #include <spdlog/fmt/fmt.h>
+#endif
 
 #include <cstddef>
 #include <openvino/runtime/properties.hpp>
@@ -19,8 +25,6 @@
 #endif
 // For logger_name
 #include <dlstreamer/element.h>
-
-#include <spdlog/fmt/bundled/ranges.h>
 
 #include "model_api_converters.h"
 #include "openvino_image_inference.h"
