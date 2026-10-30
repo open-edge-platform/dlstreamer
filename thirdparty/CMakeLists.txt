@@ -36,18 +36,25 @@ if(${ENABLE_TESTS})
 endif()
 
 # Populate json dependency
-FetchContent_Declare(
-    nlohmann_json
-    URL https://github.com/nlohmann/json/archive/v3.12.0.zip
-)
-FetchContent_MakeAvailable(nlohmann_json)
-FetchContent_Declare(
-    json_schema_validator
-    URL https://github.com/pboettch/json-schema-validator/archive/2.4.0.tar.gz
-)
-FetchContent_MakeAvailable(json_schema_validator)
-add_library(json-hpp ALIAS nlohmann_json)
-add_library(json-schema-validator ALIAS nlohmann_json_schema_validator)
+if(ENABLE_SYSTEM_JSON)
+    add_library(json-hpp INTERFACE)
+    target_link_libraries(json-hpp INTERFACE nlohmann_json::nlohmann_json)
+    add_library(json-schema-validator INTERFACE)
+    target_link_libraries(json-schema-validator INTERFACE nlohmann_json_schema_validator::validator)
+else()
+    FetchContent_Declare(
+        nlohmann_json
+        URL https://github.com/nlohmann/json/archive/v3.12.0.zip
+    )
+    FetchContent_MakeAvailable(nlohmann_json)
+    FetchContent_Declare(
+        json_schema_validator
+        URL https://github.com/pboettch/json-schema-validator/archive/2.4.0.tar.gz
+    )
+    FetchContent_MakeAvailable(json_schema_validator)
+    add_library(json-hpp ALIAS nlohmann_json)
+    add_library(json-schema-validator ALIAS nlohmann_json_schema_validator)
+endif()
 
 # Hint compiler about location of the header file generated.
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
