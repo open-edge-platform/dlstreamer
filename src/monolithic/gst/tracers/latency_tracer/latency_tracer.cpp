@@ -941,11 +941,6 @@ static void on_element_change_state_post(LatencyTracer *lt, guint64 ts, GstEleme
             GMutexLockGuard lock(mtx);
             GST_INFO_OBJECT(lt, "Found %zu source(s) and %zu sink(s)", sources->size(), sinks->size());
         }
-
-        GstTracer *tracer = GST_TRACER(lt);
-        gst_tracing_register_hook(tracer, "pad-push-pre", G_CALLBACK(do_push_buffer_pre));
-        gst_tracing_register_hook(tracer, "pad-push-list-pre", G_CALLBACK(do_push_buffer_list_pre));
-        gst_tracing_register_hook(tracer, "pad-pull-range-post", G_CALLBACK(do_pull_range_post));
     }
 }
 // GStreamer tracer hook for element creation
@@ -983,6 +978,12 @@ static void latency_tracer_init(LatencyTracer *lt) {
     GstTracer *tracer = GST_TRACER(lt);
     gst_tracing_register_hook(tracer, "element-new", G_CALLBACK(on_element_new));
     gst_tracing_register_hook(tracer, "element-change-state-post", G_CALLBACK(on_element_change_state_post));
+    // Register every hook exactly once: GStreamer keeps hooks in a process-wide list without
+    // de-duplication, so registering again (e.g. per pipeline state change) runs the callback
+    // once per registration and counts each buffer several times.
+    gst_tracing_register_hook(tracer, "pad-push-pre", G_CALLBACK(do_push_buffer_pre));
+    gst_tracing_register_hook(tracer, "pad-push-list-pre", G_CALLBACK(do_push_buffer_list_pre));
+    gst_tracing_register_hook(tracer, "pad-pull-range-post", G_CALLBACK(do_pull_range_post));
     GST_OBJECT_UNLOCK(lt);
 }
 
