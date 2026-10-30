@@ -258,3 +258,4 @@ for what applies when elements share a model.
 
 The sample writes no files. It prints the changes with their status while it runs, and the table of phases at the end.
 It exits with `0` when the pipeline finishes and `1` on a pipeline error.
+
