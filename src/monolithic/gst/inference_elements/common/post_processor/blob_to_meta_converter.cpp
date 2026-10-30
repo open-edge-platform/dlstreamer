@@ -84,14 +84,15 @@ std::string resolveConverterName(const std::string &requested) {
     // model_type values from model_info metadata.
     // The YOLO* names are also listed in convertYoloMeta2ModelApi() (model_api_converters.cpp); keep in sync.
     static const std::unordered_map<std::string, std::string> model_type_to_converter = {
-        {"ssd", BoxesLabelsScoresConverter::getName()},      // Geti / Model API detection
-        {"Classification", LabelConverter::getName()},       // Geti / Model API classification
-        {"MaskRCNN", MaskRCNNConverter::getName()},          // Geti / Model API instance segmentation
-        {"Segmentation", "semantic_segmentation"},           // Geti / Model API semantic segmentation
-        {"rotated_detection", MaskRCNNConverter::getName()}, // Geti oriented detection
-        {"YOLOv8", YOLOv8Converter::getName()},              // older DL Streamer download scripts (Ultralytics)
-        {"YOLOv8-OBB", YOLOv8ObbConverter::getName()},       // older DL Streamer download scripts (Ultralytics)
-        {"YOLOv8-SEG", YOLOv8SegConverter::getName()}};      // older DL Streamer download scripts (Ultralytics)
+        {"ssd", BoxesLabelsScoresConverter::getName()},           // Geti / Model API detection
+        {"Classification", LabelConverter::getName()},            // Geti / Model API classification
+        {"MaskRCNN", MaskRCNNConverter::getName()},               // Geti / Model API instance segmentation
+        {"DETRInstSeg", MaskRCNNConverter::getDetrInstSegName()}, // Geti DETR instance segmentation (RF-DETR-Seg)
+        {"Segmentation", "semantic_segmentation"},                // Geti / Model API semantic segmentation
+        {"rotated_detection", MaskRCNNConverter::getName()},      // Geti oriented detection
+        {"YOLOv8", YOLOv8Converter::getName()},                   // older DL Streamer download scripts (Ultralytics)
+        {"YOLOv8-OBB", YOLOv8ObbConverter::getName()},            // older DL Streamer download scripts (Ultralytics)
+        {"YOLOv8-SEG", YOLOv8SegConverter::getName()}};           // older DL Streamer download scripts (Ultralytics)
 
     // Old converter names typed by users in model-proc files; still accepted, with a deprecation warning.
     static const std::unordered_map<std::string, std::string> legacy_converter_names = {
