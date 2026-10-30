@@ -129,6 +129,9 @@ cmake_dependent_option(ENABLE_RDKAFKA_INSTALLATION "Enables rdkafka installation
 option(ENABLE_AUDIO_INFERENCE_ELEMENTS "Enables audio inference elements" ON)
 option(ENABLE_REALSENSE "Parameter to enable RelaseSense plugin compilation" OFF)
 option(ENABLE_GENAI "Enables GenAI elements" OFF)
+# fmt is the only part of spdlog used by DL Streamer. Distribution packages can use the system fmt instead of the copy
+# bundled with thirdparty/spdlog.
+option(ENABLE_SYSTEM_FMT "Use system fmt library instead of the one bundled with thirdparty/spdlog" OFF)
 # Enable GenAI by default on Windows.
 # It can be enabled on Ubuntu but there is no support for Fedora.
 if(WIN32)

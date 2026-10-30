@@ -9,7 +9,6 @@
 
 #include "gst/gststructure.h"
 #include "inference_backend/image_inference.h"
-#include <spdlog/fmt/fmt.h>
 
 #include <openvino/runtime/properties.hpp>
 

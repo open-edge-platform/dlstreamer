@@ -16,9 +16,6 @@
 
 #include <openvino/runtime/intel_npu/properties.hpp>
 
-#include <spdlog/fmt/bundled/ranges.h>
-#include <spdlog/fmt/fmt.h>
-
 #ifdef _WIN32
 #include <dlstreamer/d3d11/context.h>
 #include <dlstreamer/d3d12/context.h>

@@ -11,7 +11,13 @@
 
 #include "inference_backend/pre_proc.h"
 
+#ifdef DLS_USE_SYSTEM_FMT
+#include <fmt/format.h>
+#include <fmt/ranges.h>
+#else
+#include <spdlog/fmt/bundled/ranges.h>
 #include <spdlog/fmt/fmt.h>
+#endif
 
 #include <openvino/core/any.hpp>
 

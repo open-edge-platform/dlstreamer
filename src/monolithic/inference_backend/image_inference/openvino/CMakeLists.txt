@@ -10,6 +10,13 @@ find_package(PkgConfig REQUIRED)
 find_package(OpenVINO REQUIRED Runtime)
 find_package(OpenCL REQUIRED)
 
+if(ENABLE_SYSTEM_FMT)
+    find_package(fmt CONFIG REQUIRED)
+    set(FMT_TARGET fmt::fmt)
+else()
+    set(FMT_TARGET spdlog::spdlog)
+endif()
+
 file (GLOB MAIN_SRC
         ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/*.c
@@ -38,9 +45,13 @@ PUBLIC
         openvino::runtime
         utils
         logger
-        spdlog::spdlog
+        ${FMT_TARGET}
         OpenCL::OpenCL
 )
+
+if(ENABLE_SYSTEM_FMT)
+    target_compile_definitions(${TARGET_NAME} PRIVATE DLS_USE_SYSTEM_FMT)
+endif()
 
 if(WIN32)
     target_link_libraries(${TARGET_NAME} PUBLIC d3d11)

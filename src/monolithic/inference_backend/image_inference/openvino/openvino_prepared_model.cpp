@@ -17,9 +17,6 @@
 
 #include <openvino/runtime/intel_gpu/properties.hpp>
 
-#include <spdlog/fmt/bundled/ranges.h>
-#include <spdlog/fmt/fmt.h>
-
 #include <algorithm>
 #include <cassert>
 #include <sstream>

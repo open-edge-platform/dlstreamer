@@ -52,4 +52,6 @@ add_library(json-schema-validator ALIAS nlohmann_json_schema_validator)
 # Hint compiler about location of the header file generated.
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
-add_subdirectory(spdlog)
+if(NOT ENABLE_SYSTEM_FMT)
+    add_subdirectory(spdlog)
+endif()
