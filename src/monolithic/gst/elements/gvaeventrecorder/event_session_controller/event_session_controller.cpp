@@ -35,7 +35,8 @@ bool EventSessionController::is_event_active(uint64_t session_id) const {
                        [session_id](const Session &s) { return s.id == session_id && s.event_active; });
 }
 
-EventSessionController::FrameOutcome EventSessionController::process_frame(uint64_t tick, const std::vector<DetectionInput> &detections) {
+EventSessionController::FrameOutcome
+EventSessionController::process_frame(uint64_t tick, const std::vector<DetectionInput> &detections) {
     FrameOutcome outcome;
 
     // Keep a session through the full event; start POST only after the class disappears.

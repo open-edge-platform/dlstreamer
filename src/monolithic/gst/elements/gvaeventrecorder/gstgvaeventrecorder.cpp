@@ -20,8 +20,8 @@
 #include "gva_caps.h"
 
 #include "drop_log_throttle/drop_log_throttle.hpp"
-#include "pre_event_ring/pre_event_ring.hpp"
 #include "event_session_controller/event_session_controller.hpp"
+#include "pre_event_ring/pre_event_ring.hpp"
 #include "video_clip_writer/video_clip_writer.hpp"
 
 GST_DEBUG_CATEGORY(gst_gvaeventrecorder_debug);
@@ -31,8 +31,8 @@ using gvaeventrecorder::ClipConfig;
 using gvaeventrecorder::DetectionInput;
 using gvaeventrecorder::DropLogThrottle;
 using gvaeventrecorder::EncoderMode;
-using gvaeventrecorder::PreEventRing;
 using gvaeventrecorder::EventSessionController;
+using gvaeventrecorder::PreEventRing;
 using gvaeventrecorder::VideoClipWriter;
 
 enum {
