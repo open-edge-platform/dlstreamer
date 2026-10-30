@@ -127,6 +127,8 @@ endif()
 set(TYPELIB_SHARED_LIB_ARGS)
 if(WIN32)
     set(TYPELIB_SHARED_LIB_ARGS --shared-library=dlstreamer_gst_meta.dll)
+elseif(DLSTREAMER_SOVERSION)
+    set(TYPELIB_SHARED_LIB_ARGS --shared-library=libdlstreamer_gst_meta.so.${DLSTREAMER_SOVERSION})
 endif()
 
 add_custom_command(
@@ -148,8 +150,8 @@ add_custom_target(metadata_introspection ALL
 # Use the same location where GStreamer installs its GIR files
 pkg_get_variable(GSTREAMER_PREFIX gstreamer-1.0 prefix)
 
-set(GIR_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/share/gir-1.0")
-set(TYPELIB_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/lib/girepository-1.0")
+set(GIR_INSTALL_DIR "${DLSTREAMER_GIR_INSTALL_PATH}")
+set(TYPELIB_INSTALL_DIR "${DLSTREAMER_TYPELIB_INSTALL_PATH}")
 
 
 install(FILES ${GIR_OUTPUT}

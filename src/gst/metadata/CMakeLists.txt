@@ -36,7 +36,11 @@ target_link_libraries(${TARGET_NAME}
                 ${GSTANALYTICS_LIBRARIES}
 )
 
-install(TARGETS ${TARGET_NAME} DESTINATION ${DLSTREAMER_PLUGINS_INSTALL_PATH})
+install(TARGETS ${TARGET_NAME} DESTINATION ${DLSTREAMER_SHARED_LIBS_INSTALL_PATH})
+
+if(DLSTREAMER_SOVERSION)
+    set_target_properties(${TARGET_NAME} PROPERTIES SOVERSION ${DLSTREAMER_SOVERSION})
+endif()
 
 # Generate GObject Introspection (GIR) files
 include(generate_gir.cmake)
