@@ -125,3 +125,4 @@ gst-launch-1.0 -e \
     gvaframeselect "sub-stream-frames=$SUB_STREAM_FRAMES" "frame-budget=$FRAME_BUDGET" \
         "output-dir=$OUTPUT_DIR" ! \
     fakesink sync=false
+    
