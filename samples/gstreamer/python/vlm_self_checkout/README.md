@@ -62,15 +62,29 @@ A **GObject signal bridge** communicates analytics results from Path 2 back to P
 
 ## Prerequisites
 
-- DL Streamer installed on host, or DL Streamer docker image
-- Intel EdgeAI System with integrated GPU/NPU (or set `--detect-device CPU --genai-device CPU`)
-- Python dependencies installed with:
-
 ```bash
-uv venv --system-site-packages .vlm-self-checkout-venv
-source .vlm-self-checkout-venv/bin/activate
-uv pip install -r requirements.txt
+cd samples/gstreamer/python/vlm_self_checkout
 ```
+
+Every command below is relative to that directory.
+
+- A DL Streamer build that includes the `gvagenai` element. The `intel/dlstreamer` Docker image
+  already provides it.
+- An Intel GPU with VA-API support. The pipeline rescales frames for the VLM with `vapostproc` and
+  encodes the annotated video with `vah264enc`, so VA-API is required even when inference itself
+  runs with `--detect-device CPU --genai-device CPU`.
+- The GStreamer Python bindings (`gi`). They come with DL Streamer — the Docker image installs
+  PyGObject system-wide and the `intel-dlstreamer` package depends on `python3-gi`. For a build
+  from sources follow the
+  [DL Streamer Installation Guide](../../../../docs/user-guide/install/install_guide_index.md).
+- `MODELS_PATH` set to the shared model store. The default `--detect-model-path` and
+  `--vlm-model-path` are resolved inside it; without the variable only the current directory is
+  searched.
+
+No further Python setup is needed — `vlm_self_checkout.py` and the bundled `gvaframeselection_py`
+element import nothing beyond the standard library and `gi`. The one-time model exports described
+in [Prepare Models](#prepare-models) run in their own virtual environments, documented together
+with the conversion scripts.
 
 > **Note:** the sample never downloads media or models. Prepare the input video and export
 > both models beforehand, as described below.
@@ -99,12 +113,10 @@ Export an Ultralytics detection model to OpenVINO IR with the
 [Ultralytics conversion](../../../../scripts/download_models/README.md#2-ultralytics-conversion), for example:
 
 ```bash
-...
 python3 ../../../../scripts/download_models/download_ultralytics_models.py \
     --model yolo26s.pt \
     --outdir "${MODELS_PATH}/public/yolo26s/INT8" \
     --int8
-...
 ```
 
 This produces `$MODELS_PATH/public/yolo26s/INT8/yolo26s.xml`, the default value of
@@ -116,11 +128,9 @@ Export an image-text-to-text model to OpenVINO IR with the
 [Hugging Face conversion](../../../../scripts/download_models/README.md#1-hugging-face-conversion), for example:
 
 ```bash
-...
 python3 ../../../../scripts/download_models/download_hf_models.py \
     --model openbmb/MiniCPM-V-4_5 \
     --outdir "${MODELS_PATH}/public"
-...
 ```
 
 This produces `$MODELS_PATH/public/openbmb_MiniCPM-V-4_5/`, the default value of
@@ -150,6 +160,9 @@ python3 vlm_self_checkout.py \
     --genai-device GPU
 ```
 
+Alternative models such as `yolo11s` and `OpenGVLab/InternVL3_5-2B` are exported with the very
+same conversion scripts, only with a different `--model` argument.
+
 With models exported into a local directory instead of the model store:
 
 ```bash
@@ -166,8 +179,13 @@ The `plugins/python/gvaFrameSelection.py` file implements a custom `GstBase.Base
 - **Drops** frames with no detected objects
 - **Filters out** excluded object types (configured via `excluded_objects.txt`, e.g., `person`, `dining_table`)
 - **Tracks** how long each object has been visible using `GstAnalytics.TrackingMtd`
-- **Passes** a frame once an object is tracked for at least `threshold` milliseconds (default: 1500)
+- **Passes** a frame once an object has been tracked for at least `threshold` milliseconds *and*
+  its class matches at least one inventory item. A matured object without an inventory match is
+  skipped, so the frame is dropped instead of reaching the VLM with a stale prompt
 - **Dynamically updates** the `gvagenai` prompt with matching inventory items from `inventory.txt`
+
+The `threshold` property defaults to 1500 ms and is set on the element inside the pipeline; it is
+not exposed as a command-line argument.
 
 ## Configuration Files
 
@@ -184,17 +202,18 @@ The `plugins/python/gvaFrameSelection.py` file implements a custom `GstBase.Base
 | `--detect-model-path` | `public/yolo26s/INT8/yolo26s.xml` | Path to a detection model `.xml` exported beforehand. A relative path is looked up in the current directory and in `$MODELS_PATH` |
 | `--detect-device` | `GPU` | Device for YOLO detection inference |
 | `--threshold` | `0.4` | Detection confidence threshold (not frame selection threshold) |
-| `--inventory-file` | `config/inventory.txt` | Path to inventory items list |
-| `--excluded-objects-file` | `config/excluded_objects.txt` | Path to excluded object types list |
+| `--inventory-file` | `<sample dir>/config/inventory.txt` | Path to inventory items list |
+| `--excluded-objects-file` | `<sample dir>/config/excluded_objects.txt` | Path to excluded object types list |
 | `--vlm-model-path` | `public/openbmb_MiniCPM-V-4_5` | Path to an OpenVINO VLM model directory exported beforehand. A relative path is looked up in the current directory and in `$MODELS_PATH` |
 | `--genai-device` | `GPU` | Device for VLM inference |
-| `--genai-prompt` | Self-checkout item description | Initial prompt for VLM inference |
-| `--results-dir` | `./results` | Directory for output files |
+| `--genai-prompt` | `Describe the items visible on the self-checkout counter.` | Initial prompt, used until `gvaframeselection_py` replaces it with an inventory-specific one |
+| `--results-dir` | `<sample dir>/results` | Directory for output files |
 | `--output-json` | *(unset)* | Path of the JSON Lines output file, overriding `<results-dir>/vlm_self_checkout-<video_stem>.jsonl` |
 
 ## Output
 
-Results are written to the `results/` directory (or `--results-dir`):
+Results are written to the `results/` directory next to `vlm_self_checkout.py`, or to
+`--results-dir`:
 
 - `vlm_self_checkout-<video>.mp4` — annotated output video with watermarked detections and VLM results
 - `vlm_self_checkout-<video>.jsonl` — structured JSON Lines with VLM classification metadata (or the file given by `--output-json`)

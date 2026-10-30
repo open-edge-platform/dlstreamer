@@ -2,6 +2,8 @@
 
 This sample demonstrates an edge AI alerting pipeline using Vision-Language Models (VLMs).
 
+![VLM Alerts](vlm_alerts.jpg)
+
 It shows how to:
 
 - Run a VLM — exported to OpenVINO IR beforehand — inside a DL Streamer pipeline
@@ -21,6 +23,29 @@ This enables alerting for events, like in prompts:
 - Is there smoke or fire?
 - Is a person lying on the ground?
 
+## Prerequisites
+
+```sh
+cd samples/gstreamer/python/vlm_alerts
+```
+
+Every command below is relative to that directory.
+
+- A DL Streamer build that includes the `gvagenai` element. The `intel/dlstreamer` Docker image
+  already provides it.
+- An Intel GPU with VA-API support. The pipeline hands frames to `gvagenai` as `VAMemory` and
+  encodes the output with `vah264enc`, so VA-API is required even when inference itself runs with
+  `--device CPU`.
+- The GStreamer Python bindings (`gi`). The Docker image installs PyGObject system-wide; for a
+  native installation follow the
+  [DL Streamer Installation Guide](../../../../docs/user-guide/install/install_guide_index.md).
+- `MODELS_PATH` set to the shared model store. The default `--model-path` is resolved inside it;
+  without the variable only the current directory is searched.
+
+No further Python setup is needed — `vlm_alerts.py` imports nothing beyond the standard library
+and `gi`. The one-time model export described in [Prepare Model](#prepare-model) runs in its own
+virtual environment, documented together with the conversion scripts.
+
 ## Download Video
 
 Download an example video file:
@@ -37,15 +62,13 @@ four-stream scenario (**`--stream-groups`**).
 
 Any image-text-to-text model supported by optimum-intel can be used. Smaller models (1B-4B parameters) are recommended for edge deployment. For example, OpenGVLab/InternVL3_5-2B.
 
-Export the model once with the [Hugging Face model conversion](../../../../scripts/download_models/README.md#1-hugging-face-conversion) script. Exporting into `$MODELS_PATH/public` keeps the model in the layout shared with the other DL Streamer samples, for example:
+Export the model once with the [Hugging Face model conversion](../../../../scripts/download_models/README.md#1-hugging-face-conversion) script, which documents its own virtual environment and requirements file. Exporting into `$MODELS_PATH/public` keeps the model in the layout shared with the other DL Streamer samples, for example:
 
 ```code
-...
 python3 ../../../../scripts/download_models/download_hf_models.py \
     --model OpenGVLab/InternVL3_5-2B \
     --outdir "${MODELS_PATH}/public" \
     --extra_args --task image-text-to-text
-...
 ```
 
 Exported this way, the model is picked up automatically: `--model-path` defaults to
@@ -126,38 +149,6 @@ Each stream has an independent source, decoder, inference element, and MP4
 file. The branches run in one process and contain queues around the inference/output
 stages.
 
-## Setup
-
-```sh
-cd samples/gstreamer/python/vlm_alerts
-```
-
-A DL Streamer build that includes the `gvagenai` element is required
-(the `intel/dlstreamer` Docker image already provides it). No Python
-environment setup is needed: `vlm_alerts.py` only imports the GStreamer
-Python bindings (`gi`), which the Docker image installs system-wide already.
-If you're using a native (non-Docker) installation instead, make sure
-PyGObject is available as described in the
-[DL Streamer Installation Guide](../../../../docs/user-guide/install/install_guide_index.md).
-
-<u>2. Install dependencies:</u>
-```code
-curl -LO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/3/samples/export-requirements.txt
-uv pip install -r export-requirements.txt
-uv pip install -r requirements.txt
-```
-
-`requirements.txt` overrides two packages from `export-requirements.txt`:
-
-- `transformers` must be compatible with `optimum-intel` for OpenVINO export.
-- `openvino-tokenizers` must match the OpenVINO runtime used by DL Streamer to avoid binary incompatibility.
-
-**Note:** these dependencies are needed for the one-time model export described in
-[Prepare Model](#prepare-model). Running the sample itself requires only DL Streamer and its
-GStreamer Python bindings.
-
-A DL Streamer build that includes the `gvagenai` element is required.
-
 ## Running
 
 Required arguments:
@@ -202,11 +193,11 @@ Optional arguments:
 |---|---|---|
 | `--model-path` | `public/OpenGVLab_InternVL3_5-2B` | Path to an OpenVINO model exported beforehand. A relative path is looked up in the current directory and in `$MODELS_PATH` |
 | `--stream-groups` | off | Run four streams split into two model-sharing groups of two, each group with its own `model-instance-id` |
-| `--device` | `GPU` | Inference device |
+| `--device` | `GPU` | Inference device for the VLM. VA-API is still required for the video path regardless of this setting |
 | `--max-tokens` | `1` | Maximum tokens in the model response |
 | `--num-beams` | `4` | Beam search width. Values ≥ 2 enable beam search and produce a confidence score; `1` means greedy decoding with no confidence |
 | `--frame-rate` | `1.0` | Frames per second passed to `gvagenai` |
-| `--results-dir` | `./results` | Directory for output files |
+| `--results-dir` | `<sample_dir>/results` | Directory for output files. The default is next to `vlm_alerts.py`, not relative to the current directory |
 | `--output-json` | *(unset)* | Path of the JSON Lines output file, overriding `<results-dir>/<ModelName>-<video_stem>.jsonl`. With `--stream-groups` the stream suffix is inserted before the extension |
 
 ## Output
