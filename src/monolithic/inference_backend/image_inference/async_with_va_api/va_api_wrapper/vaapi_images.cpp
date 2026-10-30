@@ -15,10 +15,14 @@ using namespace InferenceBackend;
 
 namespace {
 
+// Number of color planes in the RGBP/BGRP DMA-BUF used for NPU zero-copy.
+constexpr uint32_t DMA_BUF_PLANES_NUM = 3;
+
 // Creates a VA surface. When dma_buf_fd >= 0 the surface wraps the given DRM_PRIME DMA-BUF
-// (zero-copy import of RGBP/BGRP planes); otherwise a plain VA-managed surface is allocated.
+// (zero-copy import of RGBP/BGRP planes, each `pitch` bytes per row and `pitch * height` bytes long);
+// otherwise a plain VA-managed surface is allocated.
 VASurfaceID CreateVASurface(VaDpyWrapper display, uint32_t width, uint32_t height, int pixel_format, int rt_format,
-                            int dma_buf_fd = -1) {
+                            int dma_buf_fd = -1, uint32_t pitch = 0) {
     if (dma_buf_fd < 0) {
         VASurfaceAttrib surface_attrib;
         surface_attrib.type = VASurfaceAttribPixelFormat;
@@ -26,7 +30,7 @@ VASurfaceID CreateVASurface(VaDpyWrapper display, uint32_t width, uint32_t heigh
         surface_attrib.value.type = VAGenericValueTypeInteger;
         surface_attrib.value.value.i = pixel_format;
 
-        VASurfaceID va_surface_id;
+        VASurfaceID va_surface_id = VA_INVALID_ID;
         VA_CALL(display.drvVtable().vaCreateSurfaces2(display.drvCtx(), rt_format, width, height, &va_surface_id, 1,
                                                       &surface_attrib, 1))
         return va_surface_id;
@@ -37,18 +41,20 @@ VASurfaceID CreateVASurface(VaDpyWrapper display, uint32_t width, uint32_t heigh
     ext_buf.pixel_format = pixel_format;
     ext_buf.width = width;
     ext_buf.height = height;
-    ext_buf.num_planes = 3;
+    ext_buf.num_planes = DMA_BUF_PLANES_NUM;
     ext_buf.num_buffers = 1;
     uintptr_t fd_handle = static_cast<uintptr_t>(dma_buf_fd);
     ext_buf.buffers = &fd_handle;
-    ext_buf.data_size = width * height * 3; // RGBP/BGRP: 3 planes, each W*H
+    if (pitch % DMA_BUF_PITCH_ALIGNMENT != 0 || pitch < width)
+        throw std::invalid_argument("DMA-BUF pitch must be >= width and aligned to " +
+                                    std::to_string(DMA_BUF_PITCH_ALIGNMENT) + " bytes");
+    const uint32_t plane_size = pitch * height;
+    ext_buf.data_size = plane_size * DMA_BUF_PLANES_NUM;
 
-    ext_buf.pitches[0] = width;
-    ext_buf.offsets[0] = 0;
-    ext_buf.pitches[1] = width;
-    ext_buf.offsets[1] = width * height;
-    ext_buf.pitches[2] = width;
-    ext_buf.offsets[2] = 2 * width * height;
+    for (uint32_t i = 0; i < DMA_BUF_PLANES_NUM; i++) {
+        ext_buf.pitches[i] = pitch;
+        ext_buf.offsets[i] = i * plane_size;
+    }
 
     VASurfaceAttrib attribs[3];
 
@@ -67,7 +73,7 @@ VASurfaceID CreateVASurface(VaDpyWrapper display, uint32_t width, uint32_t heigh
     attribs[2].value.type = VAGenericValueTypePointer;
     attribs[2].value.value.p = &ext_buf;
 
-    VASurfaceID va_surface_id;
+    VASurfaceID va_surface_id = VA_INVALID_ID;
     VA_CALL(display.drvVtable().vaCreateSurfaces2(display.drvCtx(), rt_format, width, height, &va_surface_id, 1,
                                                   attribs, 3))
     return va_surface_id;
@@ -129,8 +135,15 @@ VaApiImage::VaApiImage(VaApiContext *context_, uint32_t width, uint32_t height, 
     image.format = pixel_format;
     image.va_display = context->DisplayRaw();
 
+    uint32_t pitch = 0;
     if (memory_type == MemoryType::DMA_BUFFER) {
-        size_t buf_size = static_cast<size_t>(width) * height * 3; // RGBP/BGRP
+        pitch = alignDmaBufPitch(width);
+        const uint32_t plane_size = pitch * height;
+        for (uint32_t i = 0; i < DMA_BUF_PLANES_NUM; i++) {
+            image.stride[i] = pitch;
+            image.offsets[i] = i * plane_size;
+        }
+        size_t buf_size = static_cast<size_t>(plane_size) * DMA_BUF_PLANES_NUM;
         image.dma_fd = AllocateDmaBuf(buf_size);
         // DMA-BUF heap access is probed up front (image_inference.cpp) before choosing DMA_BUFFER,
         // so a failure here is unexpected. A local fallback to SYSTEM would leave the rest of the
@@ -141,7 +154,11 @@ VaApiImage::VaApiImage(VaApiContext *context_, uint32_t width, uint32_t height, 
 
     // DRM_PRIME import requires matching RT format; RGBP/BGRP need VA_RT_FORMAT_RGBP
     const int rt_format = (image.dma_fd >= 0) ? VA_RT_FORMAT_RGBP : context_->RTFormat();
-    image.va_surface_id = CreateVASurface(context->Display(), width, height, pixel_format, rt_format, image.dma_fd);
+    image.va_surface_id =
+        CreateVASurface(context->Display(), width, height, pixel_format, rt_format, image.dma_fd, pitch);
+
+    if (image.va_surface_id == VA_INVALID_ID)
+        throw std::runtime_error("Failed to create VA surface");
 
     image_map = std::unique_ptr<ImageMap>(ImageMap::Create(memory_type));
     completed = true;

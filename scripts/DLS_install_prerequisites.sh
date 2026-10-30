@@ -613,6 +613,17 @@ if $SUDO_PREFIX dmesg | grep -qi intel_vpu || lspci | grep -qi 'Intel.*NPU'; the
     else
         echo_color "Intel NPU driver is already installed in the correct version ($installed_version) and ready to use." "green"
     fi
+
+    #----------ENABLE NPU DMA-BUF ZERO-COPY ACCESS TO /dev/dma_heap/system----------
+    # NPU zero-copy needs /dev/dma_heap/system, which is root-only by default.
+    # Grant the 'render' group access until reboot (Intel Core Ultra Series 3, model 3xx only).
+    if echo "$cpu_model_name" | grep -qiE 'Core.*Ultra.*\b3[0-9]{2}[A-Z]*\b'; then
+        if [ -e /dev/dma_heap/system ]; then
+            echo_color " Enabling NPU DMA-BUF zero-copy access." "green"
+            $SUDO_PREFIX chgrp render /dev/dma_heap/system 2>/dev/null || true
+            $SUDO_PREFIX chmod 0660 /dev/dma_heap/system 2>/dev/null || true
+        fi
+    fi
 fi
 
 if [ "$need_to_logout" -eq 1 ]; then
