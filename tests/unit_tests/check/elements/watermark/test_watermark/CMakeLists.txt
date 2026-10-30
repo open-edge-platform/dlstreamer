@@ -35,3 +35,10 @@ target_include_directories(${TARGET_COLOR_CONVERTER} PRIVATE ${WATERMARK_RENDERE
 target_link_libraries(${TARGET_COLOR_CONVERTER} PRIVATE gtest dlstreamer_api ${OpenCV_LIBS})
 add_test(NAME ${TARGET_COLOR_CONVERTER} COMMAND ${TARGET_COLOR_CONVERTER}
          WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+
+# --- Label -> bounding box color mapping tests ---
+set(TARGET_LABEL_COLORS "test_gvawatermark_label_colors")
+add_executable(${TARGET_LABEL_COLORS} ${CMAKE_CURRENT_SOURCE_DIR}/test_watermark_label_colors.cpp)
+target_include_directories(${TARGET_LABEL_COLORS} PRIVATE ${DLSTREAMER_BASE_DIR}/src/monolithic/gst/elements/gvawatermark)
+target_link_libraries(${TARGET_LABEL_COLORS} PRIVATE ${COMMON_LIBS})
+add_test(NAME ${TARGET_LABEL_COLORS} COMMAND ${TARGET_LABEL_COLORS} WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})

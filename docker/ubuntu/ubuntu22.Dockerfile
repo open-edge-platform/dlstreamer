@@ -36,7 +36,6 @@
 # DLSTREAMER_BUILD_NUMBER # Build ID
 # GST_VERSION             # GStreamer
 # FFMPEG_VERSION          # FFmpeg
-# OPENVINO_VERSION        # OpenVINO
 # OPENCV_VERSION          # OpenCV
 # REALSENSE_VERSION       # RealSense
 # KAFKA_VERSION           # librdkafka
@@ -103,6 +102,9 @@ RUN \
 
 RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
 
+ENV UV_PYTHON_INSTALL_DIR=/opt/uv/python
+RUN uv python install 3.11
+
 RUN \
     useradd -ms /bin/bash dlstreamer && \
     mkdir /python3venv && \
@@ -112,7 +114,7 @@ RUN \
 USER dlstreamer
 
 RUN \
-    uv venv /python3venv && \
+    UV_PYTHON_PREFERENCE=managed uv venv --python 3.11 /python3venv && \
     VIRTUAL_ENV=/python3venv uv pip install --no-cache-dir --upgrade pip==26.1.2 && \
     VIRTUAL_ENV=/python3venv uv pip install --no-cache-dir --no-deps \
     meson==1.4.1 \
@@ -134,13 +136,13 @@ RUN \
     pluggy==1.5.0 \
     exceptiongroup==1.2.2 \
     iniconfig==2.0.0 \
-    typing-extensions==4.15.0 \
-    openvino==2026.3.1
+    typing-extensions==4.15.0
 
 # hadolint ignore=DL3002
 USER root
 
 ENV PATH="/python3venv/bin:${PATH}"
+
 # ==============================================================================
 FROM builder AS opencv-builder
 
@@ -354,17 +356,14 @@ RUN \
 WORKDIR /copy_libs
 RUN cp -a /usr/local/lib/librealsense* ./
 
-
 # ==============================================================================
 FROM builder AS dlstreamer-dev
 
 ARG DLSTREAMER_VERSION=2026.3.0
 ARG DLSTREAMER_BUILD_NUMBER
-ARG OPENVINO_VERSION=2026.3.1
 
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
-# DL Streamer development image and build proccess
 
 COPY --from=gstreamer-builder ${GSTREAMER_DIR} ${GSTREAMER_DIR}
 COPY --from=opencv-builder /usr/local/include/opencv4 /usr/local/include/opencv4
@@ -375,24 +374,32 @@ COPY --from=kafka-builder /copy_libs/ /usr/local/lib/
 COPY --from=realsense-builder /copy_libs/ /usr/local/lib/
 COPY --from=realsense-builder /usr/local/include/librealsense2 /usr/local/include/librealsense2
 
+# OpenVINO Gen AI, installed from the archive distribution instead of the apt
+# repository, see:
+# https://docs.openvino.ai/2026/get-started/install-openvino/install-openvino-archive-linux.html
+# The GenAI archive already bundles the full OpenVINO C++ runtime (same
+# runtime/lib/intel64 layout and setupvars.sh as the plain OpenVINO archive)
+# alongside the GenAI libraries, so installing it on its own is enough -
+# no separate OpenVINO Runtime archive download is needed.
+# The archive also contains Python bindings in python/openvino/ and
+# python/openvino_genai/ for Python 3.11/3.12/3.13 - exposed via PYTHONPATH.
+ARG OPENVINO_GENAI_VERSION=2026.5.0.0.dev20261027
+ARG OPENVINO_GENAI_VER=openvino_genai_ubuntu22_${OPENVINO_GENAI_VERSION}_x86_64
+ARG OPENVINO_GENAI_PKG=https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/${OPENVINO_GENAI_VERSION}/${OPENVINO_GENAI_VER}.tar.gz
 
-RUN apt-get update && apt-get install --no-install-recommends -y gnupg=\* && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+# Register with ldconfig here too (not just in the final "dlstreamer" stage):
+# this dlstreamer-dev image is also run directly (e.g. in CI unit tests), and
+# some plugins (e.g. libgstvideoanalytics.so, via libopenvino_gguf_frontend.so)
+# resolve libopenvino* through the default linker search path rather than an
+# RPATH, so ldconfig must know about this directory independently of the one
+# "source setupvars.sh" used below for the cmake build itself.
 RUN \
-    echo "deb https://apt.repos.intel.com/openvino ubuntu22 main" | tee /etc/apt/sources.list.d/intel-openvino.list && \
-    curl -sSL -O https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB && \
-    apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB && \
-    apt-get update && apt-get install --no-install-recommends -y "openvino-${OPENVINO_VERSION}"=\* && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
-# OpenVINO Gen AI
-ARG OPENVINO_GENAI_VER=openvino_genai_ubuntu22_${OPENVINO_VERSION}.0_x86_64
-ARG OPENVINO_GENAI_PKG=https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/${OPENVINO_VERSION}/linux/${OPENVINO_GENAI_VER}.tar.gz
-
-RUN curl -L ${OPENVINO_GENAI_PKG} | tar -xz && \
-    mv ${OPENVINO_GENAI_VER} /opt/intel/openvino_genai
+    mkdir -p /opt/intel && \
+    curl -L ${OPENVINO_GENAI_PKG} | tar -xz -C /opt/intel && \
+    mv "/opt/intel/${OPENVINO_GENAI_VER}" /opt/intel/openvino_genai && \
+    ln -s /opt/intel/openvino_genai /opt/intel/openvino && \
+    echo "/opt/intel/openvino/runtime/lib/intel64" > /etc/ld.so.conf.d/openvino.conf && \
+    ldconfig
 
 WORKDIR "$DLSTREAMER_DIR"
 
@@ -401,7 +408,6 @@ COPY . "${DLSTREAMER_DIR}"
 RUN mkdir build
 
 WORKDIR $DLSTREAMER_DIR/build
-
 
 # DL Streamer environment variables
 ENV LIBDIR=${DLSTREAMER_DIR}/build/intel64/${BUILD_ARG}/lib
@@ -417,12 +423,15 @@ ENV C_INCLUDE_PATH=/usr/local/include:${DLSTREAMER_DIR}/include:${DLSTREAMER_DIR
 ENV CPLUS_INCLUDE_PATH=/usr/local/include:${DLSTREAMER_DIR}/include:${DLSTREAMER_DIR}/include/dlstreamer/gst/metadata:${CPLUS_INCLUDE_PATH}
 ENV GST_PLUGIN_SCANNER=${GSTREAMER_DIR}/bin/gstreamer-1.0/gst-plugin-scanner
 ENV GI_TYPELIB_PATH=${GSTREAMER_DIR}/lib/girepository-1.0:${DLSTREAMER_DIR}/build/src/gst/metadata/
-ENV PYTHONPATH=${GSTREAMER_DIR}/lib/python3/dist-packages:${DLSTREAMER_DIR}/python:${DLSTREAMER_DIR}/scripts/optimizer:${PYTHONPATH}
+# OpenVINO Python bindings (openvino + openvino_genai) are provided from the
+# GenAI archive via PYTHONPATH. Python 3.11 .so files match the python3.11
+# managed by uv.
+ENV PYTHONPATH=/opt/intel/openvino_genai/python:${GSTREAMER_DIR}/lib/python3/dist-packages:${DLSTREAMER_DIR}/python:${DLSTREAMER_DIR}/scripts/optimizer:${PYTHONPATH}
 
 # Build DLStreamer
 # hadolint ignore=SC1091
 RUN \
-    source /opt/intel/openvino_genai/setupvars.sh && \
+    source /opt/intel/openvino/setupvars.sh && \
     cmake \
     -DCMAKE_BUILD_TYPE="${BUILD_ARG}" \
     -DENABLE_PAHO_INSTALLATION=ON \
@@ -455,12 +464,10 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 RUN \
-    mkdir -p /deb-pkg/usr/lib/ && \
     mkdir -p /deb-pkg/opt/intel/ && \
     mkdir -p /deb-pkg/opt/opencv/include && \
     mkdir -p /deb-pkg/opt/rdkafka && \
     mkdir -p /deb-pkg/opt/librealsense && \
-    find /opt/intel/openvino_genai -regex '.*\/lib.*\(genai\|token\).*$' -exec cp -a {} /deb-pkg/usr/lib/ \; && \
     cp -r "${DLSTREAMER_DIR}/build/intel64/${BUILD_ARG}" /deb-pkg/opt/intel/dlstreamer && \
     cp -r "${DLSTREAMER_DIR}/samples/" /deb-pkg/opt/intel/dlstreamer/ && \
     cp -r "${DLSTREAMER_DIR}/python/" /deb-pkg/opt/intel/dlstreamer/ && \
@@ -544,10 +551,17 @@ RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.26.0
 
 WORKDIR /
 
-RUN curl -fsSL https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | \
-    gpg --dearmor -o /usr/share/keyrings/intel-sw-products.gpg && \
-    echo "deb [signed-by=/usr/share/keyrings/intel-sw-products.gpg] https://apt.repos.intel.com/openvino ubuntu22 main" \
-    > /etc/apt/sources.list.d/intel-openvino.list
+# OpenVINO GenAI (which bundles the full OpenVINO C++ runtime and Python
+# bindings in python/openvino/ and python/openvino_genai/) is copied from
+# the dlstreamer-dev stage. No second download needed, and the exact same
+# binaries DL Streamer was built/linked against are reused.
+# Python bindings are exposed via PYTHONPATH - no pip install needed.
+COPY --from=dlstreamer-dev /opt/intel/openvino_genai /opt/intel/openvino_genai
+
+RUN \
+    ln -s /opt/intel/openvino_genai /opt/intel/openvino && \
+    echo "/opt/intel/openvino/runtime/lib/intel64" > /etc/ld.so.conf.d/openvino.conf && \
+    ldconfig
 
 RUN mkdir -p /debs
 COPY --from=deb-builder /*.deb /debs/
@@ -556,20 +570,29 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
 
+ENV UV_PYTHON_INSTALL_DIR=/opt/uv/python
+RUN uv python install 3.11 && \
+    PYTHON_BIN="$(uv python find 3.11)" && \
+    PYTHON_LIBDIR="$("$PYTHON_BIN" -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')" && \
+    printf '%s\n' "$PYTHON_LIBDIR" > /etc/ld.so.conf.d/uv-python.conf && \
+    ldconfig && \
+    ln -s "$PYTHON_BIN" /usr/local/bin/python3.11
+
+# Install the .deb package plus the DL Streamer Python requirements.
 RUN \
     apt-get update -y && \
     apt-get install -y -q --no-install-recommends /debs/*.deb gcc=\* ninja-build=\* libcairo2-dev=\* libgirepository1.0-dev=\* && \
-    uv pip install --system --no-cache-dir pip==26.1.2 setuptools==84.1.0 wheel==0.46.2 packaging==24.2 && \
-    uv pip install --system --no-cache-dir meson==1.6.1 && \
-    uv pip install --system --no-cache-dir -r /opt/intel/dlstreamer/requirements.txt && \
+    uv pip install --python python3.11 --system --no-cache-dir --break-system-packages pip==26.1.2 setuptools==84.1.0 wheel==0.46.2 packaging==24.2 && \
+    uv pip install --python python3.11 --system --no-cache-dir --break-system-packages meson==1.6.1 && \
+    uv pip install --python python3.11 --system --no-cache-dir --break-system-packages -r /opt/intel/dlstreamer/requirements.txt && \
     apt-get remove -y gcc ninja-build libcairo2-dev libgirepository1.0-dev && \
     apt-get autoremove -y && \
     apt-get clean -y && \
     rm -rf /var/lib/apt/lists/* && \
     rm -f /*.deb && \
     useradd -ms /bin/bash dlstreamer && \
-    chown -R dlstreamer: /opt && \
-    chmod -R u+rw /opt
+    chown -R dlstreamer: /opt/intel/dlstreamer /opt/opencv /opt/librealsense /opt/rdkafka && \
+    chmod -R u+rw /opt/intel/dlstreamer /opt/opencv /opt/librealsense /opt/rdkafka
 
 # DL Streamer environment variables
 ENV LIBVA_DRIVER_NAME=iHD
@@ -579,7 +602,10 @@ ENV LIBVA_DRIVERS_PATH=/usr/lib/x86_64-linux-gnu/dri
 ENV GST_VA_ALL_DRIVERS=1
 ENV MODEL_PROC_PATH=/opt/intel/dlstreamer/samples/gstreamer/model_proc
 ENV PATH=/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/bin:$PATH
-ENV PYTHONPATH=/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:
+# OpenVINO Python bindings (openvino + openvino_genai) from GenAI archive
+# added first in PYTHONPATH. Python 3.11 .so files match the python3.11
+# managed by uv.
+ENV PYTHONPATH=/opt/intel/openvino_genai/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:
 ENV TERM=xterm
 ENV GI_TYPELIB_PATH=/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/opt/intel/dlstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0
 

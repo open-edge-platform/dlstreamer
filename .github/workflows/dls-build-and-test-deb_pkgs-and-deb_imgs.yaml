@@ -465,6 +465,7 @@ jobs:
           ubuntu_version: ${{ matrix.ubuntu_version }}
         run: |
           sudo apt install -y libcairo2-dev libgirepository1.0-dev # Build-time headers required to compile PyGObject
+          sudo apt install -y cmake # needed for building cpp_draw_attributes and custom_postproc* samples
           if [[ ${ubuntu_version} == "ubuntu24" ]]; then
               sudo apt install -y libopencv-dev
           fi
@@ -474,14 +475,26 @@ jobs:
             rm -rf $HOME/.virtualenvs
           fi
           mkdir -p $HOME/.virtualenvs/dlstreamer
-          # Use the system python3 (not a uv-managed one) so its ABI matches libgstpython.so,
-          # which was built against the system python3 inside the deb build image.
-          UV_PYTHON_PREFERENCE=only-system uv venv --python python3 $HOME/.virtualenvs/dlstreamer
+
+          # Ubuntu 22 and 26 system Pythons are not supported by the OpenVINO bindings.
+          case "${ubuntu_version}" in
+              ubuntu22) python_version=3.11 ;;
+              ubuntu26) python_version=3.13 ;;
+              *) python_version="" ;;
+          esac
+          if [[ -n "$python_version" ]]; then
+              uv python install "$python_version"
+              python_bin="$(uv python find "$python_version")"
+              python_libdir="$("$python_bin" -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')"
+              echo "$python_libdir" | sudo tee /etc/ld.so.conf.d/uv-python.conf > /dev/null
+              sudo ldconfig
+              UV_PYTHON_PREFERENCE=managed uv venv --python "$python_version" $HOME/.virtualenvs/dlstreamer
+          else
+              # Match the system Python ABI used by libgstpython.so.
+              UV_PYTHON_PREFERENCE=only-system uv venv --python python3 $HOME/.virtualenvs/dlstreamer
+          fi
+
           VIRTUAL_ENV=$HOME/.virtualenvs/dlstreamer uv pip install --no-cache-dir -r $DLS_REL_PATH/requirements.txt
-          for sample in face_detection_and_classification prompted_detection smart_nvr; do
-            req="$DLS_REL_PATH/samples/gstreamer/python/$sample/requirements.txt"
-            [ -f "$req" ] &&  VIRTUAL_ENV=$HOME/.virtualenvs/dlstreamer uv pip install --no-cache-dir -r "$req"
-          done
 
       - name: 🚀 Run on host tests
         if: ${{ !cancelled() && needs.setup.outputs.should_run == 'true' }}

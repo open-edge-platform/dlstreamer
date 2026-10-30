@@ -3,7 +3,9 @@
 # install their tools into separate temporary venvs at runtime.
 --extra-index-url https://download.pytorch.org/whl/cpu
 numpy==2.2.6
-openvino==2026.3.1
+# OpenVINO extra index needed when using nightly OpenVINO builds
+--extra-index-url https://storage.openvinotoolkit.org/simple/wheels/nightly
+openvino==2026.5.0.dev20261027
 onnx==1.22.0
 onnxscript==0.7.1
 seaborn==0.13.2

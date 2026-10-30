@@ -65,33 +65,36 @@ Configurable element properties (via gst-launch-1.0):
 
 ## Models
 
-The sample uses pre-trained models downloaded from [Hugging Face](https://huggingface.co/) and exported to OpenVINO™ IR format on first run:
+This sample uses pre-trained models from [Hugging Face](https://huggingface.co/), converted to OpenVINO™ IR format:
 * __[arnabdhar/YOLOv8-Face-Detection](https://huggingface.co/arnabdhar/YOLOv8-Face-Detection)__ — face detection (used by `gvadetect`)
-* __[dima806/fairface_age_image_detection](https://huggingface.co/dima806/fairface_age_image_detection)__ — age estimation (used by the first `gvaclassify`, reshaped to static `[1,3,224,224]`)
-* __[dima806/fairface_gender_image_detection](https://huggingface.co/dima806/fairface_gender_image_detection)__ — gender classification (used by the second `gvaclassify`, reshaped to static `[1,3,224,224]`)
-
-Download and conversion are handled automatically by [`prepare_models.py`](prepare_models.py), which is invoked from the sample shell script. Models are cached after the first run, so subsequent runs reuse the existing files.
+  * Prepare with [Ultralytics conversion](../../../../../scripts/download_models/README.md#2-ultralytics-conversion)
+* __[dima806/fairface_age_image_detection](https://huggingface.co/dima806/fairface_age_image_detection)__ — age estimation (used by the first `gvaclassify`)
+  * Prepare with [Hugging Face model conversion](../../../../../scripts/download_models/README.md#1-hugging-face-conversion)
+* __[dima806/fairface_gender_image_detection](https://huggingface.co/dima806/fairface_gender_image_detection)__ — gender classification (used by the second `gvaclassify`)
+  * Prepare with [Hugging Face model conversion](../../../../../scripts/download_models/README.md#1-hugging-face-conversion)
 
 ### Model storage location
 
-* If the `MODELS_PATH` environment variable is set, models are stored in `$MODELS_PATH/face_detection_and_classification/`.
-* Otherwise models are stored in a `models/` subdirectory inside the sample folder (next to `prepare_models.py`).
-
-
+The sample reads models from `$MODELS_PATH/public/<org>_<model>/FP16/<org>_<model>.xml`,
+the same layout produced by the conversion scripts above. `MODELS_PATH` must be set
+before running the sample.
 
 ## Prerequisites
 
 The GStreamer Python plugin (`libgstpython.so`) must be available in `GST_PLUGIN_PATH`. The sample shell script automatically adds the local `plugins/` directory to `GST_PLUGIN_PATH`.
 
-Install Python dependencies required by [`prepare_models.py`](prepare_models.py):
+### Install Python Dependencies
 
-```sh
-uv pip install -r requirements.txt
-```
+This sample only needs the Python packages already provided by the DL
+Streamer installation (GStreamer Python bindings). If you installed DL
+Streamer natively and skipped them, see
+[Step 9: Install Python dependencies](../../../../../docs/user-guide/dev_guide/advanced_install/advanced_install_guide_compilation.md#step-9-install-python-dependencies-optional)
+in the Advanced Install Guide. The Docker image already includes them.
 
 ## Running
 
-Before running, ensure the DL Streamer environment is properly configured. Models are downloaded automatically on first run (see [Models](#models)).
+Before running, ensure the DL Streamer environment is properly configured and
+`MODELS_PATH` points to the models prepared in [Models](#models).
 
 ```sh
 ./face_detection_and_classification.sh [INPUT_VIDEO] [DEVICE] [SINK_ELEMENT]

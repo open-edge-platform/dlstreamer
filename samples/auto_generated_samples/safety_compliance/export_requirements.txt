@@ -1,15 +1,20 @@
 # CPU-only PyTorch — must appear before torch-dependent packages
 --extra-index-url https://download.pytorch.org/whl/cpu
+# OpenVINO extra index needed when using nightly OpenVINO builds
+--extra-index-url https://storage.openvinotoolkit.org/simple/wheels/nightly
 
 # OpenVINO + NNCF for INT8 quantization
-openvino==2026.3.1
+openvino==2026.5.0.dev20261027
 nncf==3.0.0
 
 # Ultralytics YOLO model export
 ultralytics==8.4.57
 
 # HuggingFace VLM export via optimum-cli
+# openvino-tokenizers must match the pinned openvino nightly build above,
+# otherwise dependency resolution falls back to an incompatible stable release.
 optimum[openvino]
+openvino-tokenizers==2026.5.0.0.dev20261027
 huggingface_hub
 onnx
 onnxruntime

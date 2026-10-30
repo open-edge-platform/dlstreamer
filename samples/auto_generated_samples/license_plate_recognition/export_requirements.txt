@@ -1,8 +1,10 @@
 # CPU-only PyTorch — must appear before torch-dependent packages
 --extra-index-url https://download.pytorch.org/whl/cpu
+# OpenVINO extra index needed when using nightly OpenVINO builds
+--extra-index-url https://storage.openvinotoolkit.org/simple/wheels/nightly
 
 # OpenVINO Python (pin to match DL Streamer runtime)
-openvino==2026.3.1
+openvino==2026.5.0.dev20261027
 nncf==3.0.0  # required for int8=True quantization
 
 # Ultralytics YOLO (YOLOv11 license plate detection)
