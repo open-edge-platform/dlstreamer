@@ -322,7 +322,7 @@ gst-launch-1.0 filesrc location=video.mp4 ! decodebin3 ! \
 
 ## Input/Output
 
-- **Input**: `video/x-raw` in `RGB`, `RGBA`, `RGBx`, `BGR`, `BGRA`, `BGRx`, `NV12`, or `I420`; also `video/x-raw(memory:DMABuf)` (`DMA_DRM`) and `video/x-raw(memory:VAMemory)` (`NV12`) on Linux, and `video/x-raw(memory:D3D11Memory)` (`NV12`) on Windows. The element converts the frame to RGB internally; an explicit `videoconvert` is not required.
+- **Input**: `video/x-raw` in `RGB`, `RGBA`, `RGBx`, `BGR`, `BGRA`, `BGRx`, `NV12`, or `I420`; also `video/x-raw(memory:DMABuf)` (`DMA_DRM`) and `video/x-raw(memory:VAMemory)` (`NV12`) on Linux, and `video/x-raw(memory:D3D11Memory)` / `video/x-raw(memory:D3D12Memory)` (`NV12`, `BGRA`) on Windows. The element converts the frame to RGB internally; an explicit `videoconvert` is not required.
 - **Output**: identical to input. The element operates in-place, pixel data is passed through unchanged and only metadata is added.
 
 ## Metadata
@@ -389,7 +389,12 @@ Pad Templates:
                  height: [ 1, 2147483647 ]
               framerate: [ 0/1, 2147483647/1 ]
       video/x-raw(memory:D3D11Memory)
-                 format: { (string)NV12 }
+                 format: { (string)NV12, (string)BGRA }
+                  width: [ 1, 2147483647 ]
+                 height: [ 1, 2147483647 ]
+              framerate: [ 0/1, 2147483647/1 ]
+      video/x-raw(memory:D3D12Memory)
+                 format: { (string)NV12, (string)BGRA }
                   width: [ 1, 2147483647 ]
                  height: [ 1, 2147483647 ]
               framerate: [ 0/1, 2147483647/1 ]
@@ -409,6 +414,16 @@ Pad Templates:
               framerate: [ 0/1, 2147483647/1 ]
       video/x-raw(memory:VAMemory)
                  format: { (string)NV12 }
+                  width: [ 1, 2147483647 ]
+                 height: [ 1, 2147483647 ]
+              framerate: [ 0/1, 2147483647/1 ]
+      video/x-raw(memory:D3D11Memory)
+                 format: { (string)NV12, (string)BGRA }
+                  width: [ 1, 2147483647 ]
+                 height: [ 1, 2147483647 ]
+              framerate: [ 0/1, 2147483647/1 ]
+      video/x-raw(memory:D3D12Memory)
+                 format: { (string)NV12, (string)BGRA }
                   width: [ 1, 2147483647 ]
                  height: [ 1, 2147483647 ]
               framerate: [ 0/1, 2147483647/1 ]

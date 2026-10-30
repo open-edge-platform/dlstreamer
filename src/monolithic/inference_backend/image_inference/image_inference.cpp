@@ -8,6 +8,7 @@
 #include "utils.h"
 #ifdef _WIN32
 #include "image_inference_async_d3d11.h"
+#include "image_inference_async_d3d12.h"
 #else
 #include "image_inference_async/image_inference_async.h"
 #include <cstdlib>
@@ -119,10 +120,27 @@ ImageInference::Ptr ImageInference::createImageInferenceInstance(MemoryType inpu
             break;
         case ImagePreprocessorType::D3D11_SURFACE_SHARING:
             memory_type_to_use = MemoryType::D3D11;
-            throw std::runtime_error("Not implemented yet");
             break;
         default:
             throw std::runtime_error("Incorrect pre-process-backend, should be d3d11 or d3d11-surface-sharing");
+        }
+        break;
+    }
+    case MemoryType::D3D12: {
+        async_mode = true;
+        if (!context) {
+            throw std::invalid_argument("Null context provided (D3D12Context is expected)");
+        }
+        ImagePreprocessorType preproc_type = getPreProcType(config.at(KEY_BASE));
+        switch (preproc_type) {
+        case ImagePreprocessorType::D3D12:
+            memory_type_to_use = MemoryType::SYSTEM;
+            break;
+        case ImagePreprocessorType::D3D12_SURFACE_SHARING:
+            memory_type_to_use = MemoryType::D3D12;
+            break;
+        default:
+            throw std::runtime_error("Incorrect pre-process-backend, should be d3d12 or d3d12-surface-sharing");
         }
         break;
     }
@@ -140,7 +158,12 @@ ImageInference::Ptr ImageInference::createImageInferenceInstance(MemoryType inpu
         // Wrap the inference in an asynchronous handler if async mode is enabled
         result_inference = std::make_shared<ImageInferenceAsync>(config, context, std::move(ov_inference));
 #else
-        result_inference = std::make_shared<ImageInferenceAsyncD3D11>(config, context, std::move(ov_inference));
+        if (input_image_memory_type == MemoryType::D3D12)
+            result_inference =
+                std::make_shared<ImageInferenceAsyncD3D12>(config, context, std::move(ov_inference), error_handler);
+        else
+            result_inference =
+                std::make_shared<ImageInferenceAsyncD3D11>(config, context, std::move(ov_inference), error_handler);
 #endif
     } else {
         // Use the OpenVINO inference directly if not in async mode

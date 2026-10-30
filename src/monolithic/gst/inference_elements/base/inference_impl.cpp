@@ -48,6 +48,9 @@
 #if defined(ENABLE_VAAPI) && !defined(_WIN32)
 #include "vaapi_utils.h"
 #endif
+#ifdef _WIN32
+#include "dlstreamer/openvino/utils.h"
+#endif
 
 using namespace std::placeholders;
 using namespace InferenceBackend;
@@ -98,6 +101,10 @@ inline std::string MemoryTypeToString(MemoryType type) {
         return "VA(API)";
     case MemoryType::DMA_BUFFER:
         return "DMA_BUFFER";
+    case MemoryType::D3D11:
+        return "D3D11";
+    case MemoryType::D3D12:
+        return "D3D12";
     case MemoryType::ANY:
         return "ANY";
     default:
@@ -118,6 +125,14 @@ inline std::string ImagePreprocessorTypeToString(ImagePreprocessorType type) {
         return "VA(API)_SURFACE_SHARING";
     case ImagePreprocessorType::OPENCV:
         return "OPENCV";
+    case ImagePreprocessorType::D3D11:
+        return "D3D11";
+    case ImagePreprocessorType::D3D11_SURFACE_SHARING:
+        return "D3D11_SURFACE_SHARING";
+    case ImagePreprocessorType::D3D12:
+        return "D3D12";
+    case ImagePreprocessorType::D3D12_SURFACE_SHARING:
+        return "D3D12_SURFACE_SHARING";
     default:
         return "UNKNOWN";
     }
@@ -133,7 +148,9 @@ ImagePreprocessorType ImagePreprocessorTypeFromString(const std::string &image_p
         {"va-surface-sharing", ImagePreprocessorType::VAAPI_SURFACE_SHARING},
         {"opencv", ImagePreprocessorType::OPENCV},
         {"d3d11", ImagePreprocessorType::D3D11},
-        {"d3d11-surface-sharing", ImagePreprocessorType::D3D11_SURFACE_SHARING}};
+        {"d3d11-surface-sharing", ImagePreprocessorType::D3D11_SURFACE_SHARING},
+        {"d3d12", ImagePreprocessorType::D3D12},
+        {"d3d12-surface-sharing", ImagePreprocessorType::D3D12_SURFACE_SHARING}};
 
     for (auto &elem : preprocessor_types) {
         if (image_preprocessor_name == elem.first)
@@ -282,7 +299,7 @@ bool IsModelProcSupportedForVaapi(const std::vector<ModelInputProcessorInfo::Ptr
     return true;
 }
 
-bool IsModelProcSupportedForD3D11(const std::vector<ModelInputProcessorInfo::Ptr> &model_input_processor_info) {
+bool IsModelProcSupportedForD3D(const std::vector<ModelInputProcessorInfo::Ptr> &model_input_processor_info) {
     for (const auto &it : model_input_processor_info) {
         if (!it || it->format != "image")
             continue;
@@ -310,6 +327,9 @@ bool IsPreprocSupported(ImagePreprocessorType preproc,
                         GstVideoInfo *input_video_info, const std::map<std::string, std::string> base_config) {
     bool isNpu = (base_config.at(KEY_DEVICE).find("NPU") != std::string::npos);
     bool isCustomLib = !base_config.at(KEY_CUSTOM_PREPROC_LIB).empty();
+    // D3D surface sharing needs OV's GPU remote context, which exists only for a single
+    // GPU device ("GPU", "GPU.<N>").
+    bool isSingleGpu = (base_config.at(KEY_DEVICE).rfind("GPU", 0) == 0);
     switch (preproc) {
     case ImagePreprocessorType::IE:
         return !isNpu && !isCustomLib && IsModelProcSupportedForIE(model_input_processor_info, input_video_info);
@@ -321,7 +341,13 @@ bool IsPreprocSupported(ImagePreprocessorType preproc,
     case ImagePreprocessorType::OPENCV:
         return true;
     case ImagePreprocessorType::D3D11:
-        return !isCustomLib && IsModelProcSupportedForD3D11(model_input_processor_info);
+        return !isCustomLib && IsModelProcSupportedForD3D(model_input_processor_info);
+    case ImagePreprocessorType::D3D11_SURFACE_SHARING:
+        return isSingleGpu && !isCustomLib && IsModelProcSupportedForD3D(model_input_processor_info);
+    case ImagePreprocessorType::D3D12:
+        return !isCustomLib && IsModelProcSupportedForD3D(model_input_processor_info);
+    case ImagePreprocessorType::D3D12_SURFACE_SHARING:
+        return isSingleGpu && !isCustomLib && IsModelProcSupportedForD3D(model_input_processor_info);
     case ImagePreprocessorType::AUTO:
     default:
         return false;
@@ -352,8 +378,20 @@ GetPreferredImagePreproc(CapsFeature caps, const std::vector<ModelInputProcessor
         result = ImagePreprocessorType::VAAPI_SYSTEM;
         break;
     case D3D11_MEMORY_CAPS_FEATURE:
-        result = ImagePreprocessorType::D3D11;
+    case D3D12_MEMORY_CAPS_FEATURE: {
+        const bool is_d3d12 = caps == D3D12_MEMORY_CAPS_FEATURE;
+        const auto system = is_d3d12 ? ImagePreprocessorType::D3D12 : ImagePreprocessorType::D3D11;
+        const auto sharing =
+            is_d3d12 ? ImagePreprocessorType::D3D12_SURFACE_SHARING : ImagePreprocessorType::D3D11_SURFACE_SHARING;
+        if ((device.find("NPU") != std::string::npos) || (device.find("AUTO") != std::string::npos) ||
+            (device.find("MULTI") != std::string::npos) ||
+            !IsPreprocSupported(sharing, model_input_processor_info, input_video_info, base_config)) {
+            result = system;
+        } else {
+            result = sharing;
+        }
         break;
+    }
     default:
         throw std::runtime_error("Unsupported caps have been detected for image preprocessor!");
     }
@@ -404,6 +442,19 @@ void setPreprocessorType(InferenceConfig &config,
             selected_preprocessor = ImagePreprocessorType::VAAPI_SYSTEM;
             GVA_WARNING("'pre-process-backend=va-surface-sharing' not supported with current settings, falling back "
                         "to 'pre-process-backend=va'");
+        } else if (current == ImagePreprocessorType::D3D11_SURFACE_SHARING &&
+                   IsPreprocSupported(ImagePreprocessorType::D3D11, model_input_processor_info, input_video_info,
+                                      config[KEY_BASE])) {
+            // Fallback to D3D11 if D3D11_SURFACE_SHARING is unsupported
+            selected_preprocessor = ImagePreprocessorType::D3D11;
+            GVA_WARNING("'pre-process-backend=d3d11-surface-sharing' not supported with current settings, falling back "
+                        "to 'pre-process-backend=d3d11'");
+        } else if (current == ImagePreprocessorType::D3D12_SURFACE_SHARING &&
+                   IsPreprocSupported(ImagePreprocessorType::D3D12, model_input_processor_info, input_video_info,
+                                      config[KEY_BASE])) {
+            selected_preprocessor = ImagePreprocessorType::D3D12;
+            GVA_WARNING("'pre-process-backend=d3d12-surface-sharing' not supported with current settings, falling back "
+                        "to 'pre-process-backend=d3d12'");
         } else {
             // Throw an error if no suitable fallback is available
             throw std::runtime_error(
@@ -667,6 +718,8 @@ MemoryType GetMemoryType(CapsFeature caps_feature) {
         return MemoryType::VAAPI;
     case CapsFeature::D3D11_MEMORY_CAPS_FEATURE:
         return MemoryType::D3D11;
+    case CapsFeature::D3D12_MEMORY_CAPS_FEATURE:
+        return MemoryType::D3D12;
     case CapsFeature::ANY_CAPS_FEATURE:
     default:
         return MemoryType::ANY;
@@ -704,13 +757,43 @@ MemoryType GetMemoryType(MemoryType input_image_memory_type, ImagePreprocessorTy
         break;
     }
     case MemoryType::D3D11:
-        type = MemoryType::D3D11;
+    case MemoryType::D3D12: {
+        switch (image_preprocessor_type) {
+        case ImagePreprocessorType::OPENCV:
+        case ImagePreprocessorType::IE:
+            type = MemoryType::SYSTEM;
+            break;
+        default:
+            type = input_image_memory_type;
+            break;
+        }
         break;
+    }
     default:
         break;
     }
     return type;
 }
+
+#ifdef _WIN32
+// One OpenVINO core for the GPU lookups below.
+ov::Core &gpuLookupCore() {
+    static ov::Core core;
+    return core;
+}
+
+// Adapter LUID of the D3D11/D3D12 device in `ctx`, 0 if there is none.
+gint64 getD3DAdapterLuid(const dlstreamer::ContextPtr &ctx, bool is_d3d12) {
+    if (!ctx)
+        return 0;
+    void *device =
+        ctx->handle(is_d3d12 ? dlstreamer::BaseContext::key::d3d12_device : dlstreamer::BaseContext::key::d3d11_device);
+    gint64 luid = 0;
+    if (device)
+        g_object_get(device, "adapter-luid", &luid, nullptr);
+    return luid;
+}
+#endif
 
 int getGPURenderDevId(GvaBaseInference *gva_base_inference) {
     int gpuRenderDevId = 0;
@@ -748,9 +831,34 @@ int getGPURenderDevId(GvaBaseInference *gva_base_inference) {
         }
         gst_query_unref(gstQueryLcl);
     }
-    if (gva_base_inference->caps_feature == D3D11_MEMORY_CAPS_FEATURE) {
-        return 32081;
+#ifdef _WIN32
+    if (gva_base_inference->caps_feature == D3D11_MEMORY_CAPS_FEATURE ||
+        gva_base_inference->caps_feature == D3D12_MEMORY_CAPS_FEATURE) {
+        // Match the upstream D3D11/D3D12 device against an OpenVINO GPU device by
+        // comparing adapter LUIDs. DXGI's adapter index ordering (driver-defined)
+        // does NOT match OV's GPU index ordering (OV puts integrated GPUs first,
+        // then discrete, see ocl_device_detector.cpp + sort_devices in OV), so
+        // we cannot use the DXGI adapter index directly. Return -1 if no OV GPU
+        // matches (e.g. a non-Intel adapter), so that "GPU.0" is not reused for it.
+        gpuRenderDevId = -1;
+        const bool is_d3d12 = gva_base_inference->caps_feature == D3D12_MEMORY_CAPS_FEATURE;
+        const gint64 luid = getD3DAdapterLuid(
+            is_d3d12 ? gva_base_inference->priv->d3d12_device : gva_base_inference->priv->d3d11_device, is_d3d12);
+        if (luid != 0) {
+            try {
+                const std::string gpu = dlstreamer::find_gpu_for_adapter_luid(gpuLookupCore(), luid);
+                if (!gpu.empty()) {
+                    // Parse "GPU.<idx>" → idx; "GPU" alone → 0.
+                    gpuRenderDevId = Utils::getRelativeGpuDeviceIndex(gpu);
+                    GVA_INFO("%s adapter LUID matches OV %s (index %d)", is_d3d12 ? "D3D12" : "D3D11", gpu.c_str(),
+                             gpuRenderDevId);
+                }
+            } catch (const std::exception &e) {
+                GVA_WARNING("Failed to match %s adapter LUID to OV GPU: %s", is_d3d12 ? "D3D12" : "D3D11", e.what());
+            }
+        }
     }
+#endif
     return gpuRenderDevId;
 }
 
@@ -792,6 +900,170 @@ bool canReuseSharedVADispCtx(GvaBaseInference *gva_base_inference, size_t max_st
     }
     return false;
 }
+
+#ifdef _WIN32
+// Decide whether the upstream D3D11 device (priv->d3d11_device) can be reused
+// for inference.
+bool canReuseSharedD3D11Ctx(GvaBaseInference *gva_base_inference) {
+    const std::string device(gva_base_inference->device);
+
+    if (!gva_base_inference->share_d3d_ctx) {
+        GVA_INFO("[%s] D3D11 ctx sharing disabled by share-d3d-ctx for element %s", __FUNCTION__,
+                 GST_ELEMENT_NAME(gva_base_inference));
+        return false;
+    }
+
+    if (!gva_base_inference->priv->d3d11_device)
+        return false;
+
+    // Only a GPU inference device needs a D3D11 device on its own adapter (surface sharing).
+    // Others (NPU, AUTO, MULTI, ...) convert into system memory, which is cheapest on the
+    // device the frames already live on.
+    if (device.rfind("GPU", 0) != 0)
+        return true;
+
+    if (device.find("GPU.") == device.npos && device.find("GPU") != device.npos) {
+        // "GPU" alone accepts any GPU: OV follows the D3D11 device to its adapter, which
+        // needs an OV GPU there (not, for example, another vendor's adapter).
+        return getGPURenderDevId(gva_base_inference) >= 0;
+    }
+    if (device.find("GPU.") != device.npos) {
+        uint32_t rel_dev_index = Utils::getRelativeGpuDeviceIndex(device);
+        uint32_t gpuId = static_cast<uint32_t>(getGPURenderDevId(gva_base_inference));
+        if (gpuId == rel_dev_index)
+            return true;
+    }
+    return false;
+}
+
+// Resolve the adapter LUID of the OV GPU that a new D3D11/D3D12 device must be
+// created on. A device naming a GPU ("GPU", "GPU.<N>") must resolve: the D3D11
+// remote context takes its GPU from the D3D11 device, not from the device name,
+// so falling back to another adapter would silently run inference there. Other
+// devices (NPU, AUTO:..., ...) use OV's default GPU and return 0 on failure, so
+// the caller falls back to adapter 0.
+gint64 queryOvGpuLuid(const std::string &device) {
+    const bool is_gpu_device = device.rfind("GPU", 0) == 0;
+    const std::string ov_dev = is_gpu_device ? device : "GPU";
+    gint64 luid = 0;
+    try {
+        luid = dlstreamer::gpu_adapter_luid(gpuLookupCore(), ov_dev);
+    } catch (const std::exception &e) {
+        if (is_gpu_device)
+            throw std::runtime_error("Failed to query the adapter LUID of OpenVINO™ device " + device +
+                                     ". Check that the device exists: " + e.what());
+        GVA_WARNING("Failed to query OV LUID for %s: %s", ov_dev.c_str(), e.what());
+    }
+    return luid;
+}
+
+// Create a fresh GstD3D11Device for the given OV "GPU.x" device, matching by
+// LUID against OV's enumerated GPUs. Returns a D3D11Context wrapping it.
+dlstreamer::ContextPtr createD3D11Display(GvaBaseInference *gva_base_inference) {
+    const std::string device(gva_base_inference->device);
+
+    const gint64 target_luid = queryOvGpuLuid(device);
+
+    GstD3D11Device *gst_dev = nullptr;
+    if (target_luid != 0)
+        gst_dev = gst_d3d11_device_new_for_adapter_luid(target_luid, 0);
+    if (!gst_dev) {
+        // Fall back to adapter index 0 if LUID lookup failed.
+        gst_dev = gst_d3d11_device_new(0, 0);
+    }
+    if (!gst_dev)
+        return nullptr;
+
+    GVA_INFO("createD3D11Display: created new GstD3D11Device (%p) for %s", static_cast<void *>(gst_dev),
+             device.c_str());
+    // D3D11Context does not own the device: release it together with the last holder.
+    return std::shared_ptr<dlstreamer::D3D11Context>(new dlstreamer::D3D11Context(gst_dev),
+                                                     [gst_dev](dlstreamer::D3D11Context *ctx) {
+                                                         delete ctx;
+                                                         gst_object_unref(gst_dev);
+                                                     });
+}
+
+// D3D12 twin of canReuseSharedD3D11Ctx: reuse the upstream GstD3D12Device when
+// it sits on the same adapter as the requested OV GPU.
+bool canReuseSharedD3D12Ctx(GvaBaseInference *gva_base_inference) {
+    const std::string device(gva_base_inference->device);
+
+    if (!gva_base_inference->share_d3d_ctx) {
+        GVA_INFO("[%s] D3D12 ctx sharing disabled by share-d3d-ctx for element %s", __FUNCTION__,
+                 GST_ELEMENT_NAME(gva_base_inference));
+        return false;
+    }
+
+    if (!gva_base_inference->priv->d3d12_device)
+        return false;
+
+    // Non-GPU devices convert into system memory: keep the upstream device (see the D3D11 twin).
+    if (device.rfind("GPU", 0) != 0)
+        return true;
+
+    // "GPU" alone: OpenVINOContext picks the OV GPU on the upstream device's adapter.
+    if (device.find("GPU.") == device.npos && device.find("GPU") != device.npos)
+        return getGPURenderDevId(gva_base_inference) >= 0;
+    if (device.find("GPU.") != device.npos) {
+        uint32_t rel_dev_index = Utils::getRelativeGpuDeviceIndex(device);
+        uint32_t gpuId = static_cast<uint32_t>(getGPURenderDevId(gva_base_inference));
+        if (gpuId == rel_dev_index)
+            return true;
+    }
+    return false;
+}
+
+// Create a fresh GstD3D12Device for the given OV "GPU.x" device, matching by
+// LUID against OV's enumerated GPUs. Returns a D3D12Context wrapping it.
+dlstreamer::ContextPtr createD3D12Display(GvaBaseInference *gva_base_inference) {
+    const std::string device(gva_base_inference->device);
+
+    const gint64 target_luid = queryOvGpuLuid(device);
+
+    GstD3D12Device *gst_dev = nullptr;
+    if (target_luid != 0)
+        gst_dev = gst_d3d12_device_new_for_adapter_luid(target_luid);
+    if (!gst_dev)
+        gst_dev = gst_d3d12_device_new(0);
+    if (!gst_dev)
+        return nullptr;
+
+    GVA_INFO("createD3D12Display: created new GstD3D12Device (%p) for %s", static_cast<void *>(gst_dev),
+             device.c_str());
+    // D3D12Context does not own the device: release it together with the last holder.
+    return std::shared_ptr<dlstreamer::D3D12Context>(new dlstreamer::D3D12Context(gst_dev),
+                                                     [gst_dev](dlstreamer::D3D12Context *ctx) {
+                                                         delete ctx;
+                                                         gst_object_unref(gst_dev);
+                                                     });
+}
+
+// Surface sharing hands OV the frames on their own adapter (the D3D11 texture, or a buffer on
+// the frames' D3D12 device), and shared handles can't cross adapters. When inference gets a D3D
+// device of its own on another adapter, convert on the frames' device into system memory instead.
+void avoidCrossAdapterSurfaceSharing(GvaBaseInference *gva_base_inference, InferenceConfig &ie_config) {
+    const auto preproc = static_cast<ImagePreprocessorType>(std::stoi(ie_config[KEY_BASE][KEY_PRE_PROCESSOR_TYPE]));
+    const bool is_d3d12 = preproc == ImagePreprocessorType::D3D12_SURFACE_SHARING;
+    if (!is_d3d12 && preproc != ImagePreprocessorType::D3D11_SURFACE_SHARING)
+        return;
+    const auto &upstream = is_d3d12 ? gva_base_inference->priv->d3d12_device : gva_base_inference->priv->d3d11_device;
+    if (!upstream ||
+        (is_d3d12 ? canReuseSharedD3D12Ctx(gva_base_inference) : canReuseSharedD3D11Ctx(gva_base_inference)))
+        return;
+
+    const gint64 frames_luid = getD3DAdapterLuid(upstream, is_d3d12);
+    const gint64 inference_luid = queryOvGpuLuid(gva_base_inference->device);
+    if (frames_luid == 0 || inference_luid == 0 || frames_luid == inference_luid)
+        return;
+
+    const auto fallback = is_d3d12 ? ImagePreprocessorType::D3D12 : ImagePreprocessorType::D3D11;
+    GVA_WARNING("The frames are on another adapter than %s and can't be shared with it: falling back to "
+                "'pre-process-backend=%s'",
+                gva_base_inference->device, is_d3d12 ? "d3d12" : "d3d11");
+    ie_config[KEY_BASE][KEY_PRE_PROCESSOR_TYPE] = std::to_string(static_cast<int>(fallback));
+}
+#endif
 
 // Returns a dlstreamer::ContextPtr representing a VA display context.
 // The returned shared pointer may either reference a shared VA display (if reuse is possible) or a newly created
@@ -987,6 +1259,9 @@ InferenceImpl::Model InferenceImpl::CreateModel(GvaBaseInference *gva_base_infer
     bool user_provided_reshape = (gva_base_inference->reshape_width != 0) || (gva_base_inference->reshape_height != 0);
     UpdateConfigWithLayerInfo(model.input_processor_info, ie_config, user_provided_reshape);
     setPreprocessorType(ie_config, model.input_processor_info, gva_base_inference->info);
+#ifdef _WIN32
+    avoidCrossAdapterSurfaceSharing(gva_base_inference, ie_config);
+#endif
     memory_type =
         GetMemoryType(GetMemoryType(static_cast<CapsFeature>(std::stoi(ie_config[KEY_BASE][KEY_CAPS_FEATURE]))),
                       static_cast<ImagePreprocessorType>(std::stoi(ie_config[KEY_BASE][KEY_PRE_PROCESSOR_TYPE])));
@@ -1021,8 +1296,47 @@ InferenceImpl::Model InferenceImpl::CreateModel(GvaBaseInference *gva_base_infer
                 ie_config[KEY_BASE][KEY_IMAGE_FORMAT] = "NV12";
             }
         }
-    } else if (memory_type == MemoryType::D3D11) {
+    } else if (memory_type == MemoryType::D3D11 || memory_type == MemoryType::D3D12) {
+#ifdef _WIN32
+        if (memory_type == MemoryType::D3D11) {
+            if (canReuseSharedD3D11Ctx(gva_base_inference)) {
+                va_dpy = gva_base_inference->priv->d3d11_device;
+                GVA_INFO("Using shared D3D11 device (%p) from upstream", static_cast<void *>(va_dpy.get()));
+            } else {
+                va_dpy = createD3D11Display(gva_base_inference);
+                GVA_INFO("Using new D3D11 device (%p)", static_cast<void *>(va_dpy.get()));
+            }
+        } else {
+            if (canReuseSharedD3D12Ctx(gva_base_inference)) {
+                va_dpy = gva_base_inference->priv->d3d12_device;
+                GVA_INFO("Using shared D3D12 device (%p) from upstream", static_cast<void *>(va_dpy.get()));
+            } else {
+                va_dpy = createD3D12Display(gva_base_inference);
+                GVA_INFO("Using new D3D12 device (%p)", static_cast<void *>(va_dpy.get()));
+            }
+        }
+#else
         va_dpy = gva_base_inference->priv->d3d11_device;
+#endif
+
+        // D3D11/D3D12 surface sharing wraps a BGRA/RGBA texture as a single OpenCL buffer
+        // tensor and leaves the channel order to OV pre-processing, so the input
+        // tensor format must match the model's expected order regardless of the
+        // upstream caps (BGR -> BGRA, otherwise RGBA).
+        if (preproc_type == ImagePreprocessorType::D3D11_SURFACE_SHARING ||
+            preproc_type == ImagePreprocessorType::D3D12_SURFACE_SHARING) {
+            auto &model_fmt = ie_config[KEY_BASE][KEY_MODEL_FORMAT];
+            if (model_fmt.empty()) {
+                model_fmt = "BGR";
+                GVA_INFO("Model advertises no channel order in rt_info (no color_space / "
+                         "reverse_input_channels); assuming BGR for D3D surface sharing");
+            }
+            const std::string new_fmt = (model_fmt == "BGR") ? "BGRA" : "RGBA";
+            if (ie_config[KEY_BASE][KEY_IMAGE_FORMAT] != new_fmt) {
+                GVA_INFO("Override input tensor format to %s for D3D surface sharing", new_fmt.c_str());
+                ie_config[KEY_BASE][KEY_IMAGE_FORMAT] = new_fmt;
+            }
+        }
     }
 
     // Set affinity mask if specified.
@@ -1076,6 +1390,8 @@ InferenceImpl::InferenceImpl(GvaBaseInference *gva_base_inference) {
 
 dlstreamer::ContextPtr InferenceImpl::GetDisplay(GvaBaseInference *gva_base_inference) {
 #ifdef _WIN32
+    if (gva_base_inference->caps_feature == D3D12_MEMORY_CAPS_FEATURE)
+        return gva_base_inference->priv->d3d12_device;
     return gva_base_inference->priv->d3d11_device;
 #else
     return gva_base_inference->priv->va_display;
@@ -1558,26 +1874,26 @@ GstFlowReturn InferenceImpl::TransformFrameIp(GvaBaseInference *gva_base_inferen
     return SubmitImages(gva_base_inference, metas, buffer);
 }
 
+/**
+ * Accounts for frames whose inference failed like completed ones, just without results: each ROI
+ * decrements its buffer's pending inference count and buffers are pushed in order once all their
+ * ROIs are done. Pushing the buffer right away would hand it downstream while other ROIs of the
+ * same buffer are still being submitted or inferred.
+ *
+ * @param[in] frames - frames for which inference failed
+ */
 void InferenceImpl::PushFramesIfInferenceFailed(
     std::vector<std::shared_ptr<InferenceBackend::ImageInference::IFrameBase>> frames) {
-    std::lock_guard<std::mutex> guard(output_frames_mutex);
     for (auto &frame : frames) {
         auto inference_result = std::dynamic_pointer_cast<InferenceResult>(frame);
         /* InferenceResult is inherited from IFrameBase */
         assert(inference_result.get() != nullptr && "Expected a valid InferenceResult");
 
         std::shared_ptr<InferenceFrame> inference_roi = inference_result->inference_frame;
-        auto it =
-            std::find_if(output_frames.begin(), output_frames.end(), [inference_roi](const OutputFrame &output_frame) {
-                return output_frame.buffer == inference_roi->buffer;
-            });
-
-        if (it == output_frames.end())
-            continue;
-
-        PushBufferToSrcPad(*it);
-        output_frames.erase(it);
+        inference_result->image.reset(); // deleter will to not make buffer_unref, see 'SubmitImages' method
+        UpdateOutputFrames(inference_roi);
     }
+    PushOutput();
 }
 
 /**

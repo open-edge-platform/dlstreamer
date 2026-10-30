@@ -25,6 +25,8 @@
 
 #ifdef _WIN32
 #include <dlstreamer/d3d11/device_lock.h>
+#include <dlstreamer/d3d11/opencl_sharing.h>
+#include <dlstreamer/opencl/command_queue.h>
 #else
 #include <unistd.h>
 #endif
@@ -358,18 +360,14 @@ bool RendererGPU::SharedContext::build(renderer_gpu::Device display) {
     /* cl_khr_d3d11_sharing imports a texture, and cl_intel_d3d11_nv12_media_sharing
      * extends it to the two planes of an NV12 one. */
     for (cl_platform_id platform : platforms) {
-        auto ext = [platform](const char *name) { return clGetExtensionFunctionAddressForPlatform(platform, name); };
-        auto get_devices = reinterpret_cast<clGetDeviceIDsFromD3D11KHR_fn>(ext("clGetDeviceIDsFromD3D11KHR"));
-        auto create_texture = reinterpret_cast<clCreateFromD3D11Texture2DKHR_fn>(ext("clCreateFromD3D11Texture2DKHR"));
-        auto acquire_fn = reinterpret_cast<clEnqueueAcquireD3D11ObjectsKHR_fn>(ext("clEnqueueAcquireD3D11ObjectsKHR"));
-        auto release_fn = reinterpret_cast<clEnqueueReleaseD3D11ObjectsKHR_fn>(ext("clEnqueueReleaseD3D11ObjectsKHR"));
-        if (!get_devices || !create_texture || !acquire_fn || !release_fn)
+        const dlstreamer::D3D11SharingFunctions sharing(platform);
+        if (!sharing.get_device_ids || !sharing.create_from_texture2d || !sharing.acquire || !sharing.release)
             continue;
 
         cl_device_id dev = nullptr;
         cl_uint num_devices = 0;
-        cl_int err = get_devices(platform, CL_D3D11_DEVICE_KHR, d3d11, CL_PREFERRED_DEVICES_FOR_D3D11_KHR, 1, &dev,
-                                 &num_devices);
+        cl_int err = sharing.get_device_ids(platform, CL_D3D11_DEVICE_KHR, d3d11, CL_PREFERRED_DEVICES_FOR_D3D11_KHR, 1,
+                                            &dev, &num_devices);
         if (err != CL_SUCCESS || num_devices == 0 || !dev)
             continue;
         if (!has_extension(dev, "cl_intel_d3d11_nv12_media_sharing"))
@@ -393,9 +391,9 @@ bool RendererGPU::SharedContext::build(renderer_gpu::Device display) {
         this->platform = platform;
         this->device = dev;
         this->context = ctx;
-        this->create_from_d3d11 = create_texture;
-        this->acquire = acquire_fn;
-        this->release = release_fn;
+        this->create_from_d3d11 = sharing.create_from_texture2d;
+        this->acquire = sharing.acquire;
+        this->release = sharing.release;
 
         if (!build_program()) {
             this->platform = nullptr;
@@ -524,43 +522,20 @@ RendererGPU::RendererGPU(std::shared_ptr<SharedContext> shared, std::shared_ptr<
 }
 
 cl_command_queue RendererGPU::create_queue(cl_int *err) {
-    cl_command_queue queue = clCreateCommandQueueWithProperties(_shared->context, _shared->device, nullptr, err);
-#if defined(_WIN32) && defined(CL_DEVICE_QUEUE_FAMILY_PROPERTIES_INTEL)
+#ifdef _WIN32
     /* Every frame waits for its kernels, and a default queue shares the
      * engine OpenVINO runs inference on, so the wait includes whatever
-     * inference is in flight: several ms per frame next to a detector. Another
-     * engine that runs every command, 'rcs' next to 'ccs', avoids that. */
-    if (!queue)
-        return queue;
-    size_t size = 0;
-    if (clGetDeviceInfo(_shared->device, CL_DEVICE_QUEUE_FAMILY_PROPERTIES_INTEL, 0, nullptr, &size) != CL_SUCCESS ||
-        size == 0)
-        return queue;
-    std::vector<cl_queue_family_properties_intel> families(size / sizeof(cl_queue_family_properties_intel));
-    cl_uint default_family = 0;
-    if (clGetDeviceInfo(_shared->device, CL_DEVICE_QUEUE_FAMILY_PROPERTIES_INTEL, size, families.data(), nullptr) !=
-            CL_SUCCESS ||
-        clGetCommandQueueInfo(queue, CL_QUEUE_FAMILY_INTEL, sizeof(default_family), &default_family, nullptr) !=
-            CL_SUCCESS)
-        return queue;
-
-    for (cl_uint i = 0; i < families.size(); ++i) {
-        if (i == default_family || families[i].capabilities != CL_QUEUE_DEFAULT_CAPABILITIES_INTEL ||
-            families[i].count == 0)
-            continue;
-        const cl_queue_properties props[] = {CL_QUEUE_FAMILY_INTEL, i, CL_QUEUE_INDEX_INTEL, 0, 0};
-        cl_int other_err = CL_SUCCESS;
-        cl_command_queue other =
-            clCreateCommandQueueWithProperties(_shared->context, _shared->device, props, &other_err);
-        if (other && other_err == CL_SUCCESS) {
-            GST_INFO("gvawatermark GPU renderer: kernels on engine '%s' rather than '%s'", families[i].name,
-                     families[default_family].name);
-            clReleaseCommandQueue(queue);
-            return other;
-        }
-    }
-#endif
+     * inference is in flight: several ms per frame next to a detector. */
+    std::string engine, default_engine;
+    cl_command_queue queue =
+        dlstreamer::create_queue_on_other_engine(_shared->context, _shared->device, err, &engine, &default_engine);
+    if (queue && engine != default_engine)
+        GST_INFO("gvawatermark GPU renderer: kernels on engine '%s' rather than '%s'", engine.c_str(),
+                 default_engine.c_str());
     return queue;
+#else
+    return clCreateCommandQueueWithProperties(_shared->context, _shared->device, nullptr, err);
+#endif
 }
 
 std::unique_ptr<RendererGPU> RendererGPU::create(renderer_gpu::Device display, int width, int height,
@@ -1366,7 +1341,7 @@ void RendererGPU::flush_spans_overlapping(int plane, int x0, int y0, int x1, int
 
 bool RendererGPU::flatten_rect(const render::Rect &rect) {
     if (rect.rotation != 0.0) {
-        _last_unsupported = "rotated rectangle (obb=true)";
+        _last_unsupported = "rotated rectangle from an oriented detection";
         return false;
     }
     if (rect.thick <= 0) {

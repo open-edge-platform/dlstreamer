@@ -11,6 +11,10 @@ Deep SORT tracking combines motion prediction (Kalman filter) with appearance fe
 Please refer to [Object Tracking](../dev_guide/object_tracking.md)
 for more information on the element properties.
 
+Tracking runs on the CPU; zero-term tracking, the only type that reads the image, maps the frame to system
+memory. On Windows, the element also accepts `video/x-raw(memory:D3D11Memory)` and
+`video/x-raw(memory:D3D12Memory)` in `NV12` and `BGRA`.
+
 ```bash
 Pad Templates:
  SINK template: 'sink'

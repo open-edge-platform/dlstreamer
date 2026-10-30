@@ -87,6 +87,8 @@
 
 #define DEFAULT_SHARE_VADISPLAY_CTX TRUE
 
+#define DEFAULT_SHARE_D3D_CTX TRUE
+
 G_DEFINE_TYPE_WITH_PRIVATE(GvaBaseInference, gva_base_inference, GST_TYPE_BASE_TRANSFORM);
 
 GST_DEBUG_CATEGORY_STATIC(gva_base_inference_debug_category);
@@ -123,6 +125,7 @@ enum {
     PROP_CUSTOM_POSTPROC_LIB,
     PROP_OV_EXTENSION_LIB,
     PROP_SHARE_VADISPLAY_CTX,
+    PROP_SHARE_D3D_CTX,
     PROP_CORE_PINNING
 };
 
@@ -193,7 +196,8 @@ static GstCaps *gva_base_inference_transform_caps(GstBaseTransform *trans, GstPa
             if ((gst_caps_features_contains(features, "memory:VASurface")) ||
                 (gst_caps_features_contains(features, "memory:VAMemory")) ||
                 (gst_caps_features_contains(features, "memory:DMABuf")) ||
-                (gst_caps_features_contains(features, "memory:D3D11Memory"))) {
+                (gst_caps_features_contains(features, "memory:D3D11Memory")) ||
+                (gst_caps_features_contains(features, "memory:D3D12Memory"))) {
                 gst_caps_remove_structure(filtered, i);
                 GST_WARNING("Filtered out structure %d from caps, it contains unsupported memory type", i);
             }
@@ -201,6 +205,28 @@ static GstCaps *gva_base_inference_transform_caps(GstBaseTransform *trans, GstPa
         gst_caps_unref(result);
         result = filtered;
     }
+
+#ifdef _WIN32
+    // D3D12 decoders output D3D12Memory whenever downstream accepts it, and D3D11Memory
+    // (through an extra GPU copy) otherwise. With auto-selection both are offered, so the
+    // decoder picks D3D12Memory when the whole downstream chain supports it. An explicit
+    // backend keeps only its own D3D memory type, none for 'opencv' or 'ie', so the
+    // negotiated caps always match it.
+    const gchar *pp = base_inference->pre_proc_type;
+    if (pp && *pp) {
+        const bool keep_d3d11 = g_str_has_prefix(pp, "d3d11");
+        const bool keep_d3d12 = g_str_has_prefix(pp, "d3d12");
+        GstCaps *filtered = gst_caps_copy(result);
+        for (gint i = gst_caps_get_size(filtered) - 1; i >= 0; --i) {
+            GstCapsFeatures *features = gst_caps_get_features(filtered, i);
+            if ((!keep_d3d11 && gst_caps_features_contains(features, "memory:D3D11Memory")) ||
+                (!keep_d3d12 && gst_caps_features_contains(features, "memory:D3D12Memory")))
+                gst_caps_remove_structure(filtered, i);
+        }
+        gst_caps_unref(result);
+        result = filtered;
+    }
+#endif
 
     return result;
 }
@@ -276,8 +302,15 @@ void gva_base_inference_class_init(GvaBaseInferenceClass *klass) {
         g_param_spec_string(
             "pre-process-backend", "Pre-processing method",
             "Select a pre-processing method (color conversion, resize and crop), "
-            "one of 'ie', 'opencv', 'va', 'va-surface-sharing, 'vaapi', 'vaapi-surface-sharing'."
+#ifdef _WIN32
+            "one of 'ie', 'opencv', 'd3d11', 'd3d11-surface-sharing', 'd3d12', 'd3d12-surface-sharing'."
+            " If not set, it will be selected automatically: 'd3d12-surface-sharing' for D3D12Memory and"
+            " 'd3d11-surface-sharing' for D3D11Memory on GPU ('d3d12'/'d3d11' on NPU, AUTO or MULTI devices),"
+            " 'ie' for SYSTEM memory. A d3d11 backend accepts only D3D11Memory, a d3d12 backend only D3D12Memory.",
+#else
+            "one of 'ie', 'opencv', 'va', 'va-surface-sharing', 'vaapi', 'vaapi-surface-sharing'."
             " If not set, it will be selected automatically: 'va' for VAMemory and DMABuf, 'ie' for SYSTEM memory.",
+#endif
             DEFAULT_PRE_PROC, param_flags));
 
     g_object_class_install_property(
@@ -304,18 +337,24 @@ void gva_base_inference_class_init(GvaBaseInferenceClass *klass) {
 
     g_object_class_install_property(
         gobject_class, PROP_BATCH_TIMEOUT,
-        g_param_spec_int("batch-timeout", "Batch timeout",
-                         "Timeout (ms) for OpenVINO™ Automatic Batching. Waits for batch to accumulate inference "
-                         "requests before execution. "
-                         "If the number of frames collected reaches batch-size, inference is executed with a full "
-                         "batch and the timer is reset. "
-                         "If timeout occurs before collecting all frames specified by batch-size, inference is "
-                         "executed on collected frames individually (as if batch-size=1) and the timer is reset. "
-                         "If batch-timeout is set to 0, it operates as if batch-size were set to 1, executing "
-                         "inference on individual frames. "
-                         "Value -1 disables timeout, waiting indefinitely for full batch. "
-                         "Note: Not supported with VA backends (pre-process-backend=va or va-surface-sharing).",
-                         DEFAULT_MIN_BATCH_TIMEOUT, DEFAULT_MAX_BATCH_TIMEOUT, DEFAULT_BATCH_TIMEOUT, param_flags));
+        g_param_spec_int(
+            "batch-timeout", "Batch timeout",
+            "Timeout (ms) for OpenVINO™ Automatic Batching. Waits for batch to accumulate inference "
+            "requests before execution. "
+            "If the number of frames collected reaches batch-size, inference is executed with a full "
+            "batch and the timer is reset. "
+            "If timeout occurs before collecting all frames specified by batch-size, inference is "
+            "executed on collected frames individually (as if batch-size=1) and the timer is reset. "
+            "If batch-timeout is set to 0, it operates as if batch-size were set to 1, executing "
+            "inference on individual frames. "
+            "Value -1 disables timeout, waiting indefinitely for full batch. "
+#ifdef _WIN32
+            "Note: Not supported with D3D11/D3D12 backends (pre-process-backend=d3d11, d3d11-surface-sharing, d3d12 or "
+            "d3d12-surface-sharing).",
+#else
+            "Note: Not supported with VA backends (pre-process-backend=va or va-surface-sharing).",
+#endif
+            DEFAULT_MIN_BATCH_TIMEOUT, DEFAULT_MAX_BATCH_TIMEOUT, DEFAULT_BATCH_TIMEOUT, param_flags));
 
     g_object_class_install_property(
         gobject_class, PROP_INFERENCE_INTERVAL,
@@ -407,21 +446,30 @@ void gva_base_inference_class_init(GvaBaseInferenceClass *klass) {
                                     g_param_spec_string("labels-file", "Labels-file",
                                                         "Path to .txt file containing object classes (one per line)",
                                                         DEFAULT_LABELS, param_flags));
-
+#ifndef _WIN32
     g_object_class_install_property(gobject_class, PROP_SCALE_METHOD,
                                     g_param_spec_string("scale-method", "scale-method",
                                                         "Scale method to use in pre-preprocessing before inference."
                                                         " Only default and scale-method=fast (VAAPI based) supported "
                                                         "in this element",
                                                         nullptr, param_flags));
+#endif
 
+#ifdef _WIN32
+    g_object_class_install_property(
+        gobject_class, PROP_SHARE_D3D_CTX,
+        g_param_spec_boolean("share-d3d-ctx", "Share D3D Device Context",
+                             "Whether to share the upstream D3D11/D3D12 device for inference: "
+                             "true (share context, default), false (create a new device)",
+                             DEFAULT_SHARE_D3D_CTX, param_flags));
+#else
     g_object_class_install_property(
         gobject_class, PROP_SHARE_VADISPLAY_CTX,
         g_param_spec_boolean("share-va-display-ctx", "Share VA Display Context",
                              "Whether to share VA Display context across inference elements: "
                              "true (share context, default), false (do not share context)",
                              DEFAULT_SHARE_VADISPLAY_CTX, param_flags));
-
+#endif
     g_object_class_install_property(
         gobject_class, PROP_CORE_PINNING,
         g_param_spec_string("core-pinning", "Core Pinning",
@@ -633,6 +681,7 @@ void gva_base_inference_init(GvaBaseInference *base_inference) {
     base_inference->ov_extension_lib = g_strdup(DEFAULT_OV_EXTENSION_LIB);
 
     base_inference->share_va_display_ctx = DEFAULT_SHARE_VADISPLAY_CTX;
+    base_inference->share_d3d_ctx = DEFAULT_SHARE_D3D_CTX;
 #ifndef _WIN32
     CPU_ZERO(&base_inference->core_pinning_mask);
 #else
@@ -987,6 +1036,9 @@ void gva_base_inference_set_property(GObject *object, guint property_id, const G
     case PROP_SHARE_VADISPLAY_CTX:
         base_inference->share_va_display_ctx = g_value_get_boolean(value);
         break;
+    case PROP_SHARE_D3D_CTX:
+        base_inference->share_d3d_ctx = g_value_get_boolean(value);
+        break;
     case PROP_CORE_PINNING:
         gva_base_inference_set_core_pinning(base_inference, g_value_get_string(value));
         break;
@@ -1080,6 +1132,9 @@ void gva_base_inference_get_property(GObject *object, guint property_id, GValue 
     case PROP_SHARE_VADISPLAY_CTX:
         g_value_set_boolean(value, base_inference->share_va_display_ctx);
         break;
+    case PROP_SHARE_D3D_CTX:
+        g_value_set_boolean(value, base_inference->share_d3d_ctx);
+        break;
     case PROP_SCHEDULING_POLICY:
         g_value_set_string(value, base_inference->scheduling_policy);
         break;
@@ -1165,7 +1220,8 @@ gboolean gva_base_inference_set_caps(GstBaseTransform *trans, GstCaps *incaps, G
          ((gst_caps_features_contains(gst_caps_get_features(incaps, 0), "memory:VASurface")) ||
           (gst_caps_features_contains(gst_caps_get_features(incaps, 0), "memory:VAMemory")) ||
           (gst_caps_features_contains(gst_caps_get_features(incaps, 0), "memory:DMABuf")) ||
-          (gst_caps_features_contains(gst_caps_get_features(incaps, 0), "memory:D3D11Memory"))))) {
+          (gst_caps_features_contains(gst_caps_get_features(incaps, 0), "memory:D3D11Memory")) ||
+          (gst_caps_features_contains(gst_caps_get_features(incaps, 0), "memory:D3D12Memory"))))) {
         GST_ELEMENT_WARNING(base_inference, RESOURCE, SETTINGS,
                             ("Refusing caps other than SYSTEM_MEMORY_CAPS because device is set to CPU"),
                             ("Set device property to a hardware accelerator (e.g., GPU) to enable VA memory types."));
@@ -1191,7 +1247,9 @@ gboolean gva_base_inference_set_caps(GstBaseTransform *trans, GstCaps *incaps, G
              base_inference->device));
     }
 
-    if (base_inference->inference && base_inference->info &&
+    // stop() drops the buffer mapper and the upstream devices, so initialize again after a restart:
+    // upstream may also be on another device now.
+    if (base_inference->inference && base_inference->priv->buffer_mapper && base_inference->info &&
         gst_video_info_is_equal(base_inference->info, &video_info) && base_inference->caps_feature == caps_feature) {
         // We alredy have an inference model instance.
         return TRUE;
@@ -1240,6 +1298,15 @@ gboolean gva_base_inference_set_caps(GstBaseTransform *trans, GstCaps *incaps, G
                 GST_WARNING_OBJECT(trans, "Couldn't query D3D11Device from gstreamer-d3d11 elements.");
             }
         }
+        if (!base_inference->priv->d3d12_device && (base_inference->caps_feature == D3D12_MEMORY_CAPS_FEATURE)) {
+            try {
+                base_inference->priv->d3d12_device =
+                    std::make_shared<dlstreamer::GSTContextQuery>(trans, dlstreamer::MemoryType::D3D12);
+                GST_INFO_OBJECT(trans, "Got D3D12Device (%p) from query", base_inference->priv->d3d12_device.get());
+            } catch (...) {
+                GST_WARNING_OBJECT(trans, "Couldn't query D3D12Device from gstreamer-d3d12 elements.");
+            }
+        }
 #endif
 
         base_inference->inference = acquire_inference_instance(base_inference).get();
@@ -1260,10 +1327,13 @@ gboolean gva_base_inference_set_caps(GstBaseTransform *trans, GstCaps *incaps, G
             base_inference->priv->buffer_mapper =
                 BufferMapperFactory::createMapper(base_inference->inference->GetInferenceMemoryType(),
                                                   base_inference->info, base_inference->priv->d3d11_device);
-        } else {
+        } else if (base_inference->caps_feature == D3D12_MEMORY_CAPS_FEATURE) {
             base_inference->priv->buffer_mapper =
                 BufferMapperFactory::createMapper(base_inference->inference->GetInferenceMemoryType(),
-                                                  base_inference->info, base_inference->priv->va_display);
+                                                  base_inference->info, base_inference->priv->d3d12_device);
+        } else {
+            base_inference->priv->buffer_mapper = BufferMapperFactory::createMapper(
+                base_inference->inference->GetInferenceMemoryType(), base_inference->info);
         }
 #else
         base_inference->priv->buffer_mapper =
@@ -1336,6 +1406,8 @@ gboolean gva_base_inference_check_properties_correctness(GvaBaseInference *base_
 static void on_base_inference_initialized(GvaBaseInference *base_inference) {
     GST_DEBUG_OBJECT(base_inference, "on_base_inference_initialized");
 
+    // Initializing again (new caps, or a restart) replaces the previous instance's post-processor
+    releasePostProcessor(base_inference->post_proc);
     base_inference->post_proc = createPostProcessor(base_inference->inference, base_inference);
 }
 
@@ -1409,6 +1481,8 @@ gboolean gva_base_inference_stop(GstBaseTransform *trans) {
     if (self->priv) {
         self->priv->buffer_mapper.reset();
         self->priv->va_display.reset();
+        self->priv->d3d11_device.reset();
+        self->priv->d3d12_device.reset();
     }
 
     return TRUE;

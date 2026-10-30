@@ -33,6 +33,7 @@
 #endif
 #else
 #include <dlstreamer/d3d11/target_pool.h>
+#include <dlstreamer/d3d12/target_pool.h>
 #include <dlstreamer/gst/mappers/gst_to_d3d11.h>
 #endif
 
@@ -41,7 +42,7 @@
 #include "renderer/cpu/create_renderer.h"
 
 // Renders primitives straight into the NV12 planes of VA surfaces (Linux) or
-// D3D11 textures (Windows) with OpenCL, with no NV12<->BGR round trip.
+// D3D11 and D3D12 textures (Windows) with OpenCL, with no NV12<->BGR round trip.
 #ifdef ENABLE_GVAWATERMARK_GPU
 #include "renderer/gpu/renderer_gpu.h"
 #endif
@@ -50,6 +51,8 @@
 #include <array>
 #include <exception>
 #include <fstream>
+#include <map>
+#include <mutex>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -147,6 +150,9 @@ InferenceBackend::MemoryType memoryTypeFromCaps(GstCaps *caps) {
     case D3D11_MEMORY_CAPS_FEATURE:
         return InferenceBackend::MemoryType::D3D11;
 
+    case D3D12_MEMORY_CAPS_FEATURE:
+        return InferenceBackend::MemoryType::D3D12;
+
     case VA_SURFACE_CAPS_FEATURE:
     case VA_MEMORY_CAPS_FEATURE:
         return InferenceBackend::MemoryType::VAAPI;
@@ -159,6 +165,31 @@ InferenceBackend::MemoryType memoryTypeFromCaps(GstCaps *caps) {
         return InferenceBackend::MemoryType::ANY;
     }
 }
+
+#if defined(ENABLE_GVAWATERMARK_GPU) && defined(_WIN32)
+/* OpenCL shares D3D11 textures but not D3D12 ones, so the GPU renderer draws
+ * D3D12 frames through the D3D11 views of their textures. This is the D3D11
+ * device the views are opened on for the adapter of `device`: one per adapter
+ * for the whole process, as GStreamer keeps its D3D12 devices, so that streams
+ * also share the renderer's OpenCL context. nullptr if it cannot be created. */
+GstD3D11Device *d3d11_device_for(GstD3D12Device *device) {
+    gint64 luid = 0;
+    g_object_get(device, "adapter-luid", &luid, nullptr);
+
+    static std::mutex mutex;
+    static std::map<gint64, GstD3D11Device *> devices;
+    std::lock_guard<std::mutex> lock(mutex);
+    auto [it, created] = devices.try_emplace(luid, nullptr);
+    if (created) {
+        it->second = gst_d3d11_device_new_for_adapter_luid(luid, D3D11_CREATE_DEVICE_BGRA_SUPPORT);
+        if (it->second) // never released, like GStreamer's D3D12 devices: not a leak for leak tracers
+            GST_OBJECT_FLAG_SET(it->second, GST_OBJECT_FLAG_MAY_BE_LEAKED);
+        else
+            GST_WARNING("Cannot create a D3D11 device for D3D12 adapter %" G_GINT64_FORMAT, luid);
+    }
+    return it->second;
+}
+#endif
 
 } // namespace
 
@@ -173,6 +204,11 @@ struct Impl {
      * path is unavailable or the frame contains a primitive it cannot draw yet;
      * the caller must then fall back to render(). */
     [[nodiscard]] bool render_gpu(renderer_gpu::Device device, renderer_gpu::Surface surface);
+#ifdef _WIN32
+    /* The same for a D3D12 texture of dlstreamer::D3D12TargetPool, which the
+     * caller holds a GST_MAP_D3D12 write map of. */
+    [[nodiscard]] bool render_gpu(GstD3D12Memory *memory);
+#endif
     /* The GPU renderer cannot be used for this stream at all. */
     bool gpu_unavailable() const {
         return _renderer_gpu_unavailable;
@@ -181,6 +217,9 @@ struct Impl {
 #ifdef _WIN32
     dlstreamer::D3D11TargetPool &d3d11_targets() {
         return _d3d11_targets;
+    }
+    dlstreamer::D3D12TargetPool &d3d12_targets() {
+        return _d3d12_targets;
     }
 #endif
     const std::string &getBackendType() const {
@@ -226,6 +265,7 @@ struct Impl {
 #endif
 #ifdef _WIN32
     dlstreamer::D3D11TargetPool _d3d11_targets{GST_CAT_DEFAULT};
+    dlstreamer::D3D12TargetPool _d3d12_targets{GST_CAT_DEFAULT};
 #endif
 
     std::vector<render::Prim> prims;
@@ -390,6 +430,7 @@ static gboolean gst_gva_watermark_impl_set_caps(GstBaseTransform *trans, GstCaps
         switch (mem_type) {
         // Video memory goes to the GPU renderer where it is built, otherwise to the CPU renderer
         case MemoryType::D3D11:
+        case MemoryType::D3D12:
         case MemoryType::SYSTEM:
             break;
         case MemoryType::VAAPI:
@@ -618,6 +659,21 @@ static bool render_gpu_d3d11(GstGvaWatermarkImpl *self, GstBuffer *buf) {
     gst_memory_unmap(mem, &info);
     return drawn;
 }
+
+/* The same for the buffer's texture that dlstreamer::D3D12TargetPool::replace()
+ * has made a pooled one. */
+static bool render_gpu_d3d12(GstGvaWatermarkImpl *self, GstBuffer *buf) {
+    if (GST_VIDEO_INFO_FORMAT(&self->info) != GST_VIDEO_FORMAT_NV12 || self->impl->gpu_unavailable())
+        return false;
+
+    GstMemory *mem = gst_buffer_peek_memory(buf, 0);
+    GstMapInfo info;
+    if (!gst_memory_map(mem, &info, GST_MAP_WRITE_D3D12))
+        return false;
+    const bool drawn = self->impl->render_gpu(GST_D3D12_MEMORY_CAST(mem));
+    gst_memory_unmap(mem, &info);
+    return drawn;
+}
 #endif
 
 static GstFlowReturn gst_gva_watermark_impl_transform_ip(GstBaseTransform *trans, GstBuffer *buf) {
@@ -640,7 +696,8 @@ static GstFlowReturn gst_gva_watermark_impl_transform_ip(GstBaseTransform *trans
 #endif
     bool force_cpu = (gvawatermark->device && g_strcmp0(gvawatermark->device, "CPU") == 0);
 #ifdef _WIN32
-    bool use_gpu_path = mt == InferenceBackend::MemoryType::D3D11 && !force_cpu;
+    bool use_gpu_path =
+        (mt == InferenceBackend::MemoryType::D3D11 || mt == InferenceBackend::MemoryType::D3D12) && !force_cpu;
 #else
     bool use_gpu_path = have_va_context && buffer_is_va_like && !force_cpu;
 #endif
@@ -663,13 +720,19 @@ static GstFlowReturn gst_gva_watermark_impl_transform_ip(GstBaseTransform *trans
 
 #ifdef _WIN32
         // Either renderer draws into a pooled copy of the frame, see dlstreamer::D3D11TargetPool
+        // and dlstreamer::D3D12TargetPool
         [[maybe_unused]] const bool d3d11_target =
             mt == InferenceBackend::MemoryType::D3D11 && gvawatermark->impl->d3d11_targets().replace(buf);
+        [[maybe_unused]] const bool d3d12_target =
+            mt == InferenceBackend::MemoryType::D3D12 &&
+            gvawatermark->impl->d3d12_targets().replace(buf, &gvawatermark->info);
 #endif
 #if defined(ENABLE_GVAWATERMARK_GPU) && defined(_WIN32)
         if (use_gpu_path) {
-            GST_TRACE_OBJECT(gvawatermark, "Using D3D11/GPU render path");
-            use_gpu_path = d3d11_target && render_gpu_d3d11(gvawatermark, buf);
+            GST_TRACE_OBJECT(gvawatermark, "Using D3D11/D3D12 GPU render path");
+            use_gpu_path = mt == InferenceBackend::MemoryType::D3D11
+                               ? d3d11_target && render_gpu_d3d11(gvawatermark, buf)
+                               : d3d12_target && render_gpu_d3d12(gvawatermark, buf);
         }
 #elif defined(ENABLE_VAAPI) && !defined(_WIN32)
         if (use_gpu_path) {
@@ -932,7 +995,8 @@ bool Impl::render(GstBuffer *buffer) {
     GstMapInfo map_info;
     bool mapped = false;
 
-    if (_mem_type == InferenceBackend::MemoryType::D3D11 || _mem_type == InferenceBackend::MemoryType::VAAPI) {
+    if (_mem_type == InferenceBackend::MemoryType::D3D11 || _mem_type == InferenceBackend::MemoryType::D3D12 ||
+        _mem_type == InferenceBackend::MemoryType::VAAPI) {
         // Map GPU buffer to system memory for CPU rendering
         if (!gst_buffer_map(buffer, &map_info, GST_MAP_READWRITE)) {
             GST_WARNING_OBJECT(_element, "Can't map GPU buffer to system memory for rendering; skipping frame");
@@ -998,6 +1062,27 @@ bool Impl::render_gpu(renderer_gpu::Device device, renderer_gpu::Surface surface
     }
     return false;
 }
+
+#ifdef _WIN32
+bool Impl::render_gpu(GstD3D12Memory *memory) {
+    if (_renderer_gpu_unavailable)
+        return false;
+
+    GstD3D11Device *device11 = d3d11_device_for(memory->device);
+    ID3D11Texture2D *texture =
+        device11 ? gst_d3d12_memory_get_d3d11_texture(memory, gst_d3d11_device_get_device_handle(device11)) : nullptr;
+    if (!texture) {
+        GST_WARNING_OBJECT(_element, "D3D12 textures cannot be opened in D3D11, which OpenCL needs to draw into "
+                                     "them; using the CPU renderer");
+        _renderer_gpu_unavailable = true;
+        return false;
+    }
+
+    // OpenCL sees no D3D12 fences, so the copy that filled the texture is waited for here
+    gst_d3d12_memory_sync(memory);
+    return render_gpu(device11, texture);
+}
+#endif
 #endif
 
 inline bool Impl::is_ROI_filtered_out(const std::string &label) const {

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022-2025 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -16,13 +16,14 @@ namespace dlstreamer {
 class BaseContext : public Context {
   public:
     struct key {
-        static constexpr auto va_display = "va_display"; // (VAAPI) VADisplay
-        static constexpr auto va_tile_id = "va_tile_id"; // (VAAPI) VADisplay
-        static constexpr auto cl_context = "cl_context"; // (OpenCL) cl_context
-        static constexpr auto cl_queue = "cl_queue";     // (OpenCL) cl_command_queue
-        static constexpr auto ze_context = "ze_context"; // (Level-zero) ze_context_handle_t
-        static constexpr auto ze_device = "ze_device";   // (Level-zero) ze_device_handle_t
-        static constexpr auto d3d_device = "d3d_device"; // (D3D11) D3D11Device
+        static constexpr auto va_display = "va_display";     // (VAAPI) VADisplay
+        static constexpr auto va_tile_id = "va_tile_id";     // (VAAPI) VADisplay
+        static constexpr auto cl_context = "cl_context";     // (OpenCL) cl_context
+        static constexpr auto cl_queue = "cl_queue";         // (OpenCL) cl_command_queue
+        static constexpr auto ze_context = "ze_context";     // (Level-zero) ze_context_handle_t
+        static constexpr auto ze_device = "ze_device";       // (Level-zero) ze_device_handle_t
+        static constexpr auto d3d11_device = "d3d11_device"; // (D3D11) GstD3D11Device
+        static constexpr auto d3d12_device = "d3d12_device"; // (D3D12) GstD3D12Device
     };
 
     BaseContext(MemoryType memory_type) : _memory_type(memory_type) {

@@ -3,6 +3,9 @@
 Provides the ability to define one or more regions of interest to
 perform inference on (instead of the full frame).
 
+On Windows, the element also accepts `video/x-raw(memory:D3D11Memory)` and
+`video/x-raw(memory:D3D12Memory)` in `NV12` and `BGRA`.
+
 ```text
 Pad Templates:
   SINK template: 'sink'

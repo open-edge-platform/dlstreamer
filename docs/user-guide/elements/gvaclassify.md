@@ -3,6 +3,22 @@
 Performs object classification. Accepts the ROIs or full frame as
 input and outputs classification results with metadata.
 
+On Windows, the element also accepts `video/x-raw(memory:D3D11Memory)` and
+`video/x-raw(memory:D3D12Memory)` in `NV12` and `BGRA`, and the properties differ
+from the Linux listing below:
+
+- `pre-process-backend` accepts `ie`, `opencv`, `d3d11`, `d3d11-surface-sharing`,
+  `d3d12` and `d3d12-surface-sharing`. If it is not set, both D3D memory types are
+  accepted and the backend is selected from the negotiated memory:
+  `d3d12-surface-sharing` or `d3d11-surface-sharing` on GPU, `d3d12` or `d3d11` on
+  NPU, and `ie` for system memory. A `d3d11` backend accepts only D3D11Memory, a `d3d12` backend
+  only D3D12Memory. See
+  [Windows pre-processing backends](../dev_guide/model_preparation.md#windows-pre-processing-backends).
+- `share-d3d-ctx` (Boolean, default `true`) replaces `share-va-display-ctx`. It
+  controls whether the upstream D3D11/D3D12 device is reused for inference
+  (`true`) or a new device is created (`false`).
+- `scale-method` is not available.
+
 ```text
 Pad Templates:
 SINK template: 'sink'

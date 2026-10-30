@@ -5,6 +5,7 @@
  ******************************************************************************/
 
 #include "gstgvastreammux.h"
+#include "gva_caps.h"
 #include <gst/analytics/gstanalyticsbatchmeta.h>
 
 #include <cstdlib>
@@ -67,8 +68,7 @@ GType gst_gva_streammux_output_mode_get_type(void) {
 /* Pad templates */
 #define STREAMMUX_VIDEO_CAPS                                                                                           \
     GST_VIDEO_CAPS_MAKE("{ BGRx, BGRA, BGR, NV12, I420, RGB, RGBA, RGBx }")                                            \
-    "; " GST_VIDEO_CAPS_MAKE_WITH_FEATURES("memory:VAMemory", "{ NV12 }") "; " GST_VIDEO_CAPS_MAKE_WITH_FEATURES(      \
-        "memory:DMABuf", "{ DMA_DRM }") "; "
+    "; " DMA_BUFFER_CAPS VAMEMORY_CAPS D3D11MEMORY_CAPS D3D12MEMORY_CAPS
 
 /* Non-video sources accepted on sink pads (e.g. lidar from g3dlidarparse,
  * processed radar). */
