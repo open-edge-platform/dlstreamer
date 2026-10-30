@@ -1438,10 +1438,15 @@ GstFlowReturn InferenceImpl::TransformFrameIp(GvaBaseInference *gva_base_inferen
     // Unref buffer automatically on early exit
     auto buf_guard = makeScopeGuard([buffer] { gst_buffer_unref(buffer); });
 
+    // inference-interval can be changed while running: read it once, so the whole frame is handled with one value
+    GST_OBJECT_LOCK(gva_base_inference);
+    const guint inference_interval = gva_base_inference->inference_interval;
+    GST_OBJECT_UNLOCK(gva_base_inference);
+
     InferenceStatus status = INFERENCE_EXECUTED;
     {
         ITT_TASK("InferenceImpl::TransformFrameIp check_skip");
-        if (++gva_base_inference->num_skipped_frames < gva_base_inference->inference_interval) {
+        if (++gva_base_inference->num_skipped_frames < inference_interval) {
             status = INFERENCE_SKIPPED_PER_PROPERTY;
         }
         if (gva_base_inference->no_block) {
@@ -1525,8 +1530,8 @@ GstFlowReturn InferenceImpl::TransformFrameIp(GvaBaseInference *gva_base_inferen
             // pause if total number of buffered frames exceeds max number of frames in flight,
             // and frame presentation time is later than ones already queued
             while ((buffer->pts > latest_pts) &&
-                   (output_frames.size() > model.inference->GetNireq() * model.inference->GetBatchSize() *
-                                               gva_base_inference->inference_interval)) {
+                   (output_frames.size() >
+                    model.inference->GetNireq() * model.inference->GetBatchSize() * inference_interval)) {
                 output_lock.unlock();
                 lock.unlock();
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -1612,6 +1617,38 @@ void InferenceImpl::UpdateOutputFrames(std::shared_ptr<InferenceFrame> &inferenc
     }
 }
 
+namespace {
+// The frames of an inference request can belong to different elements when elements share a model. Each element has
+// its own post-processor, and they differ in the confidence threshold the user can set per element. Frames whose
+// post-processors give the same results are converted together, in one pass (nearly always the case); otherwise there
+// is one pass over the same inference output per group, limited to the frames of the group.
+PostProcessorExitStatus PostProcessFrames(const std::map<std::string, InferenceBackend::OutputBlob::Ptr> &blobs,
+                                          std::vector<std::shared_ptr<InferenceFrame>> &frames) {
+    std::vector<std::shared_ptr<PostProcessor>> groups;
+    std::vector<std::vector<bool>> active; // for each group, the frames it processes
+    for (size_t i = 0; i < frames.size(); ++i) {
+        // a snapshot, so the post-processor stays alive until the frames are done even if the element replaces it
+        auto post_proc = gva_base_inference_get_post_processor(frames[i]->gva_base_inference);
+        if (!post_proc)
+            continue;
+        size_t group = 0;
+        while (group < groups.size() && !groups[group]->has_same_settings_as(*post_proc))
+            ++group;
+        if (group == groups.size()) {
+            groups.push_back(std::move(post_proc));
+            active.emplace_back(frames.size());
+        }
+        active[group][i] = true;
+    }
+
+    PostProcessorExitStatus status = PostProcessorExitStatus::SUCCESS;
+    for (size_t group = 0; group < groups.size(); ++group)
+        if (groups[group]->process(blobs, frames, std::move(active[group])) == PostProcessorExitStatus::FAIL)
+            status = PostProcessorExitStatus::FAIL;
+    return status;
+}
+} // namespace
+
 /**
  * Callback called when the inference request is completed. Updates output_frames and invokes post-processing for
  * corresponding inference element then makes gst_pad_push to send buffer further down the pipeline.
@@ -1630,7 +1667,6 @@ void InferenceImpl::InferenceCompletionCallback(
         return;
 
     std::vector<std::shared_ptr<InferenceFrame>> inference_frames;
-    PostProcessor *post_proc = nullptr;
 
     for (auto &frame : frames) {
         auto inference_result = std::dynamic_pointer_cast<InferenceResult>(frame);
@@ -1640,17 +1676,13 @@ void InferenceImpl::InferenceCompletionCallback(
         std::shared_ptr<InferenceFrame> inference_roi = inference_result->inference_frame;
         inference_roi->image_transform_info = inference_result->GetImageTransformationParams();
         inference_result->image.reset(); // deleter will to not make buffer_unref, see 'SubmitImages' method
-        post_proc = inference_roi->gva_base_inference->post_proc;
 
         inference_frames.push_back(inference_roi);
     }
 
     try {
-        if (post_proc != nullptr) {
-            PostProcessorExitStatus pp_e_s = post_proc->process(blobs, inference_frames);
-            if (pp_e_s == PostProcessorExitStatus::FAIL)
-                throw std::runtime_error("Post-processing has been exited with FAIL code.");
-        }
+        if (PostProcessFrames(blobs, inference_frames) == PostProcessorExitStatus::FAIL)
+            throw std::runtime_error("Post-processing has been exited with FAIL code.");
     } catch (const std::exception &e) {
         GST_ERROR("%s", Utils::createNestedErrorMsg(e).c_str());
     }
