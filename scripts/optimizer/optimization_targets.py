@@ -10,7 +10,7 @@ import logging
 from collections import Counter
 from pathlib import Path
 
-from utils import parse_element_parameters
+from processors.utils import parse_element_parameters
 
 logger = logging.getLogger(__name__)
 

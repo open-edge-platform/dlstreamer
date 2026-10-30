@@ -20,7 +20,7 @@ from preprocess import preprocess_pipeline
 from processors.device import DeviceGenerator
 from processors.batch import BatchGenerator
 from processors.nireq import NireqGenerator
-from utils import add_instance_ids, print_inference_parameters
+from processors.utils import add_instance_ids, print_inference_parameters
 from optimization_targets import FpsTarget, PowerTarget
 
 import gi
