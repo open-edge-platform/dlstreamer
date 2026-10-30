@@ -39,7 +39,7 @@ void ExtractDetectionResults(AudioInferenceFrame *frame, AudioInferenceOutput *i
                                           index + 1, "confidence", G_TYPE_DOUBLE, confidence, NULL);
 
                     CopyOutputBlobToGstStructure(blob_iter.second, detection, infOutput->model_name.c_str(),
-                                                 layer_name.c_str(), 1, 1);
+                                                 layer_name.c_str(), 1, 0);
                     gst_gva_audio_event_meta_add_param(meta, detection);
                 }
             }
