@@ -21,19 +21,19 @@
 
 #include "drop_log_throttle/drop_log_throttle.hpp"
 #include "pre_event_ring/pre_event_ring.hpp"
-#include "trigger_engine/trigger_engine.hpp"
-#include "video_dump_writer/video_dump_writer.hpp"
+#include "event_session_controller/event_session_controller.hpp"
+#include "video_clip_writer/video_clip_writer.hpp"
 
 GST_DEBUG_CATEGORY(gst_gvaeventrecorder_debug);
 #define GST_CAT_DEFAULT gst_gvaeventrecorder_debug
 
+using gvaeventrecorder::ClipConfig;
 using gvaeventrecorder::DetectionInput;
 using gvaeventrecorder::DropLogThrottle;
-using gvaeventrecorder::DumpJob;
 using gvaeventrecorder::EncoderMode;
 using gvaeventrecorder::PreEventRing;
-using gvaeventrecorder::TriggerEngine;
-using gvaeventrecorder::VideoDumpWriter;
+using gvaeventrecorder::EventSessionController;
+using gvaeventrecorder::VideoClipWriter;
 
 enum {
     PROP_0,
@@ -46,7 +46,8 @@ enum {
     PROP_MAX_CONCURRENT_EVENTS,
     PROP_EVENT_CLIP_OUTPUT_DIR,
     PROP_ENCODER_MODE,
-    PROP_DROP_LOG_INTERVAL_MS
+    PROP_DROP_LOG_INTERVAL_MS,
+    PROP_FLUSH_INTERVAL_MS
 };
 
 #define DEFAULT_TARGET_CLASSES "person,vehicle"
@@ -58,6 +59,7 @@ enum {
 #define DEFAULT_MAX_CONCURRENT_EVENTS 4
 #define DEFAULT_EVENT_CLIP_OUTPUT_DIR "."
 #define DEFAULT_DROP_LOG_INTERVAL_MS 1500
+#define DEFAULT_FLUSH_INTERVAL_MS 3000
 
 #define GST_TYPE_GVAEVENTRECORDER_ENCODER_MODE (gst_gvaeventrecorder_encoder_mode_get_type())
 static GType gst_gvaeventrecorder_encoder_mode_get_type(void) {
@@ -92,8 +94,12 @@ struct CachedFrame {
 struct ActiveSession {
     std::string class_label;
     float confidence = 0.0f;
-    std::vector<GstBuffer *> frames; // owning refs
     std::string output_path;
+    // Incremental sessions stream every frame to an already opened clip; otherwise frames are
+    // accumulated here (owning refs) and written as one clip when the session finishes.
+    bool incremental = false;
+    VideoClipWriter::ClipId clip_id = 0;
+    std::vector<GstBuffer *> frames;
 };
 
 struct ForwardFrame {
@@ -108,11 +114,11 @@ struct ForwardFrame {
 
 // Opaque per-element runtime state (C++ types), stored in GstGvaEventRecorder::priv.
 struct GvaEventRecorderRuntime {
-    std::unique_ptr<TriggerEngine> engine;
+    std::unique_ptr<EventSessionController> engine;
     PreEventRing<CachedFrame> ring;
     std::unordered_map<uint64_t, ActiveSession> active_sessions;
     DropLogThrottle drop_throttle;
-    VideoDumpWriter writer;
+    VideoClipWriter writer;
     guint64 file_counter = 0;
     GstVideoInfo video_info;
     gboolean video_info_valid = FALSE;
@@ -165,25 +171,40 @@ static std::string build_output_path(const std::string &dir, const std::string &
     return path;
 }
 
-static void enqueue_dump(GstGvaEventRecorder *self, GvaEventRecorderRuntime *rt, const std::string &path,
-                         std::vector<GstBuffer *> &frames) {
-    if (frames.empty())
-        return;
-    DumpJob job;
-    job.output_path = path;
-    job.frames = std::move(frames);
-    job.video_info = rt->video_info;
-    job.encoder_mode = static_cast<EncoderMode>(self->encoder_mode);
-    rt->writer.enqueue(std::move(job));
-    frames.clear();
+static VideoClipWriter::ClipId open_clip(GstGvaEventRecorder *self, GvaEventRecorderRuntime *rt,
+                                         const ActiveSession &s) {
+    ClipConfig cfg;
+    cfg.output_path = s.output_path;
+    cfg.video_info = rt->video_info;
+    cfg.encoder_mode = static_cast<EncoderMode>(self->encoder_mode);
+    cfg.flush_interval_ms = s.incremental ? self->flush_interval_ms : 0;
+    return rt->writer.open(std::move(cfg));
+}
+
+// Takes ownership of the frame refs.
+static void add_session_frames(ActiveSession &s, GvaEventRecorderRuntime *rt, std::vector<GstBuffer *> frames,
+                               bool start_new_fragment = false) {
+    if (s.incremental)
+        rt->writer.append(s.clip_id, std::move(frames), start_new_fragment);
+    else
+        s.frames.insert(s.frames.end(), frames.begin(), frames.end());
 }
 
 static void finish_session(GstGvaEventRecorder *self, GvaEventRecorderRuntime *rt, ActiveSession &s) {
-    enqueue_dump(self, rt, s.output_path, s.frames);
+    if (s.incremental) {
+        rt->writer.close(s.clip_id);
+        return;
+    }
+    if (s.frames.empty())
+        return;
+    const VideoClipWriter::ClipId id = open_clip(self, rt, s);
+    rt->writer.append(id, std::move(s.frames));
+    s.frames.clear();
+    rt->writer.close(id);
 }
 
-static TriggerEngine::Config make_engine_config(GstGvaEventRecorder *self) {
-    TriggerEngine::Config cfg;
+static EventSessionController::Config make_engine_config(GstGvaEventRecorder *self) {
+    EventSessionController::Config cfg;
     cfg.target_classes = parse_target_classes(self->target_classes);
 
     cfg.confidence_threshold = static_cast<float>(self->confidence_threshold);
@@ -297,6 +318,15 @@ static void gst_gvaeventrecorder_class_init(GstGvaEventRecorderClass *klass) {
                           "Minimum interval between aggregated 'events dropped' log messages", 0, G_MAXUINT,
                           DEFAULT_DROP_LOG_INTERVAL_MS, G_PARAM_READWRITE));
 
+    g_object_class_install_property(
+        gobject_class, PROP_FLUSH_INTERVAL_MS,
+        g_param_spec_uint("flush-interval-ms", "Flush Interval (ms)",
+                          "Write event clips incrementally as fragmented MP4: PRE frames are flushed to disk at the "
+                          "trigger, then the clip is flushed at least every this many milliseconds of stream time "
+                          "while recording. 0 = write the whole clip as a regular MP4 when the event ends. "
+                          "Applies to sessions started after the change",
+                          0, G_MAXUINT, DEFAULT_FLUSH_INTERVAL_MS, G_PARAM_READWRITE));
+
     GST_DEBUG_CATEGORY_INIT(gst_gvaeventrecorder_debug, "gvaeventrecorder", 0, "Event Recorder");
 }
 
@@ -311,6 +341,7 @@ static void gst_gvaeventrecorder_init(GstGvaEventRecorder *self) {
     self->event_clip_output_dir = g_strdup(DEFAULT_EVENT_CLIP_OUTPUT_DIR);
     self->encoder_mode = GST_GVAEVENTRECORDER_ENCODER_SOFTWARE;
     self->drop_log_interval_ms = DEFAULT_DROP_LOG_INTERVAL_MS;
+    self->flush_interval_ms = DEFAULT_FLUSH_INTERVAL_MS;
     self->frame_counter = 0;
     self->priv = NULL;
 }
@@ -353,6 +384,10 @@ static void gst_gvaeventrecorder_set_property(GObject *object, guint prop_id, co
         break;
     case PROP_DROP_LOG_INTERVAL_MS:
         self->drop_log_interval_ms = g_value_get_uint(value);
+        break;
+    case PROP_FLUSH_INTERVAL_MS:
+        self->flush_interval_ms = g_value_get_uint(value);
+        needs_reconfig = FALSE;
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -397,6 +432,9 @@ static void gst_gvaeventrecorder_get_property(GObject *object, guint prop_id, GV
     case PROP_DROP_LOG_INTERVAL_MS:
         g_value_set_uint(value, self->drop_log_interval_ms);
         break;
+    case PROP_FLUSH_INTERVAL_MS:
+        g_value_set_uint(value, self->flush_interval_ms);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -421,7 +459,7 @@ static gboolean gst_gvaeventrecorder_start(GstBaseTransform *base) {
     GstGvaEventRecorder *self = GST_GVAEVENTRECORDER(base);
 
     auto *rt = new GvaEventRecorderRuntime();
-    rt->engine = std::make_unique<TriggerEngine>(make_engine_config(self));
+    rt->engine = std::make_unique<EventSessionController>(make_engine_config(self));
     rt->ring.set_capacity(self->pre_event_frames);
     rt->drop_throttle.set_interval_ms(self->drop_log_interval_ms);
     rt->writer.start();
@@ -429,9 +467,9 @@ static gboolean gst_gvaeventrecorder_start(GstBaseTransform *base) {
 
     GST_INFO_OBJECT(self,
                     "Started: target-classes=%s confidence-threshold=%.2f pre-event-frames=%u "
-                    "post-event-frames=%u max-concurrent-events=%u",
+                    "post-event-frames=%u max-concurrent-events=%u flush-interval-ms=%u",
                     self->target_classes, self->confidence_threshold, self->pre_event_frames, self->post_event_frames,
-                    self->max_concurrent_events);
+                    self->max_concurrent_events, self->flush_interval_ms);
     return TRUE;
 }
 
@@ -549,7 +587,7 @@ static GstFlowReturn gst_gvaeventrecorder_transform_ip(GstBaseTransform *base, G
 
     std::vector<uint64_t> active_ids_before = rt->engine->active_session_ids();
 
-    TriggerEngine::FrameOutcome outcome = rt->engine->process_frame(tick, detections);
+    EventSessionController::FrameOutcome outcome = rt->engine->process_frame(tick, detections);
 
     EventTimestamp trigger_timestamp;
     if (!outcome.new_triggers.empty())
@@ -560,12 +598,18 @@ static GstFlowReturn gst_gvaeventrecorder_transform_ip(GstBaseTransform *base, G
         ActiveSession session;
         session.class_label = trig.class_label;
         session.confidence = trig.confidence;
-        for (const CachedFrame &frame : rt->ring.snapshot())
-            session.frames.push_back(gst_buffer_ref(frame.buffer));
         const std::string event_clip_output_dir =
             self->event_clip_output_dir ? self->event_clip_output_dir : DEFAULT_EVENT_CLIP_OUTPUT_DIR;
         session.output_path =
             build_output_path(event_clip_output_dir, trig.class_label, trigger_timestamp.filename, rt->file_counter);
+        session.incremental = self->flush_interval_ms > 0;
+        if (session.incremental)
+            session.clip_id = open_clip(self, rt, session);
+
+        std::vector<GstBuffer *> pre_frames;
+        for (const CachedFrame &frame : rt->ring.snapshot())
+            pre_frames.push_back(gst_buffer_ref(frame.buffer));
+        add_session_frames(session, rt, std::move(pre_frames));
 
         ++rt->file_counter;
         rt->active_sessions.emplace(trig.session_id, std::move(session));
@@ -602,15 +646,14 @@ static GstFlowReturn gst_gvaeventrecorder_transform_ip(GstBaseTransform *base, G
 
     for (uint64_t id : active_ids_before) {
         auto it = rt->active_sessions.find(id);
-        if (it != rt->active_sessions.end()) {
-            it->second.frames.push_back(gst_buffer_ref(buf));
-        }
+        if (it != rt->active_sessions.end())
+            add_session_frames(it->second, rt, {gst_buffer_ref(buf)});
     }
+    // The trigger frame starts a new fragment, so the PRE frames reach the disk right away.
     for (const auto &trig : outcome.new_triggers) {
         auto it = rt->active_sessions.find(trig.session_id);
-        if (it != rt->active_sessions.end()) {
-            it->second.frames.push_back(gst_buffer_ref(buf));
-        }
+        if (it != rt->active_sessions.end())
+            add_session_frames(it->second, rt, {gst_buffer_ref(buf)}, true);
     }
 
     // The pre-event ring is shared and continuous: never reset by a trigger.

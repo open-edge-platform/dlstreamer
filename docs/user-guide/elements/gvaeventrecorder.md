@@ -28,10 +28,11 @@ element (e.g. `gvadetect`) and a downstream consumer such as `gvagenai`. It read
   moment, buffered PRE frames are replayed oldest first, followed immediately by the trigger
   frame. Subsequent EVENT and POST frames are forwarded as they arrive. Overlapping windows
   share a single chronological stream: a buffer already forwarded is never replayed again.
-- **Disk dump**: once a session's post-event window completes, its frames (pre + event +
-  post) are encoded and muxed to a video file by a background worker thread, via an internal
-  `appsrc ! videoconvert ! encoder ! muxer ! filesink` pipeline. This never blocks the main
-  streaming thread.
+- **Disk write**: each session is encoded and muxed to its own MP4 file by a background
+  worker thread through an internal `appsrc ! videoconvert ! encoder ! h264parse ! mp4mux !
+  filesink` pipeline. This never blocks the main streaming thread. With the default
+  `flush-interval-ms`, the clip is written incrementally while the event is being recorded.
+  See [Incremental clip writing](#incremental-clip-writing).
 - **Metadata**: forwarded frames get frame-level `GstAnalyticsClsMtd` entries describing the
   event state and, on start frames, the triggering class(es). See [Metadata](#metadata).
 
@@ -49,6 +50,7 @@ element (e.g. `gvadetect`) and a downstream consumer such as `gvagenai`. It read
 | `event-clip-output-dir` | String | — | `.` | Directory where full PRE/EVENT/POST clips are written. |
 | `encoder-mode` | Enum | `software` / `vaapi` / `auto` | `software` | Video encoder backend used to write triggered clips. See [Encoder Modes](#encoder-modes). |
 | `drop-log-interval-ms` | Unsigned Integer | [0, 4294967295] | 1500 | Minimum interval between aggregated "events dropped" log messages. |
+| `flush-interval-ms` | Unsigned Integer | [0, 4294967295] | 3000 | Maximum stream time between partial writes of a clip that is still being recorded. `0` writes the whole clip when the event ends. Applies to sessions started after the change. See [Incremental clip writing](#incremental-clip-writing). |
 
 All properties are `readable, writable` and can be changed at runtime (e.g. from a Python
 application via `element.set_property(...)`), not just from the command line.
@@ -218,9 +220,9 @@ with your pipeline. The parent directory must already exist and be writable.
 - **GPU stays free by default.** `encoder-mode` defaults to `software` so clip encoding does
   not compete with a GPU-resident VLM; switch to `vaapi` deliberately if that trade-off is
   acceptable for your deployment.
-- **Disk writes never block the streaming thread.** A single background worker processes
-  finished sessions sequentially; the number of simultaneously assembling sessions is bounded
-  by `max-concurrent-events`, not by one thread per session.
+- **Disk writes never block the streaming thread.** A single background worker opens,
+  feeds, and finalizes the clip pipelines in order; the number of simultaneously recorded
+  sessions is bounded by `max-concurrent-events`, not by one thread per session.
 - **Overflow policy**: once `max-concurrent-events` is reached, new triggers are dropped
   (not queued) and aggregated into a single throttled `GST_WARNING` log line at most every
   `drop-log-interval-ms`, with a final flush when the element stops.
@@ -284,6 +286,12 @@ Element Properties:
                            (0): software          - Software encoder (x264), keeps the GPU free
                            (1): vaapi             - Hardware VA-API encoder (GPU media engine)
                            (2): auto              - VA-API if available, software fallback otherwise
+  flush-interval-ms   : Write event clips incrementally as fragmented MP4: PRE frames are flushed to disk at the
+                        trigger, then the clip is flushed at least every this many milliseconds of stream time
+                        while recording. 0 = write the whole clip as a regular MP4 when the event ends.
+                        Applies to sessions started after the change
+                        flags: readable, writable
+                        Unsigned Integer. Range: 0 - 4294967295 Default: 3000
   max-concurrent-events: Maximum number of recording sessions active at the same time; new triggers
                         beyond this limit are dropped (and throttle-logged)
                         flags: readable, writable

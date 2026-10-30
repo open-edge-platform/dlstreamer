@@ -41,6 +41,7 @@ struct _GstGvaEventRecorder {
     gchar *event_clip_output_dir;
     gint encoder_mode; // GstGvaEventRecorderEncoderMode
     guint drop_log_interval_ms;
+    guint flush_interval_ms;
     guint64 frame_counter; // cooldown tick source
 
     void *priv; // GvaEventRecorderRuntime* (opaque; allocated/freed in gstgvaeventrecorder.cpp)

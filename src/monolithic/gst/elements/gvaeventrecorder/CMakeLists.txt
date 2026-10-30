@@ -15,8 +15,8 @@ pkg_check_modules(GSTANALYTICS REQUIRED gstreamer-analytics-1.0>=1.16)
 
 set(GVAEVENTRECORDER_SOURCES
     gstgvaeventrecorder.cpp
-    trigger_engine/trigger_engine.cpp
-    video_dump_writer/video_dump_writer.cpp
+    event_session_controller/event_session_controller.cpp
+    video_clip_writer/video_clip_writer.cpp
 )
 
 add_library(${TARGET_NAME} STATIC ${GVAEVENTRECORDER_SOURCES})

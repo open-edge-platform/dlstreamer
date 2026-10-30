@@ -45,7 +45,7 @@ The third argument sets the output directory for the recorded clips: the script 
 | `post-event-frames` | `gvaeventrecorder` | 30 | Frames retained after the event ends. |
 | `event-gap-frames` | `gvaeventrecorder` | 3 | Missing detections tolerated before the event ends. |
 
-Event clips use the default software encoder.
+Event clips use the default software encoder and the default `flush-interval-ms=3000`: each clip is written as a fragmented MP4 while the event is being recorded. PRE frames are saved right after the trigger, and new frames are added at least every 3 seconds of video.
 
 ## Output
 
