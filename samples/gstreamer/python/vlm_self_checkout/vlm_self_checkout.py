@@ -40,28 +40,19 @@ class GenaiSignalBridge(GObject.Object):
 
     def __init__(self):
         super().__init__()
-        self._frame_selection_quark = None
-        self._frame_selection_confidence = 0.0
-        self._frame_selection_pts = 0
-        self._frame_selection_time = 0
-        self._vlm_quark = None
-        self._vlm_confidence = 0.0
-        self._vlm_pts = 0
-        self._vlm_time = 0
+        # Each result is kept as a single tuple (label_quark, confidence, pts, system_time_ns) so
+        # that the watermark branch, which runs in another thread, always reads a consistent
+        # snapshot instead of a mix of values from two different events.
+        self._frame_selection = None
+        self._vlm = None
 
     @GObject.Signal(arg_types=(GObject.TYPE_UINT, GObject.TYPE_DOUBLE, GObject.TYPE_UINT64, GObject.TYPE_UINT64))
     def vlm_result(self, label_quark: int, confidence: float, pts: int, system_time_ns: int):
-        self._vlm_quark = label_quark
-        self._vlm_confidence = confidence
-        self._vlm_pts = pts
-        self._vlm_time = system_time_ns
+        self._vlm = (label_quark, confidence, pts, system_time_ns)
 
     @GObject.Signal(arg_types=(GObject.TYPE_UINT, GObject.TYPE_DOUBLE, GObject.TYPE_UINT64, GObject.TYPE_UINT64))
     def frame_selection(self, objects_quark: int, confidence: float, pts: int, system_time_ns: int):
-        self._frame_selection_quark = objects_quark
-        self._frame_selection_confidence = confidence
-        self._frame_selection_pts = pts
-        self._frame_selection_time = system_time_ns
+        self._frame_selection = (objects_quark, confidence, pts, system_time_ns)
 
 def _post_selection_cb(pad, info, bridge):
     """
@@ -124,26 +115,33 @@ def _pre_watermark_cb(pad, info, bridge):
     if buf is None:
         return Gst.PadProbeReturn.OK
 
-    # get (or create) analytics metadata attached to a frame buffer
-    rmeta = GstAnalytics.buffer_get_analytics_relation_meta(buf)
-    if not rmeta:
-        if buf.make_writable():
-            rmeta = GstAnalytics.buffer_add_analytics_relation_meta(buf)
-        if not rmeta:
-            print("[probes] failed to add analytics metadata to buffer")
-            return Gst.PadProbeReturn.OK
+    selection = bridge._frame_selection
+    vlm = bridge._vlm
+    if selection is None:
+        return Gst.PadProbeReturn.OK
+    selection_quark, selection_confidence, selection_pts, selection_time = selection
 
     # display frame selection output for max 4 seconds
-    if bridge._frame_selection_quark is not None and (buf.pts - bridge._frame_selection_pts) < 4 * Gst.SECOND:
-        frame_time = bridge._frame_selection_pts / Gst.SECOND
-        text = f"[{frame_time:.2f} s] Frame selection, detected objects: {GLib.quark_to_string(bridge._frame_selection_quark)} "
-        rmeta.add_od_mtd(GLib.quark_from_string(text), 10, 50, 0, 0, bridge._frame_selection_confidence)
+    if (buf.pts - selection_pts) >= 4 * Gst.SECOND:
+        return Gst.PadProbeReturn.OK
 
-        # display VLM classification output for most recently selected frame
-        if (bridge._vlm_quark is not None) and (bridge._vlm_pts >= bridge._frame_selection_pts):
-            vlm_time = frame_time + (bridge._vlm_time - bridge._frame_selection_time) / 1e9
-            text = f"[{vlm_time:.2f} s] VLM classification: {GLib.quark_to_string(bridge._vlm_quark)}, confidence:"
-            rmeta.add_od_mtd(GLib.quark_from_string(text), 10, 100, 0, 0, bridge._vlm_confidence)
+    # Detection runs upstream of the tee, so analytics metadata is always present here. The buffer
+    # is shared with the analytics branch, so it is not writable and metadata cannot be added.
+    rmeta = GstAnalytics.buffer_get_analytics_relation_meta(buf)
+    if not rmeta:
+        return Gst.PadProbeReturn.OK
+
+    frame_time = selection_pts / Gst.SECOND
+    text = f"[{frame_time:.2f} s] Frame selection, detected objects: {GLib.quark_to_string(selection_quark)} "
+    rmeta.add_od_mtd(GLib.quark_from_string(text), 10, 50, 0, 0, selection_confidence)
+
+    # display VLM classification output for most recently selected frame
+    if vlm is not None:
+        vlm_quark, vlm_confidence, vlm_pts, vlm_time_ns = vlm
+        if vlm_pts >= selection_pts:
+            vlm_time = frame_time + (vlm_time_ns - selection_time) / 1e9
+            text = f"[{vlm_time:.2f} s] VLM classification: {GLib.quark_to_string(vlm_quark)}, confidence:"
+            rmeta.add_od_mtd(GLib.quark_from_string(text), 10, 100, 0, 0, vlm_confidence)
 
     return Gst.PadProbeReturn.OK
 
