@@ -100,9 +100,16 @@ foreach(OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES})
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${OUTPUTCONFIG_UPPER} ${CMAKE_BINARY_DIR}/${BIN_FOLDER}/${OUTPUTCONFIG}/bin)
 endforeach()
 
-set (DLSTREAMER_LIBRARIES_INSTALL_PATH lib)
-set (DLSTREAMER_PLUGINS_INSTALL_PATH ${DLSTREAMER_LIBRARIES_INSTALL_PATH}/gstreamer-1.0)
-set (DLSTREAMER_HEADERS_INSTALL_PATH include)
+# Install paths are relative to CMAKE_INSTALL_PREFIX, distribution packages can override them
+set (DLSTREAMER_LIBRARIES_INSTALL_PATH lib CACHE STRING "Install path for libraries")
+set (DLSTREAMER_PLUGINS_INSTALL_PATH ${DLSTREAMER_LIBRARIES_INSTALL_PATH}/gstreamer-1.0 CACHE STRING "Install path for GStreamer plugins")
+set (DLSTREAMER_SHARED_LIBS_INSTALL_PATH ${DLSTREAMER_PLUGINS_INSTALL_PATH} CACHE STRING "Install path for shared libraries linked by the plugins")
+set (DLSTREAMER_HEADERS_INSTALL_PATH include CACHE STRING "Install path for headers")
+set (DLSTREAMER_GIR_INSTALL_PATH share/gir-1.0 CACHE STRING "Install path for GIR files")
+set (DLSTREAMER_TYPELIB_INSTALL_PATH ${DLSTREAMER_LIBRARIES_INSTALL_PATH}/girepository-1.0 CACHE STRING "Install path for typelib files")
+set (DLSTREAMER_PYTHON_INSTALL_PATH python CACHE STRING "Install path for Python modules")
+set (DLSTREAMER_SAMPLES_INSTALL_PATH samples CACHE STRING "Install path for samples")
+set (DLSTREAMER_SOVERSION "" CACHE STRING "SOVERSION of the shared libraries, unversioned when empty")
 
 # include and lib folders of this project
 set (DLSTREAMER_BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
