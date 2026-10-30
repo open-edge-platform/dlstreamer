@@ -24,6 +24,24 @@ Follow the instructions in
 ## Step 2: Install build dependencies
 
 <!--hide_directive::::{tab-set}
+:::{tab-item}hide_directive--> Ubuntu 26
+<!--hide_directive:sync: tab0hide_directive-->
+
+  ```bash
+  sudo apt-get update && \
+  sudo apt-get install -y wget vainfo xz-utils python3-pip python3-gi gcc-multilib libglib2.0-dev \
+      flex bison autoconf automake libtool libogg-dev make g++ libva-dev yasm libglx-dev libdrm-dev \
+      python-gi-dev python3-dev unzip libgflags-dev libcurl4-openssl-dev \
+      gobject-introspection libgirepository1.0-dev libx265-dev libx264-dev libde265-dev libgudev-1.0-dev libusb-1.0 nasm python3-venv \
+      libcairo2-dev libxt-dev libgirepository1.0-dev libgles2-mesa-dev wayland-protocols \
+      libssh2-1-dev cmake git valgrind numactl libvpx-dev libopus-dev libsrtp2-dev libxv-dev \
+      linux-libc-dev libpmix2t64 libhwloc15 libhwloc-plugins libxcb1-dev libx11-xcb-dev \
+      ffmpeg libpaho-mqtt-dev libopencv-dev libpostproc-dev libavfilter-dev libavdevice-dev \
+      libswscale-dev libswresample-dev libavutil-dev libavformat-dev libavcodec-dev libtbb12 libxml2-dev libsoup-3.0-0 \
+      ocl-icd-opencl-dev
+  ```
+
+<!--hide_directive:::
 :::{tab-item}hide_directive--> Ubuntu 24
 <!--hide_directive:sync: tab1hide_directive-->
 
@@ -178,6 +196,16 @@ separate OpenVINO™ GenAI archive is required if you want to use the
 which needs the [OpenVINO GenAI archive](https://docs.openvino.ai/2026/get-started/install-openvino/install-openvino-genai.html) package.
 
 <!--hide_directive::::{tab-set}
+:::{tab-item}hide_directive--> Ubuntu 26
+<!--hide_directive:sync: tab0hide_directive-->
+
+  ```bash
+  wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2026.3.1/linux/openvino_genai_ubuntu26_2026.3.1.0_x86_64.tar.gz | tar -xz &&
+  sudo mv openvino_genai_ubuntu26_2026.3.1.0_x86_64 /opt/intel/openvino_genai
+  source /opt/intel/openvino_genai/setupvars.sh
+  ```
+
+<!--hide_directive:::
 :::{tab-item}hide_directive--> Ubuntu 24
 <!--hide_directive:sync: tab1hide_directive-->
 
