@@ -72,8 +72,14 @@ if ($Device -eq "CPU") {
     $PREPROC = "pre-process-backend=opencv"
 } else {
     $DECODE_ELEMENT = "decodebin3"
-    $PREPROC = "pre-process-backend=d3d11"
+    # GPU passes the pre-processed frame to OpenVINO in GPU memory; NPU and AUTO do not support it
+    $PREPROC = if ($Device -like "GPU*") { "pre-process-backend=d3d12-surface-sharing" } else { "pre-process-backend=d3d12" }
 }
+
+# d3d12h264enc only exists on GPUs with D3D12 video encode; its default rate control (vbr)
+# produces broken streams on some drivers, so constant QP is used.
+gst-inspect-1.0 d3d12h264enc *> $null
+$ENCODER = if ($LASTEXITCODE -eq 0) { "d3d12h264enc rate-control=cqp" } else { "d3d12download ! mfh264enc" }
 
 # Set sink element based on output type
 switch ($OutputType) {
@@ -85,21 +91,21 @@ switch ($OutputType) {
         if ($Device -eq "CPU") {
             $SINK_ELEMENT = "videoconvert ! gvawatermark ! gvafpscounter ! openh264enc ! h264parse ! mp4mux ! filesink location=$OUTPUT_FILE"
         } else {
-            $SINK_ELEMENT = "d3d11convert ! gvawatermark ! gvafpscounter ! mfh264enc ! h264parse ! mp4mux ! filesink location=$OUTPUT_FILE"
+            $SINK_ELEMENT = "d3d12convert ! gvawatermark ! gvafpscounter ! $ENCODER ! h264parse ! mp4mux ! filesink location=$OUTPUT_FILE"
         }
     }
     "display" {
         if ($Device -eq "CPU") {
             $SINK_ELEMENT = "gvawatermark ! videoconvert ! gvafpscounter ! autovideosink"
         } else {
-            $SINK_ELEMENT = "d3d11convert ! gvawatermark ! videoconvert ! gvafpscounter ! d3d11videosink"
+            $SINK_ELEMENT = "d3d12convert ! gvawatermark ! gvafpscounter ! d3d12videosink"
         }
     }
     "display-async" {
         if ($Device -eq "CPU") {
             $SINK_ELEMENT = "gvawatermark ! videoconvert ! gvafpscounter ! autovideosink sync=false"
         } else {
-            $SINK_ELEMENT = "d3d11convert ! gvawatermark ! videoconvert ! gvafpscounter ! d3d11videosink sync=false"
+            $SINK_ELEMENT = "d3d12convert ! gvawatermark ! gvafpscounter ! d3d12videosink sync=false"
         }
     }
     "fps" {
@@ -114,7 +120,7 @@ switch ($OutputType) {
         if ($Device -eq "CPU") {
             $SINK_ELEMENT = "gvawatermark ! gvametaconvert ! gvametapublish file-format=json-lines file-path=$JsonFile ! videoconvert ! gvafpscounter ! autovideosink sync=false"
         } else {
-            $SINK_ELEMENT = "d3d11convert ! gvawatermark ! gvametaconvert ! gvametapublish file-format=json-lines file-path=$JsonFile ! videoconvert ! gvafpscounter ! d3d11videosink sync=false"
+            $SINK_ELEMENT = "d3d12convert ! gvawatermark ! gvametaconvert ! gvametapublish file-format=json-lines file-path=$JsonFile ! gvafpscounter ! d3d12videosink sync=false"
         }
     }
     default {
