@@ -72,12 +72,19 @@ echo "DEPTH_MODEL: ${DEPTH_MODEL}"
 echo "DETECT_DEVICE: ${DETECT_DEVICE}"
 echo "DEPTH_DEVICE: ${DEPTH_DEVICE}"
 
-if [[ $INPUT == "/dev/video"* ]]; then
-  SOURCE_ELEMENT="v4l2src device=\"${INPUT}\""
-elif [[ $INPUT == *"://"* ]]; then
-  SOURCE_ELEMENT="urisourcebin buffer-size=4096 uri=\"${INPUT}\""
+
+# Optional extra elements after .mp4 (e.g. "video.mp4 ! identity eos-after=400").
+# INPUT_PATH is used only for source-type detection; full $INPUT goes to filesrc.
+INPUT_PATH="${INPUT%%.mp4*}.mp4"
+[[ "$INPUT" != *".mp4"* ]] && INPUT_PATH="$INPUT"
+
+if [[ $INPUT_PATH == "/dev/video"* ]]; then
+  SOURCE_ELEMENT="v4l2src device=\"${INPUT_PATH}\""
+elif [[ $INPUT_PATH == *"://"* ]]; then
+  SOURCE_ELEMENT="urisourcebin buffer-size=4096 uri=\"${INPUT_PATH}\""
 else
-  SOURCE_ELEMENT="filesrc location=\"${INPUT}\""
+  # keep full $INPUT so identity stays in the pipeline
+  SOURCE_ELEMENT="filesrc location=${INPUT}"
 fi
 
 CONVERSION_ELEMENT=""
@@ -106,6 +113,7 @@ elif [[ $OUTPUT == "json" ]]; then
 elif [[ $OUTPUT == "display-and-json" ]]; then
   rm -f output.json
   SINK_ELEMENT="${DISPLAY_PREFIX}gvawatermark ! gvametaconvert add-tensor-data=true ! gvametapublish file-format=json-lines file-path=output.json ! videoconvert ! gvafpscounter ! autovideosink sync=false"
+
 else
   echo "Error: wrong value for OUTPUT parameter" >&2
   echo "Valid values: display, fps, json, display-and-json" >&2

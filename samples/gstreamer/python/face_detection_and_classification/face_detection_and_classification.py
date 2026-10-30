@@ -76,14 +76,19 @@ def parse_args(args):
 
 
 def prepare_input_video(input_arg):
-    """Prepare the input video, downloading the default clip if needed."""
+    """Prepare the input video, downloading the default clip if needed.
+
+    Supports optional extra elements after .mp4 (e.g. "video.mp4 ! identity eos-after=300").
+    """
     runtime_dir = get_runtime_dir()
 
     if input_arg:
-        if not os.path.isfile(input_arg):
+        lower = input_arg.lower()
+        file_src = input_arg[:lower.index(".mp4") + 4].strip() if ".mp4" in lower else input_arg.strip()
+        if not os.path.isfile(file_src):
             sys.stderr.write("Input video file does not exist\n")
             sys.exit(1)
-        return input_arg
+        return input_arg  # full string so extra elements stay in the pipeline
 
     input_video = os.path.join(runtime_dir, "default_video.mp4")
     if not os.path.isfile(input_video):

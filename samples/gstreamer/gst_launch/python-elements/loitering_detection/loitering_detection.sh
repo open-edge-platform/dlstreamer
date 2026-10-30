@@ -99,16 +99,22 @@ if [[ ! "$DEVICE" =~ ^(CPU|GPU|NPU)$ ]]; then
     exit 1
 fi
 
-# Validate INPUT and select source element
-if [[ "$INPUT" =~ ^https?:// ]]; then
-    SOURCE_ELEMENT="urisourcebin uri=${INPUT}"
+
+# Optional extra elements after .mp4 (e.g. "video.mp4 ! identity eos-after=300").
+# INPUT_PATH is used only for file existence check; full $INPUT goes to filesrc.
+INPUT_PATH="${INPUT%%.mp4*}.mp4"
+[[ "$INPUT" != *".mp4"* ]] && INPUT_PATH="$INPUT"
+
+if [[ "$INPUT_PATH" =~ ^https?:// ]]; then
+    SOURCE_ELEMENT="urisourcebin uri=${INPUT_PATH}"
 else
-    if [ ! -f "$INPUT" ]; then
-        echo "Error: Input file not found: $INPUT"
+    if [ ! -f "$INPUT_PATH" ]; then
+        echo "Error: Input file not found: $INPUT_PATH"
         echo "Run '$(basename "$0") --help' for usage information."
         exit 1
     fi
-    SOURCE_ELEMENT="filesrc location=${INPUT} "
+    # Unquoted so "video.mp4 ! identity eos-after=N" works as pipeline elements
+    SOURCE_ELEMENT="filesrc location=${INPUT}"
 fi
 
 # Validate CONFIG_FILE exists (optional but recommended)
@@ -137,7 +143,7 @@ if gst-inspect-1.0 vah264enc &>/dev/null; then
 else
     ENCODER="videoconvert ! openh264enc"
 fi
-    
+
 gst-launch-1.0 -e ${SOURCE_ELEMENT} ! decodebin3 ! \
     gvadetect model=${MODEL} ${GVADETECT_OPTIONS} ! queue ! \
     gvatrack tracking-type=zero-term ! queue ! \

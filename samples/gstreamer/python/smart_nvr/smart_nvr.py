@@ -90,6 +90,16 @@ def run_pipeline(pipeline):
         signal.signal(signal.SIGINT, prev)
         pipeline.set_state(Gst.State.NULL)
 
+def split_input(input_arg):
+    """Split 'video.mp4 ! identity eos-after=600' after .mp4 into (path, extra)."""
+    lower = input_arg.lower()
+    if ".mp4" not in lower:
+        return input_arg.strip(), ""
+    i = lower.index(".mp4") + 4
+    path = input_arg[:i].strip()
+    rest = input_arg[i:].strip().lstrip("! ").strip()
+    return path, (rest + " ! " if rest else "")
+
 
 # ── main ─────────────────────────────────────────────────────────────────────
 
@@ -114,7 +124,8 @@ def main():
         )
 
     # Prepare assets
-    video_file = ensure_file(args.input, "input video")
+    input_path, identity = split_input(args.input)
+    video_file = ensure_file(input_path, "input video")
     model_path = args.model or os.path.join(os.environ.get("MODELS_PATH", "./models"), DEFAULT_MODEL_REL)
     detection_model = ensure_file(model_path, "detection model")
 
@@ -135,12 +146,12 @@ def main():
 
     # Build pipeline
     pipe = (
-        f'filesrc location="{video_file}" ! decodebin3 ! '
+        f'filesrc location="{video_file}" ! {identity} decodebin3 !'
         f'gvadetect model="{detection_model}" device={args.device} '
         f"batch-size={args.batch_size} threshold={args.threshold} ! queue ! "
         f"gvaanalytics_py distance=500 angle=-135,-45 ! queue ! "
         f"{sink}"
-    )
+)
     print(f'Pipeline: "{pipe}"')
     pipeline = Gst.parse_launch(pipe)
 

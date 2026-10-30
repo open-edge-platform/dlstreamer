@@ -20,12 +20,18 @@ DEFAULT_MODEL_REL = f"public/{WEIGHTS}/FP16/{WEIGHTS}.xml"
 
 
 def ensure_file(path, description):
-    """Return resolved path if file exists; exit with error otherwise."""
-    if not os.path.isfile(path):
+    """Return path if file exists; exit with error otherwise.
+
+    Supports optional extra elements after .mp4 (e.g. "video.mp4 ! identity eos-after=300").
+    Validates only the .mp4 path; returns the original string so extra elements stay in the pipeline.
+    """
+    lower = path.lower()
+    file_src = path[:lower.index(".mp4") + 4].strip() if ".mp4" in lower else path.strip()
+    if not os.path.isfile(file_src):
         sys.stderr.write(f"Error: {description} not found: {path}\n")
         sys.stderr.write("Set MODELS_PATH or prepare the model with download_ultralytics_models.py\n")
         sys.exit(1)
-    return os.path.abspath(path)
+    return path
 
 
 # wrapper to run the gstreamer pipeline loop
