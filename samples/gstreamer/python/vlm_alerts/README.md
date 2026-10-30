@@ -37,14 +37,15 @@ four-stream scenario (**`--stream-groups`**).
 
 Any image-text-to-text model supported by optimum-intel can be used. Smaller models (1B-4B parameters) are recommended for edge deployment. For example, OpenGVLab/InternVL3_5-2B.
 
-Export the model once with the [Hugging Face model conversion](../../../../scripts/download_models/README.md#1-hugging-face-conversion) script. Exporting into `$MODELS_PATH/public` keeps the model in the layout shared with the other DL Streamer samples:
+Export the model once with the [Hugging Face model conversion](../../../../scripts/download_models/README.md#1-hugging-face-conversion) script. Exporting into `$MODELS_PATH/public` keeps the model in the layout shared with the other DL Streamer samples, for example:
 
 ```code
-export MODELS_PATH="$HOME"/models
+...
 python3 ../../../../scripts/download_models/download_hf_models.py \
     --model OpenGVLab/InternVL3_5-2B \
     --outdir "${MODELS_PATH}/public" \
     --extra_args --task image-text-to-text
+...
 ```
 
 Exported this way, the model is picked up automatically: `--model-path` defaults to

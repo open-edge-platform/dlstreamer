@@ -96,14 +96,15 @@ looks for them by default.
 ### Detection (YOLO26s)
 
 Export an Ultralytics detection model to OpenVINO IR with the
-[Ultralytics conversion](../../../../scripts/download_models/README.md#2-ultralytics-conversion):
+[Ultralytics conversion](../../../../scripts/download_models/README.md#2-ultralytics-conversion), for example:
 
 ```bash
-export MODELS_PATH="$HOME"/models
+...
 python3 ../../../../scripts/download_models/download_ultralytics_models.py \
     --model yolo26s.pt \
     --outdir "${MODELS_PATH}/public/yolo26s/INT8" \
     --int8
+...
 ```
 
 This produces `$MODELS_PATH/public/yolo26s/INT8/yolo26s.xml`, the default value of
@@ -112,12 +113,14 @@ This produces `$MODELS_PATH/public/yolo26s/INT8/yolo26s.xml`, the default value 
 ### VLM (MiniCPM-V-4.5)
 
 Export an image-text-to-text model to OpenVINO IR with the
-[Hugging Face conversion](../../../../scripts/download_models/README.md#1-hugging-face-conversion):
+[Hugging Face conversion](../../../../scripts/download_models/README.md#1-hugging-face-conversion), for example:
 
 ```bash
+...
 python3 ../../../../scripts/download_models/download_hf_models.py \
     --model openbmb/MiniCPM-V-4_5 \
     --outdir "${MODELS_PATH}/public"
+...
 ```
 
 This produces `$MODELS_PATH/public/openbmb_MiniCPM-V-4_5/`, the default value of
