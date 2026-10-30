@@ -117,3 +117,7 @@ pipeline.set_state(Gst.State.NULL)
 ```
 
 From the command line, `gst-launch-1.0 -m` prints every posted message.
+
+The [latency_metrics](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/latency_metrics)
+sample shows a complete application that reads `dlstreamer/latency-window` messages and
+merges them into totals per branch.
