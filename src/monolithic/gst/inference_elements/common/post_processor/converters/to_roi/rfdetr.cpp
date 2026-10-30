@@ -20,6 +20,7 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 using namespace post_processing;
@@ -36,6 +37,38 @@ size_t getNumQueriesFromDims(const std::vector<size_t> &dims) {
 
 inline float sigmoid(float x) {
     return 1.0f / (1.0f + std::exp(-x));
+}
+
+// Returns {boxes, logits}, or nullptrs if not found. Boxes have 4 values per query; logits may have any class count.
+std::pair<InferenceBackend::OutputBlob::Ptr, InferenceBackend::OutputBlob::Ptr>
+findBoxesAndLogits(const OutputBlobs &output_blobs, bool segmentation) {
+    std::vector<std::pair<std::string, InferenceBackend::OutputBlob::Ptr>> box_like, others;
+    for (const auto &[name, blob] : output_blobs) {
+        if (!blob)
+            throw std::invalid_argument("Output blob is nullptr.");
+        const auto &dims = blob->GetDims();
+        // Segmentation masks are the only 4D output.
+        if (dims.size() < BlobToROIConverter::min_dims_size || (segmentation && dims.size() != 3))
+            continue;
+        (dims.back() == 4 ? box_like : others).emplace_back(name, blob);
+    }
+
+    // With exactly 4 classes both outputs end in 4; tell them apart by name.
+    if (box_like.size() == 2 && others.empty()) {
+        const auto is_logits = [](const std::string &name) {
+            return name.find("logit") != std::string::npos || name.find("label") != std::string::npos;
+        };
+        if (is_logits(box_like[0].first) != is_logits(box_like[1].first)) {
+            if (is_logits(box_like[0].first))
+                std::swap(box_like[0], box_like[1]);
+            others.push_back(box_like.back());
+            box_like.pop_back();
+        }
+    }
+
+    if (box_like.size() != 1 || others.empty())
+        return {nullptr, nullptr};
+    return {box_like.front().second, others.back().second};
 }
 
 } // namespace
@@ -111,23 +144,7 @@ TensorsTable RFDETRConverter::convert(const OutputBlobs &output_blobs) {
         const auto &model_input_image_info = getModelInputImageInfo();
         const size_t batch_size = model_input_image_info.batch_size;
 
-        InferenceBackend::OutputBlob::Ptr logits_blob = nullptr;
-        InferenceBackend::OutputBlob::Ptr boxes_blob = nullptr;
-
-        for (const auto &blob_iter : output_blobs) {
-            const InferenceBackend::OutputBlob::Ptr &blob = blob_iter.second;
-            if (!blob)
-                throw std::invalid_argument("Output blob is nullptr.");
-
-            const auto &dims = blob->GetDims();
-            if (dims.size() < BlobToROIConverter::min_dims_size)
-                continue;
-
-            if (dims.back() == 4)
-                boxes_blob = blob;
-            else if (dims.back() > 4)
-                logits_blob = blob;
-        }
+        const auto [boxes_blob, logits_blob] = findBoxesAndLogits(output_blobs, false);
 
         if (!logits_blob || !boxes_blob) {
             throw std::runtime_error("Failed to identify output blobs for RF-DETR converter.");
@@ -168,26 +185,11 @@ TensorsTable RFDETRSegConverter::convert(const OutputBlobs &output_blobs) {
         const float input_width = static_cast<float>(model_input_image_info.width);
         const float input_height = static_cast<float>(model_input_image_info.height);
 
-        InferenceBackend::OutputBlob::Ptr logits_blob = nullptr;
-        InferenceBackend::OutputBlob::Ptr boxes_blob = nullptr;
+        const auto [boxes_blob, logits_blob] = findBoxesAndLogits(output_blobs, true);
         InferenceBackend::OutputBlob::Ptr masks_blob = nullptr;
-
         for (const auto &blob_iter : output_blobs) {
-            const InferenceBackend::OutputBlob::Ptr &blob = blob_iter.second;
-            if (!blob)
-                throw std::invalid_argument("Output blob is nullptr.");
-
-            const auto &dims = blob->GetDims();
-            if (dims.size() < BlobToROIConverter::min_dims_size)
-                continue;
-
-            if (dims.size() == 3 && dims.back() == 4) {
-                boxes_blob = blob;
-            } else if (dims.size() == 3 && dims.back() > 4) {
-                logits_blob = blob;
-            } else if (dims.size() == 4) {
-                masks_blob = blob;
-            }
+            if (blob_iter.second && blob_iter.second->GetDims().size() == 4)
+                masks_blob = blob_iter.second;
         }
 
         if (!logits_blob || !boxes_blob) {
