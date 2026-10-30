@@ -216,6 +216,35 @@ GST_START_TEST(test_push_during_teardown) {
 }
 GST_END_TEST;
 
+/* Without post-metrics the tracer must not post anything on the bus. */
+GST_START_TEST(test_no_window_messages_by_default) {
+    /* 130 buffers at 100 fps span more than one 1000 ms interval window */
+    GstElement *pipeline = gst_parse_launch("videotestsrc num-buffers=130 ! "
+                                            "video/x-raw,width=64,height=48,framerate=100/1 ! fakesink sync=true",
+                                            NULL);
+    fail_unless(pipeline != NULL);
+    gst_object_set_name(GST_OBJECT(pipeline), "quiet");
+    GstBus *bus = gst_element_get_bus(pipeline);
+    fail_if(gst_element_set_state(pipeline, GST_STATE_PLAYING) == GST_STATE_CHANGE_FAILURE);
+    guint windows = 0;
+    gboolean done = FALSE;
+    while (!done) {
+        GstMessage *msg = gst_bus_timed_pop(bus, 10 * GST_SECOND);
+        fail_unless(msg != NULL, "no EOS within 10 s");
+        if (GST_MESSAGE_TYPE(msg) == GST_MESSAGE_ELEMENT &&
+            gst_structure_has_name(gst_message_get_structure(msg), "dlstreamer/latency-window"))
+            windows++;
+        done = GST_MESSAGE_TYPE(msg) == GST_MESSAGE_EOS || GST_MESSAGE_TYPE(msg) == GST_MESSAGE_ERROR;
+        gst_message_unref(msg);
+    }
+    gst_element_set_state(pipeline, GST_STATE_NULL);
+    gst_object_unref(bus);
+    gst_object_unref(pipeline);
+    fail_unless(take_records("quiet").count > 0, "the tracer recorded nothing");
+    fail_unless_equals_int(windows, 0);
+}
+GST_END_TEST;
+
 static Suite *latency_tracer_suite(void) {
     Suite *s = suite_create("latency_tracer");
     TCase *tc = tcase_create("general");
@@ -225,6 +254,7 @@ static Suite *latency_tracer_suite(void) {
     tcase_add_test(tc, test_restarted_pipeline_records_each_buffer_once);
     tcase_add_test(tc, test_restarted_pipeline_starts_fresh);
     tcase_add_test(tc, test_push_during_teardown);
+    tcase_add_test(tc, test_no_window_messages_by_default);
     return s;
 }
 

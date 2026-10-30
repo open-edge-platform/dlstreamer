@@ -111,3 +111,19 @@ Key measurements in interval reports:
 - `interval` - The actual duration of the reporting interval in milliseconds
 - All other parameters (`avg`, `min`, `max`, `latency`, `fps`) have the same interpretation as for ordinary latency_tracer,
   but statistics are calculated for the last interval window only
+
+## Bus messages
+
+Applications that need the interval statistics can read them as typed values instead of
+parsing the log. Add `post-metrics=true` to the tracer parameters, and every
+`latency_tracer_pipeline_interval` window is also posted on the pipeline bus as a
+`dlstreamer/latency-window` element message from the branch's sink:
+
+```bash
+GST_TRACERS="latency_tracer(flags=pipeline,interval=1000,post-metrics=true)" gst-launch-1.0 -m ...
+```
+
+`flags` must include `pipeline`. Messages are posted once per window, never per frame, and
+the log records are unchanged. The fields, the version rules and a Python example are in
+[Structured Metrics Messages](./metrics_messages.md).
+
