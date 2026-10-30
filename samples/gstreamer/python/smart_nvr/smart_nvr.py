@@ -91,23 +91,14 @@ def run_pipeline(pipeline):
         pipeline.set_state(Gst.State.NULL)
 
 def split_input(input_arg):
-    """Split 'path ! extra elements' into (path, 'extra elements ! ').
-
-    Supports optional extra GStreamer elements after the input path, e.g.:
-        video.mp4 ! identity eos-after=600
-    Only splits when a known video extension appears before '!'. This reduces
-    the risk of incorrectly parsing paths that contain a literal '!'.
-    The feature is fully optional and backward compatible.
-    """
-    VIDEO_EXTENSIONS = (".mp4", ".avi", ".mkv", ".mov", ".webm", ".m4v",
-                        ".ts", ".mts", ".m2ts", ".wmv", ".flv", ".mpeg", ".mpg")
-    if "!" not in input_arg:
+    """Split 'video.mp4 ! identity eos-after=600' after .mp4 into (path, extra)."""
+    lower = input_arg.lower()
+    if ".mp4" not in lower:
         return input_arg.strip(), ""
-    path_candidate = input_arg.split("!", 1)[0].strip().lower()
-    if any(path_candidate.endswith(ext) for ext in VIDEO_EXTENSIONS):
-        path, rest = input_arg.split("!", 1)
-        return path.strip(), rest.strip() + " ! "
-    return input_arg.strip(), ""
+    i = lower.index(".mp4") + 4
+    path = input_arg[:i].strip()
+    rest = input_arg[i:].strip().lstrip("! ").strip()
+    return path, (rest + " ! " if rest else "")
 
 
 # ── main ─────────────────────────────────────────────────────────────────────

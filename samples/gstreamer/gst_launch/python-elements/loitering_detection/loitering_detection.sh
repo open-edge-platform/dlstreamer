@@ -100,25 +100,10 @@ if [[ ! "$DEVICE" =~ ^(CPU|GPU|NPU)$ ]]; then
 fi
 
 
-# ---------------------------------------------------------------------------
-# Support for optional extra GStreamer elements after the input path.
-# Example:  "video.mp4 ! identity eos-after=300"
-#
-# Why: useful for testing (limit number of processed frames). Fully optional.
-# How: split on '!' only when a known video extension appears before it.
-# ---------------------------------------------------------------------------
-VIDEO_EXTS="mp4|avi|mkv|mov|webm|m4v|ts|mts|m2ts|wmv|flv|mpeg|mpg"
-EXTRA=""
-INPUT_PATH="$INPUT"
-
-if [[ "$INPUT" == *"!"* ]]; then
-    CANDIDATE=$(echo "$INPUT" | awk -F'!' '{print $1}' | xargs)
-    if echo "$CANDIDATE" | grep -qiE "\.(${VIDEO_EXTS})$"; then
-        INPUT_PATH="$CANDIDATE"
-        EXTRA=$(echo "$INPUT" | cut -d'!' -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-        EXTRA="${EXTRA} ! "
-    fi
-fi
+# Optional extra elements after .mp4 (e.g. "video.mp4 ! identity eos-after=300").
+# INPUT_PATH is used only for file existence check; full $INPUT goes to filesrc.
+INPUT_PATH="${INPUT%%.mp4*}.mp4"
+[[ "$INPUT" != *".mp4"* ]] && INPUT_PATH="$INPUT"
 
 if [[ "$INPUT_PATH" =~ ^https?:// ]]; then
     SOURCE_ELEMENT="urisourcebin uri=${INPUT_PATH}"
@@ -128,7 +113,8 @@ else
         echo "Run '$(basename "$0") --help' for usage information."
         exit 1
     fi
-    SOURCE_ELEMENT="filesrc location=\"${INPUT_PATH}\""
+    # Unquoted so "video.mp4 ! identity eos-after=N" works as pipeline elements
+    SOURCE_ELEMENT="filesrc location=${INPUT}"
 fi
 
 # Validate CONFIG_FILE exists (optional but recommended)
@@ -158,7 +144,7 @@ else
     ENCODER="videoconvert ! openh264enc"
 fi
 
-gst-launch-1.0 -e ${SOURCE_ELEMENT} ! ${EXTRA}decodebin3 ! \
+gst-launch-1.0 -e ${SOURCE_ELEMENT} ! decodebin3 ! \
     gvadetect model=${MODEL} ${GVADETECT_OPTIONS} ! queue ! \
     gvatrack tracking-type=zero-term ! queue ! \
     gvaanalytics config=${CONFIG_FILE} evaluation-point=bottom-center ! queue ! \

@@ -73,32 +73,18 @@ echo "DETECT_DEVICE: ${DETECT_DEVICE}"
 echo "DEPTH_DEVICE: ${DEPTH_DEVICE}"
 
 
-# ---------------------------------------------------------------------------
-# Support for optional extra GStreamer elements after the input path.
-# Example:  "video.mp4 ! identity eos-after=400"
-#
-# Why: allows limiting the number of frames during testing. Fully optional.
-# How: split on '!' only when a recognised video extension appears before it.
-# ---------------------------------------------------------------------------
-VIDEO_EXTS="mp4|avi|mkv|mov|webm|m4v|ts|mts|m2ts|wmv|flv|mpeg|mpg"
-EXTRA=""
-INPUT_PATH="$INPUT"
-
-if [[ "$INPUT" == *"!"* ]]; then
-  CANDIDATE=$(echo "$INPUT" | awk -F'!' '{print $1}' | xargs)
-  if echo "$CANDIDATE" | grep -qiE "\.(${VIDEO_EXTS})$"; then
-    INPUT_PATH="$CANDIDATE"
-    EXTRA=$(echo "$INPUT" | cut -d'!' -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-    EXTRA="${EXTRA} ! "
-  fi
-fi
+# Optional extra elements after .mp4 (e.g. "video.mp4 ! identity eos-after=400").
+# INPUT_PATH is used only for source-type detection; full $INPUT goes to filesrc.
+INPUT_PATH="${INPUT%%.mp4*}.mp4"
+[[ "$INPUT" != *".mp4"* ]] && INPUT_PATH="$INPUT"
 
 if [[ $INPUT_PATH == "/dev/video"* ]]; then
   SOURCE_ELEMENT="v4l2src device=\"${INPUT_PATH}\""
 elif [[ $INPUT_PATH == *"://"* ]]; then
   SOURCE_ELEMENT="urisourcebin buffer-size=4096 uri=\"${INPUT_PATH}\""
 else
-  SOURCE_ELEMENT="filesrc location=\"${INPUT_PATH}\""
+  # keep full $INPUT so identity stays in the pipeline
+  SOURCE_ELEMENT="filesrc location=${INPUT}"
 fi
 
 CONVERSION_ELEMENT=""
@@ -134,7 +120,7 @@ else
   exit 1
 fi
 
-PIPELINE="gst-launch-1.0 ${SOURCE_ELEMENT} ! ${EXTRA}${DECODE_ELEMENT} ! \
+PIPELINE="gst-launch-1.0 ${SOURCE_ELEMENT} ! ${DECODE_ELEMENT} ! \
 gvadetect model=\"${DETECTION_MODEL}\" device=${DETECT_DEVICE} ${DETECT_PREPROC} ! queue ! \
 ${CONVERSION_ELEMENT}queue ! \
 gvaclassify model=\"${DEPTH_MODEL}\" device=${DEPTH_DEVICE} pre-process-backend=opencv skip-raw-tensors=true ! queue ! \
