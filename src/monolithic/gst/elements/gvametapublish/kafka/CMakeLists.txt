@@ -48,4 +48,7 @@ PRIVATE
     ${KAFKA}
 )
 
+# libgvametapublish is installed next to this plugin, which is not on the default library search path
+set_target_properties(${TARGET_NAME} PROPERTIES INSTALL_RPATH "$ORIGIN")
+
 install(TARGETS ${TARGET_NAME} DESTINATION ${DLSTREAMER_PLUGINS_INSTALL_PATH})
