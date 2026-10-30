@@ -1,0 +1,34 @@
+From aa4229e3145d3c6a00a07126020d85c4415a9418 Mon Sep 17 00:00:00 2001
+From: Michal Holownia <michal.holownia@intel.com>
+Date: Fri, 30 Oct 2026 14:26:37 +0100
+Subject: [PATCH] metapublish fix
+
+---
+ .../gst/elements/gvametapublish/kafka/CMakeLists.txt           | 3 +++
+ src/monolithic/gst/elements/gvametapublish/mqtt/CMakeLists.txt | 3 +++
+ 2 files changed, 6 insertions(+)
+
+diff --git a/src/monolithic/gst/elements/gvametapublish/kafka/CMakeLists.txt b/src/monolithic/gst/elements/gvametapublish/kafka/CMakeLists.txt
+index 656ddbf3..5e587f06 100644
+--- a/src/monolithic/gst/elements/gvametapublish/kafka/CMakeLists.txt
++++ b/src/monolithic/gst/elements/gvametapublish/kafka/CMakeLists.txt
+@@ -48,4 +48,7 @@ PRIVATE
+     ${KAFKA}
+ )
+ 
++# libgvametapublish is installed next to this plugin, which is not on the default library search path
++set_target_properties(${TARGET_NAME} PROPERTIES INSTALL_RPATH "$ORIGIN")
++
+ install(TARGETS ${TARGET_NAME} DESTINATION ${DLSTREAMER_PLUGINS_INSTALL_PATH})
+diff --git a/src/monolithic/gst/elements/gvametapublish/mqtt/CMakeLists.txt b/src/monolithic/gst/elements/gvametapublish/mqtt/CMakeLists.txt
+index f194fae8..0ff83a28 100644
+--- a/src/monolithic/gst/elements/gvametapublish/mqtt/CMakeLists.txt
++++ b/src/monolithic/gst/elements/gvametapublish/mqtt/CMakeLists.txt
+@@ -46,4 +46,7 @@ PRIVATE
+     gvametapublish
+ )
+ 
++# libgvametapublish is installed next to this plugin, which is not on the default library search path
++set_target_properties(${TARGET_NAME} PROPERTIES INSTALL_RPATH "$ORIGIN")
++
+ install(TARGETS ${TARGET_NAME} DESTINATION ${DLSTREAMER_PLUGINS_INSTALL_PATH})

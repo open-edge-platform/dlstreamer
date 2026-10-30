@@ -1,0 +1,626 @@
+From 5a5b2577c5514bfb3a1809aab1c08bf481309d3e Mon Sep 17 00:00:00 2001
+From: Michal Holownia <michal.holownia@intel.com>
+Date: Thu, 29 Oct 2026 09:12:25 +0100
+Subject: [PATCH] Semantic tag meta patch
+
+---
+ .../gst/metadata/gstanalyticsgroupmtd.h       |  12 --
+ .../gst/metadata/gstanalyticssemantictagmtd.h |  69 +++++++++
+ .../gst/videoanalytics/region_of_interest.h   |   1 +
+ .../dlstreamer/gst/videoanalytics/tensor.h    |  14 +-
+ .../gst/videoanalytics/video_frame.h          |   1 +
+ src/gst/metadata/gstanalyticsgroupmtd.c       | 114 +--------------
+ src/gst/metadata/gstanalyticskeypointmtd.c    |   7 +-
+ src/gst/metadata/gstanalyticssemantictagmtd.c | 132 ++++++++++++++++++
+ .../elements/gvametaaggregate/metaaggregate.c |  10 +-
+ .../elements/gvametaconvert/jsonconverter.cpp |   5 +-
+ .../common/post_processor/meta_attacher.cpp   |   1 +
+ .../tensor_convert_test.cpp                   |   3 +-
+ .../metaaggregate_copy_test.cpp               |   5 +-
+ 13 files changed, 234 insertions(+), 140 deletions(-)
+ create mode 100644 include/dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h
+ create mode 100644 src/gst/metadata/gstanalyticssemantictagmtd.c
+
+diff --git a/include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h b/include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h
+index aaf2adc2..7a9fa8cf 100644
+--- a/include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h
++++ b/include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h
+@@ -45,12 +45,6 @@ typedef struct _GstAnalyticsMtd GstAnalyticsGroupMtd;
+ GST_ANALYTICS_META_API
+ GstAnalyticsMtdType gst_analytics_group_mtd_get_mtd_type(void);
+ 
+-GST_ANALYTICS_META_API
+-gboolean gst_analytics_group_mtd_has_semantic_tag(const GstAnalyticsGroupMtd *handle, const gchar *tag);
+-
+-GST_ANALYTICS_META_API
+-gboolean gst_analytics_group_mtd_semantic_tag_has_prefix(const GstAnalyticsGroupMtd *handle, const gchar *prefix);
+-
+ GST_ANALYTICS_META_API
+ gsize gst_analytics_group_mtd_get_member_count(const GstAnalyticsGroupMtd *handle);
+ 
+@@ -72,15 +66,9 @@ gboolean gst_analytics_relation_meta_add_group_mtd_with_size(GstAnalyticsRelatio
+ GST_ANALYTICS_META_API
+ gboolean gst_analytics_group_mtd_add_member(GstAnalyticsGroupMtd *handle, guint an_meta_id);
+ 
+-GST_ANALYTICS_META_API
+-gboolean gst_analytics_group_mtd_set_semantic_tag(GstAnalyticsGroupMtd *handle, const char *tag);
+-
+ GST_ANALYTICS_META_API
+ gboolean gst_analytics_relation_meta_get_group_mtd(GstAnalyticsRelationMeta *meta, guint an_meta_id,
+                                                    GstAnalyticsGroupMtd *rlt);
+ 
+-GST_ANALYTICS_META_API
+-gchar *gst_analytics_group_mtd_get_semantic_tag(const GstAnalyticsGroupMtd *handle);
+-
+ G_END_DECLS
+ #endif /* __GST_ANALYTICS_GROUP_MTD_H__ */
+diff --git a/include/dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h b/include/dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h
+new file mode 100644
+index 00000000..ba472c1c
+--- /dev/null
++++ b/include/dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h
+@@ -0,0 +1,69 @@
++/* GStreamer
++ * Copyright (C) 2026 Intel Corporation
++ *
++ * SPDX-License-Identifier: MIT
++ *
++ * gstanalyticssemantictagmtd.h
++ */
++
++#ifndef __GST_ANALYTICS_SEMANTIC_TAG_MTD_H__
++#define __GST_ANALYTICS_SEMANTIC_TAG_MTD_H__
++
++#ifdef HAVE_CONFIG_H
++#include "config.h"
++#endif
++
++#include <gst/analytics/analytics-meta-prelude.h>
++#include <gst/analytics/gstanalyticsmeta.h>
++#include <gst/gst.h>
++
++G_BEGIN_DECLS
++
++/**
++ * GstAnalyticsSemanticTagMtd:
++ * @id: Instance identifier.
++ * @meta: Instance of #GstAnalyticsRelationMeta where the tag is stored.
++ *
++ * Handle for a semantic tag node. The tag is linked to its owner MTD with
++ * GST_ANALYTICS_REL_TYPE_RELATE_TO.
++ */
++typedef struct _GstAnalyticsMtd GstAnalyticsSemanticTagMtd;
++
++GST_ANALYTICS_META_API
++GstAnalyticsMtdType gst_analytics_semantic_tag_mtd_get_mtd_type(void);
++
++GST_ANALYTICS_META_API
++gboolean gst_analytics_relation_meta_add_semantic_tag_mtd(GstAnalyticsRelationMeta *relation_meta, const gchar *tag,
++                                                          GstAnalyticsSemanticTagMtd *semantic_tag_mtd);
++
++GST_ANALYTICS_META_API
++gboolean gst_analytics_relation_meta_get_semantic_tag_mtd(GstAnalyticsRelationMeta *meta, guint id,
++                                                          GstAnalyticsSemanticTagMtd *rlt);
++
++GST_ANALYTICS_META_API
++gboolean gst_analytics_semantic_tag_mtd_get_tag(const GstAnalyticsSemanticTagMtd *handle, const gchar **tag);
++
++/* Fails if @mtd_id already has a semantic tag. Returned string must be freed with g_free(). */
++GST_ANALYTICS_META_API
++gboolean gst_analytics_relation_meta_attach_semantic_tag(GstAnalyticsRelationMeta *meta, guint mtd_id,
++                                                         const gchar *tag);
++
++GST_ANALYTICS_META_API
++gchar *gst_analytics_relation_meta_get_semantic_tag(GstAnalyticsRelationMeta *meta, guint mtd_id);
++
++/*
++ * Generic API with the same names and semantics as in patched GStreamer, built on semantic tag mtd.
++ * The tag is stored as a GstAnalyticsSemanticTagMtd directly related (GST_ANALYTICS_REL_TYPE_RELATE_TO) to @instance.
++ */
++
++/* Replaces the tag of @instance, NULL or empty @tag removes it. */
++GST_ANALYTICS_META_API
++gboolean gst_analytics_mtd_set_semantic_tag(GstAnalyticsMtd *instance, const gchar *tag);
++
++/* Returns a copy of the tag of @instance (empty string if not set), to be freed with g_free(). */
++GST_ANALYTICS_META_API
++gchar *gst_analytics_mtd_get_semantic_tag(const GstAnalyticsMtd *instance);
++
++G_END_DECLS
++
++#endif /* __GST_ANALYTICS_SEMANTIC_TAG_MTD_H__ */
+diff --git a/include/dlstreamer/gst/videoanalytics/region_of_interest.h b/include/dlstreamer/gst/videoanalytics/region_of_interest.h
+index 083d1bda..7f2107a5 100644
+--- a/include/dlstreamer/gst/videoanalytics/region_of_interest.h
++++ b/include/dlstreamer/gst/videoanalytics/region_of_interest.h
+@@ -18,6 +18,7 @@
+ #include "tensor.h"
+ 
+ #include "../metadata/gstanalyticskeypointmtd.h"
++#include "../metadata/gstanalyticssemantictagmtd.h"
+ 
+ #include <cstdint>
+ #include <gst/analytics/analytics.h>
+diff --git a/include/dlstreamer/gst/videoanalytics/tensor.h b/include/dlstreamer/gst/videoanalytics/tensor.h
+index 164ae931..006b51bd 100644
+--- a/include/dlstreamer/gst/videoanalytics/tensor.h
++++ b/include/dlstreamer/gst/videoanalytics/tensor.h
+@@ -15,8 +15,9 @@
+ #include "../metadata/gstanalyticskeypointdescriptor.h"
+ #include "../metadata/gva_tensor_meta.h"
+ 
+-#include <gst/analytics/analytics.h>
+ #include "../metadata/gstanalyticskeypointmtd.h"
++#include "../metadata/gstanalyticssemantictagmtd.h"
++#include <gst/analytics/analytics.h>
+ #include <gst/analytics/gstanalyticssegmentationmtd.h>
+ #include <gst/analytics/gstanalyticstensormtd.h>
+ #include <gst/analytics/gsttensor.h>
+@@ -692,15 +693,14 @@ class Tensor {
+                 skeleton_data = descriptor->skeleton_connections;
+             }
+ 
+-            // build semantic tag for group: model_name/format
+             std::string group_semantic_tag;
+-            std::string mn = model_name();
+-            if (!fmt.empty() && !mn.empty())
+-                group_semantic_tag = mn + "/" + fmt;
++            const std::string group_model = model_name();
++            if (!fmt.empty() && !group_model.empty())
++                group_semantic_tag = group_model + "/" + fmt;
+             else if (!fmt.empty())
+                 group_semantic_tag = fmt;
+-            else if (!mn.empty())
+-                group_semantic_tag = mn;
++            else
++                group_semantic_tag = group_model;
+ 
+             // create group with keypoints and skeleton in one call
+             if (!gst_analytics_relation_meta_add_keypoints_group(meta, group_semantic_tag.c_str(), dim,
+diff --git a/include/dlstreamer/gst/videoanalytics/video_frame.h b/include/dlstreamer/gst/videoanalytics/video_frame.h
+index bd4d26ad..a5d4ffc0 100644
+--- a/include/dlstreamer/gst/videoanalytics/video_frame.h
++++ b/include/dlstreamer/gst/videoanalytics/video_frame.h
+@@ -14,6 +14,7 @@
+ 
+ #include "region_of_interest.h"
+ 
++#include "../metadata/gstanalyticssemantictagmtd.h"
+ #include "../metadata/gva_json_meta.h"
+ #include "../metadata/gva_tensor_meta.h"
+ 
+diff --git a/src/gst/metadata/gstanalyticsgroupmtd.c b/src/gst/metadata/gstanalyticsgroupmtd.c
+index f056886c..426cf1cf 100644
+--- a/src/gst/metadata/gstanalyticsgroupmtd.c
++++ b/src/gst/metadata/gstanalyticsgroupmtd.c
+@@ -34,10 +34,8 @@ GST_DEBUG_CATEGORY_EXTERN(gst_analytics_relation_meta_debug);
+  * @see_also: #GstAnalyticsMtd, #GstAnalyticsRelationMeta
+  *
+  * This type of metadata define a group of #GstAnalyticsMtd. It allows to
+- * describe results as composition. Group members are ordered within the group
+- * and the @semantic_tag allow to define a specific group meaning.
+- * For example with a semantic_tag = "posture/hand-21-kp", first
+- * member represent the "wrist", second is the thumb first joint.
++ * describe results as composition. Group members are ordered within the group.
++ * A group meaning can be defined with a semantic tag on the group #GstAnalyticsMtd.
+  * Since: 1.30
+  */
+ 
+@@ -45,8 +43,6 @@ typedef struct _GstAnalyticsGroupMtdData GstAnalyticsGroupMtdData;
+ 
+ /*
+  * GstAnalyticsGroupMtdData:
+- * @semantic_tag: Semantic meaning of this grouping where an empty string means
+- *    no semantic is defined for the group.
+  * @members_len: Number of allocated member slots
+  * @members_count: Number of assigned member slot
+  * @members_allocated: TRUE if members was dynamically allocated, FALSE if using inplace storage
+@@ -59,7 +55,6 @@ typedef struct _GstAnalyticsGroupMtdData GstAnalyticsGroupMtdData;
+  * Since 1.30
+  */
+ struct _GstAnalyticsGroupMtdData {
+-    GstIdStr semantic_tag;
+     gsize members_len;
+     gsize members_count;
+     gboolean members_allocated;
+@@ -87,74 +82,6 @@ GstAnalyticsMtdType gst_analytics_group_mtd_get_mtd_type(void) {
+     return (GstAnalyticsMtdType)&group_impl;
+ }
+ 
+-/**
+- * gst_analytics_group_mtd_has_semantic_tag:
+- * @handle: handle
+- * @tag: tag string to compare against
+- *
+- * Check if the group's semantic tag matches @tag. An empty or unset tag never
+- * matches.
+- *
+- * Returns: %TRUE if the group's semantic tag equals @tag.
+- *
+- * Since: 1.30
+- */
+-gboolean gst_analytics_group_mtd_has_semantic_tag(const GstAnalyticsGroupMtd *handle, const gchar *tag) {
+-    GstAnalyticsGroupMtdData *mtddata;
+-    g_return_val_if_fail(handle, FALSE);
+-    g_return_val_if_fail(tag, FALSE);
+-
+-    mtddata = gst_analytics_relation_meta_get_mtd_data(handle->meta, handle->id);
+-    g_return_val_if_fail(mtddata != NULL, FALSE);
+-
+-    return gst_id_str_is_equal_to_str(&mtddata->semantic_tag, tag);
+-}
+-
+-/**
+- * gst_analytics_group_mtd_get_semantic_tag:
+- * @handle: handle
+- *
+- * Get the semantic tag of the group.
+- *
+- * Returns: (transfer full): A copy of the semantic tag string. Returns an
+- *    empty string if no tag has been set. The caller must free the returned
+- *    string with g_free() when no longer needed.
+- *
+- * Since: 1.30
+- */
+-gchar *gst_analytics_group_mtd_get_semantic_tag(const GstAnalyticsGroupMtd *handle) {
+-    GstAnalyticsGroupMtdData *mtddata;
+-    g_return_val_if_fail(handle, NULL);
+-
+-    mtddata = gst_analytics_relation_meta_get_mtd_data(handle->meta, handle->id);
+-    g_return_val_if_fail(mtddata != NULL, NULL);
+-
+-    return g_strdup(gst_id_str_as_str(&mtddata->semantic_tag));
+-}
+-
+-/**
+- * gst_analytics_group_mtd_semantic_tag_has_prefix:
+- * @handle: handle
+- * @prefix: prefix string to test against
+- *
+- * Check if the group's semantic tag starts with @prefix. An empty or unset tag
+- * never matches.
+- *
+- * Returns: %TRUE if the group's semantic tag starts with @prefix.
+- *
+- * Since: 1.30
+- */
+-gboolean gst_analytics_group_mtd_semantic_tag_has_prefix(const GstAnalyticsGroupMtd *handle, const gchar *prefix) {
+-    GstAnalyticsGroupMtdData *mtddata;
+-    g_return_val_if_fail(handle, FALSE);
+-    g_return_val_if_fail(prefix, FALSE);
+-
+-    mtddata = gst_analytics_relation_meta_get_mtd_data(handle->meta, handle->id);
+-    g_return_val_if_fail(mtddata != NULL, FALSE);
+-
+-    return g_str_has_prefix(gst_id_str_as_str(&mtddata->semantic_tag), prefix);
+-}
+-
+ /**
+  * gst_analytics_group_mtd_get_member_count:
+  * @handle: handle
+@@ -298,7 +225,6 @@ gboolean gst_analytics_relation_meta_add_group_mtd(GstAnalyticsRelationMeta *ins
+         group_mtd_data->members = g_malloc_n(pre_alloc_size, sizeof(guint));
+         group_mtd_data->members_count = 0;
+         group_mtd_data->members_allocated = TRUE;
+-        gst_id_str_init(&group_mtd_data->semantic_tag);
+     } else {
+         return FALSE;
+     }
+@@ -336,7 +262,6 @@ gboolean gst_analytics_relation_meta_add_group_mtd_with_size(GstAnalyticsRelatio
+         group_data->members_count = 0;
+         group_data->members = group_data->members_inplace;
+         group_data->members_allocated = FALSE;
+-        gst_id_str_init(&group_data->semantic_tag);
+     } else {
+         return FALSE;
+     }
+@@ -408,34 +333,6 @@ gboolean gst_analytics_group_mtd_add_member(GstAnalyticsGroupMtd *handle, guint
+     return ret;
+ }
+ 
+-/**
+- * gst_analytics_group_mtd_set_semantic_tag:
+- * @handle: handle of #GstAnalyticsMtd where to set semantic_tag
+- * @tag: (nullable): string representing a semantic type of grouping, or %NULL
+- *   to clear the tag
+- *
+- * Set grouping semantic tag. This gives a context to understand the grouping.
+- * For example "hand-21-kp", "human-pose-17-kp" that give a specific context
+- * allowing to understand the grouping semantic. Pass %NULL to clear the tag.
+- *
+- * Returns: TRUE is semantic_tag was set successfully
+- *
+- * Since: 1.30
+- */
+-gboolean gst_analytics_group_mtd_set_semantic_tag(GstAnalyticsGroupMtd *handle, const gchar *tag) {
+-    g_return_val_if_fail(handle, FALSE);
+-
+-    GstAnalyticsGroupMtdData *group_data = gst_analytics_relation_meta_get_mtd_data(handle->meta, handle->id);
+-    g_return_val_if_fail(group_data != NULL, FALSE);
+-
+-    if (tag)
+-        gst_id_str_set(&group_data->semantic_tag, tag);
+-    else
+-        gst_id_str_clear(&group_data->semantic_tag);
+-
+-    return TRUE;
+-}
+-
+ /**
+  * gst_analytics_relation_meta_get_group_mtd:
+  * @meta: Instance of #GstAnalyticsRelationMeta
+@@ -465,11 +362,6 @@ static gboolean gst_analytics_group_mtd_transform(GstBuffer *transbuf, GstAnalyt
+     dst_data = gst_analytics_relation_meta_get_mtd_data(transmtd->meta, transmtd->id);
+     g_return_val_if_fail(dst_data != NULL, FALSE);
+ 
+-    GstIdStr tmp = GST_ID_STR_INIT;
+-    gst_id_str_copy_into(&tmp, &dst_data->semantic_tag);
+-    gst_id_str_init(&dst_data->semantic_tag);
+-    gst_id_str_move(&dst_data->semantic_tag, &tmp);
+-
+     /* For dynamically allocated members we need to make an independent copy.
+      * For in-place storage, fix up the pointer to the new location since it
+      * was memcpy'd from the source struct. */
+@@ -498,6 +390,4 @@ static void gst_analytics_group_mtd_clear(GstBuffer *buffer, GstAnalyticsMtd *mt
+     if (groupdata->members_allocated) {
+         g_free(groupdata->members);
+     }
+-
+-    gst_id_str_clear(&groupdata->semantic_tag);
+ }
+diff --git a/src/gst/metadata/gstanalyticskeypointmtd.c b/src/gst/metadata/gstanalyticskeypointmtd.c
+index 14c5c717..1c7c0d87 100644
+--- a/src/gst/metadata/gstanalyticskeypointmtd.c
++++ b/src/gst/metadata/gstanalyticskeypointmtd.c
+@@ -28,6 +28,7 @@
+ #endif
+ 
+ #include "dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
++#include "dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h"
+ #include <gst/video/gstvideometa.h>
+ #include <gst/video/video.h>
+ 
+@@ -401,8 +402,10 @@ gboolean gst_analytics_relation_meta_add_keypoints_group(GstAnalyticsRelationMet
+         return FALSE;
+     }
+ 
+-    /* Set semantic tag */
+-    gst_analytics_group_mtd_set_semantic_tag(group_mtd, semantic_tag);
++    if (!gst_analytics_mtd_set_semantic_tag(group_mtd, semantic_tag)) {
++        GST_WARNING("Failed to set semantic tag on keypoint group");
++        return FALSE;
++    }
+ 
+     /* Allocate array to store keypoint IDs for skeleton processing */
+     keypoint_ids = g_malloc_n(keypoint_count, sizeof(guint));
+diff --git a/src/gst/metadata/gstanalyticssemantictagmtd.c b/src/gst/metadata/gstanalyticssemantictagmtd.c
+new file mode 100644
+index 00000000..d007ff3b
+--- /dev/null
++++ b/src/gst/metadata/gstanalyticssemantictagmtd.c
+@@ -0,0 +1,132 @@
++/* GStreamer
++ * Copyright (C) 2026 Intel Corporation
++ *
++ * SPDX-License-Identifier: MIT
++ *
++ * gstanalyticssemantictagmtd.c
++ */
++
++#ifdef HAVE_CONFIG_H
++#include "config.h"
++#endif
++
++#include "dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h"
++
++#include <string.h>
++
++typedef struct _GstAnalyticsSemanticTagData GstAnalyticsSemanticTagData;
++
++struct _GstAnalyticsSemanticTagData {
++    gsize tag_len; /* length of tag including null terminator */
++    gchar tag[];   /* flexible array member - must be last */
++};
++
++static const GstAnalyticsMtdImpl semantic_tag_impl = {"semantictag", NULL, NULL, {NULL}};
++
++GstAnalyticsMtdType gst_analytics_semantic_tag_mtd_get_mtd_type(void) {
++    return (GstAnalyticsMtdType)&semantic_tag_impl;
++}
++
++gboolean gst_analytics_relation_meta_add_semantic_tag_mtd(GstAnalyticsRelationMeta *relation_meta, const gchar *tag,
++                                                          GstAnalyticsSemanticTagMtd *semantic_tag_mtd) {
++    g_return_val_if_fail(relation_meta != NULL, FALSE);
++    g_return_val_if_fail(tag != NULL && tag[0] != '\0', FALSE);
++    g_return_val_if_fail(semantic_tag_mtd != NULL, FALSE);
++
++    gsize tag_len = strlen(tag) + 1;
++    gsize size = sizeof(GstAnalyticsSemanticTagData) + tag_len;
++
++    GstAnalyticsSemanticTagData *data = (GstAnalyticsSemanticTagData *)gst_analytics_relation_meta_add_mtd(
++        relation_meta, &semantic_tag_impl, size, (GstAnalyticsMtd *)semantic_tag_mtd);
++    g_return_val_if_fail(data != NULL, FALSE);
++
++    data->tag_len = tag_len;
++    memcpy(data->tag, tag, tag_len);
++
++    return TRUE;
++}
++
++gboolean gst_analytics_relation_meta_get_semantic_tag_mtd(GstAnalyticsRelationMeta *meta, guint id,
++                                                          GstAnalyticsSemanticTagMtd *rlt) {
++    return gst_analytics_relation_meta_get_mtd(meta, id, gst_analytics_semantic_tag_mtd_get_mtd_type(),
++                                               (GstAnalyticsMtd *)rlt);
++}
++
++gboolean gst_analytics_semantic_tag_mtd_get_tag(const GstAnalyticsSemanticTagMtd *handle, const gchar **tag) {
++    g_return_val_if_fail(handle != NULL, FALSE);
++    g_return_val_if_fail(handle->meta != NULL, FALSE);
++    g_return_val_if_fail(tag != NULL, FALSE);
++
++    GstAnalyticsSemanticTagData *data =
++        (GstAnalyticsSemanticTagData *)gst_analytics_relation_meta_get_mtd_data(handle->meta, handle->id);
++    g_return_val_if_fail(data != NULL, FALSE);
++
++    *tag = data->tag;
++    return TRUE;
++}
++
++gboolean gst_analytics_relation_meta_attach_semantic_tag(GstAnalyticsRelationMeta *meta, guint mtd_id,
++                                                         const gchar *tag) {
++    g_return_val_if_fail(meta != NULL, FALSE);
++    g_return_val_if_fail(tag != NULL && tag[0] != '\0', FALSE);
++
++    gchar *existing = gst_analytics_relation_meta_get_semantic_tag(meta, mtd_id);
++    if (existing) {
++        g_free(existing);
++        return FALSE;
++    }
++
++    GstAnalyticsSemanticTagMtd tag_mtd;
++    if (!gst_analytics_relation_meta_add_semantic_tag_mtd(meta, tag, &tag_mtd))
++        return FALSE;
++
++    return gst_analytics_relation_meta_set_relation(meta, GST_ANALYTICS_REL_TYPE_RELATE_TO, mtd_id, tag_mtd.id);
++}
++
++gchar *gst_analytics_relation_meta_get_semantic_tag(GstAnalyticsRelationMeta *meta, guint mtd_id) {
++    g_return_val_if_fail(meta != NULL, NULL);
++
++    gpointer state = NULL;
++    GstAnalyticsMtd rlt;
++    while (gst_analytics_relation_meta_get_direct_related(
++        meta, mtd_id, GST_ANALYTICS_REL_TYPE_RELATE_TO, gst_analytics_semantic_tag_mtd_get_mtd_type(), &state, &rlt)) {
++        GstAnalyticsSemanticTagData *data =
++            (GstAnalyticsSemanticTagData *)gst_analytics_relation_meta_get_mtd_data(meta, rlt.id);
++        if (data)
++            return g_strdup(data->tag);
++    }
++    return NULL;
++}
++
++gboolean gst_analytics_mtd_set_semantic_tag(GstAnalyticsMtd *instance, const gchar *tag) {
++    g_return_val_if_fail(instance != NULL, FALSE);
++    g_return_val_if_fail(instance->meta != NULL, FALSE);
++
++    /* Drop the relation to the previous tag, its node stays in the meta unreferenced. */
++    GstAnalyticsMtd previous;
++    while (gst_analytics_relation_meta_get_direct_related(
++        instance->meta, instance->id, GST_ANALYTICS_REL_TYPE_RELATE_TO, gst_analytics_semantic_tag_mtd_get_mtd_type(),
++        NULL, &previous)) {
++        if (!gst_analytics_relation_meta_set_relation(instance->meta, GST_ANALYTICS_REL_TYPE_NONE, instance->id,
++                                                      previous.id))
++            return FALSE;
++    }
++
++    if (tag == NULL || tag[0] == '\0')
++        return TRUE;
++
++    GstAnalyticsSemanticTagMtd tag_mtd;
++    if (!gst_analytics_relation_meta_add_semantic_tag_mtd(instance->meta, tag, &tag_mtd))
++        return FALSE;
++
++    return gst_analytics_relation_meta_set_relation(instance->meta, GST_ANALYTICS_REL_TYPE_RELATE_TO, instance->id,
++                                                    tag_mtd.id);
++}
++
++gchar *gst_analytics_mtd_get_semantic_tag(const GstAnalyticsMtd *instance) {
++    g_return_val_if_fail(instance != NULL, NULL);
++    g_return_val_if_fail(instance->meta != NULL, NULL);
++
++    gchar *tag = gst_analytics_relation_meta_get_semantic_tag(instance->meta, instance->id);
++    return tag ? tag : g_strdup("");
++}
+diff --git a/src/monolithic/gst/elements/gvametaaggregate/metaaggregate.c b/src/monolithic/gst/elements/gvametaaggregate/metaaggregate.c
+index aa260295..6f334a7e 100644
+--- a/src/monolithic/gst/elements/gvametaaggregate/metaaggregate.c
++++ b/src/monolithic/gst/elements/gvametaaggregate/metaaggregate.c
+@@ -11,8 +11,9 @@
+ #include "gst/gstclock.h"
+ #include "gst/gstinfo.h"
+ #include "utils.h"
+-#include <gst/analytics/gstanalyticsgroupmtd.h>
+-#include "dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
++#include <dlstreamer/gst/metadata/gstanalyticsgroupmtd.h>
++#include <dlstreamer/gst/metadata/gstanalyticskeypointmtd.h>
++#include <dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h>
+ #include <gst/analytics/gstanalyticssegmentationmtd.h>
+ #include <gst/analytics/gstanalyticstensormtd.h>
+ #include <gst/analytics/gsttensor.h>
+@@ -333,6 +334,11 @@ gboolean copy_all_gst_analytics_mtd(GstAnalyticsRelationMeta *src, GstAnalyticsR
+             continue;
+         }
+ 
++        // Semantic tags are copied together with their owner in copy_one_gst_analytics_mtd()
++        if (gst_analytics_mtd_get_mtd_type(&mtd) == gst_analytics_semantic_tag_mtd_get_mtd_type()) {
++            continue;
++        }
++
+         GstAnalyticsMtd new_mtd;
+         if (!copy_one_gst_analytics_mtd(dst, &mtd, &new_mtd, scale_x, scale_y, id_map)) {
+             GST_ERROR("Failed to copy one analytics mtd");
+diff --git a/src/monolithic/gst/elements/gvametaconvert/jsonconverter.cpp b/src/monolithic/gst/elements/gvametaconvert/jsonconverter.cpp
+index 26d38617..7ac832e7 100644
+--- a/src/monolithic/gst/elements/gvametaconvert/jsonconverter.cpp
++++ b/src/monolithic/gst/elements/gvametaconvert/jsonconverter.cpp
+@@ -20,12 +20,13 @@
+ 
+ #include <dlstreamer/gst/metadata/camera_3d_od_mtd.h>
+ #include <dlstreamer/gst/metadata/g3d_od_mtd.h>
++#include <dlstreamer/gst/metadata/gstanalyticsgroupmtd.h>
+ #include <dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h>
++#include <dlstreamer/gst/metadata/gstanalyticskeypointmtd.h>
++#include <dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h>
+ #include <gst/analytics/analytics.h>
+ #include <gst/analytics/gstanalyticsbatchmeta.h>
+ #include <gst/analytics/gstanalyticsclassificationmtd.h>
+-#include <gst/analytics/gstanalyticsgroupmtd.h>
+-#include "dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
+ #include <gst/analytics/gstanalyticsobjecttrackingmtd.h>
+ #include <gst/rtp/rtp.h>
+ #include <nlohmann/json.hpp>
+diff --git a/src/monolithic/gst/inference_elements/common/post_processor/meta_attacher.cpp b/src/monolithic/gst/inference_elements/common/post_processor/meta_attacher.cpp
+index 410a6a08..924c8062 100644
+--- a/src/monolithic/gst/inference_elements/common/post_processor/meta_attacher.cpp
++++ b/src/monolithic/gst/inference_elements/common/post_processor/meta_attacher.cpp
+@@ -11,6 +11,7 @@
+ #include "gva_utils.h"
+ #include "processor_types.h"
+ #include <dlstreamer/gst/metadata/camera_3d_od_mtd.h>
++#include <dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h>
+ #include <dlstreamer/gst/videoanalytics/tensor.h>
+ #include <gst/analytics/analytics.h>
+ 
+diff --git a/tests/unit_tests/check/components/gstvideoanalyticsmeta/tensor_convert_test.cpp b/tests/unit_tests/check/components/gstvideoanalyticsmeta/tensor_convert_test.cpp
+index 9494f7b4..77eeca3c 100644
+--- a/tests/unit_tests/check/components/gstvideoanalyticsmeta/tensor_convert_test.cpp
++++ b/tests/unit_tests/check/components/gstvideoanalyticsmeta/tensor_convert_test.cpp
+@@ -28,7 +28,8 @@
+ #include <gtest/gtest.h>
+ 
+ #include "dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h"
+-#include <gst/analytics/gstanalyticskeypointmtd.h>
++#include "dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
++#include "dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h"
+ 
+ // ── Test constants ──────────────────────────────────────────────────────────
+ 
+diff --git a/tests/unit_tests/check/components/metaaggregate_copy/metaaggregate_copy_test.cpp b/tests/unit_tests/check/components/metaaggregate_copy/metaaggregate_copy_test.cpp
+index dfae7ca4..23bccde3 100644
+--- a/tests/unit_tests/check/components/metaaggregate_copy/metaaggregate_copy_test.cpp
++++ b/tests/unit_tests/check/components/metaaggregate_copy/metaaggregate_copy_test.cpp
+@@ -9,11 +9,12 @@
+  * @brief Unit tests for copy_one_gst_analytics_mtd() and copy_all_gst_analytics_mtd()
+  */
+ 
++#include <dlstreamer/gst/metadata/gstanalyticsgroupmtd.h>
++#include <dlstreamer/gst/metadata/gstanalyticskeypointmtd.h>
++#include <dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h>
+ #include <glib.h>
+ #include <gst/analytics/analytics.h>
+ #include <gst/analytics/gstanalyticsclassificationmtd.h>
+-#include <gst/analytics/gstanalyticsgroupmtd.h>
+-#include <gst/analytics/gstanalyticskeypointmtd.h>
+ #include <gst/analytics/gstanalyticssegmentationmtd.h>
+ #include <gst/analytics/gstanalyticstensormtd.h>
+ #include <gst/analytics/gsttensor.h>

@@ -1,0 +1,1441 @@
+From f81bf01f9bbf69bb70e7359e5b1cc87e63ea93b1 Mon Sep 17 00:00:00 2001
+From: Michal Holownia <michal.holownia@intel.com>
+Date: Thu, 29 Oct 2026 13:57:33 +0100
+Subject: [PATCH] add girs for new metadata
+
+---
+ girs/DLStreamerMeta-1.0.gir                   | 1043 +++++++++++++++--
+ python/gstgva/meta_registry.py                |   18 +-
+ scripts/fix_gir_mtd_fields.py                 |    2 +-
+ src/gst/metadata/generate_gir.cmake           |    6 +
+ src/gst/metadata/gstanalyticssemantictagmtd.c |   75 ++
+ 5 files changed, 1070 insertions(+), 74 deletions(-)
+
+diff --git a/girs/DLStreamerMeta-1.0.gir b/girs/DLStreamerMeta-1.0.gir
+index b0de475b..6d83e57d 100644
+--- a/girs/DLStreamerMeta-1.0.gir
++++ b/girs/DLStreamerMeta-1.0.gir
+@@ -6,8 +6,8 @@
+   <package name="gstreamer-analytics-1.0" />
+   <namespace name="DLStreamerMeta" version="1.0" shared-library="libdlstreamer_gst_meta.so" c:identifier-prefixes="GstAnalytics" c:symbol-prefixes="gst_analytics">
+     <record name="3DODMtd" c:type="GstAnalytics3DODMtd">
+-      <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/g3d_od_mtd.h" line="16">Handle containing data required to use gst_analytics_3d_od_mtd APIs.</doc>
+-      <source-position filename="include/dlstreamer/gst/metadata/g3d_od_mtd.h" line="21" />
++      <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/g3d_od_mtd.h" line="15">Handle containing data required to use gst_analytics_3d_od_mtd APIs.</doc>
++      <source-position filename="include/dlstreamer/gst/metadata/g3d_od_mtd.h" line="20" />
+       <field name="id" writable="1">
+         <doc xml:space="preserve">Instance identifier</doc>
+         <type name="guint" c:type="guint" />
+@@ -18,7 +18,7 @@ identified by @id is stored.</doc>
+         <type name="GstAnalytics.RelationMeta" c:type="GstAnalyticsRelationMeta*" />
+       </field>
+       <function name="get_class" c:identifier="gst_analytics_3d_od_mtd_get_class">
+-        <source-position filename="include/dlstreamer/gst/metadata/g3d_od_mtd.h" line="42" />
++        <source-position filename="include/dlstreamer/gst/metadata/g3d_od_mtd.h" line="41" />
+         <return-value transfer-ownership="none">
+           <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="160">TRUE on success, FALSE otherwise</doc>
+           <type name="gboolean" c:type="gboolean" />
+@@ -40,7 +40,7 @@ identified by @id is stored.</doc>
+       </function>
+       <function name="get_location" c:identifier="gst_analytics_3d_od_mtd_get_location">
+         <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="116">Retrieve the 3D oriented box.</doc>
+-        <source-position filename="include/dlstreamer/gst/metadata/g3d_od_mtd.h" line="38" />
++        <source-position filename="include/dlstreamer/gst/metadata/g3d_od_mtd.h" line="37" />
+         <return-value transfer-ownership="none">
+           <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="131">TRUE on success, FALSE otherwise</doc>
+           <type name="gboolean" c:type="gboolean" />
+@@ -89,7 +89,7 @@ identified by @id is stored.</doc>
+         </parameters>
+       </function>
+       <function name="get_modality" c:identifier="gst_analytics_3d_od_mtd_get_modality">
+-        <source-position filename="include/dlstreamer/gst/metadata/g3d_od_mtd.h" line="45" />
++        <source-position filename="include/dlstreamer/gst/metadata/g3d_od_mtd.h" line="44" />
+         <return-value transfer-ownership="none">
+           <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="179">TRUE on success, FALSE otherwise</doc>
+           <type name="gboolean" c:type="gboolean" />
+@@ -107,7 +107,7 @@ identified by @id is stored.</doc>
+       </function>
+       <function name="get_mtd_type" c:identifier="gst_analytics_3d_od_mtd_get_mtd_type">
+         <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="58">Get an id that represents the 3d-object-detection metadata type.</doc>
+-        <source-position filename="include/dlstreamer/gst/metadata/g3d_od_mtd.h" line="30" />
++        <source-position filename="include/dlstreamer/gst/metadata/g3d_od_mtd.h" line="29" />
+         <return-value transfer-ownership="none">
+           <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="63">opaque id of the #GstAnalyticsMtd type</doc>
+           <type name="GstAnalytics.MtdType" c:type="GstAnalyticsMtdType" />
+@@ -115,14 +115,174 @@ identified by @id is stored.</doc>
+       </function>
+     </record>
+     <enumeration name="3DSensorModality" c:type="GstAnalytics3DSensorModality">
+-      <source-position filename="include/dlstreamer/gst/metadata/g3d_od_mtd.h" line="28" />
++      <source-position filename="include/dlstreamer/gst/metadata/g3d_od_mtd.h" line="27" />
+       <member name="lidar" value="0" c:identifier="GST_ANALYTICS_3D_SENSOR_LIDAR">
+-        <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/g3d_od_mtd.h" line="25">Detection sourced from a LiDAR-based detector</doc>
++        <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/g3d_od_mtd.h" line="24">Detection sourced from a LiDAR-based detector</doc>
+       </member>
+       <member name="radar" value="1" c:identifier="GST_ANALYTICS_3D_SENSOR_RADAR">
+-        <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/g3d_od_mtd.h" line="26">Detection sourced from a radar-based detector</doc>
++        <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/g3d_od_mtd.h" line="25">Detection sourced from a radar-based detector</doc>
+       </member>
+     </enumeration>
++    <record name="Camera3DODMtd" c:type="GstAnalyticsCamera3DODMtd">
++      <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/camera_3d_od_mtd.h" line="15">Handle containing data required to use gst_analytics_camera_3d_od_mtd APIs.</doc>
++      <source-position filename="include/dlstreamer/gst/metadata/camera_3d_od_mtd.h" line="20" />
++    </record>
++    <record name="DwellTimeMtd" c:type="GstAnalyticsDwellTimeMtd">
++      <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="15">Handle to dwell-time analytics metadata.
++Carries zone_id, dwell_time (seconds elapsed in zone), and first_seen_timestamp.</doc>
++      <source-position filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="23" />
++      <field name="id" writable="1">
++        <doc xml:space="preserve">Instance identifier</doc>
++        <type name="guint" c:type="guint" />
++      </field>
++      <field name="meta" writable="1">
++        <doc xml:space="preserve">Instance of #GstAnalyticsRelationMeta where the analytics-metadata
++identified by @id is stored.</doc>
++        <type name="GstAnalytics.RelationMeta" c:type="GstAnalyticsRelationMeta*" />
++      </field>
++      <function name="get_info" c:identifier="gst_analytics_dwelltime_mtd_get_info">
++        <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="32">Retrieves dwell-time information from the metadata.</doc>
++        <source-position filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="43" />
++        <return-value transfer-ownership="none">
++          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="41">TRUE if the data was successfully retrieved, FALSE otherwise.</doc>
++          <type name="gboolean" c:type="gboolean" />
++        </return-value>
++        <parameters>
++          <parameter name="handle" transfer-ownership="none">
++            <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="34">A #GstAnalyticsDwellTimeMtd handle.</doc>
++            <type name="DwellTimeMtd" c:type="const GstAnalyticsDwellTimeMtd*" />
++          </parameter>
++          <parameter name="zone_id" direction="out" caller-allocates="0" transfer-ownership="full" nullable="1">
++            <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="35">Zone identifier string.</doc>
++            <type name="utf8" c:type="gchar**" />
++          </parameter>
++          <parameter name="dwell_time" direction="out" caller-allocates="0" transfer-ownership="full" nullable="1">
++            <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="36">Seconds the object has been inside the zone.</doc>
++            <type name="gdouble" c:type="gdouble*" />
++          </parameter>
++          <parameter name="first_seen_timestamp" direction="out" caller-allocates="0" transfer-ownership="full" nullable="1">
++            <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="37">Buffer PTS (seconds) when the object first entered the zone.</doc>
++            <type name="gdouble" c:type="gdouble*" />
++          </parameter>
++        </parameters>
++      </function>
++      <function name="get_mtd_type" c:identifier="gst_analytics_dwelltime_mtd_get_mtd_type">
++        <source-position filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="30" />
++        <return-value transfer-ownership="none">
++          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="28">The metadata type ID for GstAnalyticsDwellTimeMtd.</doc>
++          <type name="GstAnalytics.MtdType" c:type="GstAnalyticsMtdType" />
++        </return-value>
++      </function>
++    </record>
++    <record name="GroupMtd" c:type="GstAnalyticsGroupMtd" version="1.30">
++      <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="28">This type of metadata define a group of #GstAnalyticsMtd. It allows to
++describe results as composition. Group members are ordered within the group.
++A group meaning can be defined with a semantic tag on the group #GstAnalyticsMtd.</doc>
++      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h" line="43" />
++      <field name="id" writable="1">
++        <doc xml:space="preserve">Instance identifier</doc>
++        <type name="guint" c:type="guint" />
++      </field>
++      <field name="meta" writable="1">
++        <doc xml:space="preserve">Instance of #GstAnalyticsRelationMeta where the analytics-metadata
++identified by @id is stored.</doc>
++        <type name="GstAnalytics.RelationMeta" c:type="GstAnalyticsRelationMeta*" />
++      </field>
++      <method name="add_member" c:identifier="gst_analytics_group_mtd_add_member" version="1.30">
++        <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="272">Adding a member to the group.</doc>
++        <source-position filename="include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h" line="67" />
++        <return-value transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="279">Member added successfully</doc>
++          <type name="gboolean" c:type="gboolean" />
++        </return-value>
++        <parameters>
++          <instance-parameter name="handle" transfer-ownership="none">
++            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="274">handle of #GstAnalyticsMtd where to add a member</doc>
++            <type name="GroupMtd" c:type="GstAnalyticsGroupMtd*" />
++          </instance-parameter>
++          <parameter name="an_meta_id" transfer-ownership="none">
++            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="275">ID of #GstAnalyticsMtd to add as a member</doc>
++            <type name="guint" c:type="guint" />
++          </parameter>
++        </parameters>
++      </method>
++      <method name="get_member" c:identifier="gst_analytics_group_mtd_get_member" version="1.30">
++        <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="105">Get a member from the group by index. Members are ordered within the group
++according to the semantic tag meaning.</doc>
++        <source-position filename="include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h" line="52" />
++        <return-value transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="114">TRUE if member was retrieved successfully, FALSE otherwise (invalid index or error).</doc>
++          <type name="gboolean" c:type="gboolean" />
++        </return-value>
++        <parameters>
++          <instance-parameter name="handle" transfer-ownership="none">
++            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="107">handle</doc>
++            <type name="GroupMtd" c:type="const GstAnalyticsGroupMtd*" />
++          </instance-parameter>
++          <parameter name="index" transfer-ownership="none">
++            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="108">Index of the member to retrieve</doc>
++            <type name="gsize" c:type="gsize" />
++          </parameter>
++          <parameter name="member" direction="out" caller-allocates="1" transfer-ownership="none">
++            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="109">Handle updated to the member at @index</doc>
++            <type name="GstAnalytics.Mtd" c:type="GstAnalyticsMtd*" />
++          </parameter>
++        </parameters>
++      </method>
++      <method name="get_member_count" c:identifier="gst_analytics_group_mtd_get_member_count" version="1.30">
++        <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="85">Get the number of members in the group.</doc>
++        <source-position filename="include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h" line="49" />
++        <return-value transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="91">Number of members in the group, or 0 on error.</doc>
++          <type name="gsize" c:type="gsize" />
++        </return-value>
++        <parameters>
++          <instance-parameter name="handle" transfer-ownership="none">
++            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="87">handle</doc>
++            <type name="GroupMtd" c:type="const GstAnalyticsGroupMtd*" />
++          </instance-parameter>
++        </parameters>
++      </method>
++      <method name="iterate" c:identifier="gst_analytics_group_mtd_iterate" version="1.30">
++        <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="141">Iterate over members in the group. If @type is specified, only members
++matching that type are returned. Initialize @state to NULL to start iteration.</doc>
++        <source-position filename="include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h" line="55" />
++        <return-value transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="154">TRUE if a member was retrieved, FALSE when iteration is complete
++   or an error occurred.</doc>
++          <type name="gboolean" c:type="gboolean" />
++        </return-value>
++        <parameters>
++          <instance-parameter name="handle" transfer-ownership="none">
++            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="143">Instance of GstAnalyticsGroupMtd to iterate</doc>
++            <type name="GroupMtd" c:type="const GstAnalyticsGroupMtd*" />
++          </instance-parameter>
++          <parameter name="state" direction="inout" caller-allocates="0" transfer-ownership="full" nullable="1" allow-none="1">
++            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="144">Opaque data to store iteration state, initialize to NULL,
++   no need to free it.</doc>
++            <type name="gpointer" c:type="gpointer*" />
++          </parameter>
++          <parameter name="type" transfer-ownership="none">
++            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="146">Type of GstAnalyticsMtd to iterate on or use
++   %GST_ANALYTICS_MTD_TYPE_ANY for any.</doc>
++            <type name="GstAnalytics.MtdType" c:type="GstAnalyticsMtdType" />
++          </parameter>
++          <parameter name="member" direction="out" caller-allocates="1" transfer-ownership="none">
++            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="148">Handle updated to iterated
++   group member.</doc>
++            <type name="GstAnalytics.Mtd" c:type="GstAnalyticsMtd*" />
++          </parameter>
++        </parameters>
++      </method>
++      <function name="get_mtd_type" c:identifier="gst_analytics_group_mtd_get_mtd_type" version="1.30">
++        <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="72">Get an id identifying #GstAnalyticsMtd type.</doc>
++        <source-position filename="include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h" line="46" />
++        <return-value transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="77">opaque id of #GstAnalyticsMtd type</doc>
++          <type name="GstAnalytics.MtdType" c:type="GstAnalyticsMtdType" />
++        </return-value>
++      </function>
++    </record>
+     <constant name="KEYPOINT_BODY_POSE_COCO_17" value="body-pose/coco-17" c:type="GST_ANALYTICS_KEYPOINT_BODY_POSE_COCO_17">
+       <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h" line="39" />
+       <type name="utf8" c:type="gchar*" />
+@@ -265,10 +425,93 @@ matches @semantic_tag exactly.</doc>
+         </parameters>
+       </function>
+     </record>
+-    <record name="TripwireMtd" c:type="GstAnalyticsTripwireMtd">
+-      <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="15">Handle to tripwire analytics metadata.
+-Provides access to tripwire crossing information (tripwire_id, direction).</doc>
+-      <source-position filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="23" />
++    <enumeration name="KeypointDimensions" version="1.30" c:type="GstAnalyticsKeypointDimensions">
++      <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h" line="52">Enum value describing supported keypoint dimension.</doc>
++      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h" line="64" />
++      <member name="2d" value="2" c:identifier="GST_ANALYTICS_KEYPOINT_DIMENSIONS_2D">
++        <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h" line="54">keypoints in 2D space with (x,y) coordinates.</doc>
++      </member>
++      <member name="3d" value="3" c:identifier="GST_ANALYTICS_KEYPOINT_DIMENSIONS_3D">
++        <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h" line="55">keypoints in 3D space with (x,y,z) coordinates.</doc>
++      </member>
++    </enumeration>
++    <record name="KeypointMtd" c:type="GstAnalyticsKeypointMtd" version="1.30">
++      <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="38">This metadata type represents individual keypoints with 2D or 3D positions.
++Keypoints can be grouped using #GstAnalyticsGroupMtd with semantic tags
++(e.g., "hand-21-kp", "pose-17-kp", "face-68-kp").
++
++Skeleton links between keypoints are represented as relations using
++GST_ANALYTICS_REL_TYPE_RELATE_TO, allowing standard relation queries
++to traverse the skeleton structure.
++
++## Creating Keypoint Groups
++
++The most common usage is to create a group of keypoints with skeleton structure:
++
++|[&lt;!-- language="C" --&gt;
++GstAnalyticsGroupMtd hand_group;
++gint positions[] = {100, 200, 150, 250, ...}; // 21 x,y pairs for hand
++gfloat confidences[] = {0.9f, 0.85f, 0.95f, ...};
++gint skeleton_pairs[] = {0, 1, 1, 2, 2, 3, ...}; // 20 links (40 values)
++
++gst_analytics_relation_meta_add_keypoints_group(rmeta,
++    "hand-21-kp", GST_ANALYTICS_KEYPOINT_DIMENSIONS_2D,
++    42, positions, 21, confidences, NULL, 40, skeleton_pairs, &amp;hand_group);
++]|
++
++## Iterating Through Keypoints
++
++Iterate keypoints in a group with type filtering:
++
++|[&lt;!-- language="C" --&gt;
++GstAnalyticsMtd member;
++gpointer state = NULL;
++while (gst_analytics_group_mtd_iterate(&amp;hand_group, &amp;state,
++        gst_analytics_keypoint_mtd_get_mtd_type(), &amp;member)) {
++    gint x, y, z;
++    gfloat conf;
++    GstAnalyticsKeypointDimensions dim;
++    gst_analytics_keypoint_mtd_get_position((GstAnalyticsKeypointMtd*)&amp;member,
++        &amp;x, &amp;y, &amp;z, &amp;dim);
++    gst_analytics_keypoint_mtd_get_confidence((GstAnalyticsKeypointMtd*)&amp;member,
++        &amp;conf);
++    g_print("Keypoint at (%d, %d) confidence: %.2f\n", x, y, conf);
++}
++]|
++
++## Querying Skeleton Links
++
++Verify skeleton connections between keypoints:
++
++|[&lt;!-- language="C" --&gt;
++// Get first two keypoints
++GstAnalyticsMtd wrist_kp, thumb_kp;
++gst_analytics_group_mtd_get_member(&amp;hand_group, 0, &amp;wrist_kp);
++gst_analytics_group_mtd_get_member(&amp;hand_group, 1, &amp;thumb_kp);
++
++// Verify skeleton link exists
++gboolean has_link = gst_analytics_relation_meta_exist(rmeta,
++    wrist_kp.id, thumb_kp.id, 1,
++    GST_ANALYTICS_REL_TYPE_RELATE_TO, NULL);
++if (has_link) {
++    g_print("Skeleton link exists between wrist and thumb\n");
++}
++]|
++
++## Relating Keypoints to Other Metadata
++
++Since keypoints are #GstAnalyticsMtd, they can participate in relations:
++
++|[&lt;!-- language="C" --&gt;
++// Get first keypoint
++GstAnalyticsMtd keypoint;
++gst_analytics_group_mtd_get_member(&amp;hand_group, 0, &amp;keypoint);
++
++// Relate to object detection
++gst_analytics_relation_meta_set_relation(rmeta,
++    GST_ANALYTICS_REL_TYPE_CONTAINED_BY, keypoint.id, od_mtd.id);
++]|</doc>
++      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h" line="50" />
+       <field name="id" writable="1">
+         <doc xml:space="preserve">Instance identifier</doc>
+         <type name="guint" c:type="guint" />
+@@ -278,40 +521,104 @@ Provides access to tripwire crossing information (tripwire_id, direction).</doc>
+ identified by @id is stored.</doc>
+         <type name="GstAnalytics.RelationMeta" c:type="GstAnalyticsRelationMeta*" />
+       </field>
+-      <method name="get_info" c:identifier="gst_analytics_tripwire_mtd_get_info">
+-        <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="32">Retrieves tripwire-specific information from the tripwire metadata.</doc>
+-        <source-position filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="42" />
++      <method name="get_confidence" c:identifier="gst_analytics_keypoint_mtd_get_confidence" version="1.30">
++        <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="304">Get keypoint confidence.</doc>
++        <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h" line="100" />
+         <return-value transfer-ownership="none">
+-          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="40">TRUE if the tripwire data was successfully retrieved, FALSE otherwise.</doc>
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="311">TRUE if successful, FALSE otherwise</doc>
+           <type name="gboolean" c:type="gboolean" />
+         </return-value>
+         <parameters>
+           <instance-parameter name="handle" transfer-ownership="none">
+-            <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="34">A #GstAnalyticsTripwireMtd handle.</doc>
+-            <type name="TripwireMtd" c:type="const GstAnalyticsTripwireMtd*" />
++            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="306">handle</doc>
++            <type name="KeypointMtd" c:type="const GstAnalyticsKeypointMtd*" />
+           </instance-parameter>
+-          <parameter name="tripwire_id" direction="out" caller-allocates="0" transfer-ownership="full" nullable="1">
+-            <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="35">Tripwire identifier string.</doc>
+-            <type name="utf8" c:type="gchar**" />
++          <parameter name="confidence" direction="out" caller-allocates="0" transfer-ownership="full">
++            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="307">Confidence score</doc>
++            <type name="gfloat" c:type="gfloat*" />
+           </parameter>
+-          <parameter name="direction" direction="out" caller-allocates="0" transfer-ownership="full" nullable="1">
+-            <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="36">Crossing direction (-1 backward, 0 undefined, 1 forward).</doc>
++        </parameters>
++      </method>
++      <method name="get_position" c:identifier="gst_analytics_keypoint_mtd_get_position" version="1.30">
++        <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="264">Get keypoint position and dimension.
++See #gst_analytics_relation_meta_add_keypoint_mtd for more details</doc>
++        <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h" line="96" />
++        <return-value transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="275">TRUE if successful, FALSE otherwise</doc>
++          <type name="gboolean" c:type="gboolean" />
++        </return-value>
++        <parameters>
++          <instance-parameter name="handle" transfer-ownership="none">
++            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="266">handle</doc>
++            <type name="KeypointMtd" c:type="const GstAnalyticsKeypointMtd*" />
++          </instance-parameter>
++          <parameter name="x" direction="out" caller-allocates="0" transfer-ownership="full">
++            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="267">X coordinate</doc>
++            <type name="gint" c:type="gint*" />
++          </parameter>
++          <parameter name="y" direction="out" caller-allocates="0" transfer-ownership="full">
++            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="268">Y coordinate</doc>
++            <type name="gint" c:type="gint*" />
++          </parameter>
++          <parameter name="z" direction="out" caller-allocates="0" transfer-ownership="full" nullable="1">
++            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="269">Z coordinate, or %NULL to ignore. Always 0 for 2D keypoints.</doc>
+             <type name="gint" c:type="gint*" />
+           </parameter>
++          <parameter name="dimension" direction="out" caller-allocates="0" transfer-ownership="full">
++            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="270">Keypoint dimension (2D or 3D)</doc>
++            <type name="KeypointDimensions" c:type="GstAnalyticsKeypointDimensions*" />
++          </parameter>
+         </parameters>
+       </method>
+-      <function name="get_mtd_type" c:identifier="gst_analytics_tripwire_mtd_get_mtd_type">
+-        <source-position filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="30" />
++      <method name="get_visibility_flags" c:identifier="gst_analytics_keypoint_mtd_get_visibility_flags" version="1.30">
++        <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="496">Get keypoint visibility flags.</doc>
++        <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h" line="103" />
+         <return-value transfer-ownership="none">
+-          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="28">The metadata type ID for GstAnalyticsTripwireMtd.</doc>
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="503">TRUE if successful, FALSE otherwise</doc>
++          <type name="gboolean" c:type="gboolean" />
++        </return-value>
++        <parameters>
++          <instance-parameter name="handle" transfer-ownership="none">
++            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="498">handle</doc>
++            <type name="KeypointMtd" c:type="const GstAnalyticsKeypointMtd*" />
++          </instance-parameter>
++          <parameter name="visibility_flags" direction="out" caller-allocates="0" transfer-ownership="full">
++            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="499">Visibility flags, a combination of #GstAnalyticsKeypointVisibility values</doc>
++            <type name="guint8" c:type="guint8*" />
++          </parameter>
++        </parameters>
++      </method>
++      <function name="get_mtd_type" c:identifier="gst_analytics_keypoint_mtd_get_mtd_type" version="1.30">
++        <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="207">Get an id identifying #GstAnalyticsMtd type.</doc>
++        <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h" line="87" />
++        <return-value transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="212">opaque id of #GstAnalyticsMtd type</doc>
+           <type name="GstAnalytics.MtdType" c:type="GstAnalyticsMtdType" />
+         </return-value>
+       </function>
+     </record>
+-    <record name="DwellTimeMtd" c:type="GstAnalyticsDwellTimeMtd">
+-      <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="15">Handle to dwell-time analytics metadata.
+-Carries zone_id, dwell_time (seconds elapsed in zone), and first_seen_timestamp.</doc>
+-      <source-position filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="23" />
++    <bitfield name="KeypointVisibility" version="1.30" c:type="GstAnalyticsKeypointVisibility">
++      <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h" line="66">Flags describing the visibility state of a keypoint.</doc>
++      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h" line="84" />
++      <member name="unknown" value="0" c:identifier="GST_ANALYTICS_KEYPOINT_VISIBILITY_UNKNOWN">
++        <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h" line="68">Visibility is not known.</doc>
++      </member>
++      <member name="visible" value="1" c:identifier="GST_ANALYTICS_KEYPOINT_VISIBILITY_VISIBLE">
++        <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h" line="69">Keypoint is fully visible.</doc>
++      </member>
++      <member name="occluded" value="4" c:identifier="GST_ANALYTICS_KEYPOINT_VISIBILITY_OCCLUDED">
++        <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h" line="70">Keypoint exists but is
++  occluded.</doc>
++      </member>
++      <member name="projected" value="8" c:identifier="GST_ANALYTICS_KEYPOINT_VISIBILITY_PROJECTED">
++        <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h" line="72">Keypoint position was
++  projected by the analysis.</doc>
++      </member>
++    </bitfield>
++    <record name="SemanticTagMtd" c:type="GstAnalyticsSemanticTagMtd">
++      <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h" line="22">Handle for a semantic tag node. The tag is linked to its owner MTD with
++GST_ANALYTICS_REL_TYPE_RELATE_TO.</doc>
++      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h" line="30" />
+       <field name="id" writable="1">
+         <doc xml:space="preserve">Instance identifier</doc>
+         <type name="guint" c:type="guint" />
+@@ -321,36 +628,72 @@ Carries zone_id, dwell_time (seconds elapsed in zone), and first_seen_timestamp.
+ identified by @id is stored.</doc>
+         <type name="GstAnalytics.RelationMeta" c:type="GstAnalyticsRelationMeta*" />
+       </field>
+-      <method name="get_info" c:identifier="gst_analytics_dwelltime_mtd_get_info">
+-        <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="32">Retrieves dwell-time information from the metadata.</doc>
+-        <source-position filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="45" />
++      <method name="get_tag" c:identifier="gst_analytics_semantic_tag_mtd_get_tag">
++        <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticssemantictagmtd.c" line="83">Get the tag string stored in @handle.</doc>
++        <source-position filename="include/dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h" line="44" />
+         <return-value transfer-ownership="none">
+-          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="43">TRUE if the data was successfully retrieved, FALSE otherwise.</doc>
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticssemantictagmtd.c" line="90">TRUE if successful, FALSE otherwise.</doc>
+           <type name="gboolean" c:type="gboolean" />
+         </return-value>
+         <parameters>
+           <instance-parameter name="handle" transfer-ownership="none">
+-            <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="34">A #GstAnalyticsDwellTimeMtd handle.</doc>
+-            <type name="DwellTimeMtd" c:type="const GstAnalyticsDwellTimeMtd*" />
++            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticssemantictagmtd.c" line="85">Instance of #GstAnalyticsSemanticTagMtd</doc>
++            <type name="SemanticTagMtd" c:type="const GstAnalyticsSemanticTagMtd*" />
+           </instance-parameter>
+-          <parameter name="zone_id" direction="out" caller-allocates="0" transfer-ownership="full" nullable="1">
+-            <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="35">Zone identifier string.</doc>
+-            <type name="utf8" c:type="gchar**" />
++          <parameter name="tag" direction="out" caller-allocates="0" transfer-ownership="none">
++            <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticssemantictagmtd.c" line="86">Tag string, owned by the relation meta</doc>
++            <type name="utf8" c:type="const gchar**" />
+           </parameter>
+-          <parameter name="dwell_time" direction="out" caller-allocates="0" transfer-ownership="full" nullable="1">
+-            <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="36">Seconds the object has been inside the zone.</doc>
+-            <type name="gdouble" c:type="gdouble*" />
++        </parameters>
++      </method>
++      <function name="get_mtd_type" c:identifier="gst_analytics_semantic_tag_mtd_get_mtd_type">
++        <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticssemantictagmtd.c" line="26">Get an id identifying #GstAnalyticsSemanticTagMtd type.</doc>
++        <source-position filename="include/dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h" line="33" />
++        <return-value transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticssemantictagmtd.c" line="31">opaque id of #GstAnalyticsMtd type</doc>
++          <type name="GstAnalytics.MtdType" c:type="GstAnalyticsMtdType" />
++        </return-value>
++      </function>
++    </record>
++    <record name="TripwireMtd" c:type="GstAnalyticsTripwireMtd">
++      <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="15">Handle to tripwire analytics metadata.
++Provides access to tripwire crossing information (tripwire_id, direction).</doc>
++      <source-position filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="23" />
++      <field name="id" writable="1">
++        <doc xml:space="preserve">Instance identifier</doc>
++        <type name="guint" c:type="guint" />
++      </field>
++      <field name="meta" writable="1">
++        <doc xml:space="preserve">Instance of #GstAnalyticsRelationMeta where the analytics-metadata
++identified by @id is stored.</doc>
++        <type name="GstAnalytics.RelationMeta" c:type="GstAnalyticsRelationMeta*" />
++      </field>
++      <method name="get_info" c:identifier="gst_analytics_tripwire_mtd_get_info">
++        <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="32">Retrieves tripwire-specific information from the tripwire metadata.</doc>
++        <source-position filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="42" />
++        <return-value transfer-ownership="none">
++          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="40">TRUE if the tripwire data was successfully retrieved, FALSE otherwise.</doc>
++          <type name="gboolean" c:type="gboolean" />
++        </return-value>
++        <parameters>
++          <instance-parameter name="handle" transfer-ownership="none">
++            <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="34">A #GstAnalyticsTripwireMtd handle.</doc>
++            <type name="TripwireMtd" c:type="const GstAnalyticsTripwireMtd*" />
++          </instance-parameter>
++          <parameter name="tripwire_id" direction="out" caller-allocates="0" transfer-ownership="full" nullable="1">
++            <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="35">Tripwire identifier string.</doc>
++            <type name="utf8" c:type="gchar**" />
+           </parameter>
+-          <parameter name="first_seen_timestamp" direction="out" caller-allocates="0" transfer-ownership="full" nullable="1">
+-            <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="37">Buffer PTS (seconds) when the object first entered the zone.</doc>
+-            <type name="gdouble" c:type="gdouble*" />
++          <parameter name="direction" direction="out" caller-allocates="0" transfer-ownership="full" nullable="1">
++            <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="36">Crossing direction (-1 backward, 0 undefined, 1 forward).</doc>
++            <type name="gint" c:type="gint*" />
+           </parameter>
+         </parameters>
+       </method>
+-      <function name="get_mtd_type" c:identifier="gst_analytics_dwelltime_mtd_get_mtd_type">
+-        <source-position filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="30" />
++      <function name="get_mtd_type" c:identifier="gst_analytics_tripwire_mtd_get_mtd_type">
++        <source-position filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="30" />
+         <return-value transfer-ownership="none">
+-          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="28">The metadata type ID for GstAnalyticsDwellTimeMtd.</doc>
++          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="28">The metadata type ID for GstAnalyticsTripwireMtd.</doc>
+           <type name="GstAnalytics.MtdType" c:type="GstAnalyticsMtdType" />
+         </return-value>
+       </function>
+@@ -394,10 +737,132 @@ identified by @id is stored.</doc>
+         </return-value>
+       </function>
+     </record>
++    <function name="camera_3d_od_mtd_get_box2d" c:identifier="gst_analytics_camera_3d_od_mtd_get_box2d">
++      <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="152">Retrieve the amodal 2D box, in pixels of the original image.</doc>
++      <source-position filename="include/dlstreamer/gst/metadata/camera_3d_od_mtd.h" line="34" />
++      <return-value transfer-ownership="none">
++        <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="162">TRUE on success, FALSE otherwise</doc>
++        <type name="gboolean" c:type="gboolean" />
++      </return-value>
++      <parameters>
++        <parameter name="instance" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="154">instance</doc>
++          <type name="Camera3DODMtd" c:type="const GstAnalyticsCamera3DODMtd*" />
++        </parameter>
++        <parameter name="x1" direction="out" caller-allocates="0" transfer-ownership="full">
++          <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="155">left of the amodal 2D box</doc>
++          <type name="gfloat" c:type="gfloat*" />
++        </parameter>
++        <parameter name="y1" direction="out" caller-allocates="0" transfer-ownership="full">
++          <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="156">top of the amodal 2D box</doc>
++          <type name="gfloat" c:type="gfloat*" />
++        </parameter>
++        <parameter name="x2" direction="out" caller-allocates="0" transfer-ownership="full">
++          <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="157">right of the amodal 2D box</doc>
++          <type name="gfloat" c:type="gfloat*" />
++        </parameter>
++        <parameter name="y2" direction="out" caller-allocates="0" transfer-ownership="full">
++          <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="158">bottom of the amodal 2D box</doc>
++          <type name="gfloat" c:type="gfloat*" />
++        </parameter>
++      </parameters>
++    </function>
++    <function name="camera_3d_od_mtd_get_class" c:identifier="gst_analytics_camera_3d_od_mtd_get_class">
++      <source-position filename="include/dlstreamer/gst/metadata/camera_3d_od_mtd.h" line="31" />
++      <return-value transfer-ownership="none">
++        <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="137">TRUE on success, FALSE otherwise</doc>
++        <type name="gboolean" c:type="gboolean" />
++      </return-value>
++      <parameters>
++        <parameter name="instance" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="133">instance</doc>
++          <type name="Camera3DODMtd" c:type="const GstAnalyticsCamera3DODMtd*" />
++        </parameter>
++        <parameter name="class_id" direction="out" caller-allocates="0" transfer-ownership="full">
++          <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="134">detected class id</doc>
++          <type name="gint" c:type="gint*" />
++        </parameter>
++        <parameter name="confidence" direction="out" caller-allocates="0" transfer-ownership="full">
++          <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="135">confidence</doc>
++          <type name="gfloat" c:type="gfloat*" />
++        </parameter>
++      </parameters>
++    </function>
++    <function name="camera_3d_od_mtd_get_location" c:identifier="gst_analytics_camera_3d_od_mtd_get_location">
++      <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="179">Retrieve the 3D box in the rectified camera frame.</doc>
++      <source-position filename="include/dlstreamer/gst/metadata/camera_3d_od_mtd.h" line="37" />
++      <return-value transfer-ownership="none">
++        <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="193">TRUE on success, FALSE otherwise</doc>
++        <type name="gboolean" c:type="gboolean" />
++      </return-value>
++      <parameters>
++        <parameter name="instance" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="181">instance</doc>
++          <type name="Camera3DODMtd" c:type="const GstAnalyticsCamera3DODMtd*" />
++        </parameter>
++        <parameter name="x" direction="out" caller-allocates="0" transfer-ownership="full">
++          <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="182">X of the 3D location (rectified camera frame, bottom-centre)</doc>
++          <type name="gfloat" c:type="gfloat*" />
++        </parameter>
++        <parameter name="y" direction="out" caller-allocates="0" transfer-ownership="full">
++          <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="183">Y of the 3D location (rectified camera frame, bottom-centre)</doc>
++          <type name="gfloat" c:type="gfloat*" />
++        </parameter>
++        <parameter name="z" direction="out" caller-allocates="0" transfer-ownership="full">
++          <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="184">Z of the 3D location (rectified camera frame, bottom-centre)</doc>
++          <type name="gfloat" c:type="gfloat*" />
++        </parameter>
++        <parameter name="height" direction="out" caller-allocates="0" transfer-ownership="full">
++          <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="185">object height</doc>
++          <type name="gfloat" c:type="gfloat*" />
++        </parameter>
++        <parameter name="width" direction="out" caller-allocates="0" transfer-ownership="full">
++          <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="186">object width</doc>
++          <type name="gfloat" c:type="gfloat*" />
++        </parameter>
++        <parameter name="length" direction="out" caller-allocates="0" transfer-ownership="full">
++          <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="187">object length</doc>
++          <type name="gfloat" c:type="gfloat*" />
++        </parameter>
++        <parameter name="rotation_y" direction="out" caller-allocates="0" transfer-ownership="full">
++          <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="188">heading around the camera Y axis</doc>
++          <type name="gfloat" c:type="gfloat*" />
++        </parameter>
++        <parameter name="alpha" direction="out" caller-allocates="0" transfer-ownership="full">
++          <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="189">observation angle</doc>
++          <type name="gfloat" c:type="gfloat*" />
++        </parameter>
++      </parameters>
++    </function>
++    <function name="camera_3d_od_mtd_get_mtd_type" c:identifier="gst_analytics_camera_3d_od_mtd_get_mtd_type">
++      <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="68">Get an id that represents the camera-3d-object-detection metadata type.</doc>
++      <source-position filename="include/dlstreamer/gst/metadata/camera_3d_od_mtd.h" line="22" />
++      <return-value transfer-ownership="none">
++        <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="73">opaque id of the #GstAnalyticsMtd type</doc>
++        <type name="GstAnalytics.MtdType" c:type="GstAnalyticsMtdType" />
++      </return-value>
++    </function>
++    <function name="group_mtd_get_mtd_type" c:identifier="gst_analytics_group_mtd_get_mtd_type" moved-to="GroupMtd.get_mtd_type" version="1.30">
++      <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="72">Get an id identifying #GstAnalyticsMtd type.</doc>
++      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h" line="46" />
++      <return-value transfer-ownership="none">
++        <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="77">opaque id of #GstAnalyticsMtd type</doc>
++        <type name="GstAnalytics.MtdType" c:type="GstAnalyticsMtdType" />
++      </return-value>
++    </function>
+     <docsection name="gstanalytics3dobjectdetectionmtd">
+       <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="12">This metadata type stores a 3D oriented bounding box (x, y, z, length, width,
+ height, yaw, pitch, roll) along with the detected class, confidence, and the
+ sensor modality the detection was sourced from.</doc>
++    </docsection>
++    <docsection name="gstanalyticscamera3dobjectdetectionmtd">
++      <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="12">This metadata type stores a monocular (camera-frame) 3D detection: the amodal
++2D box, the 3D location (bottom-centre, rectified camera frame), the object
++dimensions, the heading (rotation_y) and the observation angle (alpha), along
++with the detected class and confidence. Unlike #GstAnalytics3DODMtd (a
++world-frame LiDAR/radar box with yaw/pitch/roll), this type is expressed in
++the KITTI rectified camera frame (x-right, y-down, z-forward) with a single
++rotation about the camera Y axis, matching monocular 3D detectors.</doc>
+     </docsection>
+     <function name="keypoint_descriptor_find_in_tag" c:identifier="gst_analytics_keypoint_descriptor_find_in_tag" moved-to="KeypointDescriptor.find_in_tag">
+       <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointdescriptor.c" line="134">Search all built-in keypoint descriptors for one whose semantic tag
+@@ -440,8 +905,49 @@ matches @semantic_tag exactly.</doc>
+         </parameter>
+       </parameters>
+     </function>
++    <function name="keypoint_mtd_get_mtd_type" c:identifier="gst_analytics_keypoint_mtd_get_mtd_type" moved-to="KeypointMtd.get_mtd_type" version="1.30">
++      <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="207">Get an id identifying #GstAnalyticsMtd type.</doc>
++      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h" line="87" />
++      <return-value transfer-ownership="none">
++        <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="212">opaque id of #GstAnalyticsMtd type</doc>
++        <type name="GstAnalytics.MtdType" c:type="GstAnalyticsMtdType" />
++      </return-value>
++    </function>
++    <function name="mtd_get_semantic_tag" c:identifier="gst_analytics_mtd_get_semantic_tag">
++      <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticssemantictagmtd.c" line="193">Get the semantic tag of any analytics metadata.</doc>
++      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h" line="65" />
++      <return-value transfer-ownership="full">
++        <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticssemantictagmtd.c" line="199">A copy of the tag, an empty string if the metadata has no tag</doc>
++        <type name="utf8" c:type="gchar*" />
++      </return-value>
++      <parameters>
++        <parameter name="instance" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticssemantictagmtd.c" line="195">Instance of #GstAnalyticsMtd</doc>
++          <type name="GstAnalytics.Mtd" c:type="const GstAnalyticsMtd*" />
++        </parameter>
++      </parameters>
++    </function>
++    <function name="mtd_set_semantic_tag" c:identifier="gst_analytics_mtd_set_semantic_tag">
++      <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticssemantictagmtd.c" line="158">Set the semantic tag of any analytics metadata, replacing the previous one. The tag is stored as
++a #GstAnalyticsSemanticTagMtd directly related to @instance.</doc>
++      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h" line="61" />
++      <return-value transfer-ownership="none">
++        <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticssemantictagmtd.c" line="166">TRUE if the tag was set successfully.</doc>
++        <type name="gboolean" c:type="gboolean" />
++      </return-value>
++      <parameters>
++        <parameter name="instance" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticssemantictagmtd.c" line="160">Instance of #GstAnalyticsMtd</doc>
++          <type name="GstAnalytics.Mtd" c:type="GstAnalyticsMtd*" />
++        </parameter>
++        <parameter name="tag" transfer-ownership="none" nullable="1" allow-none="1">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticssemantictagmtd.c" line="161">Semantic tag, %NULL or an empty string removes the tag</doc>
++          <type name="utf8" c:type="const gchar*" />
++        </parameter>
++      </parameters>
++    </function>
+     <function name="relation_meta_add_3d_od_mtd" c:identifier="gst_analytics_relation_meta_add_3d_od_mtd">
+-      <source-position filename="include/dlstreamer/gst/metadata/g3d_od_mtd.h" line="32" />
++      <source-position filename="include/dlstreamer/gst/metadata/g3d_od_mtd.h" line="31" />
+       <return-value transfer-ownership="none">
+         <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="86">TRUE on success, FALSE otherwise</doc>
+         <type name="gboolean" c:type="gboolean" />
+@@ -505,36 +1011,300 @@ matches @semantic_tag exactly.</doc>
+         </parameter>
+       </parameters>
+     </function>
++    <function name="relation_meta_add_camera_3d_od_mtd" c:identifier="gst_analytics_relation_meta_add_camera_3d_od_mtd">
++      <source-position filename="include/dlstreamer/gst/metadata/camera_3d_od_mtd.h" line="24" />
++      <return-value transfer-ownership="none">
++        <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="98">TRUE on success, FALSE otherwise</doc>
++        <type name="gboolean" c:type="gboolean" />
++      </return-value>
++      <parameters>
++        <parameter name="instance" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="81">Instance of #GstAnalyticsRelationMeta where to add the detection</doc>
++          <type name="GstAnalytics.RelationMeta" c:type="GstAnalyticsRelationMeta*" />
++        </parameter>
++        <parameter name="class_id" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="82">Detected class index (negative if unknown)</doc>
++          <type name="gint" c:type="gint" />
++        </parameter>
++        <parameter name="confidence" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="83">Detection confidence</doc>
++          <type name="gfloat" c:type="gfloat" />
++        </parameter>
++        <parameter name="x1" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="84">Left of the amodal 2D box, in pixels</doc>
++          <type name="gfloat" c:type="gfloat" />
++        </parameter>
++        <parameter name="y1" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="85">Top of the amodal 2D box, in pixels</doc>
++          <type name="gfloat" c:type="gfloat" />
++        </parameter>
++        <parameter name="x2" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="86">Right of the amodal 2D box, in pixels</doc>
++          <type name="gfloat" c:type="gfloat" />
++        </parameter>
++        <parameter name="y2" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="87">Bottom of the amodal 2D box, in pixels</doc>
++          <type name="gfloat" c:type="gfloat" />
++        </parameter>
++        <parameter name="x" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="88">X of the 3D location (rectified camera frame, bottom-centre), in metres</doc>
++          <type name="gfloat" c:type="gfloat" />
++        </parameter>
++        <parameter name="y" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="89">Y of the 3D location (rectified camera frame, bottom-centre), in metres</doc>
++          <type name="gfloat" c:type="gfloat" />
++        </parameter>
++        <parameter name="z" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="90">Z of the 3D location (rectified camera frame, bottom-centre), in metres</doc>
++          <type name="gfloat" c:type="gfloat" />
++        </parameter>
++        <parameter name="height" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="91">Object height, in metres</doc>
++          <type name="gfloat" c:type="gfloat" />
++        </parameter>
++        <parameter name="width" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="92">Object width, in metres</doc>
++          <type name="gfloat" c:type="gfloat" />
++        </parameter>
++        <parameter name="length" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="93">Object length, in metres</doc>
++          <type name="gfloat" c:type="gfloat" />
++        </parameter>
++        <parameter name="rotation_y" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="94">Heading around the camera Y axis, in radians</doc>
++          <type name="gfloat" c:type="gfloat" />
++        </parameter>
++        <parameter name="alpha" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="95">Observation angle, in radians</doc>
++          <type name="gfloat" c:type="gfloat" />
++        </parameter>
++        <parameter name="mtd" direction="out" caller-allocates="1" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="96">Handle updated with the newly added meta</doc>
++          <type name="Camera3DODMtd" c:type="GstAnalyticsCamera3DODMtd*" />
++        </parameter>
++      </parameters>
++    </function>
+     <function name="relation_meta_add_dwelltime_mtd" c:identifier="gst_analytics_relation_meta_add_dwelltime_mtd">
+-      <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="51">Adds dwell-time metadata to the analytics relation metadata.</doc>
+-      <source-position filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="62" />
++      <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="46">Adds dwell-time metadata to the analytics relation metadata.</doc>
++      <source-position filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="58" />
+       <return-value transfer-ownership="none">
+-        <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="60">TRUE if the metadata was successfully added, FALSE otherwise.</doc>
++        <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="56">TRUE if the metadata was successfully added, FALSE otherwise.</doc>
+         <type name="gboolean" c:type="gboolean" />
+       </return-value>
+       <parameters>
+         <parameter name="relation_meta" transfer-ownership="none">
+-          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="53">A #GstAnalyticsRelationMeta instance.</doc>
++          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="48">A #GstAnalyticsRelationMeta instance.</doc>
+           <type name="GstAnalytics.RelationMeta" c:type="GstAnalyticsRelationMeta*" />
+         </parameter>
+         <parameter name="zone_id" transfer-ownership="none">
+-          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="54">Zone identifier.</doc>
++          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="49">Zone identifier.</doc>
+           <type name="utf8" c:type="const gchar*" />
+         </parameter>
+         <parameter name="dwell_time" transfer-ownership="none">
+-          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="55">Seconds the object has been inside the zone.</doc>
++          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="50">Seconds the object has been inside the zone.</doc>
+           <type name="gdouble" c:type="gdouble" />
+         </parameter>
+         <parameter name="first_seen_timestamp" transfer-ownership="none">
+-          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="56">Buffer PTS (seconds) when the object first entered the zone.</doc>
++          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="51">Buffer PTS (seconds) when the object first entered the zone.</doc>
+           <type name="gdouble" c:type="gdouble" />
+         </parameter>
+         <parameter name="dwelltime_mtd" direction="out" caller-allocates="1" transfer-ownership="none">
+-          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="57">Pointer to #GstAnalyticsDwellTimeMtd to be filled.</doc>
++          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="52">Pointer to #GstAnalyticsDwellTimeMtd to be filled.</doc>
+           <type name="DwellTimeMtd" c:type="GstAnalyticsDwellTimeMtd*" />
+         </parameter>
+       </parameters>
+     </function>
++    <function name="relation_meta_add_group_mtd" c:identifier="gst_analytics_relation_meta_add_group_mtd" version="1.30">
++      <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="199">Add mtd grouping metadata to @inscance. Use this API when the number of members
++need to be dynamic, otherwise prefer
++@gst_analytics_relation_meta_add_group_mtd_with_size.</doc>
++      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h" line="59" />
++      <return-value transfer-ownership="none">
++        <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="211">TRUE is added successfully, otherwise FALSE.</doc>
++        <type name="gboolean" c:type="gboolean" />
++      </return-value>
++      <parameters>
++        <parameter name="instance" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="201">Instance of @GstAnalyticsRelationMeta where to add group_mtd
++   instance</doc>
++          <type name="GstAnalytics.RelationMeta" c:type="GstAnalyticsRelationMeta*" />
++        </parameter>
++        <parameter name="pre_alloc_size" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="203">Slots allocated for group members</doc>
++          <type name="gsize" c:type="gsize" />
++        </parameter>
++        <parameter name="group_mtd" direction="out" caller-allocates="1" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="204">Handle to updated to newly added grouping
++   mtd</doc>
++          <type name="GroupMtd" c:type="GstAnalyticsGroupMtd*" />
++        </parameter>
++      </parameters>
++    </function>
++    <function name="relation_meta_add_group_mtd_with_size" c:identifier="gst_analytics_relation_meta_add_group_mtd_with_size" version="1.30">
++      <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="235">Add mtd grouping metadata to @inscance. Use this API when the number of
++members is known when adding the group.</doc>
++      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h" line="63" />
++      <return-value transfer-ownership="none">
++        <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="246">TRUE is added successfully, otherwise FALSE.</doc>
++        <type name="gboolean" c:type="gboolean" />
++      </return-value>
++      <parameters>
++        <parameter name="instance" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="237">Instance of @GstAnalyticsRelationMeta where to add group_mtd
++   instance</doc>
++          <type name="GstAnalytics.RelationMeta" c:type="GstAnalyticsRelationMeta*" />
++        </parameter>
++        <parameter name="group_size" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="239">Slots reserved for group members</doc>
++          <type name="gsize" c:type="gsize" />
++        </parameter>
++        <parameter name="group_mtd" direction="out" caller-allocates="1" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="240">Handle to updated to newly added grouping
++   mtd</doc>
++          <type name="GroupMtd" c:type="GstAnalyticsGroupMtd*" />
++        </parameter>
++      </parameters>
++    </function>
++    <function name="relation_meta_add_keypoint_mtd" c:identifier="gst_analytics_relation_meta_add_keypoint_mtd" version="1.30">
++      <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="220">Add individual keypoint metadata to @instance. The point represents a location
++in Euclidean space.</doc>
++      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h" line="90" />
++      <return-value transfer-ownership="none">
++        <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="237">TRUE if added successfully, FALSE otherwise</doc>
++        <type name="gboolean" c:type="gboolean" />
++      </return-value>
++      <parameters>
++        <parameter name="instance" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="222">Instance of #GstAnalyticsRelationMeta where to add keypoint</doc>
++          <type name="GstAnalytics.RelationMeta" c:type="GstAnalyticsRelationMeta*" />
++        </parameter>
++        <parameter name="dimension" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="223">2D or 3D keypoint dimension</doc>
++          <type name="KeypointDimensions" c:type="GstAnalyticsKeypointDimensions" />
++        </parameter>
++        <parameter name="x" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="224">X coordinate, increases toward the right</doc>
++          <type name="gint" c:type="gint" />
++        </parameter>
++        <parameter name="y" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="225">Y coordinate, increases toward the bottom</doc>
++          <type name="gint" c:type="gint" />
++        </parameter>
++        <parameter name="z" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="226">Z coordinate, increases along the axis defined by a right-hand coordinate
++  system with respect to X and Y, that is out of the XY plane. z=0 is on
++  the XY plane. The unit of Z is the average of the X and Y units:
++  (scale_x + scale_y) / 2.</doc>
++          <type name="gint" c:type="gint" />
++        </parameter>
++        <parameter name="visibility_flags" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="230">Visibility flags, a combination of #GstAnalyticsKeypointVisibility values</doc>
++          <type name="guint8" c:type="guint8" />
++        </parameter>
++        <parameter name="confidence" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="231">Confidence score</doc>
++          <type name="gfloat" c:type="gfloat" />
++        </parameter>
++        <parameter name="keypoint_mtd" direction="out" caller-allocates="1" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="232">Handle updated to newly added keypoint</doc>
++          <type name="KeypointMtd" c:type="GstAnalyticsKeypointMtd*" />
++        </parameter>
++      </parameters>
++    </function>
++    <function name="relation_meta_add_keypoints_group" c:identifier="gst_analytics_relation_meta_add_keypoints_group" version="1.30">
++      <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="347">Creates a group of keypoints with optional skeleton structure.
++Individual keypoints are created as #GstAnalyticsMtd.
++Skeleton links are represented as RELATE_TO relations between keypoints.
++
++The @skeleton_pairs array contains pairs of keypoint indices that are connected.
++For example, [0, 1, 1, 2, 2, 3] creates links: 0&lt;-&gt;1, 1&lt;-&gt;2, 2&lt;-&gt;3.
++
++See #gst_analytics_relation_meta_add_keypoint_mtd for more details</doc>
++      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h" line="111" />
++      <return-value transfer-ownership="none">
++        <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="372">TRUE if successful, FALSE otherwise</doc>
++        <type name="gboolean" c:type="gboolean" />
++      </return-value>
++      <parameters>
++        <parameter name="instance" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="349">Instance of #GstAnalyticsRelationMeta</doc>
++          <type name="GstAnalytics.RelationMeta" c:type="GstAnalyticsRelationMeta*" />
++        </parameter>
++        <parameter name="semantic_tag" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="350">Semantic tag for the group (e.g., "hand-21-kp", "pose-17-kp")</doc>
++          <type name="utf8" c:type="const gchar*" />
++        </parameter>
++        <parameter name="dimension" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="351">2D or 3D keypoints</doc>
++          <type name="KeypointDimensions" c:type="GstAnalyticsKeypointDimensions" />
++        </parameter>
++        <parameter name="positions_len" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="352">length of @positions array.</doc>
++          <type name="gsize" c:type="gsize" />
++        </parameter>
++        <parameter name="positions" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="353">Array of positions [x0, y0, [z0], x1, y1, [z1], ...]</doc>
++          <array length="3" zero-terminated="0" c:type="const gint*">
++            <type name="gint" c:type="gint" />
++          </array>
++        </parameter>
++        <parameter name="keypoint_count" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="354">Number of keypoints</doc>
++          <type name="gsize" c:type="gsize" />
++        </parameter>
++        <parameter name="confidences" transfer-ownership="none" nullable="1" allow-none="1">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="355">Array of confidence scores [c0, c1, ...] or NULL</doc>
++          <array length="5" zero-terminated="0" c:type="const gfloat*">
++            <type name="gfloat" c:type="gfloat" />
++          </array>
++        </parameter>
++        <parameter name="visibilities" transfer-ownership="none" nullable="1" allow-none="1">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="356">Array of #GstAnalyticsKeypointVisibility flags [v0, v1, ...]
++or NULL</doc>
++          <array length="5" zero-terminated="0" c:type="const guint8*">
++            <type name="guint8" c:type="guint8" />
++          </array>
++        </parameter>
++        <parameter name="skeleton_pairs_len" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="358">Length of @skeleton_pairs array (must be even, representing pairs of keypoint indices)</doc>
++          <type name="gsize" c:type="gsize" />
++        </parameter>
++        <parameter name="skeleton_pairs" transfer-ownership="none" nullable="1" allow-none="1">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="359">Array of keypoint index pairs [kp1_idx, kp2_idx,
++kp1_idx, kp2_idx, ...] or NULL</doc>
++          <array length="8" zero-terminated="0" c:type="const gint*">
++            <type name="gint" c:type="gint" />
++          </array>
++        </parameter>
++        <parameter name="group_mtd" direction="out" caller-allocates="1" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="361">Handle to newly created group</doc>
++          <type name="GroupMtd" c:type="GstAnalyticsGroupMtd*" />
++        </parameter>
++      </parameters>
++    </function>
++    <function name="relation_meta_add_semantic_tag_mtd" c:identifier="gst_analytics_relation_meta_add_semantic_tag_mtd">
++      <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticssemantictagmtd.c" line="37">Add a semantic tag node to @relation_meta. It is not related to any other metadata,
++use gst_analytics_mtd_set_semantic_tag() to tag an existing metadata.</doc>
++      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h" line="36" />
++      <return-value transfer-ownership="none">
++        <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticssemantictagmtd.c" line="46">TRUE if successful, FALSE otherwise.</doc>
++        <type name="gboolean" c:type="gboolean" />
++      </return-value>
++      <parameters>
++        <parameter name="relation_meta" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticssemantictagmtd.c" line="39">Instance of #GstAnalyticsRelationMeta where to add the tag</doc>
++          <type name="GstAnalytics.RelationMeta" c:type="GstAnalyticsRelationMeta*" />
++        </parameter>
++        <parameter name="tag" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticssemantictagmtd.c" line="40">Semantic tag, must not be empty</doc>
++          <type name="utf8" c:type="const gchar*" />
++        </parameter>
++        <parameter name="semantic_tag_mtd" direction="out" caller-allocates="1" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticssemantictagmtd.c" line="41">Handle updated with the newly added tag</doc>
++          <type name="SemanticTagMtd" c:type="GstAnalyticsSemanticTagMtd*" />
++        </parameter>
++      </parameters>
++    </function>
+     <function name="relation_meta_add_tripwire_mtd" c:identifier="gst_analytics_relation_meta_add_tripwire_mtd">
+       <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="45">Adds tripwire crossing metadata as a relation in the analytics metadata.
+ Creates a queryable OD → Tripwire relationship.</doc>
+@@ -584,30 +1354,31 @@ Creates a queryable OD → Tripwire relationship.</doc>
+         </parameter>
+       </parameters>
+     </function>
+-    <function name="relation_meta_get_dwelltime_mtd" c:identifier="gst_analytics_relation_meta_get_dwelltime_mtd">
+-      <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="67">Retrieves dwell-time metadata by its ID from the analytics relation metadata.</doc>
+-      <source-position filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="77" />
++    <function name="relation_meta_attach_semantic_tag" c:identifier="gst_analytics_relation_meta_attach_semantic_tag">
++      <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticssemantictagmtd.c" line="105">Add a semantic tag node and relate it directly to the metadata @mtd_id.
++Fails if the metadata already has a semantic tag.</doc>
++      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h" line="48" />
+       <return-value transfer-ownership="none">
+-        <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="75">TRUE if the metadata was found and @rlt was filled, FALSE otherwise.</doc>
++        <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticssemantictagmtd.c" line="114">TRUE if successful, FALSE otherwise.</doc>
+         <type name="gboolean" c:type="gboolean" />
+       </return-value>
+       <parameters>
+         <parameter name="meta" transfer-ownership="none">
+-          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="69">A #GstAnalyticsRelationMeta instance.</doc>
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticssemantictagmtd.c" line="107">Instance of #GstAnalyticsRelationMeta</doc>
+           <type name="GstAnalytics.RelationMeta" c:type="GstAnalyticsRelationMeta*" />
+         </parameter>
+-        <parameter name="an_meta_id" transfer-ownership="none">
+-          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="70">Id of the dwell-time metadata to retrieve.</doc>
++        <parameter name="mtd_id" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticssemantictagmtd.c" line="108">Id of the metadata to tag</doc>
+           <type name="guint" c:type="guint" />
+         </parameter>
+-        <parameter name="rlt" direction="out" caller-allocates="1" transfer-ownership="none">
+-          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="71">Pointer to #GstAnalyticsDwellTimeMtd to be filled.</doc>
+-          <type name="DwellTimeMtd" c:type="GstAnalyticsDwellTimeMtd*" />
++        <parameter name="tag" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticssemantictagmtd.c" line="109">Semantic tag, must not be empty</doc>
++          <type name="utf8" c:type="const gchar*" />
+         </parameter>
+       </parameters>
+     </function>
+     <function name="relation_meta_get_3d_od_mtd" c:identifier="gst_analytics_relation_meta_get_3d_od_mtd">
+-      <source-position filename="include/dlstreamer/gst/metadata/g3d_od_mtd.h" line="48" />
++      <source-position filename="include/dlstreamer/gst/metadata/g3d_od_mtd.h" line="47" />
+       <return-value transfer-ownership="none">
+         <doc xml:space="preserve" filename="src/gst/metadata/g3d_od_mtd.c" line="199">TRUE if successful, FALSE otherwise</doc>
+         <type name="gboolean" c:type="gboolean" />
+@@ -627,6 +1398,133 @@ Creates a queryable OD → Tripwire relationship.</doc>
+         </parameter>
+       </parameters>
+     </function>
++    <function name="relation_meta_get_camera_3d_od_mtd" c:identifier="gst_analytics_relation_meta_get_camera_3d_od_mtd">
++      <source-position filename="include/dlstreamer/gst/metadata/camera_3d_od_mtd.h" line="41" />
++      <return-value transfer-ownership="none">
++        <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="221">TRUE if successful, FALSE otherwise</doc>
++        <type name="gboolean" c:type="gboolean" />
++      </return-value>
++      <parameters>
++        <parameter name="meta" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="217">Instance of #GstAnalyticsRelationMeta</doc>
++          <type name="GstAnalytics.RelationMeta" c:type="GstAnalyticsRelationMeta*" />
++        </parameter>
++        <parameter name="an_meta_id" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="218">Id of #GstAnalyticsCamera3DODMtd instance to retrieve</doc>
++          <type name="guint" c:type="guint" />
++        </parameter>
++        <parameter name="rlt" direction="out" caller-allocates="1" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/camera_3d_od_mtd.c" line="219">Will be filled with the detection mtd</doc>
++          <type name="Camera3DODMtd" c:type="GstAnalyticsCamera3DODMtd*" />
++        </parameter>
++      </parameters>
++    </function>
++    <function name="relation_meta_get_dwelltime_mtd" c:identifier="gst_analytics_relation_meta_get_dwelltime_mtd">
++      <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="63">Retrieves dwell-time metadata by its ID from the analytics relation metadata.</doc>
++      <source-position filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="73" />
++      <return-value transfer-ownership="none">
++        <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="71">TRUE if the metadata was found and @rlt was filled, FALSE otherwise.</doc>
++        <type name="gboolean" c:type="gboolean" />
++      </return-value>
++      <parameters>
++        <parameter name="meta" transfer-ownership="none">
++          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="65">A #GstAnalyticsRelationMeta instance.</doc>
++          <type name="GstAnalytics.RelationMeta" c:type="GstAnalyticsRelationMeta*" />
++        </parameter>
++        <parameter name="an_meta_id" transfer-ownership="none">
++          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="66">Id of the dwell-time metadata to retrieve.</doc>
++          <type name="guint" c:type="guint" />
++        </parameter>
++        <parameter name="rlt" direction="out" caller-allocates="1" transfer-ownership="none">
++          <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="67">Pointer to #GstAnalyticsDwellTimeMtd to be filled.</doc>
++          <type name="DwellTimeMtd" c:type="GstAnalyticsDwellTimeMtd*" />
++        </parameter>
++      </parameters>
++    </function>
++    <function name="relation_meta_get_group_mtd" c:identifier="gst_analytics_relation_meta_get_group_mtd" version="1.30">
++      <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="336">Retrieve group metadata instance from @meta.</doc>
++      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h" line="70" />
++      <return-value transfer-ownership="none">
++        <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="344">TRUE if successful, FALSE otherwise.</doc>
++        <type name="gboolean" c:type="gboolean" />
++      </return-value>
++      <parameters>
++        <parameter name="meta" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="338">Instance of #GstAnalyticsRelationMeta</doc>
++          <type name="GstAnalytics.RelationMeta" c:type="GstAnalyticsRelationMeta*" />
++        </parameter>
++        <parameter name="an_meta_id" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="339">Id of #GstAnalyticsGroupMtd instance to retrieve</doc>
++          <type name="guint" c:type="guint" />
++        </parameter>
++        <parameter name="rlt" direction="out" caller-allocates="1" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticsgroupmtd.c" line="340">Will be filled with group mtd</doc>
++          <type name="GroupMtd" c:type="GstAnalyticsGroupMtd*" />
++        </parameter>
++      </parameters>
++    </function>
++    <function name="relation_meta_get_keypoint_mtd" c:identifier="gst_analytics_relation_meta_get_keypoint_mtd" version="1.30">
++      <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="329">Retrieve keypoint metadata instance from @meta.</doc>
++      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h" line="107" />
++      <return-value transfer-ownership="none">
++        <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="337">TRUE if successful, FALSE otherwise</doc>
++        <type name="gboolean" c:type="gboolean" />
++      </return-value>
++      <parameters>
++        <parameter name="meta" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="331">Instance of #GstAnalyticsRelationMeta</doc>
++          <type name="GstAnalytics.RelationMeta" c:type="GstAnalyticsRelationMeta*" />
++        </parameter>
++        <parameter name="an_meta_id" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="332">Id of #GstAnalyticsKeypointMtd instance to retrieve</doc>
++          <type name="guint" c:type="guint" />
++        </parameter>
++        <parameter name="rlt" direction="out" caller-allocates="1" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticskeypointmtd.c" line="333">Will be filled with keypoint mtd</doc>
++          <type name="KeypointMtd" c:type="GstAnalyticsKeypointMtd*" />
++        </parameter>
++      </parameters>
++    </function>
++    <function name="relation_meta_get_semantic_tag" c:identifier="gst_analytics_relation_meta_get_semantic_tag">
++      <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticssemantictagmtd.c" line="134">Get the semantic tag directly related to the metadata @mtd_id.</doc>
++      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h" line="52" />
++      <return-value transfer-ownership="full" nullable="1">
++        <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticssemantictagmtd.c" line="141">A copy of the tag, or %NULL if the metadata has no tag</doc>
++        <type name="utf8" c:type="gchar*" />
++      </return-value>
++      <parameters>
++        <parameter name="meta" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticssemantictagmtd.c" line="136">Instance of #GstAnalyticsRelationMeta</doc>
++          <type name="GstAnalytics.RelationMeta" c:type="GstAnalyticsRelationMeta*" />
++        </parameter>
++        <parameter name="mtd_id" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticssemantictagmtd.c" line="137">Id of the tagged metadata</doc>
++          <type name="guint" c:type="guint" />
++        </parameter>
++      </parameters>
++    </function>
++    <function name="relation_meta_get_semantic_tag_mtd" c:identifier="gst_analytics_relation_meta_get_semantic_tag_mtd">
++      <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticssemantictagmtd.c" line="67">Retrieve a semantic tag mtd from @meta by its id.</doc>
++      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h" line="40" />
++      <return-value transfer-ownership="none">
++        <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticssemantictagmtd.c" line="75">TRUE if successful, FALSE otherwise.</doc>
++        <type name="gboolean" c:type="gboolean" />
++      </return-value>
++      <parameters>
++        <parameter name="meta" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticssemantictagmtd.c" line="69">Instance of #GstAnalyticsRelationMeta</doc>
++          <type name="GstAnalytics.RelationMeta" c:type="GstAnalyticsRelationMeta*" />
++        </parameter>
++        <parameter name="id" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticssemantictagmtd.c" line="70">Id of the #GstAnalyticsSemanticTagMtd instance to retrieve</doc>
++          <type name="guint" c:type="guint" />
++        </parameter>
++        <parameter name="rlt" direction="out" caller-allocates="1" transfer-ownership="none">
++          <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticssemantictagmtd.c" line="71">Will be filled with the semantic tag mtd</doc>
++          <type name="SemanticTagMtd" c:type="GstAnalyticsSemanticTagMtd*" />
++        </parameter>
++      </parameters>
++    </function>
+     <function name="relation_meta_get_tripwire_mtd" c:identifier="gst_analytics_relation_meta_get_tripwire_mtd">
+       <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="61">Retrieves tripwire metadata by its ID from the analytics relation metadata.</doc>
+       <source-position filename="include/dlstreamer/gst/metadata/gva_tripwire_meta.h" line="71" />
+@@ -671,10 +1569,11 @@ Creates a queryable OD → Tripwire relationship.</doc>
+         </parameter>
+       </parameters>
+     </function>
+-    <function name="dwelltime_mtd_get_mtd_type" c:identifier="gst_analytics_dwelltime_mtd_get_mtd_type" moved-to="DwellTimeMtd.get_mtd_type">
+-      <source-position filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="30" />
++    <function name="semantic_tag_mtd_get_mtd_type" c:identifier="gst_analytics_semantic_tag_mtd_get_mtd_type" moved-to="SemanticTagMtd.get_mtd_type">
++      <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticssemantictagmtd.c" line="26">Get an id identifying #GstAnalyticsSemanticTagMtd type.</doc>
++      <source-position filename="include/dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h" line="33" />
+       <return-value transfer-ownership="none">
+-        <doc xml:space="preserve" filename="include/dlstreamer/gst/metadata/gva_dwelltime_meta.h" line="28">The metadata type ID for GstAnalyticsDwellTimeMtd.</doc>
++        <doc xml:space="preserve" filename="src/gst/metadata/gstanalyticssemantictagmtd.c" line="31">opaque id of #GstAnalyticsMtd type</doc>
+         <type name="GstAnalytics.MtdType" c:type="GstAnalyticsMtdType" />
+       </return-value>
+     </function>
+diff --git a/python/gstgva/meta_registry.py b/python/gstgva/meta_registry.py
+index d68d376b..965a4592 100644
+--- a/python/gstgva/meta_registry.py
++++ b/python/gstgva/meta_registry.py
+@@ -4,7 +4,8 @@
+ # SPDX-License-Identifier: MIT
+ # ==============================================================================
+ 
+-"""Register DLStreamerMeta metadata types (ZoneMtd, TripwireMtd, 3DODMtd) with the
++"""Register DLStreamerMeta metadata types (ZoneMtd, TripwireMtd, 3DODMtd, DwellTimeMtd, GroupMtd,
++KeypointMtd, SemanticTagMtd) with the
+ GstAnalytics Python override so that the RelationMeta iterator wraps them
+ into the correct Python types and isinstance() checks work.
+ 
+@@ -47,4 +48,19 @@ _GstAnalyticsOverride._wrap_mtd(
+     'DwellTimeMtd',
+     DLStreamerMeta.relation_meta_get_dwelltime_mtd
+ )
++_GstAnalyticsOverride._wrap_mtd(
++    DLStreamerMeta,
++    'GroupMtd',
++    DLStreamerMeta.relation_meta_get_group_mtd
++)
++_GstAnalyticsOverride._wrap_mtd(
++    DLStreamerMeta,
++    'KeypointMtd',
++    DLStreamerMeta.relation_meta_get_keypoint_mtd
++)
++_GstAnalyticsOverride._wrap_mtd(
++    DLStreamerMeta,
++    'SemanticTagMtd',
++    DLStreamerMeta.relation_meta_get_semantic_tag_mtd
++)
+ # pylint: enable=protected-access
+diff --git a/scripts/fix_gir_mtd_fields.py b/scripts/fix_gir_mtd_fields.py
+index 8903c82a..914d0c1f 100644
+--- a/scripts/fix_gir_mtd_fields.py
++++ b/scripts/fix_gir_mtd_fields.py
+@@ -31,7 +31,7 @@ GI_CORE_NS = "http://www.gtk.org/introspection/core/1.0"
+ GI_C_NS = "http://www.gtk.org/introspection/c/1.0"
+ 
+ # Records that are typedefs to struct _GstAnalyticsMtd and need fields
+-MTD_RECORDS = {"3DODMtd", "ZoneMtd", "TripwireMtd", "DwellTimeMtd"}
++MTD_RECORDS = {"3DODMtd", "ZoneMtd", "TripwireMtd", "DwellTimeMtd", "GroupMtd", "KeypointMtd", "SemanticTagMtd"}
+ 
+ 
+ def make_field(name, doc_text, type_name, c_type):
+diff --git a/src/gst/metadata/generate_gir.cmake b/src/gst/metadata/generate_gir.cmake
+index 69877b0d..84da1112 100644
+--- a/src/gst/metadata/generate_gir.cmake
++++ b/src/gst/metadata/generate_gir.cmake
+@@ -43,6 +43,9 @@ if(GENERATE_GIR_FROM_SOURCE)
+     # Source and header files
+     set(METADATA_SOURCES
+         "${CMAKE_CURRENT_SOURCE_DIR}/gstanalyticskeypointdescriptor.c"
++        "${CMAKE_CURRENT_SOURCE_DIR}/gstanalyticsgroupmtd.c"
++        "${CMAKE_CURRENT_SOURCE_DIR}/gstanalyticskeypointmtd.c"
++        "${CMAKE_CURRENT_SOURCE_DIR}/gstanalyticssemantictagmtd.c"
+         "${CMAKE_CURRENT_SOURCE_DIR}/gva_zone_meta.c"
+         "${CMAKE_CURRENT_SOURCE_DIR}/gva_tripwire_meta.c"
+         "${CMAKE_CURRENT_SOURCE_DIR}/gva_dwelltime_meta.c"
+@@ -52,6 +55,9 @@ if(GENERATE_GIR_FROM_SOURCE)
+ 
+     set(METADATA_HEADERS
+         "${CMAKE_SOURCE_DIR}/include/dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h"
++        "${CMAKE_SOURCE_DIR}/include/dlstreamer/gst/metadata/gstanalyticsgroupmtd.h"
++        "${CMAKE_SOURCE_DIR}/include/dlstreamer/gst/metadata/gstanalyticskeypointmtd.h"
++        "${CMAKE_SOURCE_DIR}/include/dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h"
+         "${CMAKE_SOURCE_DIR}/include/dlstreamer/gst/metadata/gva_zone_meta.h"
+         "${CMAKE_SOURCE_DIR}/include/dlstreamer/gst/metadata/gva_tripwire_meta.h"
+         "${CMAKE_SOURCE_DIR}/include/dlstreamer/gst/metadata/gva_dwelltime_meta.h"
+diff --git a/src/gst/metadata/gstanalyticssemantictagmtd.c b/src/gst/metadata/gstanalyticssemantictagmtd.c
+index d007ff3b..8e3dd9b8 100644
+--- a/src/gst/metadata/gstanalyticssemantictagmtd.c
++++ b/src/gst/metadata/gstanalyticssemantictagmtd.c
+@@ -23,10 +23,28 @@ struct _GstAnalyticsSemanticTagData {
+ 
+ static const GstAnalyticsMtdImpl semantic_tag_impl = {"semantictag", NULL, NULL, {NULL}};
+ 
++/**
++ * gst_analytics_semantic_tag_mtd_get_mtd_type:
++ *
++ * Get an id identifying #GstAnalyticsSemanticTagMtd type.
++ *
++ * Returns: opaque id of #GstAnalyticsMtd type
++ */
+ GstAnalyticsMtdType gst_analytics_semantic_tag_mtd_get_mtd_type(void) {
+     return (GstAnalyticsMtdType)&semantic_tag_impl;
+ }
+ 
++/**
++ * gst_analytics_relation_meta_add_semantic_tag_mtd:
++ * @relation_meta: Instance of #GstAnalyticsRelationMeta where to add the tag
++ * @tag: Semantic tag, must not be empty
++ * @semantic_tag_mtd: (out caller-allocates)(not nullable): Handle updated with the newly added tag
++ *
++ * Add a semantic tag node to @relation_meta. It is not related to any other metadata,
++ * use gst_analytics_mtd_set_semantic_tag() to tag an existing metadata.
++ *
++ * Returns: TRUE if successful, FALSE otherwise.
++ */
+ gboolean gst_analytics_relation_meta_add_semantic_tag_mtd(GstAnalyticsRelationMeta *relation_meta, const gchar *tag,
+                                                           GstAnalyticsSemanticTagMtd *semantic_tag_mtd) {
+     g_return_val_if_fail(relation_meta != NULL, FALSE);
+@@ -46,12 +64,31 @@ gboolean gst_analytics_relation_meta_add_semantic_tag_mtd(GstAnalyticsRelationMe
+     return TRUE;
+ }
+ 
++/**
++ * gst_analytics_relation_meta_get_semantic_tag_mtd:
++ * @meta: Instance of #GstAnalyticsRelationMeta
++ * @id: Id of the #GstAnalyticsSemanticTagMtd instance to retrieve
++ * @rlt: (out caller-allocates)(not nullable): Will be filled with the semantic tag mtd
++ *
++ * Retrieve a semantic tag mtd from @meta by its id.
++ *
++ * Returns: TRUE if successful, FALSE otherwise.
++ */
+ gboolean gst_analytics_relation_meta_get_semantic_tag_mtd(GstAnalyticsRelationMeta *meta, guint id,
+                                                           GstAnalyticsSemanticTagMtd *rlt) {
+     return gst_analytics_relation_meta_get_mtd(meta, id, gst_analytics_semantic_tag_mtd_get_mtd_type(),
+                                                (GstAnalyticsMtd *)rlt);
+ }
+ 
++/**
++ * gst_analytics_semantic_tag_mtd_get_tag:
++ * @handle: Instance of #GstAnalyticsSemanticTagMtd
++ * @tag: (out)(transfer none)(not nullable): Tag string, owned by the relation meta
++ *
++ * Get the tag string stored in @handle.
++ *
++ * Returns: TRUE if successful, FALSE otherwise.
++ */
+ gboolean gst_analytics_semantic_tag_mtd_get_tag(const GstAnalyticsSemanticTagMtd *handle, const gchar **tag) {
+     g_return_val_if_fail(handle != NULL, FALSE);
+     g_return_val_if_fail(handle->meta != NULL, FALSE);
+@@ -65,6 +102,17 @@ gboolean gst_analytics_semantic_tag_mtd_get_tag(const GstAnalyticsSemanticTagMtd
+     return TRUE;
+ }
+ 
++/**
++ * gst_analytics_relation_meta_attach_semantic_tag:
++ * @meta: Instance of #GstAnalyticsRelationMeta
++ * @mtd_id: Id of the metadata to tag
++ * @tag: Semantic tag, must not be empty
++ *
++ * Add a semantic tag node and relate it directly to the metadata @mtd_id.
++ * Fails if the metadata already has a semantic tag.
++ *
++ * Returns: TRUE if successful, FALSE otherwise.
++ */
+ gboolean gst_analytics_relation_meta_attach_semantic_tag(GstAnalyticsRelationMeta *meta, guint mtd_id,
+                                                          const gchar *tag) {
+     g_return_val_if_fail(meta != NULL, FALSE);
+@@ -83,6 +131,15 @@ gboolean gst_analytics_relation_meta_attach_semantic_tag(GstAnalyticsRelationMet
+     return gst_analytics_relation_meta_set_relation(meta, GST_ANALYTICS_REL_TYPE_RELATE_TO, mtd_id, tag_mtd.id);
+ }
+ 
++/**
++ * gst_analytics_relation_meta_get_semantic_tag:
++ * @meta: Instance of #GstAnalyticsRelationMeta
++ * @mtd_id: Id of the tagged metadata
++ *
++ * Get the semantic tag directly related to the metadata @mtd_id.
++ *
++ * Returns: (transfer full)(nullable): A copy of the tag, or %NULL if the metadata has no tag
++ */
+ gchar *gst_analytics_relation_meta_get_semantic_tag(GstAnalyticsRelationMeta *meta, guint mtd_id) {
+     g_return_val_if_fail(meta != NULL, NULL);
+ 
+@@ -98,6 +155,16 @@ gchar *gst_analytics_relation_meta_get_semantic_tag(GstAnalyticsRelationMeta *me
+     return NULL;
+ }
+ 
++/**
++ * gst_analytics_mtd_set_semantic_tag:
++ * @instance: Instance of #GstAnalyticsMtd
++ * @tag: (nullable): Semantic tag, %NULL or an empty string removes the tag
++ *
++ * Set the semantic tag of any analytics metadata, replacing the previous one. The tag is stored as
++ * a #GstAnalyticsSemanticTagMtd directly related to @instance.
++ *
++ * Returns: TRUE if the tag was set successfully.
++ */
+ gboolean gst_analytics_mtd_set_semantic_tag(GstAnalyticsMtd *instance, const gchar *tag) {
+     g_return_val_if_fail(instance != NULL, FALSE);
+     g_return_val_if_fail(instance->meta != NULL, FALSE);
+@@ -123,6 +190,14 @@ gboolean gst_analytics_mtd_set_semantic_tag(GstAnalyticsMtd *instance, const gch
+                                                     tag_mtd.id);
+ }
+ 
++/**
++ * gst_analytics_mtd_get_semantic_tag:
++ * @instance: Instance of #GstAnalyticsMtd
++ *
++ * Get the semantic tag of any analytics metadata.
++ *
++ * Returns: (transfer full): A copy of the tag, an empty string if the metadata has no tag
++ */
+ gchar *gst_analytics_mtd_get_semantic_tag(const GstAnalyticsMtd *instance) {
+     g_return_val_if_fail(instance != NULL, NULL);
+     g_return_val_if_fail(instance->meta != NULL, NULL);

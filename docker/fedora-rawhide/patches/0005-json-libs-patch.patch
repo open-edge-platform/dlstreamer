@@ -1,0 +1,80 @@
+From 92ab6b0abaa6db6995cac09997ba7b09ff0f0bf4 Mon Sep 17 00:00:00 2001
+From: Michal Holownia <michal.holownia@intel.com>
+Date: Fri, 30 Oct 2026 11:22:45 +0100
+Subject: [PATCH] json libs patch
+
+---
+ CMakeLists.txt            | 10 ++++++++++
+ thirdparty/CMakeLists.txt | 31 +++++++++++++++++++------------
+ 2 files changed, 29 insertions(+), 12 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index eaf910c4..d083cc56 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -132,6 +132,9 @@ option(ENABLE_GENAI "Enables GenAI elements" OFF)
+ # fmt is the only part of spdlog used by DL Streamer. Distribution packages can use the system fmt instead of the copy
+ # bundled with thirdparty/spdlog.
+ option(ENABLE_SYSTEM_FMT "Use system fmt library instead of the one bundled with thirdparty/spdlog" OFF)
++# nlohmann_json and json-schema-validator are downloaded at configure time by default. Distribution packages can use
++# the system libraries instead.
++option(ENABLE_SYSTEM_JSON "Use system nlohmann_json and json-schema-validator instead of downloading them" OFF)
+ # Enable GenAI by default on Windows.
+ # It can be enabled on Ubuntu but there is no support for Fedora.
+ if(WIN32)
+@@ -208,6 +211,13 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DHAVE_CONFIG_H")
+ find_package(Threads REQUIRED)
+ find_package(PkgConfig REQUIRED)
+ 
++# Imported targets are visible only in the directory where they are found and below, so system libraries
++# are found here, before the subdirectories that link them.
++if(ENABLE_SYSTEM_JSON)
++    find_package(nlohmann_json CONFIG REQUIRED)
++    find_package(nlohmann_json_schema_validator CONFIG REQUIRED)
++endif()
++
+ pkg_check_modules(GSTREAMER gstreamer-1.0>=1.16 REQUIRED)
+ link_directories(${GSTREAMER_LIBRARY_DIRS})
+ 
+diff --git a/thirdparty/CMakeLists.txt b/thirdparty/CMakeLists.txt
+index 1de53b5a..1bd3dfbe 100644
+--- a/thirdparty/CMakeLists.txt
++++ b/thirdparty/CMakeLists.txt
+@@ -36,18 +36,25 @@ if(${ENABLE_TESTS})
+ endif()
+ 
+ # Populate json dependency
+-FetchContent_Declare(
+-    nlohmann_json
+-    URL https://github.com/nlohmann/json/archive/v3.12.0.zip
+-)
+-FetchContent_MakeAvailable(nlohmann_json)
+-FetchContent_Declare(
+-    json_schema_validator
+-    URL https://github.com/pboettch/json-schema-validator/archive/2.4.0.tar.gz
+-)
+-FetchContent_MakeAvailable(json_schema_validator)
+-add_library(json-hpp ALIAS nlohmann_json)
+-add_library(json-schema-validator ALIAS nlohmann_json_schema_validator)
++if(ENABLE_SYSTEM_JSON)
++    add_library(json-hpp INTERFACE)
++    target_link_libraries(json-hpp INTERFACE nlohmann_json::nlohmann_json)
++    add_library(json-schema-validator INTERFACE)
++    target_link_libraries(json-schema-validator INTERFACE nlohmann_json_schema_validator::validator)
++else()
++    FetchContent_Declare(
++        nlohmann_json
++        URL https://github.com/nlohmann/json/archive/v3.12.0.zip
++    )
++    FetchContent_MakeAvailable(nlohmann_json)
++    FetchContent_Declare(
++        json_schema_validator
++        URL https://github.com/pboettch/json-schema-validator/archive/2.4.0.tar.gz
++    )
++    FetchContent_MakeAvailable(json_schema_validator)
++    add_library(json-hpp ALIAS nlohmann_json)
++    add_library(json-schema-validator ALIAS nlohmann_json_schema_validator)
++endif()
+ 
+ # Hint compiler about location of the header file generated.
+ include_directories(${CMAKE_CURRENT_BINARY_DIR})

@@ -1,0 +1,101 @@
+From be1548ae244fb6541bd64daa38bf01bbc7d6c570 Mon Sep 17 00:00:00 2001
+From: Michal Holownia <michal.holownia@intel.com>
+Date: Fri, 30 Oct 2026 11:08:14 +0100
+Subject: [PATCH] spdlog removal patch
+
+---
+ CMakeLists.txt                                      |  3 +++
+ .../image_inference/openvino/CMakeLists.txt         | 13 ++++++++++++-
+ .../openvino/openvino_image_inference.cpp           |  8 ++++++--
+ thirdparty/CMakeLists.txt                           |  4 +++-
+ 4 files changed, 24 insertions(+), 4 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 1df77e94..eaf910c4 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -129,6 +129,9 @@ cmake_dependent_option(ENABLE_RDKAFKA_INSTALLATION "Enables rdkafka installation
+ option(ENABLE_AUDIO_INFERENCE_ELEMENTS "Enables audio inference elements" ON)
+ option(ENABLE_REALSENSE "Parameter to enable RelaseSense plugin compilation" OFF)
+ option(ENABLE_GENAI "Enables GenAI elements" OFF)
++# fmt is the only part of spdlog used by DL Streamer. Distribution packages can use the system fmt instead of the copy
++# bundled with thirdparty/spdlog.
++option(ENABLE_SYSTEM_FMT "Use system fmt library instead of the one bundled with thirdparty/spdlog" OFF)
+ # Enable GenAI by default on Windows.
+ # It can be enabled on Ubuntu but there is no support for Fedora.
+ if(WIN32)
+diff --git a/src/monolithic/inference_backend/image_inference/openvino/CMakeLists.txt b/src/monolithic/inference_backend/image_inference/openvino/CMakeLists.txt
+index 25547fb9..e74ad5e0 100644
+--- a/src/monolithic/inference_backend/image_inference/openvino/CMakeLists.txt
++++ b/src/monolithic/inference_backend/image_inference/openvino/CMakeLists.txt
+@@ -10,6 +10,13 @@ find_package(PkgConfig REQUIRED)
+ find_package(OpenVINO REQUIRED Runtime)
+ find_package(OpenCL REQUIRED)
+ 
++if(ENABLE_SYSTEM_FMT)
++    find_package(fmt CONFIG REQUIRED)
++    set(FMT_TARGET fmt::fmt)
++else()
++    set(FMT_TARGET spdlog::spdlog)
++endif()
++
+ file (GLOB MAIN_SRC
+         ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp
+         ${CMAKE_CURRENT_SOURCE_DIR}/*.c
+@@ -38,10 +45,14 @@ PUBLIC
+         openvino::runtime
+         utils
+         logger
+-        spdlog::spdlog
++        ${FMT_TARGET}
+         OpenCL::OpenCL
+ )
+ 
++if(ENABLE_SYSTEM_FMT)
++    target_compile_definitions(${TARGET_NAME} PRIVATE DLS_USE_SYSTEM_FMT)
++endif()
++
+ if(WIN32)
+     target_link_libraries(${TARGET_NAME} PUBLIC d3d11)
+ endif()
+diff --git a/src/monolithic/inference_backend/image_inference/openvino/openvino_image_inference.cpp b/src/monolithic/inference_backend/image_inference/openvino/openvino_image_inference.cpp
+index a9759fa2..fbf95e67 100644
+--- a/src/monolithic/inference_backend/image_inference/openvino/openvino_image_inference.cpp
++++ b/src/monolithic/inference_backend/image_inference/openvino/openvino_image_inference.cpp
+@@ -6,7 +6,13 @@
+ 
+ #include "gst/gststructure.h"
+ #include "inference_backend/image_inference.h"
++#ifdef DLS_USE_SYSTEM_FMT
++#include <fmt/format.h>
++#include <fmt/ranges.h>
++#else
++#include <spdlog/fmt/bundled/ranges.h>
+ #include <spdlog/fmt/fmt.h>
++#endif
+ 
+ #include <cstddef>
+ #include <openvino/runtime/properties.hpp>
+@@ -20,8 +26,6 @@
+ // For logger_name
+ #include <dlstreamer/element.h>
+ 
+-#include <spdlog/fmt/bundled/ranges.h>
+-
+ #include "model_api_converters.h"
+ #include "openvino_image_inference.h"
+ 
+diff --git a/thirdparty/CMakeLists.txt b/thirdparty/CMakeLists.txt
+index 4785e3de..1de53b5a 100644
+--- a/thirdparty/CMakeLists.txt
++++ b/thirdparty/CMakeLists.txt
+@@ -52,4 +52,6 @@ add_library(json-schema-validator ALIAS nlohmann_json_schema_validator)
+ # Hint compiler about location of the header file generated.
+ include_directories(${CMAKE_CURRENT_BINARY_DIR})
+ 
+-add_subdirectory(spdlog)
+\ No newline at end of file
++if(NOT ENABLE_SYSTEM_FMT)
++    add_subdirectory(spdlog)
++endif()
+\ No newline at end of file
