@@ -35,7 +35,8 @@ A consumer should process the versions it knows, ignore fields it does not know,
 
 One `latency_tracer` interval window of a source-to-sink branch. It is posted by the branch's
 sink element when the tracer logs the matching `latency_tracer_pipeline_interval` record,
-and only when the tracer `flags` include `pipeline`.
+and only when the tracer `flags` include `pipeline`. The window that is still open when EOS
+reaches the sink is posted as well, so the windows of a run cover all its frames.
 
 | Field | Type | Description |
 |---|---|---|
