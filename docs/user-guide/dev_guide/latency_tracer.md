@@ -112,6 +112,11 @@ Key measurements in interval reports:
 - All other parameters (`avg`, `min`, `max`, `latency`, `fps`) have the same interpretation as for ordinary latency_tracer,
   but statistics are calculated for the last interval window only
 
+When the stream ends, EOS reaching a sink reports the window that is still open, so the
+last frames of a run are included. That window is usually shorter than the configured
+interval. A pipeline that stops without EOS, for example after an error, does not report
+its open window.
+
 ## Bus messages
 
 Applications that need the interval statistics can read them as typed values instead of
@@ -123,7 +128,6 @@ parsing the log. Add `post-metrics=true` to the tracer parameters, and every
 GST_TRACERS="latency_tracer(flags=pipeline,interval=1000,post-metrics=true)" gst-launch-1.0 -m ...
 ```
 
-`flags` must include `pipeline`. Messages are posted once per window, never per frame, and
-the log records are unchanged. The fields, the version rules and a Python example are in
+`flags` must include `pipeline`. Messages are posted once per window, never per frame. The fields, the version rules and a Python example are in
 [Structured Metrics Messages](./metrics_messages.md).
 

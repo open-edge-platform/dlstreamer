@@ -146,6 +146,18 @@ struct BranchStats {
             report_window(window);
     }
 
+    // Reports the window collected so far, e.g. when the stream ends before the interval has elapsed
+    void flush_window(GstClockTime ts) {
+        LatencyWindow window;
+        gboolean window_done;
+        {
+            lock_guard<mutex> guard(mtx);
+            window_done = take_window(ts, &window);
+        }
+        if (window_done)
+            report_window(window);
+    }
+
     // Ends the current window at ts and starts the next one. Call with mtx held. Returns FALSE for an empty window.
     gboolean take_window(GstClockTime ts, LatencyWindow *window) {
         if (interval_frame_count == 0)
@@ -981,6 +993,32 @@ static void do_push_buffer_list_pre(LatencyTracer *lt, guint64 ts, GstPad *pad, 
         &args);
 }
 
+// At EOS the last window of a branch is usually shorter than the interval and would never be reported, so
+// report it when EOS reaches the branch's sink. An aborted pipeline does not send EOS and reports nothing.
+static void do_push_event_pre(LatencyTracer *lt, guint64 ts, GstPad *pad, GstEvent *event) {
+    if (GST_EVENT_TYPE(event) != GST_EVENT_EOS || !(lt->flags & LATENCY_TRACER_FLAG_PIPELINE))
+        return;
+    GstPad *peer_pad = gst_pad_get_peer(pad);
+    if (!peer_pad)
+        return;
+    GstElement *sink = get_real_pad_parent(peer_pad);
+    gst_object_unref(peer_pad);
+    if (!sink)
+        return;
+
+    vector<shared_ptr<BranchStats>> branches;
+    if (is_sink_element_cached(lt, sink)) {
+        GMutexLockGuard lock(get_tracer_mutex(lt));
+        for (auto &entry : *get_branch_stats_map(lt)) {
+            if (std::get<1>(entry.first) == sink)
+                branches.push_back(entry.second);
+        }
+    }
+    gst_object_unref(sink);
+    for (auto &branch : branches)
+        branch->flush_window(ts);
+}
+
 static void push_unique(vector<GstElement *> *list, GstElement *element) {
     if (std::find(list->begin(), list->end(), element) == list->end())
         list->push_back(element);
@@ -1159,6 +1197,7 @@ static void latency_tracer_init(LatencyTracer *lt) {
     gst_tracing_register_hook(tracer, "pad-push-pre", G_CALLBACK(do_push_buffer_pre));
     gst_tracing_register_hook(tracer, "pad-push-list-pre", G_CALLBACK(do_push_buffer_list_pre));
     gst_tracing_register_hook(tracer, "pad-pull-range-post", G_CALLBACK(do_pull_range_post));
+    gst_tracing_register_hook(tracer, "pad-push-event-pre", G_CALLBACK(do_push_event_pre));
     GST_OBJECT_UNLOCK(lt);
 }
 

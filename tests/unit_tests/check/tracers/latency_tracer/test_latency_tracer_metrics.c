@@ -16,16 +16,28 @@
 #define INTERVAL_MS 100
 #define WINDOW_MESSAGE "dlstreamer/latency-window"
 #define INTERVAL_RECORD "latency_tracer_pipeline_interval"
+#define FRAME_RECORD "latency_tracer_pipeline"
 
 static GMutex records_lock;
-static GPtrArray *records; /* GstStructure* of latency_tracer_pipeline_interval records */
+static GPtrArray *records;       /* GstStructure* of latency_tracer_pipeline_interval records */
+static GHashTable *frame_counts; /* pipeline name -> number of latency_tracer_pipeline records */
 
 static void capture_tracer_records(GstDebugCategory *category, GstDebugLevel level, const gchar *file,
                                    const gchar *function, gint line, GObject *object, GstDebugMessage *message,
                                    gpointer user_data) {
     if (level == GST_LEVEL_TRACE && g_strcmp0(gst_debug_category_get_name(category), "GST_TRACER") == 0) {
         const gchar *text = gst_debug_message_get(message);
-        if (text && g_str_has_prefix(text, INTERVAL_RECORD ",")) {
+        if (text && g_str_has_prefix(text, FRAME_RECORD ",")) {
+            GstStructure *s = gst_structure_from_string(text, NULL);
+            if (s) {
+                g_mutex_lock(&records_lock);
+                const gchar *name = gst_structure_get_string(s, "pipeline_name");
+                guint count = GPOINTER_TO_UINT(g_hash_table_lookup(frame_counts, name));
+                g_hash_table_insert(frame_counts, g_strdup(name), GUINT_TO_POINTER(count + 1));
+                g_mutex_unlock(&records_lock);
+                gst_structure_free(s);
+            }
+        } else if (text && g_str_has_prefix(text, INTERVAL_RECORD ",")) {
             GstStructure *s = gst_structure_from_string(text, NULL);
             if (s) {
                 g_mutex_lock(&records_lock);
@@ -39,11 +51,11 @@ static void capture_tracer_records(GstDebugCategory *category, GstDebugLevel lev
 }
 
 /* identity sleeps 2 ms per frame, so every frame has a measurable latency */
-static GstElement *make_pipeline(const gchar *name, guint num_buffers) {
+static GstElement *make_pipeline(const gchar *name, guint num_buffers, guint fps) {
     gchar *desc = g_strdup_printf("videotestsrc name=src num-buffers=%u ! "
-                                  "video/x-raw,width=64,height=48,framerate=30/1 ! "
+                                  "video/x-raw,width=64,height=48,framerate=%u/1 ! "
                                   "identity sleep-time=2000 ! fakesink name=sink sync=true",
-                                  num_buffers);
+                                  num_buffers, fps);
     GError *error = NULL;
     GstElement *pipeline = gst_parse_launch(desc, &error);
     g_free(desc);
@@ -101,6 +113,13 @@ static GPtrArray *records_for(const gchar *pipeline_name) {
     return out;
 }
 
+static guint frames_recorded(const gchar *pipeline_name) {
+    g_mutex_lock(&records_lock);
+    guint count = GPOINTER_TO_UINT(g_hash_table_lookup(frame_counts, pipeline_name));
+    g_mutex_unlock(&records_lock);
+    return count;
+}
+
 static guint get_uint(const GstStructure *s, const gchar *field) {
     guint v = 0;
     fail_unless(gst_structure_get_uint(s, field, &v), "missing uint field %s", field);
@@ -120,7 +139,7 @@ static void assert_close(gdouble expected, gdouble actual, const gchar *what) {
 }
 
 GST_START_TEST(test_window_message_fields) {
-    GstElement *pipeline = make_pipeline("fields", 10);
+    GstElement *pipeline = make_pipeline("fields", 10, 30);
     GPtrArray *windows = play_to_eos(pipeline);
     fail_unless(windows->len > 0, "no window was posted");
     const GstStructure *w = g_ptr_array_index(windows, 0);
@@ -148,7 +167,7 @@ GST_END_TEST;
 
 /* Every field of a latency_tracer_pipeline_interval record can be derived from the matching message. */
 GST_START_TEST(test_window_messages_match_tracer_records) {
-    GstElement *pipeline = make_pipeline("single", 30);
+    GstElement *pipeline = make_pipeline("single", 30, 30);
     GPtrArray *windows = play_to_eos(pipeline);
     GPtrArray *recs = records_for("single");
 
@@ -167,7 +186,9 @@ GST_START_TEST(test_window_messages_match_tracer_records) {
         frames += count;
 
         fail_unless(count > 0);
-        fail_unless(window_ms >= INTERVAL_MS, "window %u spans %f ms", i, window_ms);
+        /* Only the window reported at EOS can be shorter than the interval */
+        if (i + 1 < windows->len)
+            fail_unless(window_ms >= INTERVAL_MS, "window %u spans %f ms", i, window_ms);
         fail_unless(min_ms > 1.0, "identity sleeps 2 ms per frame, min was %f", min_ms);
         fail_unless(min_ms <= sum_ms / count && sum_ms / count <= max_ms);
 
@@ -179,6 +200,26 @@ GST_START_TEST(test_window_messages_match_tracer_records) {
         assert_close(get_double(r, "fps"), 1000.0 / (window_ms / count), "fps");
     }
     fail_unless(frames <= 30, "windows counted %u frames for 30 buffers", frames);
+
+    g_ptr_array_unref(recs);
+    g_ptr_array_unref(windows);
+    gst_object_unref(pipeline);
+}
+GST_END_TEST;
+
+/* The window that is still open at EOS is reported too, once, so the windows cover every recorded frame. */
+GST_START_TEST(test_final_window_reported_at_eos) {
+    /* 20 frames at 1000 fps end long before the first 100 ms window would close */
+    GstElement *pipeline = make_pipeline("eos", 20, 1000);
+    GPtrArray *windows = play_to_eos(pipeline);
+    GPtrArray *recs = records_for("eos");
+
+    guint frames = 0;
+    for (guint i = 0; i < windows->len; i++)
+        frames += get_uint(g_ptr_array_index(windows, i), "count");
+    fail_unless(frames > 0);
+    fail_unless_equals_int(frames, frames_recorded("eos"));
+    fail_unless_equals_int(recs->len, windows->len);
 
     g_ptr_array_unref(recs);
     g_ptr_array_unref(windows);
@@ -199,7 +240,7 @@ static gpointer play_in_thread(gpointer data) {
 
 /* Each pipeline in a process receives only the windows of its own branches, on its own bus. */
 GST_START_TEST(test_concurrent_pipelines_get_own_windows) {
-    PipelineRun runs[] = {{make_pipeline("left", 15), NULL}, {make_pipeline("right", 15), NULL}};
+    PipelineRun runs[] = {{make_pipeline("left", 15, 30), NULL}, {make_pipeline("right", 15, 30), NULL}};
     GThread *threads[G_N_ELEMENTS(runs)];
     for (guint i = 0; i < G_N_ELEMENTS(runs); i++)
         threads[i] = g_thread_new("pipeline", play_in_thread, &runs[i]);
@@ -230,6 +271,7 @@ static Suite *latency_tracer_metrics_suite(void) {
     suite_add_tcase(s, tc);
     tcase_add_test(tc, test_window_message_fields);
     tcase_add_test(tc, test_window_messages_match_tracer_records);
+    tcase_add_test(tc, test_final_window_reported_at_eos);
     tcase_add_test(tc, test_concurrent_pipelines_get_own_windows);
     return s;
 }
@@ -240,11 +282,13 @@ int main(int argc, char **argv) {
     gst_check_init(&argc, &argv);
 
     records = g_ptr_array_new_with_free_func((GDestroyNotify)gst_structure_free);
+    frame_counts = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
     gst_debug_remove_log_function(gst_debug_log_default);
     gst_debug_add_log_function(capture_tracer_records, NULL, NULL);
     gst_debug_set_threshold_for_name("GST_TRACER", GST_LEVEL_TRACE);
 
     int failed = gst_check_run_suite(latency_tracer_metrics_suite(), "latency_tracer_metrics", __FILE__);
     g_ptr_array_unref(records);
+    g_hash_table_unref(frame_counts);
     return failed;
 }
