@@ -7,6 +7,8 @@
 #include "latency_tracer.h"
 #include "gmutex_lock_guard.h"
 #include "latency_tracer_meta.h"
+#include <algorithm>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <tuple>
@@ -159,17 +161,20 @@ struct BranchKeyHash {
     }
 };
 
+// Branches are shared so that a push which looked one up keeps it alive while a pipeline teardown drops the entry.
+using BranchStatsMap = unordered_map<BranchKey, shared_ptr<BranchStats>, BranchKeyHash>;
+
 // Helper function to create a branch key using pointers (optimized)
 static inline BranchKey create_branch_key(GstElement *source, GstElement *sink, GstElement *pipeline) {
     return std::make_tuple(source, sink, pipeline);
 }
 
 // Type-safe accessors for C++ objects stored in C struct
-static unordered_map<BranchKey, BranchStats, BranchKeyHash> *get_branch_stats_map(LatencyTracer *lt) {
+static BranchStatsMap *get_branch_stats_map(LatencyTracer *lt) {
     if (!lt->branch_stats) {
-        lt->branch_stats = new unordered_map<BranchKey, BranchStats, BranchKeyHash>();
+        lt->branch_stats = new BranchStatsMap();
     }
-    return static_cast<unordered_map<BranchKey, BranchStats, BranchKeyHash> *>(lt->branch_stats);
+    return static_cast<BranchStatsMap *>(lt->branch_stats);
 }
 
 static vector<GstElement *> *get_sources_list(LatencyTracer *lt) {
@@ -305,7 +310,7 @@ static void latency_tracer_finalize(GObject *object) {
 
     // Clean up C++ objects
     if (lt->branch_stats) {
-        delete static_cast<unordered_map<BranchKey, BranchStats, BranchKeyHash> *>(lt->branch_stats);
+        delete static_cast<BranchStatsMap *>(lt->branch_stats);
         lt->branch_stats = nullptr;
     }
     if (lt->sources_list) {
@@ -466,6 +471,7 @@ struct ElementStats {
     gdouble interval_max;
     guint interval_frame_count;
     GstClockTime interval_init_time;
+    gboolean running; // FALSE from the pipeline's PAUSED->READY until it changes to PLAYING again
     mutex mtx;
 
     static void create(GstElement *elem, guint64 ts) {
@@ -489,6 +495,26 @@ struct ElementStats {
         frame_count = 0;
         name = GST_ELEMENT_NAME(elem);
         reset_interval(ts);
+        running = TRUE;
+    }
+
+    // Starts a new run with fresh statistics, unless the element is still running (a pipeline resumed from PAUSED)
+    void start(GstClockTime ts) {
+        lock_guard<mutex> guard(mtx);
+        if (running)
+            return;
+        total = 0.0;
+        min = G_MAXDOUBLE;
+        max = 0.0;
+        frame_count = 0;
+        reset_interval(ts);
+        running = TRUE;
+    }
+
+    // Ends the run. The statistics stay attached to the element, as a push that is still in flight may be using them.
+    void stop() {
+        lock_guard<mutex> guard(mtx);
+        running = FALSE;
     }
 
     void reset_interval(GstClockTime now) {
@@ -503,9 +529,13 @@ struct ElementStats {
         // Local copies for logging outside the lock
         gdouble frame_latency, avg, local_min, local_max;
         guint local_count;
+        gboolean interval_done = FALSE;
+        gdouble interval_ms = 0.0, interval_avg = 0.0, interval_min_copy = 0.0, interval_max_copy = 0.0;
 
         {
             lock_guard<mutex> guard(mtx);
+            if (!running)
+                return;
             frame_count += 1;
             frame_latency = (gdouble)GST_CLOCK_DIFF(sink_ts, src_ts) / ns_to_ms;
             total += frame_latency;
@@ -519,26 +549,28 @@ struct ElementStats {
             local_min = min;
             local_max = max;
             local_count = frame_count;
+
+            interval_frame_count += 1;
+            interval_total += frame_latency;
+            if (frame_latency < interval_min)
+                interval_min = frame_latency;
+            if (frame_latency > interval_max)
+                interval_max = frame_latency;
+            interval_ms = (gdouble)GST_CLOCK_DIFF(interval_init_time, src_ts) / ns_to_ms;
+            if (interval_ms >= interval) {
+                interval_done = TRUE;
+                interval_avg = interval_total / interval_frame_count;
+                interval_min_copy = interval_min;
+                interval_max_copy = interval_max;
+                reset_interval(src_ts);
+            }
         } // Lock released here
 
         // Log outside the lock to minimize lock duration
         gst_tracer_record_log(tr_element, name, frame_latency, avg, local_min, local_max, local_count, is_bin);
-        cal_log_interval(frame_latency, src_ts, interval);
-    }
-
-    void cal_log_interval(gdouble frame_latency, guint64 src_ts, gint interval) {
-        interval_frame_count += 1;
-        interval_total += frame_latency;
-        if (frame_latency < interval_min)
-            interval_min = frame_latency;
-        if (frame_latency > interval_max)
-            interval_max = frame_latency;
-        gdouble ms = (gdouble)GST_CLOCK_DIFF(interval_init_time, src_ts) / ns_to_ms;
-        if (ms >= interval) {
-            gdouble interval_avg = interval_total / interval_frame_count;
-            gst_tracer_record_log(tr_element_interval, name, ms, interval_avg, interval_min, interval_max);
-            reset_interval(src_ts);
-        }
+        if (interval_done)
+            gst_tracer_record_log(tr_element_interval, name, interval_ms, interval_avg, interval_min_copy,
+                                  interval_max_copy);
     }
 };
 
@@ -833,11 +865,13 @@ static void do_push_buffer_pre(LatencyTracer *lt, guint64 ts, GstPad *pad, GstBu
             auto *stats_map = get_branch_stats_map(lt);
             auto *mtx = get_tracer_mutex(lt);
 
-            BranchStats *branch_ptr;
+            shared_ptr<BranchStats> branch_ptr;
             {
                 GMutexLockGuard lock(mtx);
                 auto result = stats_map->try_emplace(branch_key);
-                branch_ptr = &result.first->second;
+                if (result.second)
+                    result.first->second = make_shared<BranchStats>();
+                branch_ptr = result.first->second;
 
                 // Initialize only if this is a newly inserted branch
                 if (result.second) {
@@ -879,9 +913,77 @@ static void do_push_buffer_list_pre(LatencyTracer *lt, guint64 ts, GstPad *pad, 
         &args);
 }
 
+static void push_unique(vector<GstElement *> *list, GstElement *element) {
+    if (std::find(list->begin(), list->end(), element) == list->end())
+        list->push_back(element);
+}
+
+// Drops everything kept for a pipeline that has stopped streaming, so that a restarted pipeline starts
+// with fresh statistics and elements created later at the same addresses inherit nothing. Pushes from
+// threads the pipeline does not join (e.g. inference callbacks or the application) can still be in
+// flight, so branches are only released by their last user and element statistics are stopped in place.
+static void forget_pipeline(LatencyTracer *lt, GstElement *pipeline) {
+    // Recurse into bins: the caches can hold elements from inside bins, not only direct children.
+    vector<GstElement *> elements;
+    GstIterator *iter = gst_bin_iterate_recurse(GST_BIN_CAST(pipeline));
+    GValue val = G_VALUE_INIT;
+    gboolean done = FALSE;
+    while (!done) {
+        switch (gst_iterator_next(iter, &val)) {
+        case GST_ITERATOR_OK:
+            elements.push_back(static_cast<GstElement *>(g_value_get_object(&val)));
+            g_value_reset(&val);
+            break;
+        case GST_ITERATOR_RESYNC:
+            elements.clear();
+            gst_iterator_resync(iter);
+            break;
+        default:
+            done = TRUE;
+            break;
+        }
+    }
+    g_value_unset(&val);
+    gst_iterator_free(iter);
+
+    // Element statistics start again from zero when the pipeline next changes to PLAYING
+    for (auto *element : elements) {
+        if (ElementStats *stats = ElementStats::from_element(element))
+            stats->stop();
+    }
+
+    auto belongs = [&elements](GstElement *e) {
+        return std::find(elements.begin(), elements.end(), e) != elements.end();
+    };
+
+    GMutexLockGuard lock(get_tracer_mutex(lt));
+    auto *stats_map = get_branch_stats_map(lt);
+    for (auto it = stats_map->begin(); it != stats_map->end();) {
+        if (belongs(std::get<1>(it->first)))
+            it = stats_map->erase(it);
+        else
+            ++it;
+    }
+    auto *sources = get_sources_list(lt);
+    sources->erase(std::remove_if(sources->begin(), sources->end(), belongs), sources->end());
+    auto *sinks = get_sinks_list(lt);
+    sinks->erase(std::remove_if(sinks->begin(), sinks->end(), belongs), sinks->end());
+    auto *type_cache = get_element_type_cache(lt);
+    auto *topo_cache = get_topology_cache(lt);
+    for (auto *element : elements) {
+        type_cache->erase(element);
+        topo_cache->erase(element);
+    }
+    GST_INFO_OBJECT(lt, "Released statistics of pipeline: %s", GST_ELEMENT_NAME(pipeline));
+}
+
 static void on_element_change_state_post(LatencyTracer *lt, guint64 ts, GstElement *elem, GstStateChange change,
                                          GstStateChangeReturn result) {
-    UNUSED(result);
+    // The pipeline's own streaming threads have stopped once it is in READY; see forget_pipeline() for the others
+    if (change == GST_STATE_CHANGE_PAUSED_TO_READY && GST_IS_PIPELINE(elem) && result != GST_STATE_CHANGE_FAILURE) {
+        forget_pipeline(lt, elem);
+        return;
+    }
     // Track EVERY pipeline that transitions to PLAYING (not just lt->pipeline)
     if (GST_STATE_TRANSITION_NEXT(change) == GST_STATE_PLAYING && GST_IS_PIPELINE(elem)) {
         GST_INFO_OBJECT(lt, "Discovering elements in pipeline: %s", GST_ELEMENT_NAME(elem));
@@ -913,15 +1015,16 @@ static void on_element_change_state_post(LatencyTracer *lt, guint64 ts, GstEleme
                 elem_type = ElementType::PROCESSING;
             }
 
-            // Write to all shared data structures under the tracer mutex
+            // Write to all shared data structures under the tracer mutex. A pipeline resuming from
+            // PAUSED is discovered again, so the lists must not collect duplicates.
             {
                 GMutexLockGuard lock(mtx);
                 if (elem_type == ElementType::SINK) {
-                    sinks->push_back(element);
+                    push_unique(sinks, element);
                     (*type_cache)[element] = ElementType::SINK;
                     GST_INFO_OBJECT(lt, "Found sink element: %s", GST_ELEMENT_NAME(element));
                 } else if (elem_type == ElementType::SOURCE) {
-                    sources->push_back(element);
+                    push_unique(sources, element);
                     (*type_cache)[element] = ElementType::SOURCE;
                     GST_INFO_OBJECT(lt, "Found source element: %s", GST_ELEMENT_NAME(element));
                 } else {
@@ -929,8 +1032,11 @@ static void on_element_change_state_post(LatencyTracer *lt, guint64 ts, GstEleme
                 }
             }
 
-            if (elem_type == ElementType::PROCESSING && !ElementStats::from_element(element)) {
-                ElementStats::create(element, ts);
+            if (elem_type == ElementType::PROCESSING) {
+                if (ElementStats *stats = ElementStats::from_element(element))
+                    stats->start(ts);
+                else
+                    ElementStats::create(element, ts);
             }
 
             g_value_unset(&gval);
@@ -941,11 +1047,6 @@ static void on_element_change_state_post(LatencyTracer *lt, guint64 ts, GstEleme
             GMutexLockGuard lock(mtx);
             GST_INFO_OBJECT(lt, "Found %zu source(s) and %zu sink(s)", sources->size(), sinks->size());
         }
-
-        GstTracer *tracer = GST_TRACER(lt);
-        gst_tracing_register_hook(tracer, "pad-push-pre", G_CALLBACK(do_push_buffer_pre));
-        gst_tracing_register_hook(tracer, "pad-push-list-pre", G_CALLBACK(do_push_buffer_list_pre));
-        gst_tracing_register_hook(tracer, "pad-pull-range-post", G_CALLBACK(do_pull_range_post));
     }
 }
 // GStreamer tracer hook for element creation
@@ -970,12 +1071,12 @@ static void latency_tracer_init(LatencyTracer *lt) {
     lt->flags = static_cast<LatencyTracerFlags>(LATENCY_TRACER_FLAG_ELEMENT | LATENCY_TRACER_FLAG_PIPELINE);
     lt->interval = 1000;
 
-    lt->branch_stats = new unordered_map<BranchKey, BranchStats, BranchKeyHash>();
+    lt->branch_stats = new BranchStatsMap();
     lt->sources_list = new vector<GstElement *>();
     lt->sinks_list = new vector<GstElement *>();
     lt->element_type_cache = new unordered_map<GstElement *, ElementType>();
     lt->topology_cache = new unordered_map<GstElement *, GstElement *>();
-    static_cast<unordered_map<BranchKey, BranchStats, BranchKeyHash> *>(lt->branch_stats)->reserve(64);
+    static_cast<BranchStatsMap *>(lt->branch_stats)->reserve(64);
 
     // Create the per-tracer mutex that serialises all shared-map writes.
     g_mutex_init(&lt->tracer_mutex);
@@ -983,6 +1084,12 @@ static void latency_tracer_init(LatencyTracer *lt) {
     GstTracer *tracer = GST_TRACER(lt);
     gst_tracing_register_hook(tracer, "element-new", G_CALLBACK(on_element_new));
     gst_tracing_register_hook(tracer, "element-change-state-post", G_CALLBACK(on_element_change_state_post));
+    // Register every hook exactly once: GStreamer keeps hooks in a process-wide list without
+    // de-duplication, so registering again (e.g. per pipeline state change) runs the callback
+    // once per registration and counts each buffer several times.
+    gst_tracing_register_hook(tracer, "pad-push-pre", G_CALLBACK(do_push_buffer_pre));
+    gst_tracing_register_hook(tracer, "pad-push-list-pre", G_CALLBACK(do_push_buffer_list_pre));
+    gst_tracing_register_hook(tracer, "pad-pull-range-post", G_CALLBACK(do_pull_range_post));
     GST_OBJECT_UNLOCK(lt);
 }
 
