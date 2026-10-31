@@ -8,6 +8,7 @@
 #include "gmutex_lock_guard.h"
 #include "latency_tracer_meta.h"
 #include <algorithm>
+#include <array>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -36,6 +37,15 @@ static GQuark data_string = g_quark_from_static_string("latency_tracer");
 #define LATENCY_WINDOW_MESSAGE_NAME "dlstreamer/latency-window"
 #define LATENCY_WINDOW_MESSAGE_VERSION 1u
 
+// Upper bounds of the frame latency buckets in the window messages: R10 preferred numbers from 1 ms to 100 s, so
+// every bucket is about 25 % wide. A frame of latency L is counted in the first bucket whose bound is >= L, and in
+// the extra last bucket when L exceeds every bound (OpenTelemetry explicit-bucket convention).
+static const gdouble latency_bucket_bounds_ms[] = {
+    1,    1.25, 1.6,  2,    2.5,  3.15, 4,     5,     6.3,   8,     10,    12.5,  16,    20,    25,    31.5,  40,
+    50,   63,   80,   100,  125,  160,  200,   250,   315,   400,   500,   630,   800,   1000,  1250,  1600,  2000,
+    2500, 3150, 4000, 5000, 6300, 8000, 10000, 12500, 16000, 20000, 25000, 31500, 40000, 50000, 63000, 80000, 100000};
+static constexpr size_t latency_bucket_count = G_N_ELEMENTS(latency_bucket_bounds_ms) + 1;
+
 // Raw aggregates of one interval window of a branch. Sums and counts, unlike averages, can be merged exactly.
 struct LatencyWindow {
     gdouble window_ms; // actual window length
@@ -43,6 +53,8 @@ struct LatencyWindow {
     gdouble sum_ms;    // sum, minimum and maximum of frame latency
     gdouble min_ms;
     gdouble max_ms;
+    gdouble sum_sq_ms;                               // sum of squared frame latency, for the standard deviation
+    std::array<guint, latency_bucket_count> buckets; // frame latency histogram, for percentiles
 };
 
 // Element type classification for caching
@@ -65,6 +77,8 @@ struct BranchStats {
     gdouble interval_min;
     gdouble interval_max;
     guint interval_frame_count;
+    gdouble interval_sum_sq;                                  // only collected with post-metrics
+    std::array<guint, latency_bucket_count> interval_buckets; // only collected with post-metrics
     GstClockTime interval_init_time;
     GstClockTime first_frame_init_ts;
     GstElement *sink_element; // posts the window messages; set once when the branch is created
@@ -82,6 +96,8 @@ struct BranchStats {
         interval_min = G_MAXDOUBLE;
         interval_max = 0.0;
         interval_frame_count = 0;
+        interval_sum_sq = 0.0;
+        interval_buckets.fill(0);
         interval_init_time = 0;
         first_frame_init_ts = 0;
         pipeline_name = "";
@@ -93,6 +109,8 @@ struct BranchStats {
         interval_max = 0.0;
         interval_init_time = now;
         interval_frame_count = 0;
+        interval_sum_sq = 0.0;
+        interval_buckets.fill(0);
     }
 
     void cal_log_pipeline_latency(guint64 ts, guint64 init_ts, gint interval) {
@@ -130,6 +148,12 @@ struct BranchStats {
                 interval_min = frame_latency;
             if (frame_latency > interval_max)
                 interval_max = frame_latency;
+            if (post_metrics) {
+                interval_sum_sq += frame_latency * frame_latency;
+                const gdouble *end = latency_bucket_bounds_ms + G_N_ELEMENTS(latency_bucket_bounds_ms);
+                interval_buckets[std::lower_bound(latency_bucket_bounds_ms, end, frame_latency) -
+                                 latency_bucket_bounds_ms] += 1;
+            }
             if ((gdouble)GST_CLOCK_DIFF(interval_init_time, ts) / ns_to_ms >= interval)
                 window_done = take_window(ts, &window);
         } // Lock released here
@@ -167,6 +191,8 @@ struct BranchStats {
         window->sum_ms = interval_total;
         window->min_ms = interval_min;
         window->max_ms = interval_max;
+        window->sum_sq_ms = interval_sum_sq;
+        window->buckets = interval_buckets;
         reset_interval(ts);
         return TRUE;
     }
@@ -196,6 +222,26 @@ struct BranchStats {
         gst_structure_set(s, "sum_ms", G_TYPE_DOUBLE, window.sum_ms, NULL);
         gst_structure_set(s, "min_ms", G_TYPE_DOUBLE, window.min_ms, NULL);
         gst_structure_set(s, "max_ms", G_TYPE_DOUBLE, window.max_ms, NULL);
+        gst_structure_set(s, "sum_sq_ms", G_TYPE_DOUBLE, window.sum_sq_ms, NULL);
+
+        GValue bounds = G_VALUE_INIT, counts = G_VALUE_INIT, item = G_VALUE_INIT;
+        gst_value_array_init(&bounds, G_N_ELEMENTS(latency_bucket_bounds_ms));
+        g_value_init(&item, G_TYPE_DOUBLE);
+        for (gdouble bound : latency_bucket_bounds_ms) {
+            g_value_set_double(&item, bound);
+            gst_value_array_append_value(&bounds, &item);
+        }
+        g_value_unset(&item);
+        gst_value_array_init(&counts, latency_bucket_count);
+        g_value_init(&item, G_TYPE_UINT);
+        for (guint count : window.buckets) {
+            g_value_set_uint(&item, count);
+            gst_value_array_append_value(&counts, &item);
+        }
+        g_value_unset(&item);
+        gst_structure_take_value(s, "bucket_bounds_ms", &bounds);
+        gst_structure_take_value(s, "bucket_counts", &counts);
+
         gst_element_post_message(sink_element, gst_message_new_element(GST_OBJECT_CAST(sink_element), s));
     }
 };

@@ -128,6 +128,9 @@ parsing the log. Add `post-metrics=true` to the tracer parameters, and every
 GST_TRACERS="latency_tracer(flags=pipeline,interval=1000,post-metrics=true)" gst-launch-1.0 -m ...
 ```
 
-`flags` must include `pipeline`. Messages are posted once per window, never per frame. The fields, the version rules and a Python example are in
+`flags` must include `pipeline`. Messages are posted once per window, never per frame.
+Besides the values of the log record, a message carries a histogram and a sum of squares
+of the frame latency, from which the percentiles and the standard deviation of the
+window can be computed. The fields, the version rules and a Python example are in
 [Structured Metrics Messages](./metrics_messages.md).
 

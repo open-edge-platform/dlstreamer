@@ -147,9 +147,18 @@ GST_START_TEST(test_window_message_fields) {
     const struct {
         const gchar *name;
         GType type;
-    } fields[] = {{"version", G_TYPE_UINT},  {"pipeline", G_TYPE_STRING},  {"source", G_TYPE_STRING},
-                  {"sink", G_TYPE_STRING},   {"window_ms", G_TYPE_DOUBLE}, {"count", G_TYPE_UINT},
-                  {"sum_ms", G_TYPE_DOUBLE}, {"min_ms", G_TYPE_DOUBLE},    {"max_ms", G_TYPE_DOUBLE}};
+    } fields[] = {{"version", G_TYPE_UINT},
+                  {"pipeline", G_TYPE_STRING},
+                  {"source", G_TYPE_STRING},
+                  {"sink", G_TYPE_STRING},
+                  {"window_ms", G_TYPE_DOUBLE},
+                  {"count", G_TYPE_UINT},
+                  {"sum_ms", G_TYPE_DOUBLE},
+                  {"min_ms", G_TYPE_DOUBLE},
+                  {"max_ms", G_TYPE_DOUBLE},
+                  {"sum_sq_ms", G_TYPE_DOUBLE},
+                  {"bucket_bounds_ms", GST_TYPE_ARRAY},
+                  {"bucket_counts", GST_TYPE_ARRAY}};
     fail_unless_equals_int(gst_structure_n_fields(w), G_N_ELEMENTS(fields));
     for (guint i = 0; i < G_N_ELEMENTS(fields); i++)
         fail_unless(gst_structure_get_field_type(w, fields[i].name) == fields[i].type, "field %s has type %s",
@@ -227,6 +236,62 @@ GST_START_TEST(test_final_window_reported_at_eos) {
 }
 GST_END_TEST;
 
+/* Index of the bucket that counts a frame of the given latency: the first bound >= latency, or the overflow bucket */
+static guint bucket_index(const GValue *bounds, gdouble latency_ms) {
+    guint n = gst_value_array_get_size(bounds);
+    for (guint i = 0; i < n; i++) {
+        if (latency_ms <= g_value_get_double(gst_value_array_get_value(bounds, i)))
+            return i;
+    }
+    return n;
+}
+
+/* The distribution fields describe exactly the frames of the window: counts add up to count, only the buckets
+ * between min_ms and max_ms are used, and the variance from sum_sq_ms is consistent with the range. */
+GST_START_TEST(test_window_latency_distribution) {
+    GstElement *pipeline = make_pipeline("distribution", 30, 30);
+    GPtrArray *windows = play_to_eos(pipeline);
+    fail_unless(windows->len > 0, "no window was posted");
+
+    for (guint i = 0; i < windows->len; i++) {
+        const GstStructure *w = g_ptr_array_index(windows, i);
+        const GValue *bounds = gst_structure_get_value(w, "bucket_bounds_ms");
+        const GValue *counts = gst_structure_get_value(w, "bucket_counts");
+        guint n = gst_value_array_get_size(bounds);
+        fail_unless(n > 0);
+        fail_unless_equals_int(gst_value_array_get_size(counts), n + 1);
+        for (guint b = 1; b < n; b++)
+            fail_unless(g_value_get_double(gst_value_array_get_value(bounds, b - 1)) <
+                            g_value_get_double(gst_value_array_get_value(bounds, b)),
+                        "bounds are not increasing at %u", b);
+
+        guint count = get_uint(w, "count");
+        gdouble min_ms = get_double(w, "min_ms");
+        gdouble max_ms = get_double(w, "max_ms");
+        guint first = bucket_index(bounds, min_ms), last = bucket_index(bounds, max_ms);
+        guint total = 0;
+        for (guint b = 0; b <= n; b++) {
+            guint c = g_value_get_uint(gst_value_array_get_value(counts, b));
+            total += c;
+            if (b < first || b > last)
+                fail_unless_equals_int(c, 0);
+        }
+        fail_unless_equals_int(total, count);
+        fail_unless(g_value_get_uint(gst_value_array_get_value(counts, first)) > 0, "no frame in the min_ms bucket");
+        fail_unless(g_value_get_uint(gst_value_array_get_value(counts, last)) > 0, "no frame in the max_ms bucket");
+
+        gdouble mean = get_double(w, "sum_ms") / count;
+        gdouble variance = get_double(w, "sum_sq_ms") / count - mean * mean;
+        gdouble half_range = (max_ms - min_ms) / 2;
+        fail_unless(variance >= -1e-9 * mean * mean, "negative variance %f", variance);
+        fail_unless(variance <= half_range * half_range + 1e-9 * mean * mean,
+                    "variance %f exceeds the bound of the range [%f, %f]", variance, min_ms, max_ms);
+    }
+    g_ptr_array_unref(windows);
+    gst_object_unref(pipeline);
+}
+GST_END_TEST;
+
 typedef struct {
     GstElement *pipeline;
     GPtrArray *windows;
@@ -271,6 +336,7 @@ static Suite *latency_tracer_metrics_suite(void) {
     suite_add_tcase(s, tc);
     tcase_add_test(tc, test_window_message_fields);
     tcase_add_test(tc, test_window_messages_match_tracer_records);
+    tcase_add_test(tc, test_window_latency_distribution);
     tcase_add_test(tc, test_final_window_reported_at_eos);
     tcase_add_test(tc, test_concurrent_pipelines_get_own_windows);
     return s;
