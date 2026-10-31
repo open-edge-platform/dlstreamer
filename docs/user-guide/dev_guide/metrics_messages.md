@@ -38,6 +38,11 @@ sink element when the tracer logs the matching `latency_tracer_pipeline_interval
 and only when the tracer `flags` include `pipeline`. The window that is still open when EOS
 reaches the sink is posted as well, so the windows of a run cover all its frames.
 
+The frame latency is the time from the source element pushing a frame to the frame being
+pushed into the sink, so the sink's own work is not included. The message describes the
+frame latencies of the window as a count, a sum, the extremes, a sum of squares and a
+histogram.
+
 | Field | Type | Description |
 |---|---|---|
 | `version` | uint | Schema version, `1` |
@@ -46,19 +51,33 @@ reaches the sink is posted as well, so the windows of a run cover all its frames
 | `sink` | string | Name of the branch's sink element |
 | `window_ms` | double | Actual length of the window |
 | `count` | uint | Number of frames that reached the sink in the window |
-| `sum_ms` | double | Sum of the frame latencies in the window |
-| `min_ms` | double | Minimum frame latency in the window |
-| `max_ms` | double | Maximum frame latency in the window |
+| `sum_ms` | double | Sum of the frame latencies |
+| `min_ms` | double | Minimum frame latency |
+| `max_ms` | double | Maximum frame latency |
+| `sum_sq_ms` | double | Sum of the squared frame latencies, in ms² |
+| `bucket_bounds_ms` | array of double | Increasing upper bounds of the histogram buckets |
+| `bucket_counts` | array of uint | Frames per bucket, one more entry than `bucket_bounds_ms` |
 
-The frame latency is the time from the source element pushing a frame to the frame being
-pushed into the sink. The mean frame latency of a window is `sum_ms / count`, and its frame
-rate is `1000 * count / window_ms`. `window_ms / count`, the `latency` field of the log
-record, is the time between output frames: it describes throughput, not how long a frame
-takes.
+`bucket_counts[0]` counts the frames with a latency up to `bucket_bounds_ms[0]`,
+`bucket_counts[i]` those above `bucket_bounds_ms[i-1]` and up to `bucket_bounds_ms[i]`, and
+the last entry those above the last bound, as in OpenTelemetry explicit-bucket histograms.
+The bounds currently run from 1 ms to 100 s, each about 25 % above the previous one. Read
+them from the message instead of assuming them.
 
-The message carries sums and counts instead of averages, so windows of several intervals or
-branches can be combined exactly: add up `count`, `sum_ms` and `window_ms`, and take the
-minimum and maximum of `min_ms` and `max_ms`.
+What can be derived from a window:
+
+| Value | Derivation |
+|---|---|
+| Mean frame latency | `sum_ms / count` |
+| Standard deviation of the frame latency | `sqrt(sum_sq_ms / count - (sum_ms / count)²)` |
+| Frame latency percentiles, e.g. p95 | From the histogram: find the bucket that holds rank `0.95 * count` and interpolate within it. The result is an estimate within the bucket width; the other values are exact. |
+| Frame rate | `1000 * count / window_ms` |
+| Frame period | `window_ms / count`. This is the time between output frames, `1000 / fps`, and the `latency` field of the log record. It describes throughput, not how long a frame takes. |
+
+Windows of several intervals or branches can be combined exactly: add up `count`, `sum_ms`,
+`sum_sq_ms`, `window_ms` and the `bucket_counts` (when the bounds are the same), and take the
+minimum of `min_ms` and the maximum of `max_ms`. Averaging the per-window means or
+percentiles instead would weight windows equally regardless of how many frames they hold.
 
 ## Reading messages in Python
 
