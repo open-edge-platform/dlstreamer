@@ -58,6 +58,10 @@ Key measurement for `latency_tracer_pipeline`:
 - `fps` - frames per second indicating the throughput of the pipeline, calculated as `1000 / latency` where latency is in milliseconds
 - `frame_num` - frame number for which latencies values are calculated
 
+Statistics cover the current run of a pipeline. When a pipeline goes from `PAUSED` to `READY`, for example when it is
+stopped, the tracer resets its pipeline and element statistics, so a restarted pipeline begins again from
+`frame_num` 1. Pausing and resuming a pipeline keeps its statistics.
+
 ### Configuration options
 
 The `latency_tracer` can be configured to show latencies only for elements or a pipeline:
@@ -107,3 +111,26 @@ Key measurements in interval reports:
 - `interval` - The actual duration of the reporting interval in milliseconds
 - All other parameters (`avg`, `min`, `max`, `latency`, `fps`) have the same interpretation as for ordinary latency_tracer,
   but statistics are calculated for the last interval window only
+
+When the stream ends, EOS reaching a sink reports the window that is still open, so the
+last frames of a run are included. That window is usually shorter than the configured
+interval. A pipeline that stops without EOS, for example after an error, does not report
+its open window.
+
+## Bus messages
+
+Applications that need the interval statistics can read them as typed values instead of
+parsing the log. Add `post-metrics=true` to the tracer parameters, and every
+`latency_tracer_pipeline_interval` window is also posted on the pipeline bus as a
+`dlstreamer/latency-window` element message from the branch's sink:
+
+```bash
+GST_TRACERS="latency_tracer(flags=pipeline,interval=1000,post-metrics=true)" gst-launch-1.0 -m ...
+```
+
+`flags` must include `pipeline`. Messages are posted once per window, never per frame.
+Besides the values of the log record, a message carries a histogram and a sum of squares
+of the frame latency, from which the percentiles and the standard deviation of the
+window can be computed. The fields, the version rules and a Python example are in
+[Structured Metrics Messages](./metrics_messages.md).
+

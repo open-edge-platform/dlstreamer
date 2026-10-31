@@ -18,7 +18,7 @@ demonstrates, the elements/models it uses, and its language — `CLI` (`gst-laun
 | [Vision-Language Models (VLM) & GenAI (5)](#vision-language-models-vlm--genai) | [Audio analytics (2)](#audio-analytics) |
 | [3D: LiDAR & radar (5)](#3d-lidar--radar) | [Cameras & input sources (4)](#cameras--input-sources) |
 | [Metadata: publishing, access & visualization (8)](#metadata-publishing-access--visualization) | [Customization & extensibility (8)](#customization--extensibility) |
-| [Performance & benchmarking (2)](#performance--benchmarking) | [Interoperability (2)](#interoperability) |
+| [Performance & benchmarking (3)](#performance--benchmarking) | [Interoperability (2)](#interoperability) |
 | [Auto-generated reference applications (8)](#auto-generated-reference-applications) | |
 
 > [!TIP]
@@ -118,6 +118,7 @@ demonstrates, the elements/models it uses, and its language — `CLI` (`gst-laun
 | --- | --- |
 | ![Benchmark](../_images/sample_app_template.png) | [Benchmark](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/benchmark) `CLI`, `Python`<br>Measure the performance of single- or multi-channel video analytics pipelines.<br>**Key elements:** `gvadetect`, `gvafpscounter`<br>**Models:** `centerface` (configurable) |
 | ![DL Streamer E2E Performance](../_images/sample-e2e-performance-thumb.jpg) | [DL Streamer E2E Performance](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/e2e_performance) `Python`<br>Compare DL Streamer vs. OpenCV + OpenVINO throughput with a YOLO26s INT8 model.<br>**Key elements:** `gvadetect`<br>**Models:** `yolo26s` (INT8) |
+| ![Latency Metrics](../_images/sample_app_template.png) | [Latency Metrics](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/latency_metrics) `Python`<br>Read per-branch pipeline latency and frame rate from `latency_tracer` bus messages instead of logs.<br>**Key elements:** `latency_tracer`<br>**Models:** — (any pipeline) |
 
 ### Interoperability
 
