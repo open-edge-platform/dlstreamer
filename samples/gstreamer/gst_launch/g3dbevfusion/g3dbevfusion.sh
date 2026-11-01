@@ -10,12 +10,16 @@
 #   fusion  six cameras + lidar (default)
 #   lidar   lidar only (no camera branches in the pipeline)
 #   output  directory for rendered JPEG frames; omit to discard (fakesink)
+#
+# RENDER_OPTS replaces the g3drender properties, for example
+#   RENDER_OPTS="view-mode=perspective forward-axis=y point-stride=2 width=2400 height=900"
+#   RENDER_OPTS="view-mode=cam-proj cam-proj-index=0 point-stride=2 width=1600 height=900"
 # ==============================================================================
 
 set -euo pipefail
 
 if [[ $# -lt 2 ]]; then
-  sed -n '7,13p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '7,16p' "$0" | sed 's/^# \{0,1\}//'
   exit 1
 fi
 
@@ -53,7 +57,8 @@ if [[ -n "$OUTPUT" ]]; then
   mkdir -p "$OUTPUT"
   # nuScenes lidar: +y is the vehicle's forward axis, and ~35k points a frame (a
   # quarter of KITTI's), so draw every 2nd point instead of the default 16th.
-  SINK="g3drender forward-axis=y point-stride=2 width=2400 height=900 ! videoconvert ! jpegenc quality=90 ! multifilesink location=${OUTPUT}/%06d.jpg"
+  RENDER_OPTS=${RENDER_OPTS:-"forward-axis=y point-stride=2 width=2400 height=900"}
+  SINK="g3drender ${RENDER_OPTS} ! videoconvert ! jpegenc quality=90 ! multifilesink location=${OUTPUT}/%06d.jpg"
 else
   SINK="fakesink sync=false"
 fi
