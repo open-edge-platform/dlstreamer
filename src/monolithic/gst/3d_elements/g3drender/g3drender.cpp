@@ -18,6 +18,7 @@
 #include <opencv2/imgproc.hpp>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstring>
 #include <unordered_set>
@@ -553,6 +554,31 @@ const cv::Scalar kColorUnmatched(0, 255, 0);   // green — 3D unmatched
 const cv::Scalar kColor2DUnmatched(0, 255, 0); // green — 2D unmatched
 const cv::Scalar kColorMatched(255, 255, 255); // white — 3D matched (associated with a 2D det)
 
+/* The 8 corners of a GstAnalytics3DODMtd box, in the lidar frame: length along
+ * the box's local x, width along its local y, rotated by yaw counter-clockwise
+ * about +z and centred on the box centre. Corners 0-3 are the bottom face and
+ * 4-7 the top face, in the same order, so the 12 edges are kBoxEdges. */
+std::array<cv::Point3f, 8> box_corners(const GstAnalytics3DODMtd &mtd) {
+    gfloat cx, cy, cz, length, width, height, yaw, pitch, roll;
+    gst_analytics_3d_od_mtd_get_location(const_cast<GstAnalytics3DODMtd *>(&mtd), &cx, &cy, &cz, &length, &width,
+                                         &height, &yaw, &pitch, &roll);
+    const float c = std::cos(yaw), s = std::sin(yaw);
+    const float hl = length / 2.0f, hw = width / 2.0f, hh = height / 2.0f;
+    const float lx[4] = {-hl, +hl, +hl, -hl};
+    const float ly[4] = {-hw, -hw, +hw, +hw};
+    std::array<cv::Point3f, 8> corners;
+    for (int i = 0; i < 4; ++i) {
+        const float wx = cx + lx[i] * c - ly[i] * s;
+        const float wy = cy + lx[i] * s + ly[i] * c;
+        corners[i] = cv::Point3f(wx, wy, cz - hh);
+        corners[i + 4] = cv::Point3f(wx, wy, cz + hh);
+    }
+    return corners;
+}
+
+const int kBoxEdges[12][2] = {{0, 1}, {1, 2}, {2, 3}, {3, 0}, {4, 5}, {5, 6},
+                              {6, 7}, {7, 4}, {0, 4}, {1, 5}, {2, 6}, {3, 7}};
+
 /* Projects 3D box corners through a synthetic perspective camera and draws the 12 box edges.
  * Boxes behind the camera (center_depth <= 0.5) are skipped. */
 void draw_detection_boxes_perspective(cv::Mat &canvas, GstBuffer *inbuf, const cv::Mat &rvec, const cv::Mat &tvec,
@@ -572,20 +598,8 @@ void draw_detection_boxes_perspective(cv::Mat &canvas, GstBuffer *inbuf, const c
     while (gst_analytics_relation_meta_iterate(rmeta, &state, type, reinterpret_cast<GstAnalyticsMtd *>(&mtd))) {
         gfloat bcx, bcy, bcz, length, width, height, yaw, pitch, roll;
         gst_analytics_3d_od_mtd_get_location(&mtd, &bcx, &bcy, &bcz, &length, &width, &height, &yaw, &pitch, &roll);
-
-        float cos_t = std::cos(yaw), sin_t = -std::sin(yaw);
-        float hx = width / 2.0f, hy = length / 2.0f, hz = height / 2.0f;
-
-        float lx[4] = {-hx, +hx, +hx, -hx};
-        float ly[4] = {-hy, -hy, +hy, +hy};
-
-        std::vector<cv::Point3f> corners(8);
-        for (int i = 0; i < 4; ++i) {
-            float wx = bcx + lx[i] * cos_t - ly[i] * sin_t;
-            float wy = bcy + lx[i] * sin_t + ly[i] * cos_t;
-            corners[i] = cv::Point3f(wx, wy, bcz - hz);
-            corners[i + 4] = cv::Point3f(wx, wy, bcz + hz);
-        }
+        const std::array<cv::Point3f, 8> box = box_corners(mtd);
+        const std::vector<cv::Point3f> corners(box.begin(), box.end());
 
         double center_depth = zx * (bcx - cpx) + zy * (bcy - cpy) + zz * (bcz - cpz);
         if (center_depth <= 0.5)
@@ -594,12 +608,10 @@ void draw_detection_boxes_perspective(cv::Mat &canvas, GstBuffer *inbuf, const c
         std::vector<cv::Point2f> img_corners;
         cv::projectPoints(corners, rvec, tvec, K, dist_coeffs, img_corners);
 
-        static const int edges[12][2] = {{0, 1}, {1, 2}, {2, 3}, {3, 0}, {4, 5}, {5, 6},
-                                         {6, 7}, {7, 4}, {0, 4}, {1, 5}, {2, 6}, {3, 7}};
         bool matched = assoc_ids.count(mtd.id) > 0;
         cv::Scalar color = matched ? kColorMatched : kColorUnmatched;
         int thickness = 1;
-        for (auto &e : edges) {
+        for (auto &e : kBoxEdges) {
             int a = e[0], b = e[1];
             cv::line(canvas, cv::Point(static_cast<int>(img_corners[a].x), static_cast<int>(img_corners[a].y)),
                      cv::Point(static_cast<int>(img_corners[b].x), static_cast<int>(img_corners[b].y)), color,
@@ -816,15 +828,10 @@ void draw_detection_boxes_bev(cv::Mat &canvas, GstBuffer *inbuf, const GstG3DRen
         cv::Scalar color = matched ? kColorMatched : kColorUnmatched;
         int thickness = 1;
 
-        float cos_t = std::cos(yaw), sin_t = -std::sin(yaw);
-        float hx = width / 2.0f, hy = length / 2.0f;
-        float wx[4] = {cx + cos_t * hx - sin_t * hy, cx - cos_t * hx - sin_t * hy, cx - cos_t * hx + sin_t * hy,
-                       cx + cos_t * hx + sin_t * hy};
-        float wy[4] = {cy + sin_t * hx + cos_t * hy, cy - sin_t * hx + cos_t * hy, cy - sin_t * hx - cos_t * hy,
-                       cy + sin_t * hx - cos_t * hy};
+        const std::array<cv::Point3f, 8> box = box_corners(mtd);
         std::vector<cv::Point> poly(4);
         for (int k = 0; k < 4; ++k)
-            poly[k] = world_to_pixel_bev(wx[k], wy[k], self, roi_w, roi_h);
+            poly[k] = world_to_pixel_bev(box[k].x, box[k].y, self, roi_w, roi_h);
         cv::polylines(canvas, poly, true, color, thickness);
         cv::circle(canvas, world_to_pixel_bev(cx, cy, self, roi_w, roi_h), 4, color, -1);
     }
@@ -1109,23 +1116,14 @@ void draw_cam_projection(cv::Mat &canvas, const float *points, guint count, GstB
         gfloat bcx, bcy, bcz, length, width, height, yaw, pitch, roll;
         gst_analytics_3d_od_mtd_get_location(&mtd, &bcx, &bcy, &bcz, &length, &width, &height, &yaw, &pitch, &roll);
 
-        float cos_t = std::cos(yaw), sin_t = -std::sin(yaw);
-        float hx = width / 2.0f, hy = length / 2.0f, hz = height / 2.0f;
-        float lx[4] = {-hx, +hx, +hx, -hx};
-        float ly[4] = {-hy, -hy, +hy, +hy};
-
         /* Build 4×8 homogeneous corner matrix (columns = corners). */
+        const std::array<cv::Point3f, 8> box = box_corners(mtd);
         cv::Mat corners(4, 8, CV_32FC1);
-        for (int k = 0; k < 4; ++k) {
-            float wx = bcx + lx[k] * cos_t - ly[k] * sin_t;
-            float wy = bcy + lx[k] * sin_t + ly[k] * cos_t;
-            for (int top = 0; top < 2; ++top) {
-                int col = k + top * 4;
-                corners.at<float>(0, col) = wx;
-                corners.at<float>(1, col) = wy;
-                corners.at<float>(2, col) = bcz + (top == 0 ? -hz : hz);
-                corners.at<float>(3, col) = 1.0f;
-            }
+        for (int k = 0; k < 8; ++k) {
+            corners.at<float>(0, k) = box[k].x;
+            corners.at<float>(1, k) = box[k].y;
+            corners.at<float>(2, k) = box[k].z;
+            corners.at<float>(3, k) = 1.0f;
         }
 
         /* Check center depth; skip boxes behind camera. */
@@ -1153,9 +1151,7 @@ void draw_cam_projection(cv::Mat &canvas, const float *points, guint count, GstB
         cv::Scalar color = matched ? kColorMatched : kColorUnmatched;
         int thickness = 1;
 
-        static const int edges[12][2] = {{0, 1}, {1, 2}, {2, 3}, {3, 0}, {4, 5}, {5, 6},
-                                         {6, 7}, {7, 4}, {0, 4}, {1, 5}, {2, 6}, {3, 7}};
-        for (const auto &e : edges)
+        for (const auto &e : kBoxEdges)
             cv::line(canvas, pts2d[e[0]], pts2d[e[1]], color, thickness, cv::LINE_AA);
     }
 
