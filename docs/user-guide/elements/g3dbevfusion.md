@@ -70,15 +70,19 @@ The extension libraries only load into the OpenVINO version they were built agai
 {
   "lidar": { "pad": 6 },
   "cameras": {
-    "0": { "slot": 0, "name": "CAM_FRONT",
-           "camera2lidar": [16 floats, 4x4 row-major],
-           "intrinsics":   [9 floats, 3x3 row-major] },
-    "1": { "slot": 1, "name": "CAM_FRONT_RIGHT", ... },
-    ...
+    "0": {
+      "slot": 0,
+      "name": "CAM_FRONT",
+      "camera2lidar": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+      "intrinsics": [1266.4, 0, 816.3, 0, 1266.4, 491.5, 0, 0, 1]
+    }
   }
 }
 ```
 
+The example shows one camera with placeholder values; a fusion rig lists six, keyed `"0"` to `"5"` for pads 0-5.
+
+- `camera2lidar` is a 4x4 row-major matrix (16 values) and `intrinsics` a 3x3 row-major matrix (9 values).
 - `lidar.pad` and the keys of `cameras` are `gvastreammux` sink pad indices (`mux.sink_<pad>`).
 - `slot` is the camera's position in the model's batch, in the nuScenes order `CAM_FRONT`, `CAM_FRONT_RIGHT`, `CAM_FRONT_LEFT`, `CAM_BACK`, `CAM_BACK_LEFT`, `CAM_BACK_RIGHT`. Every slot 0-5 must appear exactly once.
 - `camera2lidar` takes camera coordinates (x right, y down, z forward) to the LiDAR frame.
