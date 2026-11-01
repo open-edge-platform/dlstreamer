@@ -4,13 +4,15 @@ Renders a LiDAR point cloud — with optional camera streams and cross-modal det
 
 ## Overview
 
-The `g3drender` element is a `GstBaseTransform` that accepts either a raw LiDAR stream or a `GstAnalyticsBatchMeta` container (produced by `gvastreammux` + `g3dobjectfuser`) and produces a single `video/x-raw(BGR)` frame per input buffer. It supports three rendering modes selected by the `view-mode` property.
+The `g3drender` element is a `GstBaseTransform` that accepts either a raw LiDAR stream or a `GstAnalyticsBatchMeta` container (produced by `gvastreammux`, followed by `g3dobjectfuser` or `g3dbevfusion`) and produces a single `video/x-raw(BGR)` frame per input buffer. It supports three rendering modes selected by the `view-mode` property.
 
 **Rendering modes:**
 
 - **`bev` (default)** — Bird's-eye view. The point cloud is projected top-down onto the XY plane. A metric grid and a coordinate-axis indicator are overlaid. 3D detection boxes are drawn as projected footprint polygons.
 - **`perspective`** — Synthetic 3D camera view. Camera position is controlled by `cam-distance`, `cam-elevation`, and `cam-azimuth`. Each LiDAR point is coloured by height. 3D detection boxes are drawn as full wire-frame cuboids.
-- **`cam-proj`** — LiDAR projected onto a real camera image. LiDAR points and 3D boxes are projected using KITTI-style calibration matrices (`P2 × R0 × Tr`) received from `g3dobjectfuser` via the `g3d/calibration` sticky event. 
+- **`cam-proj`** — LiDAR projected onto a real camera image. LiDAR points and 3D boxes are projected using KITTI-style calibration matrices (`P2 × R0 × Tr`) received from `g3dobjectfuser` or `g3dbevfusion` via the `g3d/calibration` sticky event.
+
+In `bev` and `perspective` modes, each camera tile also shows the 3D boxes projected into that camera, when the `g3d/calibration` event carries a calibration for the camera's `gvastreammux` pad. Box edges are clipped at 0.5 m in front of the camera, so a box that is partly behind it keeps its visible part.
 
 ## Properties
 
@@ -26,9 +28,10 @@ The `g3drender` element is a `GstBaseTransform` that accepts either a raw LiDAR 
 | `cam-elevation` | float | [5.0, 89.0] | 30.0 | Synthetic camera elevation angle in degrees (`5°` = near eye-level, `89°` = near top-down). Only effective in `perspective` mode. |
 | `cam-azimuth` | float | [-360.0, 360.0] | 180.0 | Synthetic camera horizontal azimuth in degrees. Only effective in `perspective` mode. |
 | `cam-fov` | float | [10.0, 150.0] | 60.0 | Synthetic camera vertical field of view in degrees. Only effective in `perspective` mode. |
-| `cam-proj-index` | int | [0, 255] | 0 | Index of the camera sub-stream to use as the projection background in `cam-proj` mode. Clamped to the number of available camera streams at runtime. |
+| `cam-proj-index` | int | [0, 255] | 0 | `gvastreammux` pad index of the camera to use as the projection background in `cam-proj` mode. The first camera in the batch is used when no camera has this index. |
 | `cam-bg-grayscale` | bool | true / false | true | Convert the camera background to grayscale in `cam-proj` mode. |
 | `cam-bg-dim` | float | [0.0, 1.0] | 0.65 | Brightness multiplier for the camera background in `cam-proj` mode (`0.0=black`, `1.0=original`). |
+| `bev-forward` | enum | `x` / `y` | `x` | Sensor axis drawn pointing up in `bev` mode: `x` for LiDARs whose +x is the vehicle's forward direction (KITTI), `y` for those whose +y is (nuScenes). |
 
 ## Pipeline Examples
 
@@ -155,7 +158,13 @@ The LiDAR panel is always a `height × height` square anchored to the right edge
 
 - **Auto-double width**: When the input is a batch stream and `width == height`, `g3drender` automatically doubles `width` to `height × 2` during caps negotiation so the default square canvas fits the side-by-side camera + LiDAR layout. Set `width` to a value other than `height` to suppress this behaviour.
 
-- **cam-proj requires calibration**: `cam-proj` mode depends on the `g3d/calibration` sticky event emitted by `g3dobjectfuser`. Without it the element falls back to `bev`.
+- **cam-proj requires calibration**: `cam-proj` mode depends on the `g3d/calibration` sticky event emitted by `g3dobjectfuser` or `g3dbevfusion`. Without a calibration for the selected camera the element falls back to `bev`.
+
+- **3D box convention**: boxes are drawn as `GstAnalytics3DODMtd` defines them: `length` along the box's own x axis, `width` along its y axis, rotated by `yaw` counter-clockwise about +z.
+
+- **Box colours**: a 3D box that `g3dobjectfuser` associated with a camera detection is white. Otherwise, when the `g3d/calibration` event lists `class-names` (as `g3dbevfusion` does), boxes are coloured per class; if not, they are green.
+
+- **Point intensity**: points are coloured by intensity, normalised to 0..1. Intensities above 1.5 in a frame are taken to be on a 0..255 scale.
 
 - **cam-proj projects one camera at a time**: When multiple camera streams are present, only the stream selected by `cam-proj-index` (default `0`) is used as the projection background. Other camera streams are ignored in this mode.
 
@@ -189,6 +198,11 @@ Pads:
 
 Element Properties:
 
+  bev-forward         : Sensor axis drawn pointing up in bev mode: x for sensors whose +x is the vehicle's forward direction (KITTI), y for those whose +y is (nuScenes)
+                        flags: readable, writable
+                        Enum "GstG3DRenderBevForward" Default: 0, "x"
+                           (0): x                - Sensor +x points up (e.g. KITTI)
+                           (1): y                - Sensor +y points up (e.g. nuScenes)
   cam-azimuth         : Camera horizontal angle in degrees (perspective mode)
                         flags: readable, writable
                         Float. Range:            -360 -             360 Default:             180
@@ -201,7 +215,7 @@ Element Properties:
   cam-fov             : Field of view in degrees (perspective mode)
                         flags: readable, writable
                         Float. Range:              10 -             150 Default:              60
-  cam-proj-index      : Index of the camera stream to use for LiDAR projection in cam-proj mode; clamped to the number of available camera streams at runtime
+  cam-proj-index      : gvastreammux pad index of the camera to use for LiDAR projection in cam-proj mode; the first camera in the batch is used when no camera has this index
                         flags: readable, writable
                         Integer. Range: 0 - 255 Default: 0
   cam-bg-dim          : Brightness multiplier for the camera background in cam-proj mode (0.0=black, 1.0=original)

@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 #include <unordered_set>
 #include <vector>
@@ -39,6 +40,17 @@ GType gst_g3d_render_view_mode_get_type(void) {
     return type;
 }
 
+GType gst_g3d_render_bev_forward_get_type(void) {
+    static GType type = 0;
+    if (!type) {
+        static const GEnumValue values[] = {{0, "Sensor +x points up (e.g. KITTI)", "x"},
+                                            {1, "Sensor +y points up (e.g. nuScenes)", "y"},
+                                            {0, nullptr, nullptr}};
+        type = g_enum_register_static("GstG3DRenderBevForward", values);
+    }
+    return type;
+}
+
 enum {
     PROP_0,
     PROP_WIDTH,
@@ -54,6 +66,7 @@ enum {
     PROP_CAM_PROJ_INDEX,
     PROP_CAM_BG_GRAYSCALE,
     PROP_CAM_BG_DIM,
+    PROP_BEV_FORWARD,
 };
 
 static GstStaticPadTemplate sink_template =
@@ -77,6 +90,7 @@ static gboolean gst_g3d_render_set_caps(GstBaseTransform *trans, GstCaps *incaps
 static GstFlowReturn gst_g3d_render_prepare_output_buffer(GstBaseTransform *trans, GstBuffer *inbuf,
                                                           GstBuffer **outbuf);
 static GstFlowReturn gst_g3d_render_transform(GstBaseTransform *trans, GstBuffer *inbuf, GstBuffer *outbuf);
+static void gst_g3d_render_finalize(GObject *obj);
 
 G_DEFINE_TYPE(GstG3DRender, gst_g3d_render, GST_TYPE_BASE_TRANSFORM);
 
@@ -89,6 +103,7 @@ static void gst_g3d_render_class_init(GstG3DRenderClass *klass) {
 
     gobject_class->set_property = gst_g3d_render_set_property;
     gobject_class->get_property = gst_g3d_render_get_property;
+    gobject_class->finalize = gst_g3d_render_finalize;
 
     g_object_class_install_property(gobject_class, PROP_WIDTH,
                                     g_param_spec_int("width", "Width", "Output image width in pixels", 1, 32767, 800,
@@ -148,8 +163,8 @@ static void gst_g3d_render_class_init(GstG3DRenderClass *klass) {
     g_object_class_install_property(
         gobject_class, PROP_CAM_PROJ_INDEX,
         g_param_spec_int("cam-proj-index", "Camera Projection Index",
-                         "Index of the camera stream to use for LiDAR projection in cam-proj mode; "
-                         "clamped to the number of available camera streams at runtime",
+                         "gvastreammux pad index of the camera to use for LiDAR projection in cam-proj mode; "
+                         "the first camera in the batch is used when no camera has this index",
                          0, 255, 0, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     g_object_class_install_property(gobject_class, PROP_CAM_BG_GRAYSCALE,
@@ -163,6 +178,14 @@ static void gst_g3d_render_class_init(GstG3DRenderClass *klass) {
         g_param_spec_float("cam-bg-dim", "Camera Background Dim Factor",
                            "Brightness multiplier for the camera background in cam-proj mode (0.0=black, 1.0=original)",
                            0.0f, 1.0f, 0.65f, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+    g_object_class_install_property(
+        gobject_class, PROP_BEV_FORWARD,
+        g_param_spec_enum("bev-forward", "BEV forward axis",
+                          "Sensor axis drawn pointing up in bev mode: x for sensors whose +x is the vehicle's "
+                          "forward direction (KITTI), y for those whose +y is (nuScenes)",
+                          GST_TYPE_G3D_RENDER_BEV_FORWARD, 0,
+                          (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     gst_element_class_set_static_metadata(element_class, "G3D LiDAR Renderer", "Filter/Converter",
                                           "Renders LiDAR point cloud as BEV or perspective 3D video frame (g3drender)",
@@ -201,7 +224,16 @@ static void gst_g3d_render_init(GstG3DRender *self) {
     self->frame_duration = GST_SECOND / 10;
     self->frame_count = 0;
     self->input_is_batch = FALSE;
-    self->has_calib = FALSE;
+    self->bev_forward = 0;
+    for (gint i = 0; i < G3D_RENDER_MAX_CAMERAS; ++i)
+        self->cam_has_calib[i] = FALSE;
+    self->class_names = nullptr;
+}
+
+static void gst_g3d_render_finalize(GObject *obj) {
+    GstG3DRender *self = GST_G3D_RENDER(obj);
+    g_strfreev(self->class_names);
+    G_OBJECT_CLASS(gst_g3d_render_parent_class)->finalize(obj);
 }
 
 static gboolean gst_g3d_render_start(GstBaseTransform *trans) {
@@ -237,18 +269,35 @@ static gboolean gst_g3d_render_sink_event(GstBaseTransform *trans, GstEvent *eve
     if (GST_EVENT_TYPE(event) == GST_EVENT_CUSTOM_DOWNSTREAM_STICKY) {
         const GstStructure *s = gst_event_get_structure(event);
         if (s && gst_structure_has_name(s, "g3d/calibration")) {
-            char cam_key[32];
-            g_snprintf(cam_key, sizeof(cam_key), "camera-%d", self->cam_proj_index);
-            const GValue *cam_val = gst_structure_get_value(s, cam_key);
-            if (!cam_val)
-                cam_val = gst_structure_get_value(s, "camera-0");
-            if (cam_val && GST_VALUE_HOLDS_STRUCTURE(cam_val)) {
+            /* Keep every camera-<pad> entry: each camera tile, and cam-proj,
+             * projects with the calibration of its own mux pad. */
+            for (gint i = 0; i < G3D_RENDER_MAX_CAMERAS; ++i)
+                self->cam_has_calib[i] = FALSE;
+            for (gint f = 0; f < gst_structure_n_fields(s); ++f) {
+                const gchar *field = gst_structure_nth_field_name(s, f);
+                if (!g_str_has_prefix(field, "camera-"))
+                    continue;
+                const gint pad = atoi(field + strlen("camera-"));
+                const GValue *cam_val = gst_structure_get_value(s, field);
+                if (pad < 0 || pad >= G3D_RENDER_MAX_CAMERAS || !GST_VALUE_HOLDS_STRUCTURE(cam_val))
+                    continue;
                 const GstStructure *cam = gst_value_get_structure(cam_val);
-                if (read_gst_float_array(cam, "tr_velo_to_cam", self->calib_tr, 16) &&
-                    read_gst_float_array(cam, "r0_rect", self->calib_r0, 16) &&
-                    read_gst_float_array(cam, "p2", self->calib_p2, 12)) {
-                    self->has_calib = TRUE;
-                    GST_INFO_OBJECT(self, "cam-proj calibration received from objectfuser");
+                self->cam_has_calib[pad] = read_gst_float_array(cam, "tr_velo_to_cam", self->cam_tr[pad], 16) &&
+                                           read_gst_float_array(cam, "r0_rect", self->cam_r0[pad], 16) &&
+                                           read_gst_float_array(cam, "p2", self->cam_p2[pad], 12);
+                if (self->cam_has_calib[pad])
+                    GST_INFO_OBJECT(self, "calibration received for the camera on pad %d", pad);
+            }
+
+            g_strfreev(self->class_names);
+            self->class_names = nullptr;
+            const GValue *names = gst_structure_get_value(s, "class-names");
+            if (names && GST_VALUE_HOLDS_ARRAY(names)) {
+                const guint n = gst_value_array_get_size(names);
+                self->class_names = g_new0(gchar *, n + 1);
+                for (guint i = 0; i < n; ++i) {
+                    const GValue *v = gst_value_array_get_value(names, i);
+                    self->class_names[i] = g_strdup(G_VALUE_HOLDS_STRING(v) ? g_value_get_string(v) : "");
                 }
             }
         }
@@ -308,6 +357,9 @@ static void gst_g3d_render_set_property(GObject *obj, guint prop_id, const GValu
     case PROP_CAM_PROJ_INDEX:
         self->cam_proj_index = g_value_get_int(val);
         break;
+    case PROP_BEV_FORWARD:
+        self->bev_forward = g_value_get_enum(val);
+        break;
     case PROP_CAM_BG_GRAYSCALE:
         self->cam_bg_grayscale = g_value_get_boolean(val);
         break;
@@ -355,6 +407,9 @@ static void gst_g3d_render_get_property(GObject *obj, guint prop_id, GValue *val
         break;
     case PROP_CAM_PROJ_INDEX:
         g_value_set_int(val, self->cam_proj_index);
+        break;
+    case PROP_BEV_FORWARD:
+        g_value_set_enum(val, self->bev_forward);
         break;
     case PROP_CAM_BG_GRAYSCALE:
         g_value_set_boolean(val, self->cam_bg_grayscale);
@@ -429,7 +484,28 @@ static GstFlowReturn gst_g3d_render_prepare_output_buffer(GstBaseTransform *tran
 
 namespace {
 
+/* Sensor (x, y) -> the BEV drawing frame, whose +x is drawn up and +y left:
+ * unchanged when the sensor's +x is the forward axis, turned by -90 degrees
+ * when its +y is (bev-forward=y). */
+inline void bev_frame(const GstG3DRender *self, float &x, float &y) {
+    if (self->bev_forward == 1) {
+        const float sx = x;
+        x = y;
+        y = -sx;
+    }
+}
+
+/* Intensity divisor for point colouring: some sensors report 0..1, others
+ * (e.g. nuScenes) 0..255. */
+float point_intensity_scale(const float *points, guint count, guint stride) {
+    float max_i = 0.0f;
+    for (guint i = 0; i < count; i += stride)
+        max_i = std::max(max_i, points[i * 4 + 3]);
+    return max_i > 1.5f ? 255.0f : 1.0f;
+}
+
 cv::Point world_to_pixel_bev(float x, float y, const GstG3DRender *self, int roi_w, int roi_h) {
+    bev_frame(self, x, y);
     float x_range = (self->range_x_max - self->range_x_min) / self->zoom;
     float y_range = (self->range_y_max - self->range_y_min) / self->zoom;
     float x_mid = (self->range_x_max + self->range_x_min) / 2.0f;
@@ -500,8 +576,13 @@ void draw_bev(cv::Mat &canvas, const float *points, guint count, const GstG3DRen
                     cv::FONT_HERSHEY_SIMPLEX, 0.5, ind_color, 1, cv::LINE_AA);
     };
 
-    draw_bev_axis(cv::Point2f(0.0f, -1.0f), "X");
-    draw_bev_axis(cv::Point2f(-1.0f, 0.0f), "Y");
+    /* Screen direction of a sensor axis: drawing-frame +x is up, +y is left. */
+    auto screen_dir = [&](float x, float y) {
+        bev_frame(self, x, y);
+        return cv::Point2f(-y, -x);
+    };
+    draw_bev_axis(screen_dir(1.0f, 0.0f), "X");
+    draw_bev_axis(screen_dir(0.0f, 1.0f), "Y");
 
     float x_range = (self->range_x_max - self->range_x_min) / self->zoom;
     float y_range = (self->range_y_max - self->range_y_min) / self->zoom;
@@ -510,10 +591,13 @@ void draw_bev(cv::Mat &canvas, const float *points, guint count, const GstG3DRen
     float x_off = x_mid - x_range / 2.0f;
     float y_off = y_mid - y_range / 2.0f;
     float inv_y = roi_w / y_range;
+    const float intensity_scale = point_intensity_scale(points, count, static_cast<guint>(self->point_stride));
 
     if (self->point_radius == 1) {
         for (guint i = 0; i < count; i += static_cast<guint>(self->point_stride)) {
-            float x = points[i * 4 + 0], y = points[i * 4 + 1], intensity = points[i * 4 + 3];
+            float x = points[i * 4 + 0], y = points[i * 4 + 1];
+            const float intensity = std::clamp(points[i * 4 + 3] / intensity_scale, 0.0f, 1.0f);
+            bev_frame(self, x, y);
             int px = roi_w - 1 - static_cast<int>((y - y_off) * inv_y);
             int py = static_cast<int>((1.0f - (x - x_off) / x_range) * roi_h);
             if (px < 0 || px >= roi_w || py < 0 || py >= roi_h)
@@ -524,7 +608,9 @@ void draw_bev(cv::Mat &canvas, const float *points, guint count, const GstG3DRen
         }
     } else {
         for (guint i = 0; i < count; i += static_cast<guint>(self->point_stride)) {
-            float x = points[i * 4 + 0], y = points[i * 4 + 1], intensity = points[i * 4 + 3];
+            float x = points[i * 4 + 0], y = points[i * 4 + 1];
+            const float intensity = std::clamp(points[i * 4 + 3] / intensity_scale, 0.0f, 1.0f);
+            bev_frame(self, x, y);
             int px = roi_w - 1 - static_cast<int>((y - y_off) * inv_y);
             int py = static_cast<int>((1.0f - (x - x_off) / x_range) * roi_h);
             if (px < 0 || px >= roi_w || py < 0 || py >= roi_h)
@@ -579,11 +665,32 @@ std::array<cv::Point3f, 8> box_corners(const GstAnalytics3DODMtd &mtd) {
 const int kBoxEdges[12][2] = {{0, 1}, {1, 2}, {2, 3}, {3, 0}, {4, 5}, {5, 6},
                               {6, 7}, {7, 4}, {0, 4}, {1, 5}, {2, 6}, {3, 7}};
 
+/* Per-class colours (BGR), used when the producer names its classes. */
+const cv::Scalar kClassPalette[] = {
+    {0, 140, 255},   {60, 60, 230}, {0, 215, 255}, {200, 0, 200}, {120, 0, 255},
+    {170, 170, 170}, {255, 255, 0}, {255, 140, 0}, {255, 60, 60}, {0, 255, 170},
+};
+
+/* White when g3dobjectfuser associated the box with a camera detection;
+ * otherwise a per-class colour if the g3d/calibration event carried
+ * class-names, else green. */
+cv::Scalar box_color(const GstG3DRender *self, const GstAnalytics3DODMtd &mtd, bool matched) {
+    if (matched)
+        return kColorMatched;
+    gint class_id = -1;
+    gfloat confidence = 0.0f;
+    if (self->class_names &&
+        gst_analytics_3d_od_mtd_get_class(const_cast<GstAnalytics3DODMtd *>(&mtd), &class_id, &confidence) &&
+        class_id >= 0)
+        return kClassPalette[class_id % G_N_ELEMENTS(kClassPalette)];
+    return kColorUnmatched;
+}
+
 /* Projects 3D box corners through a synthetic perspective camera and draws the 12 box edges.
  * Boxes behind the camera (center_depth <= 0.5) are skipped. */
-void draw_detection_boxes_perspective(cv::Mat &canvas, GstBuffer *inbuf, const cv::Mat &rvec, const cv::Mat &tvec,
-                                      const cv::Mat &K, const cv::Mat &dist_coeffs, const cv::Mat &cam_pos,
-                                      const cv::Mat &zaxis, int roi_w, int roi_h,
+void draw_detection_boxes_perspective(cv::Mat &canvas, GstBuffer *inbuf, const GstG3DRender *self, const cv::Mat &rvec,
+                                      const cv::Mat &tvec, const cv::Mat &K, const cv::Mat &dist_coeffs,
+                                      const cv::Mat &cam_pos, const cv::Mat &zaxis, int roi_w, int roi_h,
                                       const std::unordered_set<guint> &assoc_ids) {
     double zx = zaxis.at<double>(0), zy = zaxis.at<double>(1), zz = zaxis.at<double>(2);
     double cpx = cam_pos.at<double>(0), cpy = cam_pos.at<double>(1), cpz = cam_pos.at<double>(2);
@@ -609,7 +716,7 @@ void draw_detection_boxes_perspective(cv::Mat &canvas, GstBuffer *inbuf, const c
         cv::projectPoints(corners, rvec, tvec, K, dist_coeffs, img_corners);
 
         bool matched = assoc_ids.count(mtd.id) > 0;
-        cv::Scalar color = matched ? kColorMatched : kColorUnmatched;
+        cv::Scalar color = box_color(self, mtd, matched);
         int thickness = 1;
         for (auto &e : kBoxEdges) {
             int a = e[0], b = e[1];
@@ -805,7 +912,7 @@ void draw_perspective(cv::Mat &canvas, const float *points, guint count, GstBuff
         }
     }
 
-    draw_detection_boxes_perspective(canvas, inbuf, rvec, tvec, K, dist_coeffs, cam_pos, zaxis, roi_w, roi_h,
+    draw_detection_boxes_perspective(canvas, inbuf, self, rvec, tvec, K, dist_coeffs, cam_pos, zaxis, roi_w, roi_h,
                                      assoc_ids);
 }
 
@@ -825,7 +932,7 @@ void draw_detection_boxes_bev(cv::Mat &canvas, GstBuffer *inbuf, const GstG3DRen
         gst_analytics_3d_od_mtd_get_location(&mtd, &cx, &cy, &cz, &length, &width, &height, &yaw, &pitch, &roll);
 
         bool matched = assoc_ids.count(mtd.id) > 0;
-        cv::Scalar color = matched ? kColorMatched : kColorUnmatched;
+        cv::Scalar color = box_color(self, mtd, matched);
         int thickness = 1;
 
         const std::array<cv::Point3f, 8> box = box_corners(mtd);
@@ -904,6 +1011,7 @@ struct CamStream {
     gint w;
     gint h;
     GstVideoInfo vinfo;
+    guint index; /* gvastreammux pad index */
 };
 
 /* Scans camera buffers for IS_PART_OF TrackingMtd relations on OD detections and returns
@@ -957,12 +1065,71 @@ std::vector<CamStream> collect_camera_streams(GstBuffer *batch_buf) {
         gint w = GST_VIDEO_INFO_WIDTH(&vinfo);
         gint h = GST_VIDEO_INFO_HEIGHT(&vinfo);
         if (w > 0 && h > 0)
-            cams.push_back({GST_BUFFER_CAST(stream->objects[0]), w, h, vinfo});
+            cams.push_back({GST_BUFFER_CAST(stream->objects[0]), w, h, vinfo, stream->index});
     }
     return cams;
 }
 
 cv::Mat decode_cam_frame(const CamStream &cs); /* forward declaration */
+
+/* Draws the 3D boxes of @lidar_buf onto a camera image that was scaled by
+ * @scale from the camera's native resolution, using the calibration of the
+ * camera on mux pad @pad. Each edge is clipped at a near plane in front of the
+ * camera, so a box that is partly behind it still shows its visible part
+ * instead of disappearing or wrapping around. */
+void draw_boxes_on_camera(cv::Mat &img, float scale, const GstG3DRender *self, guint pad, GstBuffer *lidar_buf,
+                          const std::unordered_set<guint> &assoc_ids) {
+    if (!lidar_buf || pad >= G3D_RENDER_MAX_CAMERAS || !self->cam_has_calib[pad])
+        return;
+    GstAnalyticsRelationMeta *rmeta = gst_buffer_get_analytics_relation_meta(lidar_buf);
+    if (!rmeta)
+        return;
+
+    const cv::Matx44f r0_tr = cv::Matx44f(self->cam_r0[pad]) * cv::Matx44f(self->cam_tr[pad]);
+    const cv::Matx34f proj = cv::Matx34f(self->cam_p2[pad]) * r0_tr;
+    constexpr float kNear = 0.5f; /* metres in front of the camera */
+    const cv::Rect bounds(0, 0, img.cols, img.rows);
+
+    auto depth_of = [&](const cv::Point3f &p) {
+        return r0_tr(2, 0) * p.x + r0_tr(2, 1) * p.y + r0_tr(2, 2) * p.z + r0_tr(2, 3);
+    };
+    auto to_pixel = [&](const cv::Point3f &p) {
+        const cv::Vec3f h = proj * cv::Vec4f(p.x, p.y, p.z, 1.0f);
+        const float u = std::clamp(h[0] / h[2] * scale, -1e6f, 1e6f);
+        const float v = std::clamp(h[1] / h[2] * scale, -1e6f, 1e6f);
+        return cv::Point(cvRound(u), cvRound(v));
+    };
+
+    GstAnalytics3DODMtd mtd;
+    gpointer state = nullptr;
+    while (gst_analytics_relation_meta_iterate(rmeta, &state, gst_analytics_3d_od_mtd_get_mtd_type(),
+                                               reinterpret_cast<GstAnalyticsMtd *>(&mtd))) {
+        const std::array<cv::Point3f, 8> corners = box_corners(mtd);
+        std::array<float, 8> depth;
+        bool in_front = false;
+        for (int k = 0; k < 8; ++k) {
+            depth[k] = depth_of(corners[k]);
+            in_front = in_front || depth[k] > kNear;
+        }
+        if (!in_front)
+            continue;
+
+        const cv::Scalar color = box_color(self, mtd, assoc_ids.count(mtd.id) > 0);
+        for (const auto &e : kBoxEdges) {
+            cv::Point3f a = corners[e[0]], b = corners[e[1]];
+            const float da = depth[e[0]], db = depth[e[1]];
+            if (da <= kNear && db <= kNear)
+                continue;
+            if (da < kNear)
+                a = a + (b - a) * ((kNear - da) / (db - da));
+            else if (db < kNear)
+                b = b + (a - b) * ((kNear - db) / (da - db));
+            cv::Point pa = to_pixel(a), pb = to_pixel(b);
+            if (cv::clipLine(bounds, pa, pb))
+                cv::line(img, pa, pb, color, 1, cv::LINE_AA);
+        }
+    }
+}
 
 /* Projects LiDAR point cloud and 3D detection boxes onto the camera image using stored
  * calibration matrices (P2 * R0 * Tr). Falls back to BEV rendering if calibration has not
@@ -997,22 +1164,26 @@ cv::Vec3b depth_to_color(float t) {
 }
 
 /* Project LiDAR point cloud and 3D detection boxes onto a selected camera image.
- * The camera is chosen by self->cam_proj_index; clamped to the last available stream
+ * The camera is the one on mux pad self->cam_proj_index, or the first camera in the batch
  * if the index exceeds the number of cameras in the batch.
  * Requires calibration received via the g3d/calibration sticky event.
  * Falls back to BEV if calibration or camera image is unavailable. */
 void draw_cam_projection(cv::Mat &canvas, const float *points, guint count, GstBuffer *lidar_buf, GstG3DRender *self,
                          const std::vector<CamStream> &cams, int roi_w, int roi_h,
                          const std::unordered_set<guint> &assoc_ids) {
-    if (!self->has_calib || cams.empty()) {
+    /* The camera on pad cam-proj-index, or the first camera if no stream has that index. */
+    const CamStream *selected = nullptr;
+    for (const CamStream &cs : cams)
+        if (static_cast<gint>(cs.index) == self->cam_proj_index)
+            selected = &cs;
+    if (!selected && !cams.empty())
+        selected = &cams.front();
+    if (!selected || selected->index >= G3D_RENDER_MAX_CAMERAS || !self->cam_has_calib[selected->index]) {
         draw_bev(canvas, points, count, self, roi_w, roi_h);
         draw_detection_boxes_bev(canvas, lidar_buf, self, roi_w, roi_h, assoc_ids);
         return;
     }
-
-    /* Select the requested camera, clamped to the last available stream. */
-    int cam_idx = std::min(self->cam_proj_index, static_cast<gint>(cams.size()) - 1);
-    const CamStream &proj_cam = cams[cam_idx];
+    const CamStream &proj_cam = *selected;
 
     /* --- Background: selected camera image letterboxed into the canvas --- */
     cv::Mat cam_bgr = decode_cam_frame(proj_cam);
@@ -1044,9 +1215,9 @@ void draw_cam_projection(cv::Mat &canvas, const float *points, guint count, GstB
     cv::Mat Tr(4, 4, CV_32FC1);
     cv::Mat R0(4, 4, CV_32FC1);
     cv::Mat P2(3, 4, CV_32FC1);
-    std::memcpy(Tr.data, self->calib_tr, 16 * sizeof(float));
-    std::memcpy(R0.data, self->calib_r0, 16 * sizeof(float));
-    std::memcpy(P2.data, self->calib_p2, 12 * sizeof(float));
+    std::memcpy(Tr.data, self->cam_tr[proj_cam.index], 16 * sizeof(float));
+    std::memcpy(R0.data, self->cam_r0[proj_cam.index], 16 * sizeof(float));
+    std::memcpy(P2.data, self->cam_p2[proj_cam.index], 12 * sizeof(float));
 
     /* proj (3×4) = P2 * R0 * Tr; maps LiDAR [x,y,z,1]^T → homogeneous image [U,V,W]^T */
     cv::Mat R0Tr = R0 * Tr;   /* 4×4 */
@@ -1148,7 +1319,7 @@ void draw_cam_projection(cv::Mat &canvas, const float *points, guint count, GstB
             continue;
 
         bool matched = assoc_ids.count(mtd.id) > 0;
-        cv::Scalar color = matched ? kColorMatched : kColorUnmatched;
+        cv::Scalar color = box_color(self, mtd, matched);
         int thickness = 1;
 
         for (const auto &e : kBoxEdges)
@@ -1242,6 +1413,8 @@ static GstFlowReturn gst_g3d_render_transform(GstBaseTransform *trans, GstBuffer
         cam_area_w = lidar_x;
     }
 
+    const std::unordered_set<guint> assoc_ids = collect_associated_3d_ids(cams);
+
     // ── Render LiDAR ────────────────────────────────────────────────────────
     if (lidar_buf) {
         LidarMeta *lidar_meta = reinterpret_cast<LidarMeta *>(gst_buffer_get_meta(lidar_buf, LIDAR_META_API_TYPE));
@@ -1259,7 +1432,6 @@ static GstFlowReturn gst_g3d_render_transform(GstBaseTransform *trans, GstBuffer
 
             cv::Mat lidar_roi = canvas(cv::Rect(lidar_x, 0, lidar_w, lidar_h));
 
-            auto assoc_ids = collect_associated_3d_ids(cams);
             if (self->view_mode == 0) {
                 draw_bev(lidar_roi, points, count, self, lidar_w, lidar_h);
                 draw_detection_boxes_bev(lidar_roi, lidar_buf, self, lidar_w, lidar_h, assoc_ids);
@@ -1307,10 +1479,11 @@ static GstFlowReturn gst_g3d_render_transform(GstBaseTransform *trans, GstBuffer
             cv::Mat scaled;
             cv::resize(cam_bgr, scaled, cv::Size(sw, sh));
             draw_2d_boxes(scaled, cs.buf, cs.w, cs.h);
+            draw_boxes_on_camera(scaled, static_cast<float>(sw) / cam_bgr.cols, self, cs.index, lidar_buf, assoc_ids);
             scaled.copyTo(cell(cv::Rect(xp, yp, sw, sh)));
             cell.copyTo(canvas(cv::Rect(x_off, y_off, cell_w, cell_h)));
-            cv::putText(canvas, "Cam " + std::to_string(i), cv::Point(x_off + 4, y_off + 16), cv::FONT_HERSHEY_SIMPLEX,
-                        0.45, cv::Scalar(220, 220, 220), 1, cv::LINE_AA);
+            cv::putText(canvas, "Cam " + std::to_string(cs.index), cv::Point(x_off + 4, y_off + 16),
+                        cv::FONT_HERSHEY_SIMPLEX, 0.45, cv::Scalar(220, 220, 220), 1, cv::LINE_AA);
         }
 
         cv::line(canvas, cv::Point(lidar_x, 0), cv::Point(lidar_x, self->height), cv::Scalar(80, 80, 80), 1);
