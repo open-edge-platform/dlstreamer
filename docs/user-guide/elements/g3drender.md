@@ -22,7 +22,7 @@ In `bev` and `perspective` modes, each camera tile also shows the 3D boxes proje
 | `height` | int | [1, 32767] | 800 | Output frame height in pixels. |
 | `view-mode` | enum | 0 / 1 / 2 | 0 | Rendering mode: `0=bev`, `1=perspective`, `2=cam-proj`. |
 | `point-radius` | int | [1, 20] | 2 | Rendered radius of each LiDAR point in pixels. `radius=1` uses a fast single-pixel path. |
-| `point-stride` | int | [1, 100] | 16 | Point cloud decimation factor. Every Nth point is rendered; higher values reduce density and improve throughput. |
+| `point-stride` | int | [1, 100] | 16 | Point cloud decimation factor. One point in N is rendered; higher values reduce density and improve throughput. The chosen point shifts by one each time, so LiDARs that interleave their laser rings in the point order (such as nuScenes) keep all rings. |
 | `zoom` | float | [0.1, 20.0] | 1.0 | BEV viewport zoom. `2.0` halves the visible range (zooms in); `0.5` doubles it. Only effective in `bev` mode. |
 | `cam-distance` | float | [1.0, 500.0] | 35.0 | Synthetic camera distance from the scene origin in meters. Only effective in `perspective` mode. |
 | `cam-elevation` | float | [5.0, 89.0] | 30.0 | Synthetic camera elevation angle in degrees (`5°` = near eye-level, `89°` = near top-down). Only effective in `perspective` mode. |
@@ -31,7 +31,7 @@ In `bev` and `perspective` modes, each camera tile also shows the 3D boxes proje
 | `cam-proj-index` | int | [0, 255] | 0 | `gvastreammux` pad index of the camera to use as the projection background in `cam-proj` mode. The first camera in the batch is used when no camera has this index. |
 | `cam-bg-grayscale` | bool | true / false | true | Convert the camera background to grayscale in `cam-proj` mode. |
 | `cam-bg-dim` | float | [0.0, 1.0] | 0.65 | Brightness multiplier for the camera background in `cam-proj` mode (`0.0=black`, `1.0=original`). |
-| `bev-forward` | enum | `x` / `y` | `x` | Sensor axis drawn pointing up in `bev` mode: `x` for LiDARs whose +x is the vehicle's forward direction (KITTI), `y` for those whose +y is (nuScenes). |
+| `forward-axis` | enum | `x` / `y` | `x` | LiDAR axis that points in the vehicle's forward direction: `x` (KITTI) or `y` (nuScenes). `bev` mode draws it pointing up, and `perspective` mode measures `cam-azimuth` from it, so `cam-azimuth=180` looks forward from behind the vehicle either way. |
 
 ## Pipeline Examples
 
@@ -162,6 +162,8 @@ The LiDAR panel is always a `height × height` square anchored to the right edge
 
 - **3D box convention**: boxes are drawn as `GstAnalytics3DODMtd` defines them: `length` along the box's own x axis, `width` along its y axis, rotated by `yaw` counter-clockwise about +z.
 
+- **Camera labels**: each camera tile, and the `cam-proj` image, is labelled with the camera's `name` from the `g3d/calibration` event (`g3dbevfusion` sends nuScenes names such as `CAM_FRONT`), or `Cam <pad>` without one.
+
 - **Box colours**: a 3D box that `g3dobjectfuser` associated with a camera detection is white. Otherwise, when the `g3d/calibration` event lists `class-names` (as `g3dbevfusion` does), boxes are coloured per class; if not, they are green.
 
 - **Point intensity**: points are coloured by intensity, normalised to 0..1. Intensities above 1.5 in a frame are taken to be on a 0..255 scale.
@@ -198,11 +200,6 @@ Pads:
 
 Element Properties:
 
-  bev-forward         : Sensor axis drawn pointing up in bev mode: x for sensors whose +x is the vehicle's forward direction (KITTI), y for those whose +y is (nuScenes)
-                        flags: readable, writable
-                        Enum "GstG3DRenderBevForward" Default: 0, "x"
-                           (0): x                - Sensor +x points up (e.g. KITTI)
-                           (1): y                - Sensor +y points up (e.g. nuScenes)
   cam-azimuth         : Camera horizontal angle in degrees (perspective mode)
                         flags: readable, writable
                         Float. Range:            -360 -             360 Default:             180
@@ -215,6 +212,11 @@ Element Properties:
   cam-fov             : Field of view in degrees (perspective mode)
                         flags: readable, writable
                         Float. Range:              10 -             150 Default:              60
+  forward-axis        : Sensor axis that points in the vehicle's forward direction: x (KITTI) or y (nuScenes). bev mode draws it pointing up, and perspective mode measures cam-azimuth from it
+                        flags: readable, writable
+                        Enum "GstG3DRenderForwardAxis" Default: 0, "x"
+                           (0): x                - Sensor +x points forward (e.g. KITTI)
+                           (1): y                - Sensor +y points forward (e.g. nuScenes)
   cam-proj-index      : gvastreammux pad index of the camera to use for LiDAR projection in cam-proj mode; the first camera in the batch is used when no camera has this index
                         flags: readable, writable
                         Integer. Range: 0 - 255 Default: 0

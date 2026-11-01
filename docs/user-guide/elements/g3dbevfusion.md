@@ -113,7 +113,7 @@ gst-launch-1.0 -e \
     g3dlidarparse frame-rate=2 ! queue ! mux.sink_6 \
   gvastreammux name=mux output-mode=container sync-mode=first-pts max-wait-time=5000000000 ! \
   g3dbevfusion config=g3dbevfusion.json calibration=scene/calibration.json ! \
-  g3drender bev-forward=y width=2400 height=900 ! videoconvert ! jpegenc ! multifilesink location=out/%06d.jpg
+  g3drender forward-axis=y point-stride=2 width=2400 height=900 ! videoconvert ! jpegenc ! multifilesink location=out/%06d.jpg
 ```
 
 Every branch must use the same frame rate: the streams are paired by timestamp, and the timestamps come from the frame index.

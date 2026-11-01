@@ -51,8 +51,9 @@ fi
 
 if [[ -n "$OUTPUT" ]]; then
   mkdir -p "$OUTPUT"
-  # nuScenes lidar: +y is the vehicle's forward axis.
-  SINK="g3drender bev-forward=y width=2400 height=900 ! videoconvert ! jpegenc quality=90 ! multifilesink location=${OUTPUT}/%06d.jpg"
+  # nuScenes lidar: +y is the vehicle's forward axis, and ~35k points a frame (a
+  # quarter of KITTI's), so draw every 2nd point instead of the default 16th.
+  SINK="g3drender forward-axis=y point-stride=2 width=2400 height=900 ! videoconvert ! jpegenc quality=90 ! multifilesink location=${OUTPUT}/%06d.jpg"
 else
   SINK="fakesink sync=false"
 fi

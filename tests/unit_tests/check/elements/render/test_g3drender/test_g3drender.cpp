@@ -452,7 +452,7 @@ static const Scenario SC_CAM_PROJ_BG_BASELINE = {"cam_proj_bg_baseline",
                                                  TRUE};
 
 /* bev mode with calibration for both camera pads and class names: the 3D boxes
- * are projected onto each camera tile in per-class colours, and bev-forward=y
+ * are projected onto each camera tile in per-class colours, and forward-axis=y
  * turns the BEV panel so that sensor +y points up. */
 static const Scenario SC_TILES_WITH_CALIB = {"tiles_with_calib",
                                              "tiles_with_calib.png",
@@ -483,7 +483,7 @@ GST_START_TEST(test_tiles_with_calib_golden) {
 
     GstHarness *h = make_batch_harness(sc);
     GstElement *el = gst_harness_find_element(h, "g3drender");
-    gst_util_set_object_arg(G_OBJECT(el), "bev-forward", "y");
+    gst_util_set_object_arg(G_OBJECT(el), "forward-axis", "y");
     gst_object_unref(el);
 
     static const gchar *const class_names[] = {"car", "truck", NULL};

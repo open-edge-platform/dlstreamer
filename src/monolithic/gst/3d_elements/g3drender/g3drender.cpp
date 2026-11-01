@@ -40,13 +40,13 @@ GType gst_g3d_render_view_mode_get_type(void) {
     return type;
 }
 
-GType gst_g3d_render_bev_forward_get_type(void) {
+GType gst_g3d_render_forward_axis_get_type(void) {
     static GType type = 0;
     if (!type) {
-        static const GEnumValue values[] = {{0, "Sensor +x points up (e.g. KITTI)", "x"},
-                                            {1, "Sensor +y points up (e.g. nuScenes)", "y"},
+        static const GEnumValue values[] = {{0, "Sensor +x points forward (e.g. KITTI)", "x"},
+                                            {1, "Sensor +y points forward (e.g. nuScenes)", "y"},
                                             {0, nullptr, nullptr}};
-        type = g_enum_register_static("GstG3DRenderBevForward", values);
+        type = g_enum_register_static("GstG3DRenderForwardAxis", values);
     }
     return type;
 }
@@ -66,7 +66,7 @@ enum {
     PROP_CAM_PROJ_INDEX,
     PROP_CAM_BG_GRAYSCALE,
     PROP_CAM_BG_DIM,
-    PROP_BEV_FORWARD,
+    PROP_FORWARD_AXIS,
 };
 
 static GstStaticPadTemplate sink_template =
@@ -180,11 +180,11 @@ static void gst_g3d_render_class_init(GstG3DRenderClass *klass) {
                            0.0f, 1.0f, 0.65f, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     g_object_class_install_property(
-        gobject_class, PROP_BEV_FORWARD,
-        g_param_spec_enum("bev-forward", "BEV forward axis",
-                          "Sensor axis drawn pointing up in bev mode: x for sensors whose +x is the vehicle's "
-                          "forward direction (KITTI), y for those whose +y is (nuScenes)",
-                          GST_TYPE_G3D_RENDER_BEV_FORWARD, 0,
+        gobject_class, PROP_FORWARD_AXIS,
+        g_param_spec_enum("forward-axis", "Forward axis",
+                          "Sensor axis that points in the vehicle's forward direction: x (KITTI) or y (nuScenes). "
+                          "bev mode draws it pointing up, and perspective mode measures cam-azimuth from it",
+                          GST_TYPE_G3D_RENDER_FORWARD_AXIS, 0,
                           (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     gst_element_class_set_static_metadata(element_class, "G3D LiDAR Renderer", "Filter/Converter",
@@ -224,15 +224,19 @@ static void gst_g3d_render_init(GstG3DRender *self) {
     self->frame_duration = GST_SECOND / 10;
     self->frame_count = 0;
     self->input_is_batch = FALSE;
-    self->bev_forward = 0;
-    for (gint i = 0; i < G3D_RENDER_MAX_CAMERAS; ++i)
+    self->forward_axis = 0;
+    for (gint i = 0; i < G3D_RENDER_MAX_CAMERAS; ++i) {
         self->cam_has_calib[i] = FALSE;
+        self->cam_names[i] = nullptr;
+    }
     self->class_names = nullptr;
 }
 
 static void gst_g3d_render_finalize(GObject *obj) {
     GstG3DRender *self = GST_G3D_RENDER(obj);
     g_strfreev(self->class_names);
+    for (gint i = 0; i < G3D_RENDER_MAX_CAMERAS; ++i)
+        g_free(self->cam_names[i]);
     G_OBJECT_CLASS(gst_g3d_render_parent_class)->finalize(obj);
 }
 
@@ -271,8 +275,10 @@ static gboolean gst_g3d_render_sink_event(GstBaseTransform *trans, GstEvent *eve
         if (s && gst_structure_has_name(s, "g3d/calibration")) {
             /* Keep every camera-<pad> entry: each camera tile, and cam-proj,
              * projects with the calibration of its own mux pad. */
-            for (gint i = 0; i < G3D_RENDER_MAX_CAMERAS; ++i)
+            for (gint i = 0; i < G3D_RENDER_MAX_CAMERAS; ++i) {
                 self->cam_has_calib[i] = FALSE;
+                g_clear_pointer(&self->cam_names[i], g_free);
+            }
             for (gint f = 0; f < gst_structure_n_fields(s); ++f) {
                 const gchar *field = gst_structure_nth_field_name(s, f);
                 if (!g_str_has_prefix(field, "camera-"))
@@ -282,6 +288,7 @@ static gboolean gst_g3d_render_sink_event(GstBaseTransform *trans, GstEvent *eve
                 if (pad < 0 || pad >= G3D_RENDER_MAX_CAMERAS || !GST_VALUE_HOLDS_STRUCTURE(cam_val))
                     continue;
                 const GstStructure *cam = gst_value_get_structure(cam_val);
+                self->cam_names[pad] = g_strdup(gst_structure_get_string(cam, "name"));
                 self->cam_has_calib[pad] = read_gst_float_array(cam, "tr_velo_to_cam", self->cam_tr[pad], 16) &&
                                            read_gst_float_array(cam, "r0_rect", self->cam_r0[pad], 16) &&
                                            read_gst_float_array(cam, "p2", self->cam_p2[pad], 12);
@@ -357,8 +364,8 @@ static void gst_g3d_render_set_property(GObject *obj, guint prop_id, const GValu
     case PROP_CAM_PROJ_INDEX:
         self->cam_proj_index = g_value_get_int(val);
         break;
-    case PROP_BEV_FORWARD:
-        self->bev_forward = g_value_get_enum(val);
+    case PROP_FORWARD_AXIS:
+        self->forward_axis = g_value_get_enum(val);
         break;
     case PROP_CAM_BG_GRAYSCALE:
         self->cam_bg_grayscale = g_value_get_boolean(val);
@@ -408,8 +415,8 @@ static void gst_g3d_render_get_property(GObject *obj, guint prop_id, GValue *val
     case PROP_CAM_PROJ_INDEX:
         g_value_set_int(val, self->cam_proj_index);
         break;
-    case PROP_BEV_FORWARD:
-        g_value_set_enum(val, self->bev_forward);
+    case PROP_FORWARD_AXIS:
+        g_value_set_enum(val, self->forward_axis);
         break;
     case PROP_CAM_BG_GRAYSCALE:
         g_value_set_boolean(val, self->cam_bg_grayscale);
@@ -486,9 +493,9 @@ namespace {
 
 /* Sensor (x, y) -> the BEV drawing frame, whose +x is drawn up and +y left:
  * unchanged when the sensor's +x is the forward axis, turned by -90 degrees
- * when its +y is (bev-forward=y). */
+ * when its +y is (forward-axis=y). */
 inline void bev_frame(const GstG3DRender *self, float &x, float &y) {
-    if (self->bev_forward == 1) {
+    if (self->forward_axis == 1) {
         const float sx = x;
         x = y;
         y = -sx;
@@ -502,6 +509,14 @@ float point_intensity_scale(const float *points, guint count, guint stride) {
     for (guint i = 0; i < count; i += stride)
         max_i = std::max(max_i, points[i * 4 + 3]);
     return max_i > 1.5f ? 255.0f : 1.0f;
+}
+
+/* Index of the k-th point drawn when rendering every point-stride-th point.
+ * The start shifts by one point per sample, so sensors that interleave their
+ * laser rings in the point order (nuScenes: rings 0..31 repeat) are not
+ * thinned down to the few rings that a fixed stride would always hit. */
+inline guint sampled_point(guint k, guint stride) {
+    return k * stride + k % stride;
 }
 
 cv::Point world_to_pixel_bev(float x, float y, const GstG3DRender *self, int roi_w, int roi_h) {
@@ -594,7 +609,7 @@ void draw_bev(cv::Mat &canvas, const float *points, guint count, const GstG3DRen
     const float intensity_scale = point_intensity_scale(points, count, static_cast<guint>(self->point_stride));
 
     if (self->point_radius == 1) {
-        for (guint i = 0; i < count; i += static_cast<guint>(self->point_stride)) {
+        for (guint k = 0, i; (i = sampled_point(k, static_cast<guint>(self->point_stride))) < count; ++k) {
             float x = points[i * 4 + 0], y = points[i * 4 + 1];
             const float intensity = std::clamp(points[i * 4 + 3] / intensity_scale, 0.0f, 1.0f);
             bev_frame(self, x, y);
@@ -607,7 +622,7 @@ void draw_bev(cv::Mat &canvas, const float *points, guint count, const GstG3DRen
             canvas.at<cv::Vec3b>(py, px) = cv::Vec3b(b, 80, r);
         }
     } else {
-        for (guint i = 0; i < count; i += static_cast<guint>(self->point_stride)) {
+        for (guint k = 0, i; (i = sampled_point(k, static_cast<guint>(self->point_stride))) < count; ++k) {
             float x = points[i * 4 + 0], y = points[i * 4 + 1];
             const float intensity = std::clamp(points[i * 4 + 3] / intensity_scale, 0.0f, 1.0f);
             bev_frame(self, x, y);
@@ -734,7 +749,8 @@ void draw_detection_boxes_perspective(cv::Mat &canvas, GstBuffer *inbuf, const G
 void draw_perspective(cv::Mat &canvas, const float *points, guint count, GstBuffer *inbuf, GstG3DRender *self,
                       int roi_w, int roi_h, const std::unordered_set<guint> &assoc_ids) {
     constexpr float DEG2RAD = 3.14159265358979323846f / 180.0f;
-    float az = self->cam_azimuth * DEG2RAD;
+    /* cam-azimuth is measured from the forward axis: 180 is behind the vehicle. */
+    float az = (self->cam_azimuth + (self->forward_axis == 1 ? 90.0f : 0.0f)) * DEG2RAD;
     float el = self->cam_elevation * DEG2RAD;
     float dist = self->cam_distance;
 
@@ -776,7 +792,7 @@ void draw_perspective(cv::Mat &canvas, const float *points, guint count, GstBuff
     z_vals.reserve(obj_pts.capacity());
 
     float clip = self->cam_distance + 20.0f;
-    for (guint i = 0; i < count; i += static_cast<guint>(self->point_stride)) {
+    for (guint k = 0, i; (i = sampled_point(k, static_cast<guint>(self->point_stride))) < count; ++k) {
         float x = points[i * 4 + 0], y = points[i * 4 + 1], z = points[i * 4 + 2];
         if (x < -clip || x > clip || y < -clip || y > clip)
             continue;
@@ -1072,6 +1088,20 @@ std::vector<CamStream> collect_camera_streams(GstBuffer *batch_buf) {
 
 cv::Mat decode_cam_frame(const CamStream &cs); /* forward declaration */
 
+/* Camera label at @origin (top-left): the camera's name from the
+ * g3d/calibration event, else its mux pad index, on a dark backing so it stays
+ * readable over the image. */
+void draw_camera_label(cv::Mat &canvas, const GstG3DRender *self, guint pad, cv::Point origin) {
+    const gchar *name = pad < G3D_RENDER_MAX_CAMERAS ? self->cam_names[pad] : nullptr;
+    const std::string label = name ? name : "Cam " + std::to_string(pad);
+    int baseline = 0;
+    const cv::Size size = cv::getTextSize(label, cv::FONT_HERSHEY_SIMPLEX, 0.45, 1, &baseline);
+    cv::rectangle(canvas, cv::Rect(origin.x, origin.y, size.width + 8, size.height + baseline + 6), cv::Scalar(0, 0, 0),
+                  cv::FILLED);
+    cv::putText(canvas, label, cv::Point(origin.x + 4, origin.y + size.height + 3), cv::FONT_HERSHEY_SIMPLEX, 0.45,
+                cv::Scalar(220, 220, 220), 1, cv::LINE_AA);
+}
+
 /* Draws the 3D boxes of @lidar_buf onto a camera image that was scaled by
  * @scale from the camera's native resolution, using the calibration of the
  * camera on mux pad @pad. Each edge is clipped at a near plane in front of the
@@ -1240,7 +1270,7 @@ void draw_cam_projection(cv::Mat &canvas, const float *points, guint count, GstB
     std::vector<ProjPt> visible;
     visible.reserve(count / static_cast<guint>(self->point_stride) + 1);
 
-    for (guint i = 0; i < count; i += static_cast<guint>(self->point_stride)) {
+    for (guint k = 0, i; (i = sampled_point(k, static_cast<guint>(self->point_stride))) < count; ++k) {
         float x = points[i * 4 + 0], y = points[i * 4 + 1], z = points[i * 4 + 2];
 
         float depth = d0 * x + d1 * y + d2 * z + d3;
@@ -1330,6 +1360,7 @@ void draw_cam_projection(cv::Mat &canvas, const float *points, guint count, GstB
     /* Only draw unmatched 2D boxes; matched objects are shown as white 3D boxes above. */
     cv::Mat cam_region = canvas(cv::Rect(xp, yp, sw, sh));
     draw_2d_boxes(cam_region, proj_cam.buf, proj_cam.w, proj_cam.h, /*skip_matched=*/true);
+    draw_camera_label(canvas, self, proj_cam.index, cv::Point(xp, yp));
 }
 
 /* Maps a camera sub-buffer into a BGR cv::Mat, handling BGR, BGRx/BGRA, and NV12 formats.
@@ -1482,8 +1513,7 @@ static GstFlowReturn gst_g3d_render_transform(GstBaseTransform *trans, GstBuffer
             draw_boxes_on_camera(scaled, static_cast<float>(sw) / cam_bgr.cols, self, cs.index, lidar_buf, assoc_ids);
             scaled.copyTo(cell(cv::Rect(xp, yp, sw, sh)));
             cell.copyTo(canvas(cv::Rect(x_off, y_off, cell_w, cell_h)));
-            cv::putText(canvas, "Cam " + std::to_string(cs.index), cv::Point(x_off + 4, y_off + 16),
-                        cv::FONT_HERSHEY_SIMPLEX, 0.45, cv::Scalar(220, 220, 220), 1, cv::LINE_AA);
+            draw_camera_label(canvas, self, cs.index, cv::Point(x_off, y_off));
         }
 
         cv::line(canvas, cv::Point(lidar_x, 0), cv::Point(lidar_x, self->height), cv::Scalar(80, 80, 80), 1);
