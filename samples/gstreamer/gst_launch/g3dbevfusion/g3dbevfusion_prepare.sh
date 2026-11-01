@@ -9,8 +9,11 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CACHE_DIR="${BEVFUSION_CACHE_DIR:-${SCRIPT_DIR}/.bevfusion}"
-OPENVINO_CONTRIB_URL="${OPENVINO_CONTRIB_URL:-https://github.com/openvinotoolkit/openvino_contrib.git}"
-OPENVINO_CONTRIB_REF="${OPENVINO_CONTRIB_REF:-master}"
+# openvino_bevfusion fixes that g3dbevfusion relies on (detection head weights,
+# sparse encoder layout, OpenVINO 2026 compatibility, ...) are not upstream yet;
+# switch to openvinotoolkit/openvino_contrib master once they are merged.
+OPENVINO_CONTRIB_URL="${OPENVINO_CONTRIB_URL:-https://github.com/qianlongding/openvino_contrib.git}"
+OPENVINO_CONTRIB_REF="${OPENVINO_CONTRIB_REF:-bevfusion-dlstreamer-fixes}"
 CHECKPOINT_URL="https://download.openmmlab.com/mmdetection3d/v1.1.0_models/bevfusion/bevfusion_lidar-cam_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d-5239b1af.pth"
 EXTENSIONS=(bev_pool voxelize sparse_encoder)
 
@@ -28,8 +31,9 @@ Prepares what g3dbevfusion needs, from openvino_contrib's openvino_bevfusion mod
 Environment:
   BEVFUSION_ROOT        Existing modules/openvino_bevfusion directory. Otherwise
                         openvino_contrib is cloned into the cache directory.
-  OPENVINO_CONTRIB_URL  Repository to clone (default: openvinotoolkit/openvino_contrib)
-  OPENVINO_CONTRIB_REF  Branch or tag to clone (default: master)
+  OPENVINO_CONTRIB_URL  Repository to clone (default: qianlongding/openvino_contrib,
+                        until the openvino_bevfusion fixes are merged upstream)
+  OPENVINO_CONTRIB_REF  Branch or tag to clone (default: bevfusion-dlstreamer-fixes)
   PYTHON                Python with torch, numpy and openvino, for the IR export
                         (default: python3)
   OpenVINO_DIR          OpenVINO used by DL Streamer; set by OpenVINO's setupvars.sh
