@@ -608,14 +608,14 @@ RUN \
 
 RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
 
-# Install onvif-zeep Python package
+# Install onvif-zeep and remaining Python dependencies.
 RUN \
     apt-get update && \
-    apt-get install -y -q --no-install-recommends python3-pip=\* gcc=\* libcairo2-dev=\* libgirepository1.0-dev=\* && \
+    apt-get install -y -q --no-install-recommends python3-pip=\* python3-dev=\* gcc=\* g++=\* libcairo2-dev=\* libgirepository1.0-dev=\* && \
     uv pip install --system --no-cache-dir --break-system-packages onvif-zeep==0.2.12 && \
     uv pip install --system --no-cache-dir --break-system-packages -r /opt/intel/dlstreamer/requirements.txt && \
 
-    apt-get remove -y gcc libcairo2-dev libgirepository1.0-dev && \
+    apt-get remove -y libcairo2-dev libgirepository1.0-dev && \
     apt-get autoremove -y && \
     PYTHON_SITE_PACKAGES=$(python3 -c "import site; print(site.getsitepackages()[0])") && \
     if [ -d "$PYTHON_SITE_PACKAGES/wsdl" ]; then cp -r "$PYTHON_SITE_PACKAGES/wsdl" /usr/local/lib/python3*/dist-packages/; fi && \
