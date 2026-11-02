@@ -57,6 +57,9 @@ typedef struct _GvaBaseInference {
     WinCorePinningMask core_pinning_mask;
 #endif
     guint inference_interval;
+    // TRUE once inference-interval has been set by the user (also while running). Otherwise an element that shares its
+    // model with a master element takes the interval of the master when it acquires the model.
+    gboolean inference_interval_set;
     guint batch_size;
     gint batch_timeout;
     guint reshape_width;
@@ -132,5 +135,45 @@ typedef struct _GvaBaseInferenceClass {
 GType gva_base_inference_get_type(void);
 GType gst_gva_base_inference_get_inf_region(void);
 gboolean check_gva_base_inference_stopped(GvaBaseInference *base_inference);
+/**
+ * Passes the threshold of a gvadetect to its post-processor, so that a new value takes effect from the next inference
+ * result that is converted. The caller holds the object lock and has stored the value. Nothing happens before the
+ * post-processor exists: it reads the threshold when it is created, and it is applied again when it is published.
+ */
+void gva_base_inference_apply_threshold_locked(GvaBaseInference *base_inference);
+
+/**
+ * Result of the "set-runtime-property" action signal, returned in the "status" field of the result structure.
+ */
+typedef enum {
+    GVA_PROPERTY_APPLIED = 0,       // set, and the read-back value matches
+    GVA_PROPERTY_NOT_FOUND = 1,     // no such property
+    GVA_PROPERTY_NOT_MUTABLE = 2,   // the property cannot be changed in the current state of the element
+    GVA_PROPERTY_INVALID_VALUE = 3, // the value has the wrong type or is out of range
+    GVA_PROPERTY_NOT_APPLIED = 4    // set was attempted, but the property did not take the value
+} GvaPropertyStatus;
+
+/**
+ * Tells whether the property may be written now. Above the READY state only the properties flagged
+ * GST_PARAM_MUTABLE_PLAYING (or GST_PARAM_MUTABLE_PAUSED, while PAUSED) may be written, as the others are read once,
+ * when the element starts. Returns NULL if the write is allowed, otherwise the reason, to be freed with g_free().
+ */
+gchar *gva_base_inference_get_write_denial(GstElement *element, GParamSpec *pspec);
+
+/**
+ * For the set_property functions of the inference elements: returns TRUE, after logging a warning, if the write is
+ * denied (see above). The property must then be left untouched.
+ */
+gboolean gva_base_inference_reject_write(GstElement *element, GParamSpec *pspec);
 
 G_END_DECLS
+
+#ifdef __cplusplus
+#include <memory>
+
+/**
+ * The post-processor of the element, to be used by the streaming threads and the inference callbacks. The caller keeps
+ * it alive while it uses it, even if it is replaced meanwhile (when caps are renegotiated). Null if there is none.
+ */
+std::shared_ptr<PostProcessor> gva_base_inference_get_post_processor(GvaBaseInference *base_inference);
+#endif
