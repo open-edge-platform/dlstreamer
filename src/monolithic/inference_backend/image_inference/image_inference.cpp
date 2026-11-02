@@ -9,6 +9,7 @@
 #ifdef _WIN32
 #include "image_inference_async_d3d11.h"
 #include "image_inference_async_d3d12.h"
+#include "image_inference_async_opencl.h"
 #else
 #include "image_inference_async/image_inference_async.h"
 #include <cstdlib>
@@ -121,8 +122,12 @@ ImageInference::Ptr ImageInference::createImageInferenceInstance(MemoryType inpu
         case ImagePreprocessorType::D3D11_SURFACE_SHARING:
             memory_type_to_use = MemoryType::D3D11;
             break;
+        case ImagePreprocessorType::OPENCL:
+            // Remote tensors in OV's D3D11-shared OpenCL context.
+            memory_type_to_use = MemoryType::D3D11;
+            break;
         default:
-            throw std::runtime_error("Incorrect pre-process-backend, should be d3d11 or d3d11-surface-sharing");
+            throw std::runtime_error("Incorrect pre-process-backend, should be d3d11, d3d11-surface-sharing or opencl");
         }
         break;
     }
@@ -161,6 +166,9 @@ ImageInference::Ptr ImageInference::createImageInferenceInstance(MemoryType inpu
         if (input_image_memory_type == MemoryType::D3D12)
             result_inference =
                 std::make_shared<ImageInferenceAsyncD3D12>(config, context, std::move(ov_inference), error_handler);
+        else if (getPreProcType(config.at(KEY_BASE)) == ImagePreprocessorType::OPENCL)
+            result_inference =
+                std::make_shared<ImageInferenceAsyncOpenCL>(config, context, std::move(ov_inference), error_handler);
         else
             result_inference =
                 std::make_shared<ImageInferenceAsyncD3D11>(config, context, std::move(ov_inference), error_handler);

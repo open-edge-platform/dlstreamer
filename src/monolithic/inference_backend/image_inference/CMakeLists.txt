@@ -15,6 +15,7 @@ endif()
 if(WIN32)
         add_subdirectory(async_with_d3d11)
         add_subdirectory(async_with_d3d12)
+        add_subdirectory(async_with_opencl)
 endif()
 
 find_package(PkgConfig REQUIRED)
@@ -42,6 +43,7 @@ PUBLIC
 if(WIN32)
         target_include_directories(${TARGET_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/async_with_d3d11)
         target_include_directories(${TARGET_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/async_with_d3d12)
+        target_include_directories(${TARGET_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/async_with_opencl)
         target_compile_definitions(${TARGET_NAME} PRIVATE GST_USE_UNSTABLE_API)
 endif()
 

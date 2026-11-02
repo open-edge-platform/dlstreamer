@@ -214,7 +214,8 @@ static GstCaps *gva_base_inference_transform_caps(GstBaseTransform *trans, GstPa
     // negotiated caps always match it.
     const gchar *pp = base_inference->pre_proc_type;
     if (pp && *pp) {
-        const bool keep_d3d11 = g_str_has_prefix(pp, "d3d11");
+        // 'opencl' imports D3D11 textures into OpenCL (D3D12 resources can't be).
+        const bool keep_d3d11 = g_str_has_prefix(pp, "d3d11") || g_str_equal(pp, "opencl");
         const bool keep_d3d12 = g_str_has_prefix(pp, "d3d12");
         GstCaps *filtered = gst_caps_copy(result);
         for (gint i = gst_caps_get_size(filtered) - 1; i >= 0; --i) {
@@ -303,10 +304,12 @@ void gva_base_inference_class_init(GvaBaseInferenceClass *klass) {
             "pre-process-backend", "Pre-processing method",
             "Select a pre-processing method (color conversion, resize and crop), "
 #ifdef _WIN32
-            "one of 'ie', 'opencv', 'd3d11', 'd3d11-surface-sharing', 'd3d12', 'd3d12-surface-sharing'."
+            "one of 'ie', 'opencv', 'd3d11', 'd3d11-surface-sharing', 'd3d12', 'd3d12-surface-sharing', 'opencl'."
             " If not set, it will be selected automatically: 'd3d12-surface-sharing' for D3D12Memory and"
             " 'd3d11-surface-sharing' for D3D11Memory on GPU ('d3d12'/'d3d11' on NPU, AUTO or MULTI devices),"
-            " 'ie' for SYSTEM memory. A d3d11 backend accepts only D3D11Memory, a d3d12 backend only D3D12Memory.",
+            " 'ie' for SYSTEM memory. A d3d11 backend accepts only D3D11Memory, a d3d12 backend only D3D12Memory."
+            " 'opencl' (experimental, GPU only) preprocesses D3D11Memory frames with an OpenCL kernel straight"
+            " into the model input tensor.",
 #else
             "one of 'ie', 'opencv', 'va', 'va-surface-sharing', 'vaapi', 'vaapi-surface-sharing'."
             " If not set, it will be selected automatically: 'va' for VAMemory and DMABuf, 'ie' for SYSTEM memory.",
@@ -349,8 +352,8 @@ void gva_base_inference_class_init(GvaBaseInferenceClass *klass) {
             "inference on individual frames. "
             "Value -1 disables timeout, waiting indefinitely for full batch. "
 #ifdef _WIN32
-            "Note: Not supported with D3D11/D3D12 backends (pre-process-backend=d3d11, d3d11-surface-sharing, d3d12 or "
-            "d3d12-surface-sharing).",
+            "Note: Not supported with D3D11/D3D12/OpenCL backends (pre-process-backend=d3d11, d3d11-surface-sharing, "
+            "d3d12, d3d12-surface-sharing or opencl).",
 #else
             "Note: Not supported with VA backends (pre-process-backend=va or va-surface-sharing).",
 #endif

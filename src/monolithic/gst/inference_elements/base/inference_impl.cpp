@@ -133,6 +133,8 @@ inline std::string ImagePreprocessorTypeToString(ImagePreprocessorType type) {
         return "D3D12";
     case ImagePreprocessorType::D3D12_SURFACE_SHARING:
         return "D3D12_SURFACE_SHARING";
+    case ImagePreprocessorType::OPENCL:
+        return "OPENCL";
     default:
         return "UNKNOWN";
     }
@@ -150,7 +152,8 @@ ImagePreprocessorType ImagePreprocessorTypeFromString(const std::string &image_p
         {"d3d11", ImagePreprocessorType::D3D11},
         {"d3d11-surface-sharing", ImagePreprocessorType::D3D11_SURFACE_SHARING},
         {"d3d12", ImagePreprocessorType::D3D12},
-        {"d3d12-surface-sharing", ImagePreprocessorType::D3D12_SURFACE_SHARING}};
+        {"d3d12-surface-sharing", ImagePreprocessorType::D3D12_SURFACE_SHARING},
+        {"opencl", ImagePreprocessorType::OPENCL}};
 
     for (auto &elem : preprocessor_types) {
         if (image_preprocessor_name == elem.first)
@@ -348,6 +351,9 @@ bool IsPreprocSupported(ImagePreprocessorType preproc,
         return !isCustomLib && IsModelProcSupportedForD3D(model_input_processor_info);
     case ImagePreprocessorType::D3D12_SURFACE_SHARING:
         return isSingleGpu && !isCustomLib && IsModelProcSupportedForD3D(model_input_processor_info);
+    case ImagePreprocessorType::OPENCL:
+        // Writes into OV's GPU remote context, like D3D11 surface sharing.
+        return isSingleGpu && !isCustomLib && IsModelProcSupportedForD3D(model_input_processor_info);
     case ImagePreprocessorType::AUTO:
     default:
         return false;
@@ -455,6 +461,12 @@ void setPreprocessorType(InferenceConfig &config,
             selected_preprocessor = ImagePreprocessorType::D3D12;
             GVA_WARNING("'pre-process-backend=d3d12-surface-sharing' not supported with current settings, falling back "
                         "to 'pre-process-backend=d3d12'");
+        } else if (current == ImagePreprocessorType::OPENCL &&
+                   IsPreprocSupported(ImagePreprocessorType::D3D11, model_input_processor_info, input_video_info,
+                                      config[KEY_BASE])) {
+            selected_preprocessor = ImagePreprocessorType::D3D11;
+            GVA_WARNING("'pre-process-backend=opencl' not supported with current settings, falling back "
+                        "to 'pre-process-backend=d3d11'");
         } else {
             // Throw an error if no suitable fallback is available
             throw std::runtime_error(
@@ -1045,7 +1057,9 @@ dlstreamer::ContextPtr createD3D12Display(GvaBaseInference *gva_base_inference) 
 void avoidCrossAdapterSurfaceSharing(GvaBaseInference *gva_base_inference, InferenceConfig &ie_config) {
     const auto preproc = static_cast<ImagePreprocessorType>(std::stoi(ie_config[KEY_BASE][KEY_PRE_PROCESSOR_TYPE]));
     const bool is_d3d12 = preproc == ImagePreprocessorType::D3D12_SURFACE_SHARING;
-    if (!is_d3d12 && preproc != ImagePreprocessorType::D3D11_SURFACE_SHARING)
+    // OpenCL preprocessing imports the frames into OV's OpenCL context, so it is bound to their adapter too.
+    if (!is_d3d12 && preproc != ImagePreprocessorType::D3D11_SURFACE_SHARING &&
+        preproc != ImagePreprocessorType::OPENCL)
         return;
     const auto &upstream = is_d3d12 ? gva_base_inference->priv->d3d12_device : gva_base_inference->priv->d3d11_device;
     if (!upstream ||

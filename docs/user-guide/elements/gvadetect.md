@@ -9,11 +9,11 @@ On Windows, the element also accepts `video/x-raw(memory:D3D11Memory)` and
 from the Linux listing below:
 
 - `pre-process-backend` accepts `ie`, `opencv`, `d3d11`, `d3d11-surface-sharing`,
-  `d3d12` and `d3d12-surface-sharing`. If it is not set, both D3D memory types are
-  accepted and the backend is selected from the negotiated memory:
+  `d3d12`, `d3d12-surface-sharing` and `opencl` (experimental). If it is not set, both
+  D3D memory types are accepted and the backend is selected from the negotiated memory:
   `d3d12-surface-sharing` or `d3d11-surface-sharing` on GPU, `d3d12` or `d3d11` on
-  NPU, and `ie` for system memory. A `d3d11` backend accepts only D3D11Memory, a `d3d12` backend
-  only D3D12Memory. See
+  NPU, and `ie` for system memory. A `d3d11` or `opencl` backend accepts only D3D11Memory,
+  a `d3d12` backend only D3D12Memory. See
   [Windows pre-processing backends](../dev_guide/model_preparation.md#windows-pre-processing-backends).
 - `share-d3d-ctx` (Boolean, default `true`) replaces `share-va-display-ctx`. It
   controls whether the upstream D3D11/D3D12 device is reused for inference

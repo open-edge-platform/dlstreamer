@@ -43,6 +43,8 @@
 #endif
 #else
 #include <dlstreamer/d3d11/context.h>
+#include <dlstreamer/d3d11/device_lock.h>
+#include <dlstreamer/d3d11/opencl_sharing.h>
 
 #define CL_TARGET_OPENCL_VERSION 300
 #include <CL/cl.h>
@@ -90,6 +92,9 @@ struct fmt::formatter<InferenceBackend::ImagePreprocessorType> : formatter<strin
             break;
         case ImagePreprocessorType::D3D12_SURFACE_SHARING:
             name = "D3D12 Surface Sharing";
+            break;
+        case ImagePreprocessorType::OPENCL:
+            name = "OpenCL";
             break;
         }
         return formatter<string_view>::format(name, ctx);
@@ -583,6 +588,11 @@ class OpenVinoNewApiImpl {
                     format = FourCC::FOURCC_RGBA;
                 break;
             }
+            // The OpenCL backend writes the planar tensor itself, as the system-memory backends do.
+            if (_pp_type == InferenceBackend::ImagePreprocessorType::OPENCL) {
+                format = (_model_format == "BGR") ? FourCC::FOURCC_BGRP : FourCC::FOURCC_RGBP;
+                break;
+            }
 #endif
             format = FourCC::FOURCC_NV12;
             break;
@@ -609,6 +619,8 @@ class OpenVinoNewApiImpl {
         switch (image.format) {
         case FourCC::FOURCC_RGBP:
         case FourCC::FOURCC_BGRP:
+            if (image.create_cl_buffer)
+                return image_planar_cl_buffer_to_tensor(image);
             if (image.type == MemoryType::DMA_BUFFER)
                 return {image_rgbp_dmabuf_to_npu_tensor(image)};
             return {image_rgbp_to_tensor(image)};
@@ -752,6 +764,18 @@ class OpenVinoNewApiImpl {
         auto *cl_ctx = _openvino_context->handle(dlstreamer::OpenVINOContext::key::cl_context);
         auto *cl_buf = static_cast<cl_mem>(image.create_cl_buffer(cl_ctx));
         return {cl_rmt_ctx.create_tensor(ov::element::u8, {1, image.height, image.width, 4}, cl_buf)};
+    }
+
+    // OpenCL pre-processing: the producer's create_cl_buffer callback runs its kernel and returns a cl_mem
+    // of our cl_context holding the model input as an u8 planar (NCHW) tensor.
+    std::vector<ov::Tensor> image_planar_cl_buffer_to_tensor(const Image &image) {
+        if (!_openvino_context)
+            throw std::runtime_error("OpenCL pre-processing requires a GPU device with an OpenVINO™ remote context");
+        auto cl_rmt_ctx = _openvino_context->remote_context<ov::intel_gpu::ocl::ClContext>();
+        auto *cl_ctx = _openvino_context->handle(dlstreamer::OpenVINOContext::key::cl_context);
+        auto *cl_buf = static_cast<cl_mem>(image.create_cl_buffer(cl_ctx));
+        const size_t channels = get_channels_num(image.format);
+        return {cl_rmt_ctx.create_tensor(ov::element::u8, {1, channels, image.height, image.width}, cl_buf)};
     }
 
     std::vector<ov::Tensor> image_i420_to_tensor(const Image &image) const {
@@ -996,8 +1020,10 @@ class OpenVinoNewApiImpl {
         GVA_DEBUG("%s", pp_type_string.c_str());
 
         // OPENCV and VAAPI pre-processors handle color coversion and scaling, input tensors in NCHW format
+        // (so does the OpenCL one, writing the tensor in GPU memory)
         if (pp_type == ImagePreprocessorType::OPENCV || pp_type == ImagePreprocessorType::VAAPI_SYSTEM ||
-            pp_type == ImagePreprocessorType::D3D11 || pp_type == ImagePreprocessorType::D3D12) {
+            pp_type == ImagePreprocessorType::D3D11 || pp_type == ImagePreprocessorType::D3D12 ||
+            pp_type == ImagePreprocessorType::OPENCL) {
             input.tensor().set_layout("NCHW");
         }
 
@@ -1219,6 +1245,68 @@ class OpenVinoNewApiImpl {
         return _device.find("MULTI") != std::string::npos;
     }
 
+#ifdef _WIN32
+    // For OpenCL pre-processing: an OpenCL context sharing textures with the D3D11 device, with
+    // CL_CONTEXT_INTEROP_USER_SYNC set. The pre-processing orders its kernel after the D3D11 work on a
+    // texture itself (see ImageInferenceAsyncOpenCL::WaitForStaging); in the D3D11 context OpenVINO
+    // would create (user sync off) every acquire of a texture plane makes the CPU wait for the GPU.
+    dlstreamer::OpenVINOContextPtr create_user_sync_d3d11_cl_context(const dlstreamer::D3D11ContextPtr &d3d11_ctx) {
+        auto *gst_device =
+            static_cast<GstD3D11Device *>(d3d11_ctx->handle(dlstreamer::D3D11Context::key::d3d11_device));
+        if (!gst_device)
+            throw std::runtime_error("OpenCL pre-processing: no D3D11 device");
+        ID3D11Device *device = gst_d3d11_device_get_device_handle(gst_device);
+
+        cl_uint num_platforms = 0;
+        if (clGetPlatformIDs(0, nullptr, &num_platforms) != CL_SUCCESS || num_platforms == 0)
+            throw std::runtime_error("OpenCL pre-processing: no OpenCL platform");
+        std::vector<cl_platform_id> platforms(num_platforms);
+        clGetPlatformIDs(num_platforms, platforms.data(), nullptr);
+
+        for (cl_platform_id platform : platforms) {
+            const dlstreamer::D3D11SharingFunctions sharing(platform);
+            if (!sharing.get_device_ids)
+                continue;
+            cl_device_id cl_device = nullptr;
+            cl_uint num_devices = 0;
+            if (sharing.get_device_ids(platform, CL_D3D11_DEVICE_KHR, device, CL_PREFERRED_DEVICES_FOR_D3D11_KHR, 1,
+                                       &cl_device, &num_devices) != CL_SUCCESS ||
+                num_devices == 0)
+                continue;
+
+            cl_context_properties props[] = {CL_CONTEXT_D3D11_DEVICE_KHR,
+                                             reinterpret_cast<cl_context_properties>(device),
+                                             CL_CONTEXT_INTEROP_USER_SYNC,
+                                             CL_TRUE,
+                                             CL_CONTEXT_PLATFORM,
+                                             reinterpret_cast<cl_context_properties>(platform),
+                                             0};
+            cl_int err = CL_SUCCESS;
+            cl_context cl_ctx = nullptr;
+            {
+                // Context creation uses the D3D11 immediate context.
+                dlstreamer::D3D11DeviceLock lock(gst_device);
+                cl_ctx = clCreateContext(props, 1, &cl_device, nullptr, nullptr, &err);
+            }
+            if (!cl_ctx || err != CL_SUCCESS)
+                continue;
+
+            // OpenVINO retains the context.
+            ov::RemoteContext remote_context;
+            try {
+                remote_context = ov::intel_gpu::ocl::ClContext(core(), cl_ctx);
+            } catch (...) {
+                clReleaseContext(cl_ctx);
+                throw;
+            }
+            clReleaseContext(cl_ctx);
+            GVA_INFO("OpenCL pre-processing: OpenVINO uses an OpenCL context with D3D11 interop user sync");
+            return std::make_shared<dlstreamer::OpenVINOContext>(remote_context);
+        }
+        throw std::runtime_error("OpenCL pre-processing: no OpenCL device shares textures with the D3D11 device");
+    }
+#endif
+
     dlstreamer::ContextPtr create_remote_context() {
         // FIXME: invert to reduce nesting
         if (is_device_gpu() && !is_device_multi()) {
@@ -1235,8 +1323,11 @@ class OpenVinoNewApiImpl {
                                 std::make_shared<dlstreamer::OpenVINOContext>(core(), _device, d3d12_ctx);
                         } else {
                             dlstreamer::D3D11ContextPtr d3d11_ctx = dlstreamer::D3D11Context::create(_app_context);
-                            _openvino_context =
-                                std::make_shared<dlstreamer::OpenVINOContext>(core(), _device, d3d11_ctx);
+                            if (_pp_type == InferenceBackend::ImagePreprocessorType::OPENCL)
+                                _openvino_context = create_user_sync_d3d11_cl_context(d3d11_ctx);
+                            else
+                                _openvino_context =
+                                    std::make_shared<dlstreamer::OpenVINOContext>(core(), _device, d3d11_ctx);
                         }
                     } catch (std::exception &e) {
                         GVA_ERROR("Exception occurred when creating OpenVINO™ toolkit remote context: %s", e.what());

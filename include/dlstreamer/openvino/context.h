@@ -81,6 +81,10 @@ class OpenVINOContext : public BaseContext {
         }
     }
 
+    explicit OpenVINOContext(ov::RemoteContext remote_context)
+        : BaseContext(MemoryType::OpenVINO), _remote_context(std::move(remote_context)) {
+    }
+
     ov::RemoteContext remote_context() {
         return _remote_context;
     }

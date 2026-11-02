@@ -109,6 +109,7 @@ On Windows, the VA backends are replaced by Direct3D backends. `ie` and
 | d3d11-surface-sharing | Converts the frame on the GPU into a BGRA/RGBA texture at model input size and passes it to OpenVINO™ through OpenCL/D3D11 interop. The frame is not copied to system memory. GPU inference device only. | D3D11Memory |
 | d3d12 | Same as `d3d11`, using the GStreamer D3D12 converter. Works with GPU and NPU inference devices. | D3D12Memory |
 | d3d12-surface-sharing | Converts the frame on the GPU into a BGRA/RGBA texture at model input size and copies it into a shared D3D12 buffer. OpenCL imports the buffer through `cl_khr_external_memory`, so the frame is not copied to system memory. GPU inference device only. | D3D12Memory |
+| opencl | Experimental. Copies the frame on the GPU into a shared D3D11 texture, then a single OpenCL kernel converts the color, crops, resizes and pads it straight into the model's planar input tensor, which OpenVINO™ reads in place: no D3D11 converter pass, no OpenCL image-to-buffer copy and no color/layout conversion in OpenVINO™ pre-processing. The ROIs of a frame share one copy. GPU inference device only; the frames must be on the inference device. | D3D11Memory |
 
 Notes:
 
@@ -124,6 +125,10 @@ Notes:
   D3D11Memory and D3D12Memory. D3D12 decoders (used by `decodebin3` on
   Windows 10 and later) then output D3D12Memory. A `d3d11` backend accepts only
   D3D11Memory, and a `d3d12` backend accepts only D3D12Memory.
+- `opencl` is never selected automatically. Like the surface sharing backends, it
+  falls back to `d3d11` when it is not supported with the current settings. It
+  hands OpenVINO™ an u8 planar tensor in the model's channel order, with the
+  same YUV-to-RGB conversion GStreamer's D3D11 converter uses for the frame size.
 
 **Post-processing** uses so called converters to process raw inference results.
 The converters transform the results from raw output
