@@ -126,42 +126,33 @@ jobs:
           source ~/python3venv/bin/activate
           uv pip install meson==1.4.1 ninja==1.11.1.1
 
-      - name: Install OpenVINO
-        if: needs.setup.outputs.should_run == 'true'
-        run: |
-          cd ${{ env.DLS_REL_PATH }}
-          echo "Installing OpenVINO..."
-          sudo ./scripts/install_dependencies/install_openvino.sh
-          echo " "
-          echo "Installing OpenVINO dependencies..."
-          if [[ ${{ matrix.os }} == "ubuntu-26.04" ]]; then
-            # The script bundled with 2026.3.1 lacks Ubuntu 26.04 support
-            wget -O /tmp/install_openvino_dependencies.sh https://raw.githubusercontent.com/openvinotoolkit/openvino/2026.4.0/scripts/install_dependencies/install_openvino_dependencies.sh
-            sudo bash /tmp/install_openvino_dependencies.sh -y
-          else
-            sudo -E /opt/intel/openvino_2026/install_dependencies/install_openvino_dependencies.sh
-          fi
-
+      # OpenVINO GenAI already bundles the full OpenVINO C++ runtime (same
+      # layout and setupvars.sh as the plain OpenVINO archive), so installing
+      # it is enough - no separate "plain" OpenVINO archive install is needed.
       - name: Install OpenVINO GenAI
         if: needs.setup.outputs.should_run == 'true'
         run: |
           cd ${{ env.DLS_REL_PATH }}
           echo "Installing OpenVINO GenAI for ${{ matrix.os }}..."
+          sudo mkdir -p /opt/intel
           sudo rm -rf /opt/intel/openvino_genai
           if [[ ${{ matrix.os }} == "ubuntu-24.04" ]]; then
             echo "Executing Ubuntu 24.04 specific setup..."
-            wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2026.3.1/linux/openvino_genai_ubuntu24_2026.3.1.0_x86_64.tar.gz | tar -xz
-            sudo mv openvino_genai_ubuntu24_2026.3.1.0_x86_64 /opt/intel/openvino_genai
-            source /opt/intel/openvino_genai/setupvars.sh
+            wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/2026.5.0.0.dev20261027/openvino_genai_ubuntu24_2026.5.0.0.dev20261027_x86_64.tar.gz | tar -xz
+            sudo mv openvino_genai_ubuntu24_2026.5.0.0.dev20261027_x86_64 /opt/intel/openvino_genai
           elif [[ ${{ matrix.os }} == "ubuntu-26.04" ]]; then
             echo "Executing Ubuntu 26.04 specific setup..."
-            wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/2026.3.1/linux/openvino_genai_ubuntu26_2026.3.1.0_x86_64.tar.gz | tar -xz
-            sudo mv openvino_genai_ubuntu26_2026.3.1.0_x86_64 /opt/intel/openvino_genai
-            source /opt/intel/openvino_genai/setupvars.sh
+            wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/2026.5.0.0.dev20261027/openvino_genai_ubuntu26_2026.5.0.0.dev20261027_x86_64.tar.gz | tar -xz
+            sudo mv openvino_genai_ubuntu26_2026.5.0.0.dev20261027_x86_64 /opt/intel/openvino_genai
           else
             echo "Unknown Ubuntu version: ${{ matrix.os }}"
             exit 1
           fi
+          source /opt/intel/openvino_genai/setupvars.sh
+
+          echo " "
+          echo "Installing OpenVINO GenAI dependencies..."
+          sudo -E /opt/intel/openvino_genai/install_dependencies/install_openvino_dependencies.sh
 
       - name: 📷 Build and install librealsense (for gvarealsense element)
         if: needs.setup.outputs.should_run == 'true'
@@ -200,9 +191,6 @@ jobs:
           source ~/python3venv/bin/activate
           cd ${{ env.DLS_REL_PATH }}
           echo " "
-          echo "Sourcing OpenVINO environment..."
-          source /opt/intel/openvino_2026/setupvars.sh
-          echo " "
           echo "Sourcing OpenVINO GenAI environment..."
           source /opt/intel/openvino_genai/setupvars.sh
           echo " "
@@ -212,9 +200,6 @@ jobs:
       - name: Install DL Streamer
         if: needs.setup.outputs.should_run == 'true'
         run: |
-          echo "Sourcing OpenVINO environment..."
-          source /opt/intel/openvino_2026/setupvars.sh
-          echo " "
           echo "Sourcing OpenVINO GenAI environment..."
           source /opt/intel/openvino_genai/setupvars.sh
           echo " "
@@ -230,7 +215,12 @@ jobs:
 
       - name: 🔍 Verify DL Streamer installation
         if: needs.setup.outputs.should_run == 'true'
+        # hadolint ignore=SC1091
         run: |
+          echo "Sourcing OpenVINO GenAI environment..."
+          source /opt/intel/openvino_genai/setupvars.sh
+          echo " "
+
           echo "Setting up DL Streamer environment..."
           export LIBVA_DRIVER_NAME=iHD
           export GST_PLUGIN_PATH="/opt/intel/dlstreamer/Release/lib:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0:$GST_PLUGIN_PATH"

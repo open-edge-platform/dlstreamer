@@ -54,6 +54,12 @@ class ConverterFacade {
 
     void convert(const OutputBlobs &all_output_blobs, FramesWrapper &frames) const;
 
+    // Safe to call from any thread, see BlobToMetaConverter::setConfidenceThreshold()
+    void setConfidenceThreshold(double threshold) const {
+        if (blob_to_meta)
+            blob_to_meta->setConfidenceThreshold(threshold);
+    }
+
     ConverterFacade() = default;
 };
 

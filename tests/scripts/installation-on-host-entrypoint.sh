@@ -7,7 +7,18 @@
 set -e
 
 DEB_PKGS_PATH=$1
+# Optional override for the OpenVINO GenAI version installed alongside the
+# .deb (see install_openvino() below). When omitted, the hardcoded default
+# below is used - keep it in sync with OPENVINO_GENAI_VERSION in
+# docker/ubuntu/ubuntuNN.Dockerfile whenever OpenVINO is bumped.
+OPENVINO_GENAI_VERSION_OVERRIDE=$2
 PREREQUISITES_SCRIPT_PATH="$(dirname "$0")/../../scripts"
+
+# Hardcoded default for the OpenVINO GenAI archive, which already bundles the
+# full OpenVINO C++ runtime (same layout and setupvars.sh as the plain
+# OpenVINO archive) - keep in sync with OPENVINO_GENAI_VERSION in
+# docker/ubuntu/ubuntuNN.Dockerfile whenever OpenVINO is bumped.
+DEFAULT_OPENVINO_GENAI_VERSION=2026.5.0.0.dev20261027
 
 # Function to display text in a given color
 echo_color() {
@@ -38,6 +49,52 @@ echo_color() {
 handle_error() {
     echo -e "\e[31m Error occurred: $1\e[0m"
     exit 1
+}
+
+# Install OpenVINO GenAI (which bundles the full OpenVINO C++ runtime)
+# alongside the intel-dlstreamer .deb (which no longer bundles OpenVINO, see
+# docker/ubuntu/ubuntuNN.Dockerfile "dlstreamer" stage), using the exact
+# archive version the .deb was built against, and register its library
+# directory with ldconfig so DL Streamer's GStreamer plugins (no RPATH,
+# default linker search path only) can resolve
+# libopenvino*/libopenvino_genai* at runtime.
+install_openvino() {
+    . /etc/os-release
+    local ubuntu_major
+    case "${VERSION_CODENAME}" in
+        jammy) ubuntu_major=22 ;;
+        noble) ubuntu_major=24 ;;
+        resolute) ubuntu_major=26 ;;
+        *) handle_error "Ubuntu version ${VERSION_CODENAME} not supported" ;;
+    esac
+
+    local openvino_genai_version="${OPENVINO_GENAI_VERSION_OVERRIDE:-$DEFAULT_OPENVINO_GENAI_VERSION}"
+
+    echo_color "Installing OpenVINO GenAI ${openvino_genai_version} alongside intel-dlstreamer..." "blue"
+
+    sudo mkdir -p /opt/intel
+
+    local openvino_genai_ver="openvino_genai_ubuntu${ubuntu_major}_${openvino_genai_version}_x86_64"
+    local openvino_genai_pkg="https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/${openvino_genai_version}/${openvino_genai_ver}.tar.gz"
+    local genai_version_marker=/opt/intel/openvino_genai/.installed_version
+
+    if [ -d /opt/intel/openvino_genai ] && [ "$(cat "$genai_version_marker" 2>/dev/null)" != "$openvino_genai_version" ]; then
+        sudo rm -rf /opt/intel/openvino_genai
+    fi
+    if [ ! -d /opt/intel/openvino_genai ]; then
+        local tmp_genai_dir
+        tmp_genai_dir=$(mktemp -d)
+        curl -fL "${openvino_genai_pkg}" | tar -xz -C "$tmp_genai_dir"
+        sudo mv "${tmp_genai_dir}/${openvino_genai_ver}" /opt/intel/openvino_genai
+        rm -rf "$tmp_genai_dir"
+        echo "$openvino_genai_version" | sudo tee "$genai_version_marker" > /dev/null
+    fi
+    sudo ln -sfn /opt/intel/openvino_genai /opt/intel/openvino
+
+    echo "/opt/intel/openvino/runtime/lib/intel64" | sudo tee /etc/ld.so.conf.d/openvino.conf > /dev/null
+    sudo ldconfig
+
+    echo_color "✓ OpenVINO installed and registered with ldconfig" "green"
 }
 
 cleanup_old_gpu_drivers() {
@@ -129,31 +186,9 @@ cleanup_old_gpu_drivers
 chmod +x "$PREREQUISITES_SCRIPT_PATH"/DLS_install_prerequisites.sh
 "$PREREQUISITES_SCRIPT_PATH"/DLS_install_prerequisites.sh --reinstall-npu-driver=yes
 
-# Configure repositories before installation
-echo_color "Starting to configure OpenVINO™ repository access before DL Streamer installation" "blue"
-sudo -E wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | sudo tee /usr/share/keyrings/intel-gpg-archive-keyring.gpg > /dev/null
-
-. /etc/os-release
-if [[ ! " jammy noble resolute " =~  ${VERSION_CODENAME}  ]]; then
-    echo_color "Ubuntu version ${VERSION_CODENAME} not supported" "red"
-else
-    if [[ "${VERSION_CODENAME}" == "jammy" ]]; then
-        sudo bash -c 'echo "deb [signed-by=/usr/share/keyrings/intel-gpg-archive-keyring.gpg] https://apt.repos.intel.com/openvino ubuntu22 main" | sudo tee /etc/apt/sources.list.d/intel-openvino.list'
-        echo_color "Completed to configure OpenVINO™ repository access before DL Streamer installation for Ubuntu 22" "magenta"
-    fi
-    if [[ "${VERSION_CODENAME}" == "noble" ]]; then
-        sudo bash -c 'echo "deb [signed-by=/usr/share/keyrings/intel-gpg-archive-keyring.gpg] https://apt.repos.intel.com/openvino ubuntu24 main" | sudo tee /etc/apt/sources.list.d/intel-openvino.list'
-        echo_color "Completed to configure OpenVINO™ repository access before DL Streamer installation for Ubuntu 24" "magenta"
-    fi
-    if [[ "${VERSION_CODENAME}" == "resolute" ]]; then
-        sudo bash -c 'echo "deb [signed-by=/usr/share/keyrings/intel-gpg-archive-keyring.gpg] https://apt.repos.intel.com/openvino ubuntu26 main" | sudo tee /etc/apt/sources.list.d/intel-openvino.list'
-        echo_color "Completed to configure OpenVINO™ repository access before DL Streamer installation for Ubuntu 26" "magenta"
-    fi
-fi
-
-echo_color "Executing: sudo apt update" "blue"
-sudo apt update
-echo_color  "Completed: sudo apt update" "magenta"
+# OpenVINO is no longer bundled inside the intel-dlstreamer package, so it must
+# be installed separately, alongside the .deb, before DL Streamer is used.
+install_openvino
 
 #DLStreamer installation
 echo_color "Executing: sudo apt update" "blue"

@@ -41,3 +41,20 @@ def assemble_parameters(parameters): # pylint: disable=missing-function-docstrin
         result = result + parameter + "=" + value + " "
 
     return result
+
+# prints device, batch-size and nireq of every inference element in a candidate pipeline
+def print_inference_parameters(pipeline, printer=print): # pylint: disable=missing-function-docstring
+    if isinstance(pipeline, str):
+        pipeline = pipeline.split("!")
+
+    for idx, element in enumerate(pipeline):
+        if "gvadetect" not in element and "gvaclassify" not in element:
+            continue
+
+        (element_type, parameters) = parse_element_parameters(element)
+        printer(
+            f"[{idx}] {element_type}: "
+            f"device={parameters.get('device', 'CPU')} "
+            f"batch-size={parameters.get('batch-size', '1')} "
+            f"nireq={parameters.get('nireq', '1')}"
+        )
