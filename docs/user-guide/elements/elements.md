@@ -46,6 +46,7 @@ gst-inspect-1.0 utility.
 | [gvafpsthrottle](./gvafpsthrottle.md)   | Throttles the framerate of video streams by enforcing a maximum frames-per-second (FPS) rate. Useful for rate limiting in pipelines or for testing at specific processing framerates.<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! gvafpsthrottle target-fps=10 ! … OUT<br> |
 | [gvastreammux](./gvastreammux.md)       | Muxes multiple video streams into a single pipeline by assembling PTS-aligned batches across pads, with configurable PTS normalization (`sync-mode`). Each output buffer carries `GstAnalyticsBatchMeta` (`streams[0].index` = source pad index, `n_streams` = batch size).<br>Example:<br> gst-launch-1.0 gvastreammux name=mux sync-mode=first-pts ! queue ! gvadetect model=$mDetect device=GPU ! gvafpscounter ! fakesink rtspsrc location=rtsp://host:8554/stream ! … ! mux.sink_0 rtspsrc location=rtsp://host:8555/stream ! … ! mux.sink_1<br> |
 | [gvastreamdemux](./gvastreamdemux.md)   | Routes a muxed stream back to per-source pads based on `GstAnalyticsBatchMeta.streams[0].index`. Must be used with `gvastreammux`.<br>Example:<br> gst-launch-1.0 gvastreammux name=mux ! queue ! gvadetect model=$mDetect device=GPU ! gvastreamdemux name=demux demux.src_0 ! queue ! fakesink demux.src_1 ! queue ! fakesink rtspsrc location=rtsp://host:8554/stream ! … ! mux.sink_0 rtspsrc location=rtsp://host:8555/stream ! … ! mux.sink_1<br> |
+| [gvatagger](./gvatagger.md) | Tags each access unit based on H.264/H.265 NAL unit size analysis (no decoding, no pixels), attaching `GvaTriggerMeta` (`motion`, `keyframe`) that survives decoding so downstream elements can skip inference on quiet frames.<br>Example:<br> gst-launch-1.0 … ! h264parse ! gvatagger k=1.5 ! decodebin3 ! … OUT<br> |
 | [gvametaaggregate](./gvametaaggregate.md) | Aggregates inference results from multiple pipeline branches.<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! tee name=t t. ! queue ! gvametaaggregate name=a ! gvaclassify … ! gvaclassify … ! gvametaconvert … ! gvametapublish … ! fakesink t. ! queue ! gvadetect … ! a.<br>                                                                                               |
 | [gvametaconvert](./gvametaconvert.md)   | Converts the metadata structure to JSON or raw text formats. Can write output to a file.|
 | [gvametapublish](./gvametapublish.md)   | Publishes the JSON metadata to MQTT or Kafka message brokers or files.<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! gvadetect model=$mDetect device=GPU … ! gvametaconvert format=json … ! gvametapublish … ! … OUT<br> |
@@ -81,6 +82,7 @@ gvafpscounter
 gvafpsthrottle
 gvastreammux
 gvastreamdemux
+gvatagger
 gvametaaggregate
 gvametaconvert
 gvametapublish
