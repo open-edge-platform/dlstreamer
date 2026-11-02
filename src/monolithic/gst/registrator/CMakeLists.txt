@@ -40,6 +40,7 @@ PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvastreammux/
     ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvastreamdemux/
     ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvafpscounter/
+    ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvatagger/
 )
 
 target_link_libraries(${TARGET_NAME}
@@ -54,6 +55,7 @@ PRIVATE
     gvastreammux
     gvastreamdemux
     gvafpscounter
+    gvatagger
 )
 
 if(ENABLE_GENAI)
