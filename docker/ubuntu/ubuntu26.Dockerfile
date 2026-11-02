@@ -441,7 +441,7 @@ ENV GI_TYPELIB_PATH=${GSTREAMER_DIR}/lib/girepository-1.0:${DLSTREAMER_DIR}/buil
 # OpenVINO Python bindings (openvino + openvino_genai) from GenAI archive
 # added first in PYTHONPATH - archive contains python/openvino/ and
 # python/openvino_genai/ with .so files for python3.11/3.12/3.13
-ENV PYTHONPATH=/opt/intel/openvino_genai/python:/${GSTREAMER_DIR}/lib/python3/dist-packages:${DLSTREAMER_DIR}/python:${DLSTREAMER_DIR}/scripts/optimizer:${PYTHONPATH}
+ENV PYTHONPATH=/opt/intel/openvino_genai/python:${GSTREAMER_DIR}/lib/python3/dist-packages:${DLSTREAMER_DIR}/python:${DLSTREAMER_DIR}/scripts/optimizer:${PYTHONPATH}
 
 # Build DLStreamer
 # hadolint ignore=SC1091
