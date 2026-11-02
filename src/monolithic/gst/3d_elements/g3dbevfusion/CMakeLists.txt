@@ -59,13 +59,3 @@ target_link_libraries(${TARGET_NAME}
         json-hpp
         dlstreamer_gst_meta
 )
-
-# Development tool comparing the runtime against the Python reference; built
-# on request only (cmake --build <dir> --target bevfusion_runtime_cli).
-find_package(OpenCV QUIET COMPONENTS imgcodecs)
-if(OpenCV_imgcodecs_FOUND OR TARGET opencv_imgcodecs)
-    add_executable(bevfusion_runtime_cli EXCLUDE_FROM_ALL bevfusion_runtime_cli.cpp)
-    set_compile_flags(bevfusion_runtime_cli)
-    target_include_directories(bevfusion_runtime_cli PRIVATE ${OpenCV_INCLUDE_DIRS})
-    target_link_libraries(bevfusion_runtime_cli PRIVATE g3dbevfusion_runtime opencv_imgcodecs ${OpenCV_LIBS} json-hpp)
-endif()
