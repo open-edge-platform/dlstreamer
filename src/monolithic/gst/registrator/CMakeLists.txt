@@ -27,7 +27,7 @@ target_include_directories(${TARGET_NAME}
 PRIVATE
     ${GSTREAMER_INCLUDE_DIRS}
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvagenai/
+    ${CMAKE_CURRENT_SOURCE_DIR}/../inference_elements/genai_inference/gvagenai/
     ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvametaaggregate/
     ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvametaconvert/
     ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvatrack/
