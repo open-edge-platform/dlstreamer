@@ -111,6 +111,7 @@ gvametaaggregate
 gvametaconvert
 gvametapublish
 gvapython
+gvatagger
 gvatrack
 gvawatermark
 html

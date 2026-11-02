@@ -43,6 +43,7 @@ PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvaeventrecorder/
     ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvaframeselect/
     ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvaroiscale/
+    ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvatagger/
 )
 
 target_link_libraries(${TARGET_NAME}
@@ -60,6 +61,7 @@ PRIVATE
     gvaeventrecorder
     gvaframeselect
     gvaroiscale
+    gvatagger
 )
 
 if(ENABLE_GENAI)
