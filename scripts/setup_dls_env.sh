@@ -8,7 +8,7 @@
 # shellcheck source=/dev/null
 . /etc/os-release
 
-PYTHON_BIN="${DLSTREAMER_PYTHON:-${VIRTUAL_ENV:+$VIRTUAL_ENV/bin/python}}"
+PYTHON_BIN="${VIRTUAL_ENV:+$VIRTUAL_ENV/bin/python}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
     echo "Python interpreter not found: $PYTHON_BIN" >&2
@@ -31,9 +31,6 @@ if [ "$ID" == "fedora" ] || [ "$ID" == "rhel" ]; then
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/ffmpeg
     export PYTHONPATH="${PYTHON_SITE_PACKAGES}:${GSTREAMER_PYTHON_PATH}:/opt/intel/dlstreamer/python${PYTHONPATH:+:$PYTHONPATH}"
 else
-    if [ "$ID" == "ubuntu" ] && [ "$VERSION_ID" == "22.04" ]; then
-        export LD_LIBRARY_PATH=$LD_LIBRARY_PATH
-    fi
     export LIBVA_DRIVERS_PATH=/usr/lib/x86_64-linux-gnu/dri
     export PYTHONPATH="${PYTHON_SITE_PACKAGES}:/opt/intel/openvino_genai/python:${GSTREAMER_PYTHON_PATH}:/opt/intel/dlstreamer/python${PYTHONPATH:+:$PYTHONPATH}"
 fi
