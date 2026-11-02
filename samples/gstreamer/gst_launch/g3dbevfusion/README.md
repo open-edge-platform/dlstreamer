@@ -26,7 +26,7 @@ source /opt/intel/openvino_2026/setupvars.sh
 PYTHON=~/bevfusion_venv/bin/python NUSCENES_ROOT=/data/nuscenes ./g3dbevfusion_prepare.sh
 ```
 
-Until the openvino_bevfusion fixes that g3dbevfusion relies on are merged upstream, the script clones them from the `bevfusion-dlstreamer-fixes` branch of [qianlongding/openvino_contrib](https://github.com/qianlongding/openvino_contrib/tree/bevfusion-dlstreamer-fixes) (override with `OPENVINO_CONTRIB_URL` and `OPENVINO_CONTRIB_REF`).
+The script checks out a fixed commit of [openvinotoolkit/openvino_contrib](https://github.com/openvinotoolkit/openvino_contrib) and applies the patches in [`patches/`](patches/) on top of it. They carry the openvino_bevfusion fixes that g3dbevfusion relies on, from [openvino_contrib#1197](https://github.com/openvinotoolkit/openvino_contrib/pull/1197), until that PR is merged (override the source with `OPENVINO_CONTRIB_URL` and `OPENVINO_CONTRIB_REF`).
 
 Assets go to `.bevfusion/` next to the script: the config, the IRs, the extensions, and `nuscenes/<scene>/` per converted scene. The export takes several minutes; later runs reuse what is already there.
 

@@ -9,11 +9,14 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CACHE_DIR="${BEVFUSION_CACHE_DIR:-${SCRIPT_DIR}/.bevfusion}"
+OPENVINO_CONTRIB_URL="${OPENVINO_CONTRIB_URL:-https://github.com/openvinotoolkit/openvino_contrib.git}"
+# A fixed openvino_contrib master commit, so that the patches below always apply.
+OPENVINO_CONTRIB_REF="${OPENVINO_CONTRIB_REF:-192fffa4a6533502d1a523e7853f5d982be57dd8}"
 # openvino_bevfusion fixes that g3dbevfusion relies on (detection head weights,
-# sparse encoder layout, OpenVINO 2026 compatibility, ...) are not upstream yet;
-# switch to openvinotoolkit/openvino_contrib master once they are merged.
-OPENVINO_CONTRIB_URL="${OPENVINO_CONTRIB_URL:-https://github.com/qianlongding/openvino_contrib.git}"
-OPENVINO_CONTRIB_REF="${OPENVINO_CONTRIB_REF:-bevfusion-dlstreamer-fixes}"
+# sparse encoder layout, OpenVINO 2026 compatibility, ...), from
+# openvinotoolkit/openvino_contrib#1197. Drop them and move the commit above
+# once that PR is merged.
+PATCH_DIR="${SCRIPT_DIR}/patches"
 CHECKPOINT_URL="https://download.openmmlab.com/mmdetection3d/v1.1.0_models/bevfusion/bevfusion_lidar-cam_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d-5239b1af.pth"
 EXTENSIONS=(bev_pool voxelize sparse_encoder)
 
@@ -31,9 +34,10 @@ Prepares what g3dbevfusion needs, from openvino_contrib's openvino_bevfusion mod
 Environment:
   BEVFUSION_ROOT        Existing modules/openvino_bevfusion directory. Otherwise
                         openvino_contrib is cloned into the cache directory.
-  OPENVINO_CONTRIB_URL  Repository to clone (default: qianlongding/openvino_contrib,
-                        until the openvino_bevfusion fixes are merged upstream)
-  OPENVINO_CONTRIB_REF  Branch or tag to clone (default: bevfusion-dlstreamer-fixes)
+  OPENVINO_CONTRIB_URL  Repository to clone (default: openvinotoolkit/openvino_contrib)
+  OPENVINO_CONTRIB_REF  Commit to check out (default: a fixed master commit). The
+                        patches in patches/ are applied on top of it, and skipped
+                        if the commit already contains them.
   PYTHON                Python with torch, numpy and openvino, for the IR export
                         (default: python3)
   OpenVINO_DIR          OpenVINO used by DL Streamer; set by OpenVINO's setupvars.sh
@@ -79,11 +83,34 @@ resolve_bevfusion_root() {
     return
   fi
   local checkout="${CACHE_DIR}/openvino_contrib"
-  if [[ ! -d "${checkout}/.git" ]]; then
-    log "Cloning ${OPENVINO_CONTRIB_URL} (${OPENVINO_CONTRIB_REF}) into ${checkout}"
-    git clone --depth 1 --branch "${OPENVINO_CONTRIB_REF}" --filter=blob:none --sparse \
-      "${OPENVINO_CONTRIB_URL}" "${checkout}"
+  # Records which commit and patches the checkout was made from, so a cache
+  # left by an older version of this script is replaced rather than reused.
+  local stamp
+  stamp="$(printf '%s %s\n' "${OPENVINO_CONTRIB_URL}" "${OPENVINO_CONTRIB_REF}"; cat "${PATCH_DIR}"/*.patch | git hash-object --stdin)"
+  if [[ -d "${checkout}" && "$(cat "${checkout}/.g3dbevfusion-stamp" 2>/dev/null)" != "${stamp}" ]]; then
+    log "Replacing ${checkout}, which was prepared from a different source"
+    # The extensions built from the old sources have to be rebuilt too.
+    rm -rf "${checkout}" "${CACHE_DIR}/extensions"
+  fi
+  if [[ ! -d "${checkout}" ]]; then
+    log "Fetching ${OPENVINO_CONTRIB_URL} (${OPENVINO_CONTRIB_REF}) into ${checkout}"
+    git init -q "${checkout}"
+    git -C "${checkout}" remote add origin "${OPENVINO_CONTRIB_URL}"
     git -C "${checkout}" sparse-checkout set modules/openvino_bevfusion
+    git -C "${checkout}" fetch -q --depth 1 --filter=blob:none origin "${OPENVINO_CONTRIB_REF}"
+    git -C "${checkout}" checkout -q FETCH_HEAD
+    for patch in "${PATCH_DIR}"/*.patch; do
+      if git -C "${checkout}" apply --check "${patch}" 2>/dev/null; then
+        log "Applying $(basename "${patch}")"
+        git -C "${checkout}" apply "${patch}"
+      elif git -C "${checkout}" apply --check --reverse "${patch}" 2>/dev/null; then
+        log "Skipping $(basename "${patch}"), already in ${OPENVINO_CONTRIB_REF}"
+      else
+        rm -rf "${checkout}"
+        fail "$(basename "${patch}") does not apply to openvino_contrib ${OPENVINO_CONTRIB_REF}"
+      fi
+    done
+    printf '%s\n' "${stamp}" >"${checkout}/.g3dbevfusion-stamp"
   fi
   BEVFUSION_ROOT="${checkout}/modules/openvino_bevfusion"
 }
