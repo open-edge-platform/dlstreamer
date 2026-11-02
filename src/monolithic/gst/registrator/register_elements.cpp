@@ -93,7 +93,7 @@ static gboolean plugin_init(GstPlugin *plugin) {
     if (!gst_element_register(plugin, "gvaframeselect", GST_RANK_NONE, GST_TYPE_GVA_FRAME_SELECT))
         return FALSE;
     if (!gst_element_register(plugin, "gvaroiscale", GST_RANK_NONE, GST_TYPE_GVA_ROI_SCALE))
-        return FALSE;      
+        return FALSE;
     if (!gst_element_register(plugin, "gvatagger", GST_RANK_NONE, gst_gva_tagger_get_type()))
         return FALSE;
 
