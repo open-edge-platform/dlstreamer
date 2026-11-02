@@ -251,11 +251,6 @@ Runtime::Runtime(const std::string &config_path, const std::string &device) : im
     const fs::path model_dir = resolve(base, cfg.at("model_dir").get<std::string>());
     impl_->params = load_model_params(model_dir / "config.json");
 
-    // The sparse encoder reads its OpenCL source when first run; tell it where
-    // to look unless the environment already does.
-    if (cfg.contains("kernel_dir"))
-        setenv("BEVFUSION_KERNEL_DIR", resolve(base, cfg.at("kernel_dir").get<std::string>()).c_str(), 0);
-
     ov::Core &core = impl_->core;
     for (const auto &ext : cfg.at("extensions"))
         core.add_extension(resolve(base, ext.get<std::string>()).string());

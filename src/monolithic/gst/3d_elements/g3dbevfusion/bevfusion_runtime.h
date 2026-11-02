@@ -32,8 +32,7 @@ struct FrameInput {
 //   {
 //     "model_dir":         "<dir with the exported IRs and config.json>",
 //     "extensions":        ["<libopenvino_bevpool_extension.so>", ...],
-//     "gpu_custom_layers": "<openvino_extensions/gpu_custom_layers.xml>",
-//     "kernel_dir":        "<dir with sparse_conv.cl>"            (optional)
+//     "gpu_custom_layers": "<openvino_extensions/gpu_custom_layers.xml>"
 //   }
 // Relative paths are resolved against the config file's directory.
 class Runtime {

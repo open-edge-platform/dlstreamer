@@ -57,8 +57,7 @@ Until the openvino_bevfusion fixes that g3dbevfusion relies on are merged upstre
     "/path/to/libopenvino_voxelize_extension.so",
     "/path/to/libopenvino_sparse_encoder_extension.so"
   ],
-  "gpu_custom_layers": "/path/to/openvino_bevfusion/openvino_extensions/gpu_custom_layers.xml",
-  "kernel_dir": "/path/to/dir/with/sparse_conv.cl"
+  "gpu_custom_layers": "/path/to/openvino_bevfusion/openvino_extensions/gpu_custom_layers.xml"
 }
 ```
 
@@ -204,7 +203,7 @@ Element Properties:
   calibration         : JSON naming the lidar's and each camera's mux pad, with each camera's model slot, camera2lidar and intrinsics
                         flags: readable, writable
                         String. Default: null
-  config              : Runtime JSON: model_dir, extensions, gpu_custom_layers and kernel_dir of the OpenVINO BEVFusion model
+  config              : Runtime JSON: model_dir, extensions and gpu_custom_layers of the OpenVINO BEVFusion model
                         flags: readable, writable
                         String. Default: null
   device              : Device for the dense networks (camera encoder, geometry, detection head); the custom voxelize/bev_pool ops always run on the GPU

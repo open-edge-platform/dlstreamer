@@ -142,8 +142,7 @@ write_config() {
     "${runtime_ext}/voxelize/libopenvino_voxelize_extension.so",
     "${runtime_ext}/sparse_encoder/libopenvino_sparse_encoder_extension.so"
   ],
-  "gpu_custom_layers": "${BEVFUSION_ROOT}/openvino_extensions/gpu_custom_layers.xml",
-  "kernel_dir": "${runtime_ext}/sparse_encoder"
+  "gpu_custom_layers": "${BEVFUSION_ROOT}/openvino_extensions/gpu_custom_layers.xml"
 }
 EOF
 }

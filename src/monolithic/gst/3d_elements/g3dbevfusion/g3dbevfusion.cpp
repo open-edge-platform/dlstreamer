@@ -458,8 +458,8 @@ static void gst_g3d_bevfusion_class_init(GstG3DBevFusionClass *klass) {
     const GParamFlags flags = static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
     g_object_class_install_property(gobject_class, PROP_CONFIG,
                                     g_param_spec_string("config", "Config",
-                                                        "Runtime JSON: model_dir, extensions, gpu_custom_layers "
-                                                        "and kernel_dir of the OpenVINO BEVFusion model",
+                                                        "Runtime JSON: model_dir, extensions and gpu_custom_layers "
+                                                        "of the OpenVINO BEVFusion model",
                                                         NULL, flags));
     g_object_class_install_property(gobject_class, PROP_CALIBRATION,
                                     g_param_spec_string("calibration", "Calibration",
