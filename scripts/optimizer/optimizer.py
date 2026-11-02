@@ -5,6 +5,7 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 import time
+import heapq
 import logging
 import itertools
 import os
@@ -19,7 +20,7 @@ from preprocess import preprocess_pipeline
 from processors.device import DeviceGenerator
 from processors.batch import BatchGenerator
 from processors.nireq import NireqGenerator
-from processors.utils import add_instance_ids
+from processors.utils import add_instance_ids, print_inference_parameters
 from optimization_targets import FpsTarget, PowerTarget
 
 import gi
@@ -61,6 +62,7 @@ class DLSOptimizer:
         self._detections_error_threshold = 0.95
         self._paused = False
         self._metrics_url = None
+        self._candidate_limit = 5
 
         # internal fields
         self._initial_pipeline = []
@@ -105,6 +107,9 @@ class DLSOptimizer:
 
     def set_detections_error_threshold(self, threshold): # pylint: disable=missing-function-docstring
         self._detections_error_threshold = threshold
+
+    def set_streams_candidate_limit(self, limit): # pylint: disable=missing-function-docstring
+        self._candidate_limit = limit
 
     def set_metrics_url(self, url): # pylint: disable=missing-function-docstring
         metrics_url = urljoin(url, "metrics")
@@ -211,6 +216,7 @@ class DLSOptimizer:
         # iterate over candidates and find the best one
         for streams in range(1, max_streams + 1): # high end in range function is non-inclusive
             has_not_changed = True
+            evaluated = 0
             for (pipeline, result) in self._evaluate_candidates(initial_pipeline, target, streams):
                 if result:
                     if self._maximize_streams:
@@ -225,6 +231,10 @@ class DLSOptimizer:
                         self._optimal_pipeline = pipeline.copy()
 
                 yield "!".join(pipeline), result
+
+                evaluated += 1
+                if self._maximize_streams and evaluated >= self._candidate_limit:
+                    break
             if has_not_changed:
                 break
 
@@ -272,34 +282,42 @@ class DLSOptimizer:
     def _evaluate_candidates(self, initial_pipeline, target, streams):
         best_pipeline = initial_pipeline
         best_result = self._initial_result
+        candidates = [initial_pipeline]
 
         for generator in self._generators.values():
-            generator.init_pipeline(best_pipeline)
-            for pipeline in generator:
-                try:
-                    pipelines = []
-                    for _ in range(0, streams):
-                        pipelines.append(pipeline)
+            generator.generate_candidates(candidates)
 
-                    result = self._sample_pipeline(pipelines, self._sample_duration)
+        # most promising candidates according to the target are evaluated first
+        scored_candidates = target.sort_candidates(candidates)
 
-                    if self._initial_result["detections"] != 0 and result["detections"] / self._initial_result["detections"] < self._detections_error_threshold:
-                        raise FaultyPipeline("Pipeline reporting detections under error margin")
+        while scored_candidates:
+            (_, _, pipeline) = heapq.heappop(scored_candidates)
+            print_inference_parameters(pipeline, logger.info)
 
-                    if target.is_better(result, best_result):
-                        best_result = result.copy()
-                        best_pipeline = pipeline
+            try:
+                pipelines = []
+                for _ in range(0, streams):
+                    pipelines.append(pipeline)
 
-                    yield pipeline, result
+                result = self._sample_pipeline(pipelines, self._sample_duration)
 
-                except TestHalt:
-                    logger.info("Testing process paused.")
-                    while self._paused:
-                        time.sleep(0.5)
-                    logger.info("Testing process restarted.")
-                except Exception as e:
-                    logger.debug("Pipeline failed sampling: %s", e)
-                    yield pipeline, None
+                if self._initial_result["detections"] != 0 and result["detections"] / self._initial_result["detections"] < self._detections_error_threshold:
+                    raise FaultyPipeline("Pipeline reporting detections under error margin")
+
+                if target.is_better(result, best_result):
+                    best_result = result.copy()
+                    best_pipeline = pipeline
+
+                yield pipeline, result
+
+            except TestHalt:
+                logger.info("Testing process paused.")
+                while self._paused:
+                    time.sleep(0.5)
+                logger.info("Testing process restarted.")
+            except Exception as e:
+                logger.debug("Pipeline failed sampling: %s", e)
+                yield pipeline, None
 
 ##################################### Pipeline Running ############################################
 

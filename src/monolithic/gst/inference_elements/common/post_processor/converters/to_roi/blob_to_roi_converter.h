@@ -12,6 +12,7 @@
 #include <dlstreamer/gst/videoanalytics/tensor.h>
 #include <gst/gst.h>
 
+#include <atomic>
 #include <map>
 #include <memory>
 #include <string>
@@ -154,7 +155,9 @@ class BlobToROIConverter : public BlobToMetaConverter {
     void runNms(std::vector<DetectedObject> &candidates) const;
     TensorsTable toTensorsTable(const DetectedObjectsTable &bboxes_table) const;
 
-    const double confidence_threshold;
+    // Can be changed while running, see setConfidenceThreshold(). Reads in the converters are plain comparisons: the
+    // atomic converts to double implicitly.
+    std::atomic<double> confidence_threshold;
     const bool need_nms;
     const double iou_threshold;
 
@@ -165,6 +168,10 @@ class BlobToROIConverter : public BlobToMetaConverter {
                        double iou_threshold)
         : BlobToMetaConverter(std::move(initializer)), confidence_threshold(confidence_threshold), need_nms(need_nms),
           iou_threshold(iou_threshold) {
+    }
+
+    void setConfidenceThreshold(double threshold) override {
+        confidence_threshold = threshold;
     }
 
     virtual TensorsTable convert(const OutputBlobs &output_blobs) = 0;
