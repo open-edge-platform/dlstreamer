@@ -101,7 +101,7 @@ helper class.
 ## 5. Modify source code of post-processors for gvadetect/gvaclassify elements
 
 You can add new or modify any suitable existing
-[post-processor](https://github.com/open-edge-platform/dlstreamer/blob/main/src/monolithic/gst/inference_elements/vision_inference/common/post_processor/blob_to_meta_converter.cpp)
+[post-processor](https://github.com/open-edge-platform/dlstreamer/blob/main/src/monolithic/gst/inference_elements/vision/common/post_processor/blob_to_meta_converter.cpp)
 for `gvadetect`/`gvaclassify` elements.
 
 ## 6. Create custom post-processing library

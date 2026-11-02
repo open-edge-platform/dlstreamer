@@ -4,12 +4,12 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
-add_subdirectory(vision_inference)
+add_subdirectory(vision)
 
 if(${ENABLE_AUDIO_INFERENCE_ELEMENTS})
-    add_subdirectory(audio_inference)
+    add_subdirectory(audio)
 endif()
 
 if(ENABLE_GENAI)
-    add_subdirectory(genai_inference)
+    add_subdirectory(genai)
 endif()
