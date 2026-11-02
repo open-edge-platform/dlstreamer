@@ -116,3 +116,13 @@ std::shared_ptr<ColorConverter> create_color_converter(dlstreamer::ImageFormat f
 
     throw std::runtime_error("Unsupported format");
 }
+
+Color contrast_text_color(const Color &rgb_background) {
+    // Picks the text color with the higher APCA lightness contrast. With only black and white to choose from, that
+    // comes down to a threshold on APCA's screen luminance estimate: both read equally well at 0.342. Unlike the
+    // WCAG 2 contrast ratio, APCA keeps white text on saturated red and magenta.
+    auto linear = [](uint8_t c) { return std::pow(c / 255., 2.4); };
+    const double luminance = 0.2126729 * linear(rgb_background[0]) + 0.7151522 * linear(rgb_background[1]) +
+                             0.0721750 * linear(rgb_background[2]);
+    return luminance > 0.342 ? Color(0, 0, 0) : Color(255, 255, 255);
+}

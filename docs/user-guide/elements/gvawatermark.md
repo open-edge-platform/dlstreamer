@@ -71,9 +71,10 @@ Element Properties:
                         * show-labels=<bool> enable or disable displaying text labels, default true
                         * font-scale=<double 0.1 to 2.0> scale factor for text labels, default 0.5
                         * thickness=<uint> bounding box thickness, default 2
-                        * color-idx=<int> color index for bounding box, keypoints, and text, default -1 (use default colors: 0 red, 1 green, 2 blue)
+                        * color-idx=<int> built-in color table entry for bounding box, keypoints, and text, default -1 (per-object colors). Built-in table: 0 red, 1 green, 2 blue, 3 yellow, 4 cyan, 5 magenta, 6-17 intermediate hues, 18 black, 19 white
+                        * color-table=<path> file with object colors per label, one 'label: R,G,B' entry (0 to 255) per line, '#' starts a comment, default empty (built-in colors derived from the label)
                         * font-type=<string> font type for text labels, default triplex. Supported fonts: simplex, plain, duplex, complex, triplex, complex_small, script_simplex, script_complex
-                        * draw-txt-bg=<bool> enable or disable displaying text labels background, by enabling it the text color is set to white, default true
+                        * draw-txt-bg=<bool> enable or disable displaying text labels background, by enabling it the text color is set to black or white, whichever contrasts better with the background, default true
                         * show-roi=<string> colon-separated list of labels to include (only these objects will be shown), default empty
                         * hide-roi=<string> colon-separated list of labels to exclude (these objects will be hidden), default empty
                         * enable-blur=<bool> enable ROI blurring for privacy protection, default false
@@ -88,6 +89,7 @@ Element Properties:
 
                         e.g.: displ-cfg=show-labels=false
                         e.g.: displ-cfg=font-scale=0.5,thickness=3,color-idx=2,font-type=plain
+                        e.g.: displ-cfg=color-table=/path/to/colors.txt
                         e.g.: displ-cfg=show-labels=true,show-roi=person:car:truck
                         e.g.: displ-cfg=show-labels=true,hide-roi=bottle:cup
                         e.g.: displ-cfg=enable-blur=true,show-blur-roi=face:person
@@ -143,12 +145,62 @@ Controls the size of text labels displayed on detected objects.
 
 *Blue background makes text more readable over complex backgrounds*
 
+The background takes the object's color and the text is drawn in black or white, whichever contrasts
+better with it: black on light colors such as yellow, green and cyan, white on dark and saturated ones
+such as blue and red.
+
 ### Color Index
 
 **Red Color (`color-idx=0`)**
 ![Color Index Red](../_images/color-idx-zero.png)
 
 *Uses red color for bounding boxes and text*
+
+### Default Bounding Box Colors
+
+When `color-idx` is not set, the color of a bounding box is derived from the
+object label only, so a given class is always drawn with the same color,
+regardless of the model or the run:
+
+- Labels are compared case-insensitively, ignoring spaces, `_` and `-`
+  (`traffic light`, `traffic_light` and `trafficlight` are the same label).
+- COCO classes use the colors YOLO models have always been drawn with, e.g.
+  `person` red, `bicycle` green, `car` blue, `motorcycle` yellow, `bus` magenta,
+  `truck` pink.
+- Common labels of other models follow their COCO equivalents: `pedestrian` is
+  red like `person`, `vehicle` is blue like `car`, `bike` is green like `bicycle`.
+  `face` is green and `license plate` is yellow.
+- Labels of the pallet defect detection model are distinct: `box` is orange,
+  `defect` is magenta, `shipping_label` is cyan.
+- Any other label gets one of 18 saturated colors (the built-in table without
+  black and white), chosen by a fixed hash of the label text.
+- Tracked objects (with an object ID assigned by `gvatrack`) are colored by
+  their object ID instead, as entry `ID % 20` of the built-in table.
+- Landmarks and keypoints are colored from the built-in table, by point index.
+
+### Color Table
+
+`color-table=<path>` assigns your own colors to selected labels. The file lists
+one label per line:
+
+- `label: R,G,B`, with red, green and blue components from 0 to 255, separated
+  by commas or spaces
+- labels are matched the same way as above (case, spaces, `_` and `-` are
+  ignored), each label may appear only once
+- `#` starts a comment, empty lines are skipped
+- a color from the file takes precedence over the tracking ID color; labels
+  not listed in the file keep their default colors
+- `color-idx=<n>` still draws every bounding box and label in entry `n` of the
+  built-in table (0 to 19), regardless of the color table
+
+```text
+# colors.txt
+person: 255, 64, 64
+car: 64, 160, 255
+traffic light: 255 200 0
+```
+
+e.g `displ-cfg=color-table=/path/to/colors.txt`
 
 ### Font Types
 
@@ -268,6 +320,9 @@ displ-cfg=font-scale=2.0,draw-txt-bg=true
 
 # Colored thin boxes with simple font  
 displ-cfg=color-idx=0,thickness=1,font-type=simplex
+
+# Object colors from a custom color table
+displ-cfg=color-table=/path/to/colors.txt
 
 # Complete custom styling
 displ-cfg=font-scale=1.5,thickness=3,color-idx=2,font-type=complex,draw-txt-bg=true

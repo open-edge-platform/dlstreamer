@@ -18,7 +18,7 @@ samples/
 │   ├── benchmark/        # Benchmark sample
 │   └── e2e_performance/  # DL Streamer vs. OpenCV+OpenVINO benchmark
 ├── auto_generated_samples/  # End-to-end apps built by the DL Streamer Coding Agent
-└── windows/               # Windows variants (PowerShell/.bat scripts)
+└── windows/               # Windows variants (PowerShell scripts)
 ```
 
 ## Before you start
@@ -27,7 +27,7 @@ samples/
 - Download the models used by samples with the conversion scripts under
   [scripts/download_models](../scripts/download_models).
 - Samples with C/C++ code provide a `build_and_run.sh`; other samples provide a `.sh`
-  (or, on Windows, `.bat`/PowerShell) script that builds and runs the pipeline.
+  (or, on Windows, PowerShell) script that builds and runs the pipeline.
 
 ## Finding a sample
 
