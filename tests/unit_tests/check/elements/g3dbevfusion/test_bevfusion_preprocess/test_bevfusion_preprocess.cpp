@@ -13,6 +13,7 @@
 #include "bevfusion_preprocess.h"
 
 #include <cmath>
+#include <numbers>
 #include <stdexcept>
 #include <vector>
 
@@ -253,7 +254,7 @@ GST_START_TEST(test_decode_boxes) {
     assert_near(b.dx, 4.0f, 1e-5f);
     assert_near(b.dy, 2.0f, 1e-5f);
     assert_near(b.dz, 1.5f, 1e-5f);
-    assert_near(b.yaw, static_cast<float>(M_PI / 2), 1e-6f);
+    assert_near(b.yaw, std::numbers::pi_v<float> / 2, 1e-6f);
     assert_near(b.vx, 2.0f, 0.0);
     assert_near(b.vy, -1.0f, 0.0);
 }
