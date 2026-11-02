@@ -46,6 +46,8 @@ BuildRequires:  ninja-build
 BuildRequires:  pkgconfig
 BuildRequires:  glib2-devel
 BuildRequires:  python3-devel
+# gvapython is skipped by CMake when the pygobject-3.0 pkg-config file is missing
+BuildRequires:  python3-gobject-devel
 BuildRequires:  gstreamer1-devel
 BuildRequires:  gstreamer1-plugins-base-devel
 BuildRequires:  gstreamer1-plugins-bad-free-devel
@@ -168,7 +170,7 @@ export GST_PLUGIN_PATH=%{buildroot}%{_libdir}/gstreamer-1.0
 export GST_REGISTRY=%{_builddir}/gst-registry.bin
 export GI_TYPELIB_PATH=%{buildroot}%{_libdir}/girepository-1.0
 export PYTHONPATH=%{buildroot}%{python3_sitelib}
-for element in gvadetect gvaclassify gvainference gvametaconvert gvametaaggregate gvawatermark gvatrack gvametapublishkafka gvametapublishmqtt; do
+for element in gvadetect gvaclassify gvainference gvametaconvert gvametaaggregate gvawatermark gvatrack gvapython gvametapublishkafka gvametapublishmqtt; do
     gst-inspect-1.0 --exists $element
 done
 %{python3} -c "
