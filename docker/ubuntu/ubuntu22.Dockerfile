@@ -507,6 +507,7 @@ RUN \
     mv ./debian/control-ubuntu22 ./debian/control
 
 RUN \
+    PYTHON_LIBDIR="$(/python3venv/bin/python -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')" \
     debuild -z1 -us -uc && \
     mv "/intel-dlstreamer_${DLSTREAMER_VERSION}_amd64.deb" "/intel-dlstreamer_${DLSTREAMER_VERSION}.${DLSTREAMER_BUILD_NUMBER}_amd64.deb"
 
