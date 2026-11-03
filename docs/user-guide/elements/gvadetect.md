@@ -163,3 +163,38 @@ Element Properties:
                         flags: readable, writable
                         Float. Range: 0 - 1 Default: 0.5
 ```
+
+## Changing properties at runtime
+
+`threshold` and `inference-interval` can be changed while the pipeline is running, with `g_object_set()` or
+`Gst.Element.set_property()` from any thread, and take effect without a restart. They are the only properties that
+`gst-inspect-1.0` marks as "changeable in NULL, READY, PAUSED or PLAYING state". Any other property is refused once the
+element has started: the value is not changed and a warning is logged.
+
+To know whether a change was accepted, use the `set-runtime-property` action signal. It takes the name of the property
+and its value as text, and returns a `Gst.Structure` with the fields `status`, `code`, `message`, `property`,
+`previous` and `current`:
+
+| `status` | `code` | Meaning |
+| --- | --- | --- |
+| 0 | `APPLIED` | The property was set and reads back with the new value |
+| 1 | `NOT_FOUND` | There is no such property |
+| 2 | `NOT_MUTABLE` | The property cannot be changed in the current state of the element |
+| 3 | `INVALID_VALUE` | The value is not of the type of the property, or is out of its range |
+| 4 | `NOT_APPLIED` | The property did not take the value |
+
+```python
+result = detect.emit("set-runtime-property", "threshold", "0.8")
+if result.get_value("status") != 0:
+    print(result.get_value("code"), result.get_value("message"))
+```
+
+A request that is refused changes nothing, and the pipeline keeps running.
+
+- `inference-interval` applies from the next frame. When elements share a model (same `model-instance-id`), an
+  element that has no `inference-interval` of its own takes the one of the element that defines the model. An interval
+  that was set explicitly, before the start or while running, is kept.
+- `threshold` applies from the next inference result that is converted. A result that is being converted at the very
+  moment of the change may be filtered partly with the old and partly with the new value. Setting `threshold` while
+  running overrides the confidence threshold of the model for all of its output layers, in the same way as setting it
+  before the start does. When elements share a model, each one filters its own frames with its own threshold.

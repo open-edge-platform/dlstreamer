@@ -48,6 +48,9 @@ static gboolean gst_gva_mono3d_start(GstBaseTransform *trans) {
 static void gst_gva_mono3d_set_property(GObject *object, guint property_id, const GValue *value, GParamSpec *pspec) {
     GstGvaMono3d *gvamono3d = GST_GVA_MONO3D(object);
 
+    if (gva_base_inference_reject_write(GST_ELEMENT(object), pspec))
+        return;
+
     switch (property_id) {
     case PROP_THRESHOLD:
         gvamono3d->threshold = g_value_get_float(value);
