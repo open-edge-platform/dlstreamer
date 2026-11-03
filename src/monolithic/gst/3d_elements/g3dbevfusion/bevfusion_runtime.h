@@ -41,6 +41,8 @@ class Runtime {
     ~Runtime();
     Runtime(const Runtime &) = delete;
     Runtime &operator=(const Runtime &) = delete;
+    Runtime(Runtime &&) = delete;
+    Runtime &operator=(Runtime &&) = delete;
 
     void set_calibration(const std::array<CameraCalibration, kNumCameras> &cameras);
     std::vector<Box3D> infer(const FrameInput &frame, float score_threshold);
