@@ -20,6 +20,7 @@
 
 #include "backends/frame_utils.hpp"
 #include "backends/genai_backend.hpp"
+#include "metrics_message.hpp"
 
 #include <string>
 #include <vector>
@@ -48,7 +49,8 @@ enum {
     PROP_VISION_MODE,
     PROP_TRIGGER_OBJ_CLASSES,
     PROP_TRIGGER_MODE,
-    PROP_MODEL_INSTANCE_ID
+    PROP_MODEL_INSTANCE_ID,
+    PROP_POST_METRICS
 };
 
 // How accumulated frames are presented to the VLM. Determines the native vision tag the
@@ -119,6 +121,7 @@ struct GvaGenAIRuntime {
     std::shared_ptr<dlstreamer::MemoryMapperGSTToCPU> mapper;
     std::vector<ov::Tensor> frames;
     std::vector<std::string> trigger_obj_classes; // parsed/cached copy of gvagenai->trigger_obj_classes
+    bool post_metrics_unavailable_warned = false;
 };
 
 // GObject vmethod implementations
@@ -286,6 +289,13 @@ static void gst_gvagenai_class_init(GstGvaGenAIClass *klass) {
                             "unshared instance. Ignored by the 'openai-http' backend.",
                             NULL, G_PARAM_READWRITE));
 
+    g_object_class_install_property(
+        gobject_class, PROP_POST_METRICS,
+        g_param_spec_boolean("post-metrics", "Post Metrics",
+                             "Post a \"dlstreamer/genai-request\" element message on the bus with the performance "
+                             "of every generation request. Supported by the 'openvino-genai' backend only.",
+                             FALSE, G_PARAM_READWRITE));
+
     GST_DEBUG_CATEGORY_INIT(gst_gvagenai_debug, "gvagenai", 0, "OpenVINO™ GenAI Inference");
 }
 
@@ -299,6 +309,7 @@ static void gst_gvagenai_init(GstGvaGenAI *gvagenai) {
     gvagenai->config.scheduler_config = NULL;
     gvagenai->config.pipeline_config = NULL;
     gvagenai->config.include_metrics = FALSE;
+    gvagenai->post_metrics = FALSE;
     gvagenai->config.server_url = NULL;
     gvagenai->config.api_key = NULL;
     gvagenai->config.timeout_ms = NULL;
@@ -512,6 +523,9 @@ static void gst_gvagenai_set_property(GObject *object, guint prop_id, const GVal
         g_free(gvagenai->config.model_instance_id);
         gvagenai->config.model_instance_id = g_value_dup_string(value);
         break;
+    case PROP_POST_METRICS:
+        gvagenai->post_metrics = g_value_get_boolean(value);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -578,6 +592,9 @@ static void gst_gvagenai_get_property(GObject *object, guint prop_id, GValue *va
         break;
     case PROP_MODEL_INSTANCE_ID:
         g_value_set_string(value, gvagenai->config.model_instance_id);
+        break;
+    case PROP_POST_METRICS:
+        g_value_set_boolean(value, gvagenai->post_metrics);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -680,6 +697,24 @@ static gboolean gst_gvagenai_stop(GstBaseTransform *base) {
     return TRUE;
 }
 
+// Posts the request's own performance as a bus message, so applications do not have to parse the JSON meta,
+// whose "metrics" block accumulates every request since the element started, or the log.
+static void post_request_metrics(GstGvaGenAI *gvagenai, GvaGenAIRuntime *runtime, const genai::GenAIResult &result,
+                                 guint frames) {
+    if (!result.metrics) {
+        if (!runtime->post_metrics_unavailable_warned) {
+            GST_WARNING_OBJECT(gvagenai,
+                               "post-metrics is enabled, but the '%s' backend does not report per-request "
+                               "metrics; no messages will be posted",
+                               result.backend_name.c_str());
+            runtime->post_metrics_unavailable_warned = true;
+        }
+        return;
+    }
+    GstStructure *s = genai::create_request_metrics_structure(*result.metrics, frames);
+    gst_element_post_message(GST_ELEMENT_CAST(gvagenai), gst_message_new_element(GST_OBJECT_CAST(gvagenai), s));
+}
+
 static GstFlowReturn gst_gvagenai_transform_ip(GstBaseTransform *base, GstBuffer *buf) {
     GstGvaGenAI *gvagenai = GST_GVAGENAI(base);
 
@@ -772,6 +807,7 @@ static GstFlowReturn gst_gvagenai_transform_ip(GstBaseTransform *base, GstBuffer
             }
 
             genai::GenRequest req;
+            const guint request_frames = (guint)runtime->frames.size();
             req.frames = std::move(runtime->frames);
             req.prompt = gvagenai->prompt_string;
             req.as_video = as_video;
@@ -795,6 +831,9 @@ static GstFlowReturn gst_gvagenai_transform_ip(GstBaseTransform *base, GstBuffer
             g_free(gvagenai->last_result);
             gvagenai->last_result = g_strdup(result.text.c_str());
             gvagenai->last_confidence = result.confidence;
+
+            if (gvagenai->post_metrics)
+                post_request_metrics(gvagenai, runtime, result, request_frames);
 
             const GstMetaInfo *meta_info = gst_gva_json_meta_get_info();
             if (meta_info && gst_buffer_is_writable(buf)) {

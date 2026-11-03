@@ -42,6 +42,7 @@ Key operations:
 | model-cache-path | String | Directory for caching compiled models (GPU/NPU only). Used by the `openvino-genai` backend only. | ov_cache |
 | model-instance-id | String | Identifier for sharing a loaded model instance with other `gvagenai` elements, instead of loading a separate copy. Used by the `openvino-genai` backend only. See [Model Sharing](#model-sharing). | null |
 | metrics | Boolean | Include performance metrics in the JSON output. | false |
+| post-metrics | Boolean | Post a `dlstreamer/genai-request` bus message with the performance of every generation request. See [Per-request metrics](#per-request-metrics). `openvino-genai` backend only. | false |
 | http-server-url | String | Base URL of the OpenAI-compatible server (e.g. `http://localhost:8000/v1`). Required for the `openai-http` backend. | null |
 | http-api-key | String | Optional Bearer token / API key for the HTTP server. `openai-http` backend only. | null |
 | http-timeout | String | Optional request timeout in milliseconds. `openai-http` backend only. | null |
@@ -334,6 +335,21 @@ gst-launch-1.0 filesrc location=video.mp4 ! decodebin3 ! \
 
 **Confidence semantics**: for beam search or sampling, `confidence` is the per-token geometric-mean probability in `[0, 1]`. For greedy decoding the pipeline does not compute per-token scores, so confidence is unavailable and omitted from the JSON and reported as `0` in the classification metadata.
 
+## Per-request metrics
+
+With `post-metrics=true`, every completed generation request posts a `GST_MESSAGE_ELEMENT`
+from the `gvagenai` element, with the structure name `dlstreamer/genai-request`. It carries
+that request's time to first token, time per output token, durations and token counts, as
+measured by OpenVINO™ GenAI. The fields are listed in
+[Structured Metrics Messages](../dev_guide/metrics_messages.md).
+
+The `metrics` property is independent: it adds a `metrics` block to the JSON metadata, whose
+values are averages over every request since the element started. Either property can be
+set without the other.
+
+Only the `openvino-genai` backend measures per-request performance. With `openai-http`, no
+message is posted and a warning is logged once.
+
 ## Pipeline Examples
 
 A script with source selection, scaling, and all options is provided in [samples/gstreamer/gst_launch/gvagenai](../../../samples/gstreamer/gst_launch/gvagenai).
@@ -481,6 +497,9 @@ Element Properties:
   pipeline-config     : OpenVINO device properties passed to the pipeline at construction, as KEY=VALUE,KEY=VALUE format
                         flags: readable, writable
                         String. Default: null
+  post-metrics        : Post a "dlstreamer/genai-request" element message on the bus with the performance of every generation request. Supported by the 'openvino-genai' backend only.
+                        flags: readable, writable
+                        Boolean. Default: false
   prompt              : Text prompt for the GenAI model
                         flags: readable, writable
                         String. Default: null
