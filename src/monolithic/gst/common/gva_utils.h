@@ -25,6 +25,8 @@ void gva_buffer_check_and_make_writable(GstBuffer **buffer, const char *called_f
 
 G_END_DECLS
 
+#define GVA_AGGREGATED_ROI_TYPE "dlstreamer-aggregated-roi"
+
 #define GST_VIDEO_REGION_OF_INTEREST_META_ITERATE(buf, state)                                                          \
     ((GstVideoRegionOfInterestMeta *)gst_buffer_iterate_meta_filtered(buf, state,                                      \
                                                                       GST_VIDEO_REGION_OF_INTEREST_META_API_TYPE))

@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <cstring>
 
-#include "aggregated_roi_meta.hpp"
+#include "gva_utils.h"
 
 namespace gvaroiscale {
 namespace {
@@ -46,7 +46,7 @@ std::vector<Roi> collect_rois(GstBuffer *input_buffer, const GArray *target_clas
     if (input_buffer && frame_width > 0 && frame_height > 0) {
         gpointer meta_state = nullptr;
         GstMeta *meta = nullptr;
-        const GQuark aggregated_roi_type = g_quark_from_static_string(dlstreamer::metadata::AGGREGATED_ROI_TYPE);
+        const GQuark aggregated_roi_type = g_quark_from_static_string(GVA_AGGREGATED_ROI_TYPE);
         while ((meta = gst_buffer_iterate_meta_filtered(input_buffer, &meta_state,
                                                         GST_VIDEO_REGION_OF_INTEREST_META_API_TYPE))) {
             const auto *roi = reinterpret_cast<const GstVideoRegionOfInterestMeta *>(meta);

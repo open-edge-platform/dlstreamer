@@ -13,9 +13,9 @@
 #include <gst/analytics/analytics.h>
 #include <gst/video/video.h>
 
-#include "aggregated_roi_meta.hpp"
 #include "frame_selector.hpp"
 #include "gva_caps.h"
+#include "gva_utils.h"
 
 constexpr guint DEFAULT_SUB_STREAM_FRAMES = 900;
 constexpr guint DEFAULT_FRAME_BUDGET = 8;
@@ -354,7 +354,7 @@ static GstFlowReturn push_pending_frames(GstGvaFrameSelect *self, GstGvaFrameSel
         const gint64 right = padded_roi.valid ? padded_roi.right : frame_width;
         const gint64 bottom = padded_roi.valid ? padded_roi.bottom : frame_height;
         if (!gst_buffer_add_video_region_of_interest_meta(
-                buffer, dlstreamer::metadata::AGGREGATED_ROI_TYPE, static_cast<guint>(left), static_cast<guint>(top),
+                buffer, GVA_AGGREGATED_ROI_TYPE, static_cast<guint>(left), static_cast<guint>(top),
                 static_cast<guint>(right - left), static_cast<guint>(bottom - top)))
             GST_WARNING_OBJECT(self, "Could not attach the aggregated ROI metadata");
 
