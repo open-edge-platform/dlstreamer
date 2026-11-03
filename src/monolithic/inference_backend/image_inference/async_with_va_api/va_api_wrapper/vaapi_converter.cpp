@@ -265,14 +265,22 @@ void VaApiConverter::SetupPipelineRegionsWithCustomParams(const InputImageLayerD
         uint16_t cropped_height = dst_surface_region.height - cropped_border_y;
 
         if (pre_proc_info->getCropType() == InputImageLayerDesc::Crop::CENTRAL_RESIZE) {
-            uint16_t crop_size = std::min(src_width, src_height);
-            uint16_t startX = (src_width - crop_size) / 2;
-            uint16_t startY = (src_height - crop_size) / 2;
+            // Center-crop within the current source region (ROI); an empty region means the full frame
+            if (src_surface_region.width == 0 || src_surface_region.height == 0) {
+                src_surface_region.x = 0;
+                src_surface_region.y = 0;
+                src_surface_region.width = src_width;
+                src_surface_region.height = src_height;
+            }
+            uint16_t crop_size = std::min(src_surface_region.width, src_surface_region.height);
+            uint16_t startX = (src_surface_region.width - crop_size) / 2;
+            uint16_t startY = (src_surface_region.height - crop_size) / 2;
 
-            src_surface_region.x = safe_convert<int16_t>(startX);
-            src_surface_region.y = safe_convert<int16_t>(startY);
+            src_surface_region.x = safe_convert<int16_t>(src_surface_region.x + startX);
+            src_surface_region.y = safe_convert<int16_t>(src_surface_region.y + startY);
             src_surface_region.width = crop_size;
             src_surface_region.height = crop_size;
+            pipeline_param.surface_region = &src_surface_region;
 
             dst_surface_region.width = input_width_except_padding;
             dst_surface_region.height = input_height_except_padding;
