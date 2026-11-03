@@ -97,19 +97,17 @@ For crating wirtual enviroment `uv` tool is recomended, and needs to be instaled
 Create a Python virtual environment and install required Python
 packages:
 
-> **NOTE:** OpenVINO™ GenAI only ships Python bindings for Python 3.11, 3.12
-> and 3.13. Ubuntu 24.04's default Python (3.12) and Fedora 41's default
-> Python (3.13) already satisfy this, but Ubuntu 22.04's default Python
-> (3.10) and Ubuntu 26.04's default Python (3.14) do not - Python 3.11
-> (Ubuntu 22.04) / Python 3.13 (Ubuntu 26.04) must be installed with `uv` and
-> used for the virtual environment below. Build native extensions such as
-> PyGObject inside that same environment so their Python ABI matches the
-> interpreter used by DL Streamer's Python elements (e.g. `gvapython`). Add
-> the uv-managed Python library directory to the dynamic linker cache so
-> `libgstpython.so` can load `libpython`.
+> **NOTE:** Ubuntu 22.04's default Python (3.10) is not supported by the
+> OpenVINO™ GenAI Python bindings, so install Python 3.11 with `uv` and use it
+> for the virtual environment below. Ubuntu 24.04 and Ubuntu 26.04
+> can use their default system Python versions. Build native extensions such
+> as PyGObject inside the same environment so their Python ABI matches the
+> interpreter used by DL Streamer's Python elements (e.g. `gvapython`). On
+> Ubuntu 22.04, add the uv-managed Python library directory to the dynamic
+> linker cache so `libgstpython.so` can load `libpython`.
 
 <!--hide_directive::::{tab-set}
-:::{tab-item}hide_directive--> Ubuntu 24, Fedora 41, EMT
+:::{tab-item}hide_directive--> Ubuntu 24, Ubuntu 26, Fedora 41, EMT
 <!--hide_directive:sync: tab1hide_directive-->
 
   ```bash
@@ -132,24 +130,6 @@ packages:
   sudo ldconfig
 
   UV_PYTHON_PREFERENCE=managed uv venv --python 3.11 ~/python3venv
-  source ~/python3venv/bin/activate
-
-  uv pip install meson==1.4.1 ninja==1.11.1.1
-  ```
-
-<!--hide_directive:::
-:::{tab-item}hide_directive--> Ubuntu 26
-<!--hide_directive:sync: tab4hide_directive-->
-
-  ```bash
-  uv python install 3.13
-
-  python_bin="$(uv python find 3.13)"
-  python_libdir="$("$python_bin" -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')"
-  echo "$python_libdir" | sudo tee /etc/ld.so.conf.d/uv-python.conf >/dev/null
-  sudo ldconfig
-
-  UV_PYTHON_PREFERENCE=managed uv venv --python 3.13 ~/python3venv
   source ~/python3venv/bin/activate
 
   uv pip install meson==1.4.1 ninja==1.11.1.1
@@ -182,8 +162,8 @@ which needs the [OpenVINO GenAI archive](https://docs.openvino.ai/2026/get-start
 <!--hide_directive:sync: tab1hide_directive-->
 
   ```bash
-  wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/2026.5.0.0.dev20261027/openvino_genai_ubuntu24_2026.5.0.0.dev20261027_x86_64.tar.gz | tar -xz &&
-  sudo mv openvino_genai_ubuntu24_2026.5.0.0.dev20261027_x86_64 /opt/intel/openvino_genai
+  wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/2026.5.0.0.dev20261030/openvino_genai_ubuntu24_2026.5.0.0.dev20261030_x86_64.tar.gz | tar -xz &&
+  sudo mv openvino_genai_ubuntu24_2026.5.0.0.dev20261030_x86_64 /opt/intel/openvino_genai
   source /opt/intel/openvino_genai/setupvars.sh
   ```
 
@@ -192,8 +172,18 @@ which needs the [OpenVINO GenAI archive](https://docs.openvino.ai/2026/get-start
 <!--hide_directive:sync: tab2hide_directive-->
 
   ```bash
-  wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/2026.5.0.0.dev20261027/openvino_genai_ubuntu22_2026.5.0.0.dev20261027_x86_64.tar.gz | tar -xz &&
-  sudo mv openvino_genai_ubuntu22_2026.5.0.0.dev20261027_x86_64 /opt/intel/openvino_genai
+  wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/2026.5.0.0.dev20261030/openvino_genai_ubuntu22_2026.5.0.0.dev20261030_x86_64.tar.gz | tar -xz &&
+  sudo mv openvino_genai_ubuntu22_2026.5.0.0.dev20261030_x86_64 /opt/intel/openvino_genai
+  source /opt/intel/openvino_genai/setupvars.sh
+  ```
+
+<!--hide_directive:::
+:::{tab-item}hide_directive--> Ubuntu 26
+<!--hide_directive:sync: tab5hide_directive-->
+
+  ```bash
+  wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/2026.5.0.0.dev20261030/openvino_genai_ubuntu26_2026.5.0.0.dev20261030_x86_64.tar.gz | tar -xz &&
+  sudo mv openvino_genai_ubuntu26_2026.5.0.0.dev20261030_x86_64 /opt/intel/openvino_genai
   source /opt/intel/openvino_genai/setupvars.sh
   ```
 
@@ -223,8 +213,8 @@ sudo dnf install -y openvino-2026.3.1
 <!--hide_directive:sync: tab4hide_directive-->
 
   ```bash
-  wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/2026.5.0.0.dev20261027/openvino_genai_ubuntu24_2026.5.0.0.dev20261027_x86_64.tar.gz | tar -xz &&
-  sudo mv openvino_genai_ubuntu24_2026.5.0.0.dev20261027_x86_64 /opt/intel/openvino_genai
+  wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/2026.5.0.0.dev20261030/openvino_genai_ubuntu24_2026.5.0.0.dev20261030_x86_64.tar.gz | tar -xz &&
+  sudo mv openvino_genai_ubuntu24_2026.5.0.0.dev20261030_x86_64 /opt/intel/openvino_genai
   source /opt/intel/openvino_genai/setupvars.sh
   ```
 
@@ -334,9 +324,9 @@ necessary dependencies using the following commands:
 > skipped that step, install `uv` and create the virtual environment first.
 
 > **NOTE:** Install PyGObject into the activated `~/python3venv` from Step 3
-> so it is built for that environment's Python ABI. Ubuntu 22.04 and 26.04
-> use uv-managed Python versions, which include their own development headers;
-> Ubuntu 24.04 uses the system Python, so install its matching `python3-dev`.
+> so it is built for that environment's Python ABI. Ubuntu 22.04 uses
+> uv-managed Python, which includes its own development headers. Ubuntu 24.04
+> and 26.04 use the system Python, so install its matching `python3-dev`.
 
 <!--hide_directive::::{tab-set}
 :::{tab-item}hide_directive--> Ubuntu 24
@@ -374,7 +364,7 @@ necessary dependencies using the following commands:
 
   ```bash
   sudo apt-get update
-  sudo apt-get install -y -q --no-install-recommends gcc cmake python-gi-dev \
+  sudo apt-get install -y -q --no-install-recommends gcc cmake python-gi-dev python3-dev \
       libglib2.0-dev libcairo2-dev libopencv-objdetect-dev libopencv-photo-dev libopencv-stitching-dev libopencv-video-dev \
       libopencv-calib3d-dev libopencv-core-dev libopencv-dnn-dev libgirepository1.0-dev
 
