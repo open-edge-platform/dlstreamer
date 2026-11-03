@@ -32,15 +32,27 @@ typedef struct {
     int4   a;      // outline/fill: x0, y0, x1, y1 (inclusive)
                    // span:         x1, x2 (inclusive), y, unused
                    // mask:         dst_x, dst_y, w, h
+                   // cover:        first UV x, first UV y, glyph w, glyph h
                    // blur/blend:   x, y, w, h
     int4   b;      // outline: band half-width k
                    // mask:    atlas byte offset, atlas row stride
-                   // blur:    kernel width, kernel height, kx offset, ky offset
+                   // cover:   atlas byte offset, glyph offset in its 2x2 block,
+                   //          scratch slot
+                   // blur:    kernel width | kernel height << 16, scratch slot,
+                   //          kx offset, ky offset
                    // blend:   blob byte offset, blob row stride
     float4 color;  // plane-packed, normalized to [0, 1]
                    // blur:    x != 0 selects the integer fixed-point regime,
                    //          y is the column at which that regime hands over
-                   //          from round-half-even to round-half-up
+                   //          from round-half-even to round-half-up,
+                   //          z the column at which the float regime hands
+                   //          over from OpenCV's vector code to its scalar
+                   //          tail, w which parts of the row fuse
+                   //          multiply-adds (see wm_blur_fused)
+    int4   c;      // blur:    first tile of the row pass, first tile of the
+                   //          column pass, counted from the group's first
+                   //          rectangle, and the column at which the scalar
+                   //          tail's 4-wide loop ends
 } wm_prim;
 
 __constant sampler_t WM_SAMPLER = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
@@ -168,6 +180,89 @@ __kernel void wm_masks(__write_only image2d_t img, int iw, int ih,
     write_imagef(img, (int2)(x, y), p.color);
 }
 
+// Text chroma, reproducing RendererNV12::draw_text: every UV pixel is blended
+// with the text colour by the share of its 2x2 luma pixels the glyph covers.
+//
+// The glyph is the Y plane's atlas entry, so the coverage is counted here rather
+// than rasterized a second time. a.x, a.y is the first UV pixel the label
+// touches, a.z, a.w the glyph's size in luma pixels, b.x its atlas offset, b.y
+// where the glyph starts inside the first 2x2 block (bit 0 x, bit 1 y) and b.z
+// the prim's slot in the scratch buffer.
+//
+// cv::blendLinear divides by (w1 + w2 + 1e-5), which only matters on exact .5
+// ties and rounds them down, so with quarter weights the result is
+// (col * n + src * (4 - n) + 1) >> 2 for n covered pixels.
+//
+// A gather and a scatter pass, for the same reason as the blend below. Several
+// labels share one pair of dispatches; the host never puts two that overlap
+// into the same one.
+inline int wm_cover_size(int offset, int len) {
+    return (offset + len + 1) >> 1;
+}
+
+inline int wm_cover_count(__global const uchar *atlas, const wm_prim p, int ix, int iy) {
+    const int ox = p.b.y & 1, oy = p.b.y >> 1;
+    int n = 0;
+    for (int dy = 0; dy < 2; ++dy) {
+        const int ly = 2 * iy + dy - oy;
+        if (ly < 0 || ly >= p.a.w)
+            continue;
+        for (int dx = 0; dx < 2; ++dx) {
+            const int lx = 2 * ix + dx - ox;
+            if (lx >= 0 && lx < p.a.z && atlas[p.b.x + ly * p.a.z + lx] != 0)
+                ++n;
+        }
+    }
+    return n;
+}
+
+__kernel void wm_cover_gather(__read_only image2d_t img, int iw, int ih,
+                              __global wm_vec *scratch,
+                              __global const uchar *atlas,
+                              __global const wm_prim *prims, int base) {
+    const wm_prim p = prims[base + get_global_id(2)];
+    const int ix = get_global_id(0);
+    const int iy = get_global_id(1);
+    const int uw = wm_cover_size(p.b.y & 1, p.a.z);
+    if (ix >= uw || iy >= wm_cover_size(p.b.y >> 1, p.a.w))
+        return;
+    const int n = wm_cover_count(atlas, p, ix, iy);
+    if (n == 0)
+        return;
+
+    const int x = p.a.x + ix, y = p.a.y + iy;
+    if (x < 0 || y < 0 || x >= iw || y >= ih)
+        return;
+
+    const float4 v = read_imagef(img, WM_SAMPLER, (int2)(x, y));
+    const int2 src = convert_int2(round(WM_LOAD(v) * 255.f));
+    const int2 col = convert_int2(round(WM_LOAD(p.color) * 255.f));
+    const int2 out = (col * n + src * (4 - n) + 1) >> 2;
+    scratch[p.b.z + iy * uw + ix] = convert_float2(out) * (1.f / 255.f);
+}
+
+__kernel void wm_cover_scatter(__write_only image2d_t img, int iw, int ih,
+                               __global const wm_vec *scratch,
+                               __global const uchar *atlas,
+                               __global const wm_prim *prims, int base) {
+    const wm_prim p = prims[base + get_global_id(2)];
+    const int ix = get_global_id(0);
+    const int iy = get_global_id(1);
+    const int uw = wm_cover_size(p.b.y & 1, p.a.z);
+    if (ix >= uw || iy >= wm_cover_size(p.b.y >> 1, p.a.w))
+        return;
+    if (wm_cover_count(atlas, p, ix, iy) == 0)
+        return;
+
+    const int x = p.a.x + ix, y = p.a.y + iy;
+    if (x < 0 || y < 0 || x >= iw || y >= ih)
+        return;
+    write_imagef(img, (int2)(x, y), WM_STORE(scratch[p.b.z + iy * uw + ix]));
+}
+
+)CLC"
+// Split in two: MSVC rejects a single string literal longer than 16380 bytes.
+R"CLC(
 // Gaussian blur of one rectangle, reproducing cv::GaussianBlur() applied
 // in-place to a submatrix with BORDER_DEFAULT - which is what
 // RendererNV12::blur_rectangle does.
@@ -187,25 +282,76 @@ __kernel void wm_masks(__write_only image2d_t img, int iw, int ih,
 //    the answer in color.x. One float kernel serves both, because every
 //    intermediate of the integer regime - row sums up to 256*255, column sums
 //    up to 256*65280 - is exactly representable in binary32.
+//  - In the float regime the multiply-adds are not all rounded alike. Both
+//    passes run v_muladd over whole v_uint8-wide steps of the row and plain
+//    s += f * x over what is left, first in a hand-unrolled 4-wide loop and
+//    then one element at a time. Whether each of those is fused is up to how
+//    OpenCV was built: an AVX2 dispatch fuses the vector code; MSVC contracts
+//    none of the scalar code, while a GCC 13 build of OpenCV 4.13 contracts
+//    the column filter's 4-wide loop and nothing else. The host measures every
+//    part of each pass and passes the result in color.w, with the boundaries in
+//    color.z and c.z; the arithmetic below is pinned with fma() and
+//    FP_CONTRACT OFF so that the device compiler cannot choose for itself.
+//    Getting this wrong moves a sum by an ulp, which is enough to flip the
+//    rounding of an output that lands next to a .5.
 //
 // Separable, so the cost is O(kw + kh) per pixel rather than O(kw * kh); split
 // across two dispatches through a scratch buffer because a kernel may not both
 // read and write one image (and this device has no __read_write image2d_t
 // anyway). The row pass covers kh - 1 extra rows, which are the ones the column
-// pass reaches above and below the rectangle.
+// pass reaches above and below the rectangle. Several rectangles share one pair
+// of dispatches, each with its own scratch slot; the host never batches two
+// whose reach overlaps, since one would read what the other writes.
+//
+// Each pass runs in work-groups of a fixed shape, WM_ROW_TILE_W x WM_ROW_TILE_H
+// and WM_COL_TILE_W x WM_COL_TILE_H, which the host defines. They are listed in
+// dimension 2: the tiles of the group's first rectangle, then those of its
+// second, and so on. A work-group finds its rectangle by bisecting where each
+// one's tiles start, so rectangles of any mix of sizes share a dispatch without
+// idle padding, and a whole tile shares one rectangle.
 //
 // Every plane goes through the same code: the row pass reads whatever channels
 // wm_vec is wide, so a CL_R plane simply carries a zero in .y.
-__kernel void wm_blur_h(__read_only image2d_t img, int iw, int ih,
-                        __global wm_vec *scratch,
-                        __global const float *coeffs,
-                        __global const wm_prim *prims, int base) {
-    const wm_prim p = prims[base];
-    const int rw = p.a.z, rh = p.a.w;
-    const int kw = p.b.x, kh = p.b.y;
+#pragma OPENCL FP_CONTRACT OFF
 
-    const int ix = get_global_id(0);
-    const int iy = get_global_id(1);
+// The rectangle tile t of a group of n belongs to: the last one whose tiles
+// start at or before t, in the row pass (pass 0) or the column pass (pass 1).
+inline int wm_tile_owner(__global const wm_prim *prims, int n, int t, int pass) {
+    int lo = 0, hi = n - 1;
+    while (lo < hi) {
+        const int mid = (lo + hi + 1) >> 1;
+        if ((pass ? prims[mid].c.y : prims[mid].c.x) <= t)
+            lo = mid;
+        else
+            hi = mid - 1;
+    }
+    return lo;
+}
+
+// Whether OpenCV fuses the multiply-adds of a pass (0 row, 1 column) at
+// column ix. Bits 0-2 of color.w are the row pass's vector code, the 4-wide
+// loop of its scalar tail and the 1-wide rest; bits 3-5 the same for the
+// column pass. Decided once per work item: each pass then runs one of two
+// plain loops rather than choosing at every tap.
+inline bool wm_blur_fused(const wm_prim p, int ix, int pass) {
+    const int part = ix < (int)p.color.z ? 0 : ix < p.c.z ? 1 : 2;
+    return (((int)p.color.w >> (3 * pass + part)) & 1) != 0;
+}
+
+__kernel __attribute__((reqd_work_group_size(WM_ROW_TILE_W, WM_ROW_TILE_H, 1)))
+void wm_blur_h(__read_only image2d_t img, int iw, int ih,
+               __global wm_vec *scratch,
+               __global const float *coeffs,
+               __global const wm_prim *prims, int base, int n) {
+    prims += base;
+    const int t = get_group_id(2);
+    const wm_prim p = prims[wm_tile_owner(prims, n, t, 0)];
+    const int rw = p.a.z, rh = p.a.w;
+    const int kw = p.b.x & 0xffff, kh = p.b.x >> 16;
+
+    const int tiles_x = (rw + WM_ROW_TILE_W - 1) / WM_ROW_TILE_W;
+    const int ix = (t - p.c.x) % tiles_x * WM_ROW_TILE_W + get_local_id(0);
+    const int iy = (t - p.c.x) / tiles_x * WM_ROW_TILE_H + get_local_id(1);
     if (ix >= rw || iy >= rh + kh - 1)
         return;
 
@@ -215,32 +361,48 @@ __kernel void wm_blur_h(__read_only image2d_t img, int iw, int ih,
 
     // OpenCV's generic RowFilter accumulates straight through the taps.
     wm_vec s = WM_ZERO;
-    for (int k = 0; k < kw; ++k) {
-        const float4 v = read_imagef(img, WM_SAMPLER, (int2)(wm_reflect101(x0 + k, iw), sy));
-        s += kx[k] * round(WM_LOAD(v) * 255.f);
+    if (wm_blur_fused(p, ix, 0)) {
+        for (int k = 0; k < kw; ++k) {
+            const float4 v = read_imagef(img, WM_SAMPLER, (int2)(wm_reflect101(x0 + k, iw), sy));
+            s = fma((wm_vec)(kx[k]), round(WM_LOAD(v) * 255.f), s);
+        }
+    } else {
+        for (int k = 0; k < kw; ++k) {
+            const float4 v = read_imagef(img, WM_SAMPLER, (int2)(wm_reflect101(x0 + k, iw), sy));
+            s = s + kx[k] * round(WM_LOAD(v) * 255.f);
+        }
     }
-    scratch[iy * rw + ix] = s;
+    scratch[p.b.y + iy * rw + ix] = s;
 }
 
-__kernel void wm_blur_v(__write_only image2d_t img, int iw, int ih,
-                        __global const wm_vec *scratch,
-                        __global const float *coeffs,
-                        __global const wm_prim *prims, int base) {
-    const wm_prim p = prims[base];
+__kernel __attribute__((reqd_work_group_size(WM_COL_TILE_W, WM_COL_TILE_H, 1)))
+void wm_blur_v(__write_only image2d_t img, int iw, int ih,
+               __global const wm_vec *scratch,
+               __global const float *coeffs,
+               __global const wm_prim *prims, int base, int n) {
+    prims += base;
+    const int t = get_group_id(2);
+    const wm_prim p = prims[wm_tile_owner(prims, n, t, 1)];
     const int rw = p.a.z, rh = p.a.w;
-    const int ay = p.b.y >> 1;
+    const int ay = (p.b.x >> 16) >> 1;
 
-    const int ix = get_global_id(0);
-    const int iy = get_global_id(1);
+    const int tiles_x = (rw + WM_COL_TILE_W - 1) / WM_COL_TILE_W;
+    const int ix = (t - p.c.y) % tiles_x * WM_COL_TILE_W + get_local_id(0);
+    const int iy = (t - p.c.y) / tiles_x * WM_COL_TILE_H + get_local_id(1);
     if (ix >= rw || iy >= rh)
         return;
 
     // OpenCV's SymmColumnFilter pairs the taps around the centre one.
     __global const float *ky = coeffs + p.b.w + ay;
-    __global const wm_vec *col = scratch + (iy + ay) * rw + ix;
+    __global const wm_vec *col = scratch + p.b.y + (iy + ay) * rw + ix;
     wm_vec s = ky[0] * col[0];
-    for (int k = 1; k <= ay; ++k)
-        s += ky[k] * (col[k * rw] + col[-k * rw]);
+    if (wm_blur_fused(p, ix, 1)) {
+        for (int k = 1; k <= ay; ++k)
+            s = fma((wm_vec)(ky[k]), col[k * rw] + col[-k * rw], s);
+    } else {
+        for (int k = 1; k <= ay; ++k)
+            s = s + ky[k] * (col[k * rw] + col[-k * rw]);
+    }
 
     if (p.color.x != 0.f) {
         // Integer fixed-point regime. OpenCV rounds a row of it two ways:

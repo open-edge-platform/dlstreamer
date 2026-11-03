@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <fstream>
 #include <regex>
+#include <set>
 
 namespace ModelApiConverters {
 
@@ -148,8 +149,15 @@ bool convertYoloMeta2ModelApi(const std::string model_file, ov::AnyMap &modelCon
     metadata_file.replace_filename("metadata.yaml");
     nlohmann::json yaml_json;
 
-    if (!std::filesystem::exists(metadata_file))
-        return false;
+    if (!std::filesystem::exists(metadata_file)) {
+        // Names mapped to a converter in resolveConverterName() (blob_to_meta_converter.cpp); keep in sync.
+        static const std::set<std::string> resolvable_without_metadata = {"YOLOv8", "YOLOv8-OBB", "YOLOv8-SEG"};
+        const std::string declared_type = modelConfig["model_type"].as<std::string>();
+        if (resolvable_without_metadata.count(declared_type))
+            return false;
+        throw std::runtime_error("****\nYOLO model (model_type \"" + declared_type + "\") requires " +
+                                 metadata_file.string() + " to determine the model version and task.\n****\n");
+    }
 
     if (!yaml2Json(metadata_file.string(), yaml_json))
         return false;
@@ -480,9 +488,19 @@ static bool parseHFpreprocessing(const nlohmann::json &config_json, const nlohma
         rescale_factor = preproc_json["rescale_factor"].get<double>();
     }
 
+    const bool do_normalize = !(preproc_json.contains("do_normalize") && preproc_json["do_normalize"].is_boolean() &&
+                                !preproc_json["do_normalize"].get<bool>());
+    const bool do_rescale = !(preproc_json.contains("do_rescale") && preproc_json["do_rescale"].is_boolean() &&
+                              !preproc_json["do_rescale"].get<bool>());
+    if (!do_normalize && do_rescale) {
+        const std::string scale = std::to_string(1.0 / rescale_factor);
+        modelConfig["mean_values"] = ov::Any(std::string("0 0 0"));
+        modelConfig["scale_values"] = ov::Any(scale + " " + scale + " " + scale);
+    }
+
     const bool has_image_mean = preproc_json.contains("image_mean") && preproc_json["image_mean"].is_array();
     const bool has_mean = preproc_json.contains("mean") && preproc_json["mean"].is_array();
-    if (has_image_mean || has_mean) {
+    if (do_normalize && (has_image_mean || has_mean)) {
         std::vector<std::string> mean_values;
         const auto &mean_json = has_image_mean ? preproc_json["image_mean"] : preproc_json["mean"];
         for (const auto &val : mean_json) {
@@ -503,7 +521,7 @@ static bool parseHFpreprocessing(const nlohmann::json &config_json, const nlohma
 
     const bool has_image_std = preproc_json.contains("image_std") && preproc_json["image_std"].is_array();
     const bool has_std = preproc_json.contains("std") && preproc_json["std"].is_array();
-    if (has_image_std || has_std) {
+    if (do_normalize && (has_image_std || has_std)) {
         std::vector<std::string> std_values;
         const auto &std_json = has_image_std ? preproc_json["image_std"] : preproc_json["std"];
         for (const auto &val : std_json) {
@@ -558,7 +576,9 @@ bool convertHuggingFaceMeta2ModelApi(const std::string &model_file, ov::AnyMap &
         modelConfig["model_type"] = ov::Any(std::string("label"));
         modelConfig["output_raw_scores"] = ov::Any(std::string(
             "True")); // meaning the model outputs raw classification scores (logits) that need softmax post-processing
-    } else if ((architecture == "RTDetrForObjectDetection") || (architecture == "RtDetrV2ForObjectDetection")) {
+    } else if ((architecture == "RTDetrForObjectDetection") || (architecture == "RtDetrV2ForObjectDetection") ||
+               (architecture == "DFineForObjectDetection")) {
+        // D-FINE in transformers shares RT-DETR's outputs: logits [B,Q,C] and pred_boxes [B,Q,4] (cx,cy,w,h).
         modelConfig["model_type"] = ov::Any(std::string("rtdetr"));
         modelConfig["output_raw_scores"] =
             ov::Any(std::string("False")); // meaning the model outputs processed detection results (no softmax needed)

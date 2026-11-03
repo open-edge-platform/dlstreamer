@@ -1,5 +1,5 @@
 diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvadisplay_drm.c b/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvadisplay_drm.c
-index b5440429e16fa0cd423e4ae3b0cdd0b5687983b3..d75151b41ea9add99c1d260d1eb6f45aadf6f685 100644
+index ac67ad0a3a308e47b1d7a2de9a3168da389e8afc..d75151b41ea9add99c1d260d1eb6f45aadf6f685 100644
 --- a/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvadisplay_drm.c
 +++ b/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvadisplay_drm.c
 @@ -57,6 +57,7 @@ struct _GstVaDisplayDrm
@@ -10,7 +10,7 @@ index b5440429e16fa0cd423e4ae3b0cdd0b5687983b3..d75151b41ea9add99c1d260d1eb6f45a
  };
  
  /**
-@@ -134,29 +135,28 @@ gst_va_display_drm_finalize (GObject * object)
+@@ -134,30 +135,28 @@ gst_va_display_drm_finalize (GObject * object)
  static gpointer
  gst_va_display_drm_create_va_display (GstVaDisplay * display)
  {
@@ -23,10 +23,9 @@ index b5440429e16fa0cd423e4ae3b0cdd0b5687983b3..d75151b41ea9add99c1d260d1eb6f45a
    if (fd < 0) {
 -    GST_WARNING_OBJECT (self, "Failed to open %s: %s", self->path,
 -        g_strerror (saved_errno));
--    return 0;
 +    GST_WARNING_OBJECT (self, "Failed to open %s: %s",
 +        self->path, g_strerror (errno));
-+    return NULL;
+     return NULL;
    }
  #ifdef HAVE_LIBDRM
 -  {
@@ -35,7 +34,8 @@ index b5440429e16fa0cd423e4ae3b0cdd0b5687983b3..d75151b41ea9add99c1d260d1eb6f45a
 -    version = drmGetVersion (fd);
 -    if (!version) {
 -      GST_ERROR_OBJECT (self, "Device %s is not a DRM render node", self->path);
--      return 0;
+-      close (fd);
+-      return NULL;
 -    }
 -    GST_INFO_OBJECT (self, "DRM render node with kernel driver %s",
 -        version->name);
@@ -55,7 +55,7 @@ index b5440429e16fa0cd423e4ae3b0cdd0b5687983b3..d75151b41ea9add99c1d260d1eb6f45a
  #endif
  
    self->fd = fd;
-@@ -189,6 +189,14 @@ gst_va_display_drm_init (GstVaDisplayDrm * self)
+@@ -190,6 +189,14 @@ gst_va_display_drm_init (GstVaDisplayDrm * self)
    self->fd = -1;
  }
  
@@ -71,7 +71,7 @@ index b5440429e16fa0cd423e4ae3b0cdd0b5687983b3..d75151b41ea9add99c1d260d1eb6f45a
   * gst_va_display_drm_new_from_path:
   * @path: the path to the DRM device
 diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvadisplay_drm.h b/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvadisplay_drm.h
-index 041b27a587..5b908e019a 100644
+index 041b27a5876e1714086e30e62e0beb72e7b09941..5b908e019a6e1aa266adb1ebb75d3997becfd471 100644
 --- a/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvadisplay_drm.h
 +++ b/subprojects/gst-plugins-bad/gst-libs/gst/va/gstvadisplay_drm.h
 @@ -38,5 +38,7 @@ GST_VA_API

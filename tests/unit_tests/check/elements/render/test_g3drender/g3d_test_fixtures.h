@@ -44,6 +44,9 @@ GstHarness *make_batch_harness(const Scenario *sc);
 GstBuffer *build_lidar_buf(GstHarness *h, const Scenario *sc);
 GstBuffer *build_batch_buf(GstHarness *h, const Scenario *sc);
 GstEvent *build_calib_event(void);
+/* The synthetic calibration for each of the first @n_cams camera pads, plus
+ * class-names when @class_names (NULL-terminated) is given. */
+GstEvent *build_calib_event_for_cameras(guint n_cams, const gchar *const *class_names);
 
 GstBuffer *build_empty_lidar_buf(GstHarness *h);
 GstBuffer *build_no_meta_lidar_buf(GstHarness *h);

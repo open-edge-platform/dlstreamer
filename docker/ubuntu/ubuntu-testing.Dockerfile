@@ -36,9 +36,17 @@ USER dlstreamer
 
 COPY ./requirements.txt /home/dlstreamer/requirements.txt
 
+# hadolint ignore=SC1091
 RUN \
-    uv venv /python3venv && \
-    VIRTUAL_ENV=/python3venv uv pip install  --no-cache-dir --no-deps -r /home/dlstreamer/requirements.txt
+    . /etc/os-release && \
+    case "$VERSION_ID" in \
+        22.04) UV_PYTHON_PREFERENCE=managed uv venv --python 3.11 /python3venv ;; \
+        24.04) UV_PYTHON_PREFERENCE=only-system uv venv --python python3 /python3venv ;; \
+        26.04) UV_PYTHON_PREFERENCE=managed uv venv --python 3.13 /python3venv ;; \
+        *) echo "Unsupported Ubuntu base version: $VERSION_ID" >&2; exit 1 ;; \
+    esac && \
+    PATH=/python3venv/bin:$PATH uv pip install --python /python3venv/bin/python --no-cache-dir --no-deps pycairo==1.26.0 && \
+    PATH=/python3venv/bin:$PATH uv pip install --python /python3venv/bin/python --no-cache-dir --no-deps -r /home/dlstreamer/requirements.txt
 
 ENV PATH=/python3venv/bin:$PATH
 

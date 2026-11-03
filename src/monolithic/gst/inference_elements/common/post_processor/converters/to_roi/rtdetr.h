@@ -14,10 +14,9 @@
 namespace post_processing {
 
 /*
-RT-DETR tensor output layout:
-    logits: [B, N, C] or [N, C]
+RT-DETR / D-FINE tensor output layout:
+    logits: [B, N, C] or [N, C], scored with per-class sigmoid (as in transformers post_process_object_detection)
     boxes:  [B, N, 4] or [N, 4] in normalized cxcywh
-    where C may include an extra "no-object" class at the end.
 */
 class RTDETRConverter : public BlobToROIConverter {
   protected:
