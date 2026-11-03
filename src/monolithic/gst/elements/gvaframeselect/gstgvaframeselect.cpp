@@ -353,9 +353,9 @@ static GstFlowReturn push_pending_frames(GstGvaFrameSelect *self, GstGvaFrameSel
         const gint64 top = padded_roi.valid ? padded_roi.top : 0;
         const gint64 right = padded_roi.valid ? padded_roi.right : frame_width;
         const gint64 bottom = padded_roi.valid ? padded_roi.bottom : frame_height;
-        if (!gst_buffer_add_video_region_of_interest_meta(
-                buffer, GVA_AGGREGATED_ROI_TYPE, static_cast<guint>(left), static_cast<guint>(top),
-                static_cast<guint>(right - left), static_cast<guint>(bottom - top)))
+        if (!gst_buffer_add_video_region_of_interest_meta(buffer, GVA_AGGREGATED_ROI_TYPE, static_cast<guint>(left),
+                                                          static_cast<guint>(top), static_cast<guint>(right - left),
+                                                          static_cast<guint>(bottom - top)))
             GST_WARNING_OBJECT(self, "Could not attach the aggregated ROI metadata");
 
         GST_OBJECT_LOCK(self);
