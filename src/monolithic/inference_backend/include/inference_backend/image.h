@@ -99,6 +99,23 @@ struct Image {
     Image() = default;
 };
 
+// Returns true if the mapped image's color planes are tightly packed in memory, i.e. there is no
+// padding between planes and every plane stride equals the image width.
+inline bool isImageContiguous(const Image &image) {
+    return (image.planes[1] - image.planes[0] == image.width * image.height) &&
+           (image.planes[2] - image.planes[1] == image.width * image.height) && (image.stride[0] == image.stride[1]) &&
+           (image.stride[1] == image.stride[2]) && (image.stride[2] == image.width);
+}
+
+// The GPU (VPP) aligns the start of every row of a linear render target down to 64 bytes and silently
+// ignores the low bits of an unaligned pitch. DMA-BUFs imported for NPU zero-copy therefore use a row
+// pitch padded up to this alignment; the NPU reads them through a strided (ROI) remote tensor.
+constexpr uint32_t DMA_BUF_PITCH_ALIGNMENT = 64;
+
+inline uint32_t alignDmaBufPitch(uint32_t row_bytes) {
+    return (row_bytes + DMA_BUF_PITCH_ALIGNMENT - 1) & ~(DMA_BUF_PITCH_ALIGNMENT - 1);
+}
+
 using ImagePtr = std::shared_ptr<Image>;
 
 // Map DMA/VAAPI image into system memory

@@ -34,6 +34,7 @@ gst-inspect-1.0 utility.
 | [g3dinference](./g3dinference.md) | Runs PointPillars 3D object detection on LiDAR point clouds produced by `g3dlidarparse`. It consumes `application/x-lidar` buffers with `LidarMeta`, performs OpenVINO inference, and attaches tensor metadata with flattened 3D detections for downstream processing.<br>Example:<br> gst-launch-1.0 multifilesrc location="lidar/%06d.bin" caps=application/octet-stream ! g3dlidarparse ! g3dinference config=pointpillars_ov_config.json device=CPU ! gvametaconvert format=json json-indent=2 ! gvametapublish file-format=2 file-path=pointpillars.json ! fakesink<br> |
 | [g3dobjectfuser](./g3dobjectfuser.md) | Spatially associates 2D camera detections with 3D radar or LiDAR detections, performs per-modality object tracking, and emits a single output buffer carrying the cross-modal association as analytics metadata. Consumes a pre-muxed `GstAnalyticsBatchMeta` container from `gvastreammux`, projects 3D boxes into image space using per-camera calibration matrices, and links them to 2D boxes via IoU-based Hungarian association.<br>Example:<br> gst-launch-1.0 … gvadetect model=yolo.xml ! mux.sink_0 … g3dlidarparse ! g3dinference config=pointpillars_ov_config.json ! mux.sink_1 gvastreammux name=mux output-mode=container sync-mode=first-pts ! g3dobjectfuser calibration=kitti_calib.json ! gvametaconvert format=json ! gvametapublish file-format=2 file-path=detections.json ! fakesink<br> |
 | [g3drender](./g3drender.md) | Renders a LiDAR point cloud — with optional camera streams and cross-modal detection metadata — into a BGR video frame. Supports three modes: `bev` (bird's-eye view with metric grid), `perspective` (synthetic 3D camera), and `cam-proj`. Accepts either a raw `application/x-lidar` stream or a `GstAnalyticsBatchMeta` container.<br>Example:<br> gst-launch-1.0 … g3dlidarparse ! g3dinference config=pointpillars_ov_config.json ! mux.sink_1 gvastreammux name=mux ! g3dobjectfuser calibration=kitti_calib.json ! g3drender view-mode=perspective width=1600 height=800 ! videoconvert ! ximagesink<br> |
+| [g3dbevfusion](./g3dbevfusion.md) | Runs BEVFusion camera + LiDAR 3D object detection on a `gvastreammux` container batch of six surround-view BGR cameras and one LiDAR stream, and attaches `GstAnalytics3DODMtd` detections to the LiDAR buffer. Picks the mode for each batch from the streams it carries: camera + LiDAR fusion when all six cameras are present, LiDAR-only otherwise. Sends a `g3d/calibration` event so `g3drender` can draw the boxes on every camera.<br>Example:<br> gst-launch-1.0 … jpegdec ! videoconvert ! video/x-raw,format=BGR ! mux.sink_0 … (six cameras) … g3dlidarparse ! mux.sink_6 gvastreammux name=mux output-mode=container sync-mode=first-pts ! g3dbevfusion config=g3dbevfusion.json calibration=calibration.json ! g3drender forward-axis=y point-stride=2 ! videoconvert ! autovideosink<br> |
 
 ## Auxiliary plugins
 
@@ -45,6 +46,7 @@ gst-inspect-1.0 utility.
 | [gvafpsthrottle](./gvafpsthrottle.md)   | Throttles the framerate of video streams by enforcing a maximum frames-per-second (FPS) rate. Useful for rate limiting in pipelines or for testing at specific processing framerates.<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! gvafpsthrottle target-fps=10 ! … OUT<br> |
 | [gvastreammux](./gvastreammux.md)       | Muxes multiple video streams into a single pipeline by assembling PTS-aligned batches across pads, with configurable PTS normalization (`sync-mode`). Each output buffer carries `GstAnalyticsBatchMeta` (`streams[0].index` = source pad index, `n_streams` = batch size).<br>Example:<br> gst-launch-1.0 gvastreammux name=mux sync-mode=first-pts ! queue ! gvadetect model=$mDetect device=GPU ! gvafpscounter ! fakesink rtspsrc location=rtsp://host:8554/stream ! … ! mux.sink_0 rtspsrc location=rtsp://host:8555/stream ! … ! mux.sink_1<br> |
 | [gvastreamdemux](./gvastreamdemux.md)   | Routes a muxed stream back to per-source pads based on `GstAnalyticsBatchMeta.streams[0].index`. Must be used with `gvastreammux`.<br>Example:<br> gst-launch-1.0 gvastreammux name=mux ! queue ! gvadetect model=$mDetect device=GPU ! gvastreamdemux name=demux demux.src_0 ! queue ! fakesink demux.src_1 ! queue ! fakesink rtspsrc location=rtsp://host:8554/stream ! … ! mux.sink_0 rtspsrc location=rtsp://host:8555/stream ! … ! mux.sink_1<br> |
+| [gvatagger](./gvatagger.md) | Tags each access unit based on H.264/H.265 NAL unit size analysis (no decoding, no pixels), attaching `GvaTriggerMeta` (`motion`, `keyframe`) that survives decoding so downstream elements can skip inference on quiet frames.<br>Example:<br> gst-launch-1.0 … ! h264parse ! gvatagger k=1.5 ! decodebin3 ! … OUT<br> |
 | [gvametaaggregate](./gvametaaggregate.md) | Aggregates inference results from multiple pipeline branches.<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! tee name=t t. ! queue ! gvametaaggregate name=a ! gvaclassify … ! gvaclassify … ! gvametaconvert … ! gvametapublish … ! fakesink t. ! queue ! gvadetect … ! a.<br>                                                                                               |
 | [gvametaconvert](./gvametaconvert.md)   | Converts the metadata structure to JSON or raw text formats. Can write output to a file.|
 | [gvametapublish](./gvametapublish.md)   | Publishes the JSON metadata to MQTT or Kafka message brokers or files.<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! gvadetect model=$mDetect device=GPU … ! gvametaconvert format=json … ! gvametapublish … ! … OUT<br> |
@@ -73,12 +75,14 @@ g3dlidarparse
 g3dinference
 g3dobjectfuser
 g3drender
+g3dbevfusion
 gvaanalytics
 gvaattachroi
 gvafpscounter
 gvafpsthrottle
 gvastreammux
 gvastreamdemux
+gvatagger
 gvametaaggregate
 gvametaconvert
 gvametapublish
