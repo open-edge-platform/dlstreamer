@@ -34,6 +34,7 @@ gst-inspect-1.0 utility.
 | [g3dinference](./g3dinference.md) | Runs PointPillars 3D object detection on LiDAR point clouds produced by `g3dlidarparse`. It consumes `application/x-lidar` buffers with `LidarMeta`, performs OpenVINO inference, and attaches tensor metadata with flattened 3D detections for downstream processing.<br>Example:<br> gst-launch-1.0 multifilesrc location="lidar/%06d.bin" caps=application/octet-stream ! g3dlidarparse ! g3dinference config=pointpillars_ov_config.json device=CPU ! gvametaconvert format=json json-indent=2 ! gvametapublish file-format=2 file-path=pointpillars.json ! fakesink<br> |
 | [g3dobjectfuser](./g3dobjectfuser.md) | Spatially associates 2D camera detections with 3D radar or LiDAR detections, performs per-modality object tracking, and emits a single output buffer carrying the cross-modal association as analytics metadata. Consumes a pre-muxed `GstAnalyticsBatchMeta` container from `gvastreammux`, projects 3D boxes into image space using per-camera calibration matrices, and links them to 2D boxes via IoU-based Hungarian association.<br>Example:<br> gst-launch-1.0 … gvadetect model=yolo.xml ! mux.sink_0 … g3dlidarparse ! g3dinference config=pointpillars_ov_config.json ! mux.sink_1 gvastreammux name=mux output-mode=container sync-mode=first-pts ! g3dobjectfuser calibration=kitti_calib.json ! gvametaconvert format=json ! gvametapublish file-format=2 file-path=detections.json ! fakesink<br> |
 | [g3drender](./g3drender.md) | Renders a LiDAR point cloud — with optional camera streams and cross-modal detection metadata — into a BGR video frame. Supports three modes: `bev` (bird's-eye view with metric grid), `perspective` (synthetic 3D camera), and `cam-proj`. Accepts either a raw `application/x-lidar` stream or a `GstAnalyticsBatchMeta` container.<br>Example:<br> gst-launch-1.0 … g3dlidarparse ! g3dinference config=pointpillars_ov_config.json ! mux.sink_1 gvastreammux name=mux ! g3dobjectfuser calibration=kitti_calib.json ! g3drender view-mode=perspective width=1600 height=800 ! videoconvert ! ximagesink<br> |
+| [g3dbevfusion](./g3dbevfusion.md) | Runs BEVFusion camera + LiDAR 3D object detection on a `gvastreammux` container batch of six surround-view BGR cameras and one LiDAR stream, and attaches `GstAnalytics3DODMtd` detections to the LiDAR buffer. Picks the mode for each batch from the streams it carries: camera + LiDAR fusion when all six cameras are present, LiDAR-only otherwise. Sends a `g3d/calibration` event so `g3drender` can draw the boxes on every camera.<br>Example:<br> gst-launch-1.0 … jpegdec ! videoconvert ! video/x-raw,format=BGR ! mux.sink_0 … (six cameras) … g3dlidarparse ! mux.sink_6 gvastreammux name=mux output-mode=container sync-mode=first-pts ! g3dbevfusion config=g3dbevfusion.json calibration=calibration.json ! g3drender forward-axis=y point-stride=2 ! videoconvert ! autovideosink<br> |
 
 ## Auxiliary plugins
 
@@ -41,6 +42,9 @@ gst-inspect-1.0 utility.
 |------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | [gvaanalytics](./gvaanalytics.md)     | Performs video analytics using tripwires and zones. Analyzes object trajectories and attaches watermark metadata for visualization of configured tripwires and zones.<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! gvadetect … ! gvaanalytics config=analytics.json ! gvawatermark ! … OUT<br> |
 | [gvaattachroi](./gvaattachroi.md)     | Adds user-defined regions of interest to perform inference on (instead of full frame). Example: monitoring road traffic in a city camera feed; splitting large image into smaller pieces, and running inference on each piece (healthcare cell analytics).<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! gvaattachroi roi=xtl,ytl,xbr,ybr gvadetect inference-region=1 ! … OUT<br> |
+| [gvaeventrecorder](./gvaeventrecorder.md) | Caches and records PRE/EVENT/POST video and forwards the same buffers downstream after a trigger.<br>Example:<br> gst-launch-1.0 … ! gvadetect model=$mDetect device=NPU ! gvaeventrecorder target-classes=person,vehicle event-clip-output-dir=./events ! gvaframeselect sub-stream-frames=900 frame-budget=8 ! videoconvert ! video/x-raw,format=RGB ! gvaroiscale out-width=448 out-height=448 ! gvagenai model-path=$mVLM device=GPU ! … OUT<br> |
+| [gvaframeselect](./gvaframeselect.md) | Caches evenly spaced selected frames, computes a confidence-filtered shared ROI across configured classes, and forwards them as a batch. |
+| [gvaroiscale](./gvaroiscale.md) | Crops a marked shared ROI when supplied by `gvaframeselect`; otherwise crops matching detected ROIs, suppresses same-class duplicates, and letterboxes each ROI for downstream VLM inference. |
 | [gvafpscounter](./gvafpscounter.md)    | Measures frames per second across multiple video streams in a single GStreamer process.<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! gvadetect … ! gvafpscounter ! … OUT<br> |
 | [gvafpsthrottle](./gvafpsthrottle.md)   | Throttles the framerate of video streams by enforcing a maximum frames-per-second (FPS) rate. Useful for rate limiting in pipelines or for testing at specific processing framerates.<br>Example:<br> gst-launch-1.0 … ! decodebin3 ! gvafpsthrottle target-fps=10 ! … OUT<br> |
 | [gvastreammux](./gvastreammux.md)       | Muxes multiple video streams into a single pipeline by assembling PTS-aligned batches across pads, with configurable PTS normalization (`sync-mode`). Each output buffer carries `GstAnalyticsBatchMeta` (`streams[0].index` = source pad index, `n_streams` = batch size).<br>Example:<br> gst-launch-1.0 gvastreammux name=mux sync-mode=first-pts ! queue ! gvadetect model=$mDetect device=GPU ! gvafpscounter ! fakesink rtspsrc location=rtsp://host:8554/stream ! … ! mux.sink_0 rtspsrc location=rtsp://host:8555/stream ! … ! mux.sink_1<br> |
@@ -68,14 +72,18 @@ gvatrack
 gvaaudiodetect
 gvaaudiotranscribe
 gvagenai
+gvaroiscale
 g3dradarprocess
 g3dlidarsrc
 g3dlidarparse
 g3dinference
 g3dobjectfuser
 g3drender
+g3dbevfusion
 gvaanalytics
 gvaattachroi
+gvaeventrecorder
+gvaframeselect
 gvafpscounter
 gvafpsthrottle
 gvastreammux

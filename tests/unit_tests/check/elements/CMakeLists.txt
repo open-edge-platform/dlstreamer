@@ -15,6 +15,7 @@ add_subdirectory(analytics)
 add_subdirectory(properties)
 add_subdirectory(render)
 add_subdirectory(streammux)
+add_subdirectory(g3dbevfusion)
 
 if(${ENABLE_GENAI})
     add_subdirectory(genai)
