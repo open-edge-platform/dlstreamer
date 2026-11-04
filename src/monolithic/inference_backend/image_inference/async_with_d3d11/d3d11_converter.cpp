@@ -157,12 +157,13 @@ void D3D11Converter::SetupPreprocessing(const InputImageLayerDesc::Ptr &pre_proc
         uint16_t cropped_height = dst_region_height - cropped_border_y;
 
         if (pre_proc_info->getCropType() == InputImageLayerDesc::Crop::CENTRAL_RESIZE) {
-            uint16_t crop_size = (std::min)(static_cast<uint16_t>(_src_width), static_cast<uint16_t>(_src_height));
-            uint16_t startX = (_src_width - crop_size) / 2;
-            uint16_t startY = (_src_height - crop_size) / 2;
+            // Center-crop within the source region (ROI or full frame)
+            uint16_t crop_size = (std::min)(src_rect_width, src_rect_height);
+            uint16_t startX = (src_rect_width - crop_size) / 2;
+            uint16_t startY = (src_rect_height - crop_size) / 2;
 
-            src_rect_x = startX;
-            src_rect_y = startY;
+            src_rect_x += startX;
+            src_rect_y += startY;
             src_rect_w = crop_size;
             src_rect_h = crop_size;
 
