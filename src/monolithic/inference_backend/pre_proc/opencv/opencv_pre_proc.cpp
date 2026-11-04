@@ -41,15 +41,6 @@ void OpenCV_VPP::setUserCallback(const ImageProcessingCallback &callback) {
     user_callback = callback;
 }
 
-cv::Rect OpenCV_VPP::centralCropROI(const cv::Mat &image) {
-    int height = image.rows;
-    int width = image.cols;
-    int cropSize = std::min(height, width);
-    int startX = (width - cropSize) / 2;
-    int startY = (height - cropSize) / 2;
-    return cv::Rect(startX, startY, cropSize, cropSize);
-}
-
 void OpenCV_VPP::CopyImage(const Image &src, Image &dst) {
     uint32_t planes_count = ::Utils::GetPlanesCount(src.format);
     for (uint32_t i = 0; i < planes_count; i++) {
@@ -107,9 +98,13 @@ cv::Mat OpenCV_VPP::CustomImageConvert(const cv::Mat &orig_image, const int src_
 
         cv::Size input_size_except_padding(input_size.width - (padding_x * 2), input_size.height - (padding_y * 2));
 
+        // Central-resize crops the source directly, so the regular resize step must not run before it
+        const bool central_resize =
+            pre_proc_info->doNeedCrop() && pre_proc_info->getCropType() == InputImageLayerDesc::Crop::CENTRAL_RESIZE;
+
         // Resize
         cv::Mat image_to_insert = processed_image;
-        if (pre_proc_info->doNeedResize() && processed_image.size() != input_size_except_padding) {
+        if (!central_resize && pre_proc_info->doNeedResize() && processed_image.size() != input_size_except_padding) {
             double additional_crop_scale_param = 1;
             if (pre_proc_info->doNeedCrop() && pre_proc_info->doNeedResize()) {
                 additional_crop_scale_param = 1.125;
@@ -175,11 +170,22 @@ cv::Mat OpenCV_VPP::CustomImageConvert(const cv::Mat &orig_image, const int src_
                                     image_to_insert.size().height - safe_convert<int>(cropped_border_y));
             cv::Point2f top_left_rect_point;
 
-            if (pre_proc_info->getCropType() == InputImageLayerDesc::Crop::CENTRAL_RESIZE) {
-                cv::Rect crop_rect = centralCropROI(processed_image);
-                image_to_insert = processed_image;
-                Crop(image_to_insert, crop_rect, image_transform_info);
-                cv::resize(image_to_insert, image_to_insert, crop_rect_size, cv::INTER_CUBIC);
+            if (central_resize) {
+                const auto crop = InputImageLayerDesc::CalculateCentralResizeCrop(
+                    safe_convert<size_t>(processed_image.cols), safe_convert<size_t>(processed_image.rows),
+                    safe_convert<size_t>(input_size_except_padding.width),
+                    safe_convert<size_t>(input_size_except_padding.height));
+                cv::Rect crop_rect(safe_convert<int>(crop.x), safe_convert<int>(crop.y), safe_convert<int>(crop.width),
+                                   safe_convert<int>(crop.height));
+
+                ITT_TASK("cv::resize");
+                cv::resize(processed_image(crop_rect), image_to_insert, input_size_except_padding, 0, 0,
+                           cv::INTER_CUBIC);
+
+                if (image_transform_info)
+                    image_transform_info->CropThenResizeHasDone(
+                        crop.x, crop.y, safe_convert<double>(input_size_except_padding.width) / crop_rect.width,
+                        safe_convert<double>(input_size_except_padding.height) / crop_rect.height);
             } else {
                 switch (pre_proc_info->getCropType()) {
                 case InputImageLayerDesc::Crop::CENTRAL:

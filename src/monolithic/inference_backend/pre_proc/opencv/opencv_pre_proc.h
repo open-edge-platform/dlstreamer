@@ -39,7 +39,6 @@ class OpenCV_VPP : public ImagePreprocessor {
                                const InputImageLayerDesc::Ptr &pre_proc_info,
                                const ImageTransformationParams::Ptr &image_transform_info);
 
-    cv::Rect centralCropROI(const cv::Mat &image);
     void CopyImage(const Image &src, Image &dst);
 
     // Static utility function to load user library
