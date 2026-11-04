@@ -58,3 +58,19 @@ def print_inference_parameters(pipeline, printer=print): # pylint: disable=missi
             f"batch-size={parameters.get('batch-size', '1')} "
             f"nireq={parameters.get('nireq', '1')}"
         )
+
+# prints performance metrics of a sampled pipeline
+def print_pipeline_metrics(result, printer=print): # pylint: disable=missing-function-docstring
+    if not result:
+        printer("No metrics available")
+        return
+
+    metrics = [f"fps={result['fps']:.2f}"]
+
+    if result.get("streams") is not None:
+        metrics.append(f"streams={result['streams']}")
+
+    if result.get("power") is not None:
+        metrics.append(f"power={result['power']:.2f}")
+
+    printer(" ".join(metrics))
