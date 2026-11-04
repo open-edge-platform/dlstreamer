@@ -6,6 +6,7 @@
 
 #include "d3d11_converter.h"
 
+#include "dlstreamer/d3d11/device_lock.h"
 #include "inference_backend/logger.h"
 #include "inference_backend/pre_proc.h"
 #include "safe_arithmetic.hpp"
@@ -53,10 +54,13 @@ D3D11Converter::D3D11Converter(GstD3D11Device *device, uint32_t src_width, uint3
     gst_video_info_set_format(&in_info, gst_src_fmt, src_width, src_height);
     gst_video_info_set_format(&out_info, gst_dst_fmt, dst_width, dst_height);
 
-    // Use video processor backend
-    GstStructure *config =
-        gst_structure_new("converter-config", GST_D3D11_CONVERTER_OPT_BACKEND, GST_TYPE_D3D11_CONVERTER_BACKEND,
-                          static_cast<guint>(GST_D3D11_CONVERTER_BACKEND_VIDEO_PROCESSOR), nullptr);
+    // Prefer the shader backend; the video processor is kept only as a fallback for inputs
+    // without a shader resource view. The video processor stalls when the source rect changes
+    // between calls (per-ROI inference): each blit then serializes with the GPU work in flight,
+    // which made per-ROI classification ~4x slower than with the shader backend.
+    GstStructure *config = gst_structure_new(
+        "converter-config", GST_D3D11_CONVERTER_OPT_BACKEND, GST_TYPE_D3D11_CONVERTER_BACKEND,
+        static_cast<guint>(GST_D3D11_CONVERTER_BACKEND_SHADER | GST_D3D11_CONVERTER_BACKEND_VIDEO_PROCESSOR), nullptr);
 
     _converter = gst_d3d11_converter_new(_device, &in_info, &out_info, config);
     if (!_converter)
@@ -70,6 +74,10 @@ D3D11Converter::D3D11Converter(GstD3D11Device *device, uint32_t src_width, uint3
 }
 
 D3D11Converter::~D3D11Converter() {
+    if (_srv_fallback_buf) {
+        gst_buffer_unref(_srv_fallback_buf);
+        _srv_fallback_buf = nullptr;
+    }
     if (_converter) {
         gst_object_unref(_converter);
         _converter = nullptr;
@@ -109,6 +117,9 @@ void D3D11Converter::SetupPreprocessing(const InputImageLayerDesc::Ptr &pre_proc
     double resize_scale_param_y = 1;
     if (pre_proc_info->doNeedResize() &&
         (src_rect_width != input_width_except_padding || src_rect_height != input_height_except_padding)) {
+        if (pre_proc_info->isAspectRatioMultipleOfResize()) {
+            throw std::runtime_error("Aspect-ratio-multiple-of resize is supported only by the OpenCV preprocessor");
+        }
         double additional_crop_scale_param = 1;
         if (pre_proc_info->doNeedCrop() && pre_proc_info->doNeedResize())
             additional_crop_scale_param = 1.125;
@@ -216,6 +227,70 @@ void D3D11Converter::SetupPreprocessing(const InputImageLayerDesc::Ptr &pre_proc
                  "border-color", background_color, nullptr);
 }
 
+// The shader backend samples the source through a shader resource view, but decoder DPB
+// textures (e.g. from d3d11h264dec) are often created without D3D11_BIND_SHADER_RESOURCE.
+// GstD3D11Converter would then fall back to the video processor, so copy the frame's array
+// slice into an SRV-capable texture instead. The copy is a plain GPU copy of one frame.
+GstBuffer *D3D11Converter::PrepareShaderInput(GstBuffer *src_buffer) {
+    GstMemory *mem = gst_buffer_peek_memory(src_buffer, 0);
+    if (!mem || !gst_is_d3d11_memory(mem))
+        return src_buffer;
+    auto *src_dmem = GST_D3D11_MEMORY_CAST(mem);
+    if (gst_d3d11_memory_get_shader_resource_view_size(src_dmem) > 0)
+        return src_buffer;
+
+    D3D11_TEXTURE2D_DESC src_desc;
+    if (!gst_d3d11_memory_get_texture_desc(src_dmem, &src_desc))
+        throw std::runtime_error("D3D11Converter: failed to get source texture desc");
+
+    if (_srv_fallback_buf) {
+        D3D11_TEXTURE2D_DESC fb_desc;
+        gst_d3d11_memory_get_texture_desc(GST_D3D11_MEMORY_CAST(gst_buffer_peek_memory(_srv_fallback_buf, 0)),
+                                          &fb_desc);
+        if (fb_desc.Width != src_desc.Width || fb_desc.Height != src_desc.Height || fb_desc.Format != src_desc.Format) {
+            gst_buffer_unref(_srv_fallback_buf);
+            _srv_fallback_buf = nullptr;
+        }
+    }
+    if (!_srv_fallback_buf) {
+        D3D11_TEXTURE2D_DESC desc = {};
+        desc.Width = src_desc.Width;
+        desc.Height = src_desc.Height;
+        desc.MipLevels = 1;
+        desc.ArraySize = 1;
+        desc.Format = src_desc.Format;
+        desc.SampleDesc.Count = 1;
+        desc.Usage = D3D11_USAGE_DEFAULT;
+        desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+        GstMemory *fb_mem = gst_d3d11_allocator_alloc(nullptr, _device, &desc);
+        if (!fb_mem)
+            throw std::runtime_error("D3D11Converter: failed to allocate shader input texture");
+        _srv_fallback_buf = gst_buffer_new();
+        gst_buffer_append_memory(_srv_fallback_buf, fb_mem);
+        GVA_INFO("D3D11Converter: source texture has no shader resource view, copying to %ux%u texture", src_desc.Width,
+                 src_desc.Height);
+    }
+
+    GstMemory *fb_mem = gst_buffer_peek_memory(_srv_fallback_buf, 0);
+    GstMapInfo src_map, dst_map;
+    if (!gst_memory_map(mem, &src_map, static_cast<GstMapFlags>(GST_MAP_READ | GST_MAP_D3D11)))
+        throw std::runtime_error("D3D11Converter: failed to map source texture");
+    if (!gst_memory_map(fb_mem, &dst_map, static_cast<GstMapFlags>(GST_MAP_WRITE | GST_MAP_D3D11))) {
+        gst_memory_unmap(mem, &src_map);
+        throw std::runtime_error("D3D11Converter: failed to map shader input texture");
+    }
+    {
+        dlstreamer::D3D11DeviceLock lock(_device);
+        gst_d3d11_device_get_device_context_handle(_device)->CopySubresourceRegion(
+            reinterpret_cast<ID3D11Resource *>(dst_map.data), 0, 0, 0, 0,
+            reinterpret_cast<ID3D11Resource *>(src_map.data), gst_d3d11_memory_get_subresource_index(src_dmem),
+            nullptr);
+    }
+    gst_memory_unmap(fb_mem, &dst_map);
+    gst_memory_unmap(mem, &src_map);
+    return _srv_fallback_buf;
+}
+
 void D3D11Converter::Convert(GstBuffer *src_buffer, GstBuffer *dst_buffer,
                              const InputImageLayerDesc::Ptr &pre_proc_info,
                              const ImageTransformationParams::Ptr &image_transform_info,
@@ -223,24 +298,20 @@ void D3D11Converter::Convert(GstBuffer *src_buffer, GstBuffer *dst_buffer,
     if (!src_buffer || !dst_buffer)
         throw std::invalid_argument("D3D11Converter::Convert: null buffer");
 
-    // Get source dimensions from the GstBuffer's D3D11 memory
-    GstMemory *src_mem = gst_buffer_peek_memory(src_buffer, 0);
-    auto *src_d3d11_mem = reinterpret_cast<GstD3D11Memory *>(src_mem);
-    D3D11_TEXTURE2D_DESC src_desc;
-    gst_d3d11_memory_get_texture_desc(src_d3d11_mem, &src_desc);
-
+    // Source rect = logical frame size; decoder DPB textures are padded to the codec
+    // macroblock alignment (e.g. 360 -> 368 rows), so the texture desc must not be used.
     uint32_t src_rect_x = 0;
     uint32_t src_rect_y = 0;
-    uint32_t src_rect_w = src_desc.Width;
-    uint32_t src_rect_h = src_desc.Height;
+    uint32_t src_rect_w = _src_width;
+    uint32_t src_rect_h = _src_height;
 
     if (roi.width > 0 && roi.height > 0) {
-        // Clamp to the surface: ROI coordinates come from detection metadata and may be
+        // Clamp to the frame: ROI coordinates come from detection metadata and may be
         // rounded outside the frame by a pixel.
-        src_rect_x = (std::min)(roi.x, static_cast<uint32_t>(src_desc.Width));
-        src_rect_y = (std::min)(roi.y, static_cast<uint32_t>(src_desc.Height));
-        src_rect_w = (std::min)(roi.width, static_cast<uint32_t>(src_desc.Width) - src_rect_x);
-        src_rect_h = (std::min)(roi.height, static_cast<uint32_t>(src_desc.Height) - src_rect_y);
+        src_rect_x = (std::min)(roi.x, _src_width);
+        src_rect_y = (std::min)(roi.y, _src_height);
+        src_rect_w = (std::min)(roi.width, _src_width - src_rect_x);
+        src_rect_h = (std::min)(roi.height, _src_height - src_rect_y);
     }
 
     if (src_rect_w == 0 || src_rect_h == 0)
@@ -257,7 +328,7 @@ void D3D11Converter::Convert(GstBuffer *src_buffer, GstBuffer *dst_buffer,
     }
 
     // GstD3D11Converter handles device locking internally
-    if (!gst_d3d11_converter_convert_buffer(_converter, src_buffer, dst_buffer)) {
+    if (!gst_d3d11_converter_convert_buffer(_converter, PrepareShaderInput(src_buffer), dst_buffer)) {
         throw std::runtime_error("D3D11Converter::Convert: gst_d3d11_converter_convert_buffer failed");
     }
 }

@@ -6,7 +6,8 @@ detected object, a 2D bounding box annotated with a full 3D cuboid
 (location, dimensions and orientation).
 
 `gvamono3d` is an inference element built on the same engine as `gvadetect`,
-so it inherits batching, VA pre-processing, multi-stream model sharing and the
+so it inherits batching, VA pre-processing (the D3D11 and D3D12 backends on
+Windows, see [gvadetect](./gvadetect.md)), multi-stream model sharing and the
 standard inference properties. The model is driven directly from its `rt_info`
 (`model_type=mono3d`). Detections are attached
 as `GstAnalyticsCamera3DODMtd` metadata, serialized to JSON by `gvametaconvert`
