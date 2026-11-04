@@ -12,10 +12,12 @@
 #include <openvino/runtime/properties.hpp>
 
 #include <openvino/runtime/intel_npu/level_zero/level_zero.hpp>
+#include <openvino/runtime/intel_npu/properties.hpp>
 
 #include <dlstreamer/openvino/context.h>
 #ifdef _WIN32
 #include <dlstreamer/d3d11/context.h>
+#include <dlstreamer/d3d12/context.h>
 #endif
 // For logger_name
 #include <dlstreamer/element.h>
@@ -40,6 +42,11 @@
 #include "vaapi_utils.h"
 #endif
 #endif
+#else
+#include <dlstreamer/d3d11/context.h>
+
+#define CL_TARGET_OPENCL_VERSION 300
+#include <CL/cl.h>
 #endif
 
 #include <functional>
@@ -78,6 +85,12 @@ struct fmt::formatter<InferenceBackend::ImagePreprocessorType> : formatter<strin
             break;
         case ImagePreprocessorType::D3D11_SURFACE_SHARING:
             name = "D3D11 Surface Sharing";
+            break;
+        case ImagePreprocessorType::D3D12:
+            name = "D3D12 System Memory";
+            break;
+        case ImagePreprocessorType::D3D12_SURFACE_SHARING:
+            name = "D3D12 Surface Sharing";
             break;
         }
         return formatter<string_view>::format(name, ctx);
@@ -443,19 +456,11 @@ class OpenVinoNewApiImpl {
     };
 
   public:
-#ifndef ENABLE_D3D_NPU_COLOR_CONV
-    OpenVinoNewApiImpl(const ConfigHelper &config, dlstreamer::ContextPtr context,
-                       ImageInference::CallbackFunc callback, ImageInference::ErrorHandlingFunc error_handler,
-                       MemoryType memory_type)
-        : _app_context(std::move(context)), _memory_type(memory_type), _callback(callback),
-          _error_handler(error_handler) {
-#else
     OpenVinoNewApiImpl(const ConfigHelper &config, dlstreamer::ContextPtr context,
                        ImageInference::CallbackFunc callback, ImageInference::ErrorHandlingFunc error_handler,
                        MemoryType memory_type, InferenceBackend::ImagePreprocessorType pp_type)
-        : _app_context(std::move(context)), _memory_type(memory_type), _callback(callback), _pp_type(pp_type),
+        : _app_context(std::move(context)), _memory_type(memory_type), _pp_type(pp_type), _callback(callback),
           _error_handler(error_handler) {
-#endif
         log_api_message();
 
         _device = config.device();
@@ -469,6 +474,7 @@ class OpenVinoNewApiImpl {
         // read model & configure model
         _model_path = config.model_path();
         _model = core().read_model(_model_path);
+        _model_format = config.model_format();
 
         {
             size_t bs;
@@ -557,29 +563,28 @@ class OpenVinoNewApiImpl {
         switch (_memory_type) {
         case MemoryType::SYSTEM:
         case MemoryType::DMA_BUFFER:
-#ifndef ENABLE_D3D_NPU_COLOR_CONV
             if (_model_format == "BGR")
                 format = FourCC::FOURCC_BGRP;
             else
                 format = FourCC::FOURCC_RGBP;
             break;
-#else
-            if (_pp_type == InferenceBackend::ImagePreprocessorType::D3D11) {
+        case MemoryType::VAAPI:
+            format = FourCC::FOURCC_NV12;
+            break;
+        case MemoryType::D3D11:
+        case MemoryType::D3D12:
+#ifdef _WIN32
+            // D3D11/D3D12 surface sharing wraps a BGRA/RGBA texture as a single OpenCL
+            // buffer, so the texture format must match the model's channel order.
+            if (_pp_type == InferenceBackend::ImagePreprocessorType::D3D11_SURFACE_SHARING ||
+                _pp_type == InferenceBackend::ImagePreprocessorType::D3D12_SURFACE_SHARING) {
                 if (_model_format == "BGR")
-                    format = FourCC::FOURCC_BGRX;
+                    format = FourCC::FOURCC_BGRA;
                 else
-                    format = FourCC::FOURCC_RGBX;
-                break;
-            } else {
-                if (_model_format == "BGR")
-                    format = FourCC::FOURCC_BGRP;
-                else
-                    format = FourCC::FOURCC_RGBP;
+                    format = FourCC::FOURCC_RGBA;
                 break;
             }
 #endif
-        case MemoryType::VAAPI:
-        case MemoryType::D3D11:
             format = FourCC::FOURCC_NV12;
             break;
         default:
@@ -614,12 +619,14 @@ class OpenVinoNewApiImpl {
         case FourCC::FOURCC_RGBA:
         case FourCC::FOURCC_RGBX:
         case FourCC::FOURCC_BGR:
+            if (image.create_cl_buffer)
+                return image_d3d11_bgrx_surface_to_tensor(image);
             return {image_bgrx_to_tensor(image)};
 
         case FourCC::FOURCC_NV12:
-            if (image.type != MemoryType::VAAPI)
-                return image_nv12_to_tensor(image);
-            return image_nv12_surface_to_tensor(image);
+            if (image.type == MemoryType::VAAPI)
+                return image_nv12_surface_to_tensor(image);
+            return image_nv12_to_tensor(image);
 
         case FourCC::FOURCC_I420:
             return image_i420_to_tensor(image);
@@ -669,8 +676,19 @@ class OpenVinoNewApiImpl {
             _npu_context = std::make_unique<ov::intel_npu::level_zero::ZeroContext>(core());
 
         auto channels_num = get_channels_num(image.format);
-        const ov::Shape shape{1, channels_num, size_t(image.height), size_t(image.width)};
-        ov::Tensor remote_tensor = _npu_context->create_tensor(ov::element::u8, shape, image.dma_fd);
+        // The DMA-BUF rows are padded to a 64-byte aligned pitch (see alignDmaBufPitch). Wrap the whole
+        // padded buffer and expose the [1, C, H, W] region as a strided ROI remote tensor.
+        const size_t width = image.width;
+        const size_t pitch = image.stride[0] ? image.stride[0] : width;
+        const ov::Shape padded_shape{1, channels_num, size_t(image.height), pitch};
+        ov::RemoteTensor remote_tensor = _npu_context->create_tensor(ov::element::u8, padded_shape, image.dma_fd);
+        if (pitch != width) {
+            // Crop the padding columns [width, pitch) off every row. The ROI keeps the parent's strides
+            // (row stride = pitch), so the NPU must be compiled with NPU_ENABLE_STRIDES_FOR for this input.
+            const ov::Coordinate begin{0, 0, 0, 0};
+            const ov::Coordinate end{1, channels_num, size_t(image.height), width};
+            remote_tensor = ov::RemoteTensor(remote_tensor, begin, end);
+        }
 
         return _npu_dmabuf_tensor_cache.emplace(image.dma_fd, remote_tensor).first->second;
     }
@@ -734,6 +752,20 @@ class OpenVinoNewApiImpl {
         return {y_tensor, uv_tensor};
     }
 
+    // D3D11/D3D12 BGRA/RGBA texture wrapped via OpenCL interop by the producer.
+    // The image's create_cl_buffer callback receives our cl_context and returns
+    // a cl_mem holding the texture pixels as an u8 NHWC buffer; we wrap that
+    // cl_mem as an ov::Tensor on the GPU remote context (D3DContext for D3D11,
+    // plain ClContext for D3D12, both expose create_tensor(cl_mem)).
+    std::vector<ov::Tensor> image_d3d11_bgrx_surface_to_tensor(const Image &image) {
+        if (!_openvino_context)
+            throw std::runtime_error("D3D surface sharing requires a GPU device with an OpenVINO™ remote context");
+        auto cl_rmt_ctx = _openvino_context->remote_context<ov::intel_gpu::ocl::ClContext>();
+        auto *cl_ctx = _openvino_context->handle(dlstreamer::OpenVINOContext::key::cl_context);
+        auto *cl_buf = static_cast<cl_mem>(image.create_cl_buffer(cl_ctx));
+        return {cl_rmt_ctx.create_tensor(ov::element::u8, {1, image.height, image.width, 4}, cl_buf)};
+    }
+
     std::vector<ov::Tensor> image_i420_to_tensor(const Image &image) const {
         assert(image.planes[0] && image.planes[1] && image.planes[2]);
         const ov::Shape y_shape{1, size_t(image.height), size_t(image.width), 1};
@@ -795,6 +827,7 @@ class OpenVinoNewApiImpl {
     dlstreamer::OpenVINOContextPtr _openvino_context;
     ov::CompiledModel _compiled_model;
     MemoryType _memory_type;
+    InferenceBackend::ImagePreprocessorType _pp_type = InferenceBackend::ImagePreprocessorType::AUTO;
 
     // Persistent NPU Level Zero context and per-DMA-BUF-fd remote tensor cache for the
     // VAAPI_SYSTEM zero-copy path (avoids re-creating a context and re-importing the fd
@@ -802,9 +835,7 @@ class OpenVinoNewApiImpl {
     std::unique_ptr<ov::intel_npu::level_zero::ZeroContext> _npu_context;
     std::unordered_map<int, ov::Tensor> _npu_dmabuf_tensor_cache;
     std::mutex _npu_dmabuf_cache_mutex;
-#ifdef ENABLE_D3D_NPU_COLOR_CONV
-    InferenceBackend::ImagePreprocessorType _pp_type;
-#endif
+
     int _nireq = 0;
     int _auto_batch_num_requests = 0;
     int _batch_size = 0;
@@ -836,13 +867,8 @@ class OpenVinoNewApiImpl {
         }
 
         _batch_size = config.batch_size();
-        if (_batch_size == 0) {
-            try {
-                _batch_size = core().get_property(config.device(), ov::optimal_batch_size);
-            } catch (...) {
-                _batch_size = 1; // Fallback if optimal batch size property is not supported
-            }
-        }
+        if (_batch_size == 0)
+            _batch_size = OpenVINOImageInference::GetDeviceOptimalBatchSize(config.device());
 
         _batch_timeout = config.batch_timeout();
 
@@ -978,35 +1004,37 @@ class OpenVinoNewApiImpl {
 
         // OPENCV and VAAPI pre-processors handle color coversion and scaling, input tensors in NCHW format
         if (pp_type == ImagePreprocessorType::OPENCV || pp_type == ImagePreprocessorType::VAAPI_SYSTEM ||
-            pp_type == ImagePreprocessorType::D3D11) {
+            pp_type == ImagePreprocessorType::D3D11 || pp_type == ImagePreprocessorType::D3D12) {
             input.tensor().set_layout("NCHW");
         }
 
-#ifdef ENABLE_D3D_NPU_COLOR_CONV
-        if (pp_type == ImagePreprocessorType::D3D11) {
-            input.tensor().set_layout("NHWC");
-            if (_model_format == "BGR") {
-                input.tensor().set_color_format(ov::preprocess::ColorFormat::BGRX);
-                input.preprocess().convert_color(ov::preprocess::ColorFormat::BGR);
-            } else {
-                input.tensor().set_color_format(ov::preprocess::ColorFormat::RGBX);
-                input.preprocess().convert_color(ov::preprocess::ColorFormat::RGB);
-            }
-        }
-#endif
-        // OV preprocessing is configured only for IE or VAAPI_SURFACE_SHARING
-        if (pp_type == ImagePreprocessorType::VAAPI_SURFACE_SHARING || pp_type == ImagePreprocessorType::IE) {
+        // OV preprocessing is configured for IE, VAAPI_SURFACE_SHARING, D3D11_SURFACE_SHARING or D3D12_SURFACE_SHARING
+        if (pp_type == ImagePreprocessorType::VAAPI_SURFACE_SHARING ||
+            pp_type == ImagePreprocessorType::D3D11_SURFACE_SHARING ||
+            pp_type == ImagePreprocessorType::D3D12_SURFACE_SHARING || pp_type == ImagePreprocessorType::IE) {
 
-            // IE and VAAPI_SURFACE_SHARING assume input tensors in NHWC format
+            // Surface sharing and IE assume input tensors in NHWC format
             const auto color_format_pair = get_ov_color_format(config.image_format());
             input.tensor().set_color_format(color_format_pair.first, color_format_pair.second);
             input.tensor().set_layout("NHWC");
 
-            // VAAPI_SURFACE_SHARING pre-processor requires NV12 input surface in GPU memory
+            // Surface sharing pre-processor requires NV12 input surface in GPU memory
             if (pp_type == ImagePreprocessorType::VAAPI_SURFACE_SHARING) {
                 assert(_memory_type == MemoryType::VAAPI);
                 assert(color_format_pair.first == ov::preprocess::ColorFormat::NV12_TWO_PLANES);
                 input.tensor().set_memory_type(ov::intel_gpu::memory_type::surface);
+            }
+            if (pp_type == ImagePreprocessorType::D3D11_SURFACE_SHARING) {
+                assert(_memory_type == MemoryType::D3D11);
+                // BGRA/RGBA via OpenCL interop: feeds an NHWC u8 CL buffer tensor,
+                // does not use memory_type::surface. Only the NV12 path uses surface tagging.
+                if (color_format_pair.first == ov::preprocess::ColorFormat::NV12_TWO_PLANES)
+                    input.tensor().set_memory_type(ov::intel_gpu::memory_type::surface);
+            }
+            if (pp_type == ImagePreprocessorType::D3D12_SURFACE_SHARING) {
+                assert(_memory_type == MemoryType::D3D12);
+                // BGRA via cl_khr_external_memory buffer import, plain NHWC u8 buffer tensor.
+                assert(color_format_pair.first != ov::preprocess::ColorFormat::NV12_TWO_PLANES);
             }
 
             // Convert input tensor color space into model color space if necessary
@@ -1134,13 +1162,34 @@ class OpenVinoNewApiImpl {
         print_input_and_outputs_info(*_model);
     }
 
+    // NPU zero-copy DMA-BUFs use a padded row pitch when the model input width is not 64-byte aligned.
+    // Let the NPU consume such strided input tensors directly instead of copying them on the CPU.
+    void enable_npu_dmabuf_strides(ov::AnyMap &ov_params) {
+        if (_memory_type != MemoryType::DMA_BUFFER || _device.find("NPU") == std::string::npos ||
+            _image_input_name.empty() || ov_params.count(ov::intel_npu::enable_strides_for.name()))
+            return;
+
+        size_t width = 0, height = 0, batch = 0;
+        int format = 0, memory_type = 0;
+        get_model_image_input_info(width, height, batch, format, memory_type);
+        if (width == 0 || alignDmaBufPitch(safe_convert<uint32_t>(width)) == width)
+            return;
+
+        GVA_INFO("NPU zero-copy: model input width %zu is not %u-byte aligned, enabling strided input '%s'", width,
+                 DMA_BUF_PITCH_ALIGNMENT, _image_input_name.c_str());
+        ov_params[ov::intel_npu::enable_strides_for.name()] = _image_input_name;
+    }
+
     // Loads network to the device
     void load_network(const ConfigHelper &config) {
         assert(!_compiled_model);
         ov::AnyMap ov_params = config.inference_cfg();
+
+        // Check if enabling strided input for NPU zero-copy is applicable and required.
+        enable_npu_dmabuf_strides(ov_params);
+
         std::string params = fmt::format("Params for compile_model:\n  {}", fmt::join(ov_params, "\n  "));
         GVA_INFO("%s", params.c_str());
-        // adjust_ie_config(ov_params);
 
         GVA_INFO("Loading network to device %s", _device.c_str());
         if (_openvino_context) {
@@ -1148,14 +1197,19 @@ class OpenVinoNewApiImpl {
         }
 
         // print_input_and_outputs_info(*_model);
-        if (_openvino_context) {
-            _compiled_model = core().compile_model(_model, _openvino_context->remote_context(), ov_params);
-        } else {
-            std::string formatted_device = _device;
-            if (_batch_timeout > -1) {
-                formatted_device = fmt::format("BATCH:{}({})", _device, _auto_batch_num_requests);
+        try {
+            if (_openvino_context) {
+                _compiled_model = core().compile_model(_model, _openvino_context->remote_context(), ov_params);
+            } else {
+                std::string formatted_device = _device;
+                if (_batch_timeout > -1) {
+                    formatted_device = fmt::format("BATCH:{}({})", _device, _auto_batch_num_requests);
+                }
+                _compiled_model = core().compile_model(_model, formatted_device, ov_params);
             }
-            _compiled_model = core().compile_model(_model, formatted_device, ov_params);
+        } catch (const std::exception &e) {
+            GVA_ERROR("Failed to compile model for device %s: %s", _device.c_str(), e.what());
+            std::throw_with_nested(std::runtime_error("Failed to compile model for device " + _device));
         }
         GVA_INFO("Network loaded to device");
 
@@ -1202,18 +1256,28 @@ class OpenVinoNewApiImpl {
         // FIXME: invert to reduce nesting
         if (is_device_gpu() && !is_device_multi()) {
 #ifdef _WIN32
-            if (_memory_type == MemoryType::D3D11 || _memory_type == MemoryType::SYSTEM) {
+            if (_memory_type == MemoryType::D3D11 || _memory_type == MemoryType::D3D12 ||
+                _memory_type == MemoryType::SYSTEM) {
                 if (_app_context) {
                     try {
-                        dlstreamer::D3D11ContextPtr d3d11_ctx = dlstreamer::D3D11Context::create(_app_context);
-                        _openvino_context = std::make_shared<dlstreamer::OpenVINOContext>(core(), _device, d3d11_ctx);
+                        if (_app_context->memory_type() == dlstreamer::MemoryType::D3D12) {
+                            // No D3D12 interop in the OV GPU plugin: use OV's own OpenCL context on the
+                            // matching GPU and bridge D3D12 resources through cl_khr_external_memory.
+                            dlstreamer::D3D12ContextPtr d3d12_ctx = dlstreamer::D3D12Context::create(_app_context);
+                            _openvino_context =
+                                std::make_shared<dlstreamer::OpenVINOContext>(core(), _device, d3d12_ctx);
+                        } else {
+                            dlstreamer::D3D11ContextPtr d3d11_ctx = dlstreamer::D3D11Context::create(_app_context);
+                            _openvino_context =
+                                std::make_shared<dlstreamer::OpenVINOContext>(core(), _device, d3d11_ctx);
+                        }
                     } catch (std::exception &e) {
                         GVA_ERROR("Exception occurred when creating OpenVINO™ toolkit remote context: %s", e.what());
                         std::throw_with_nested(std::runtime_error("couldn't create OV remote context"));
                     }
 
-                } else if (_memory_type == MemoryType::D3D11) {
-                    throw std::runtime_error("Display must be provided for GPU device with d3d11 backend");
+                } else if (_memory_type == MemoryType::D3D11 || _memory_type == MemoryType::D3D12) {
+                    throw std::runtime_error("Display must be provided for GPU device with d3d11/d3d12 backend");
                 }
             }
 #else
@@ -1278,12 +1342,8 @@ OpenVINOImageInference::OpenVINOImageInference(const InferenceBackend::Inference
 
         ConfigHelper cfg_helper(config);
         const auto pp_type = cfg_helper.pp_type();
-#ifndef ENABLE_D3D_NPU_COLOR_CONV
-        _impl = std::make_unique<OpenVinoNewApiImpl>(cfg_helper, context, callback, error_handler, memory_type);
-#else
         _impl =
             std::make_unique<OpenVinoNewApiImpl>(cfg_helper, context, callback, error_handler, memory_type, pp_type);
-#endif
 
         model_name = _impl->_model->get_friendly_name();
         nireq = _impl->_nireq;
@@ -1299,12 +1359,9 @@ OpenVINOImageInference::OpenVINOImageInference(const InferenceBackend::Inference
             freeRequests.push(batch_request);
         }
 
-#ifndef ENABLE_D3D_NPU_COLOR_CONV
         if (pp_type == InferenceBackend::ImagePreprocessorType::OPENCV ||
-            pp_type == InferenceBackend::ImagePreprocessorType::D3D11) {
-#else
-        if (pp_type == InferenceBackend::ImagePreprocessorType::OPENCV) {
-#endif
+            pp_type == InferenceBackend::ImagePreprocessorType::D3D11 ||
+            pp_type == InferenceBackend::ImagePreprocessorType::D3D12) {
             std::string pp_type_string = fmt::format("creating pre-processor, type: {}", pp_type);
             GVA_INFO("%s", pp_type_string.c_str());
             const std::string custom_preproc_lib = cfg_helper.custom_preproc_lib();
@@ -1449,12 +1506,7 @@ bool OpenVINOImageInference::DoNeedImagePreProcessing(const InferenceBackend::Im
     if ((_impl->_memory_type == MemoryType::SYSTEM) &&
         ((image->format == FourCC::FOURCC_RGBP) || (image->format == FourCC::FOURCC_BGRP))) {
 
-        bool contiguous = (image->planes[1] - image->planes[0] == image->width * image->height) &&
-                          (image->planes[2] - image->planes[1] == image->width * image->height) &&
-                          (image->stride[0] == image->stride[1]) && (image->stride[1] == image->stride[2]) &&
-                          (image->stride[2] == image->width);
-
-        if (!contiguous) {
+        if (!isImageContiguous(*image)) {
             GVA_WARNING("Force OPENCV preprocessor to convert non-contiguous tensors into contigous memory location");
             pre_processor.reset(
                 InferenceBackend::ImagePreprocessor::Create(InferenceBackend::ImagePreprocessorType::OPENCV, ""));
@@ -1508,6 +1560,13 @@ void OpenVINOImageInference::SubmitImage(
     ++requests_processing_;
     std::shared_ptr<BatchRequest> request = freeRequests.pop();
 
+    // A partial batch already holds earlier frames: remember the sizes so that a failure
+    // rolls back only what this frame added.
+    const size_t prev_buffers = request->buffers.size();
+    std::vector<size_t> prev_tensors;
+    for (const auto &in_vec : request->in_tensors)
+        prev_tensors.push_back(in_vec.size());
+
     try {
         if (DoNeedImagePreProcessing(frame->GetImage())) {
             SubmitImageProcessing(
@@ -1525,6 +1584,14 @@ void OpenVINOImageInference::SubmitImage(
         request->buffers.push_back(frame);
     } catch (const std::exception &e) {
         GVA_ERROR("Pre-processing has failed: %s", e.what());
+        // Hand the request back and drop the frame from the in-flight count, otherwise the
+        // request is lost and a later Flush() waits for this frame forever.
+        request->buffers.resize(prev_buffers);
+        for (size_t i = 0; i < prev_tensors.size(); i++)
+            request->in_tensors[i].resize(prev_tensors[i]);
+        freeRequests.push_front(request);
+        --requests_processing_;
+        request_processed_.notify_all();
         std::throw_with_nested(std::runtime_error("Pre-processing was failed."));
     }
 
@@ -1536,7 +1603,14 @@ void OpenVINOImageInference::SubmitImage(
             freeRequests.push_front(request);
         }
     } catch (const std::exception &e) {
-        std::throw_with_nested(std::runtime_error("Inference async start was failed."));
+        // The request holds the whole batch now: fail all of its frames, as Flush() and the
+        // completion callback do. Not rethrown, so the caller does not report this frame twice.
+        GVA_ERROR("Inference async start has failed: %s", e.what());
+        // handleError pushes the frames downstream, which can block: don't hold requests_mutex_
+        // over it, as the completion callback doesn't. The request is ours until FreeRequest.
+        lk.unlock();
+        handleError(request->buffers);
+        FreeRequest(request);
     }
 }
 
@@ -1603,6 +1677,24 @@ std::map<std::string, std::vector<size_t>> OpenVINOImageInference::GetModelInput
         res.emplace(name, std::vector<size_t>(shape.begin(), shape.end()));
     }
     return res;
+}
+
+bool OpenVINOImageInference::IsNpuStridedInputSupported() {
+    try {
+        const auto props = OpenVinoNewApiImpl::core().get_property("NPU", ov::supported_properties);
+        return std::find(props.begin(), props.end(), ov::intel_npu::enable_strides_for.name()) != props.end();
+    } catch (const std::exception &e) {
+        GVA_WARNING("Could not query NPU supported properties: %s", e.what());
+        return false;
+    }
+}
+
+int OpenVINOImageInference::GetDeviceOptimalBatchSize(const std::string &device) {
+    try {
+        return static_cast<int>(OpenVinoNewApiImpl::core().get_property(device, ov::optimal_batch_size));
+    } catch (...) {
+        return 1; // Fallback if optimal batch size property is not supported
+    }
 }
 
 void OpenVINOImageInference::Flush() {

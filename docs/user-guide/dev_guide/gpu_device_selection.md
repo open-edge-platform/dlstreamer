@@ -77,3 +77,53 @@ gvadetect model=${MODEL_FILE} device=GPU pre-process-backend=va-surface-sharing 
 ```
 
 > **NOTE:** From [GStreamer 1.28](https://gstreamer.freedesktop.org/releases/1.28/) and [DL Streamer 2026.1.0] the VAAPI plugin support has being removed, the VA plugin must be used instead.
+
+## 3. Windows (D3D11 and D3D12)
+
+On Windows, D3D11 and D3D12 codec plugins register one decoder element per GPU
+(Direct3D adapter), similar to the VA plugins on Linux:
+
+- `d3d11h264dec`, `d3d12h264dec` for the default adapter
+- `d3d11h264device1dec`, `d3d12h264device1dec` for the next adapter that supports
+  the codec, and so on
+
+Each decoder reports its adapter in the read-only `adapter-luid` property
+(`gst-inspect-1.0 d3d12h264device1dec`). The element index does not always match
+the OpenVINO™ GPU index, because OpenVINO™ lists integrated GPUs before discrete
+GPUs. Compare `adapter-luid` with the OpenVINO™ `DEVICE_LUID` property of each GPU
+to find the matching pair. `adapter-luid` is a decimal integer, while `DEVICE_LUID`
+is 8 bytes (printed as hex) that equal `adapter-luid` when read as a little-endian
+64-bit integer. The following script prints `DEVICE_LUID` in the `adapter-luid`
+format:
+
+```python
+import openvino as ov
+
+core = ov.Core()
+for dev in core.available_devices:
+    if dev.startswith("GPU"):
+        luid = core.get_property(dev, "DEVICE_LUID")
+        print(dev, int.from_bytes(bytes.fromhex(luid), "little", signed=True))
+```
+
+Inference elements match the upstream D3D11/D3D12 device to an OpenVINO™ GPU by
+adapter LUID:
+
+- With `device=GPU`, the upstream D3D11/D3D12 device is reused for inference.
+- With `device=GPU.<N>`, the upstream device is reused only if its adapter LUID
+  matches OpenVINO™ `GPU.<N>`. Otherwise the inference element creates a new
+  D3D11/D3D12 device on the adapter of `GPU.<N>`.
+- `share-d3d-ctx=false` always creates a new device for inference instead of
+  reusing the upstream one.
+
+For zero-copy operation on a *multi-GPU* system, decode on the same adapter as the
+inference device. For example, if `d3d11h264device1dec`/`d3d12h264device1dec`
+run on the adapter of OpenVINO™ `GPU.1`:
+
+```bash
+gst-launch-1.0 filesrc location=${VIDEO_FILE} ! parsebin ! d3d11h264device1dec ! \
+gvadetect model=${MODEL_FILE} device=GPU.1 pre-process-backend=d3d11-surface-sharing ! queue ! gvafpscounter ! fakesink
+
+gst-launch-1.0 filesrc location=${VIDEO_FILE} ! parsebin ! d3d12h264device1dec ! \
+gvadetect model=${MODEL_FILE} device=GPU.1 pre-process-backend=d3d12-surface-sharing ! queue ! gvafpscounter ! fakesink
+```

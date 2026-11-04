@@ -208,6 +208,18 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(GSTREAMER gstreamer-1.0>=1.16 REQUIRED)
 link_directories(${GSTREAMER_LIBRARY_DIRS})
 
+if(WIN32)
+    # gstreamer-d3d12-1.0.pc lists DirectX-Headers in Requires.private, which the binary
+    # GStreamer distribution does not ship, so pkg-config refuses to resolve the module.
+    # The public headers only need the Windows SDK; locate the import library directly.
+    find_library(GSTD3D12_LIBRARY NAMES gstd3d12-1.0 HINTS ${GSTREAMER_LIBRARY_DIRS})
+    if(NOT GSTD3D12_LIBRARY)
+        message(FATAL_ERROR "gstd3d12-1.0 not found; GStreamer >= 1.26 built with the d3d12 library is required")
+    endif()
+    set(GSTD3D12_INCLUDE_DIRS ${GSTREAMER_INCLUDE_DIRS})
+    set(GSTD3D12_LIBRARIES ${GSTD3D12_LIBRARY} d3d12 dxgi)
+endif()
+
 # Add subdirectories
 
 add_subdirectory(include/dlstreamer)

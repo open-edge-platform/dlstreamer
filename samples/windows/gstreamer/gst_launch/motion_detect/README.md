@@ -4,15 +4,25 @@ This README documents the Windows `motion_detect.ps1` script, a simple way to ru
 
 ## How It Works
 
-The script builds and runs a GStreamer pipeline with `gst-launch-1.0`. It supports CPU inference and accepts a local file or URI source.
+The script builds and runs a GStreamer pipeline with `gst-launch-1.0`. It supports CPU, GPU and NPU inference and accepts a local file or URI source.
 
 Key elements in the pipeline:
 - `urisourcebin` or `filesrc` + `decodebin3`: input and decoding
-- `gvamotiondetect`: motion region detection (ROI publisher)
+- `gvamotiondetect`: motion region detection (ROI publisher). It works on system memory, D3D11 memory or D3D12 memory, so on GPU and NPU the decoded frames stay in GPU memory
 - `gvadetect`: runs object detection restricted to motion ROIs (`inference-region=1`)
 - Output:
   - `gvametaconvert` + `gvametapublish`: write metadata to `output.json` (JSON Lines)
-  - or `autovideosink`: on-screen rendering with FPS counter
+  - or a video sink: on-screen rendering with FPS counter (`d3d12videosink` on GPU/NPU, `autovideosink` on CPU)
+
+The memory type requested after `decodebin3` follows the pre-processing backend of `gvadetect`:
+
+| Device | Default backend         | Memory after decode | Display elements                                       |
+| ------ | ----------------------- | ------------------- | ------------------------------------------------------ |
+| CPU    | `opencv`                | `SystemMemory`      | `gvawatermark ! videoconvert ! autovideosink`          |
+| GPU    | `d3d12-surface-sharing` | `D3D12Memory`       | `d3d12convert ! gvawatermark ! d3d12videosink`         |
+| NPU    | `d3d12`                 | `D3D12Memory`       | `d3d12convert ! gvawatermark ! d3d12videosink`         |
+
+An explicit `d3d11` or `d3d11-surface-sharing` backend uses `D3D11Memory` with `d3d11convert` and `d3d11videosink`, and `ie`/`opencv` on GPU or NPU use the CPU display elements.
 
 ## Pipeline Architecture
 
@@ -25,7 +35,12 @@ graph LR
     C --> D[gvadetect]
     D --> E{OUTPUT mode}
 
-    E -->|display| F[gvawatermark]
+    E -->|display<br/>GPU/NPU| N[d3d12convert]
+    N --> O[gvawatermark]
+    O --> P[gvafpscounter]
+    P --> Q[d3d12videosink]
+
+    E -->|display<br/>CPU| F[gvawatermark]
     F --> G[videoconvert]
     G --> H[gvafpscounter]
     H --> I[autovideosink]
@@ -50,11 +65,11 @@ The sample uses YOLOv8n (resolved via `MODELS_PATH`) or other supported object d
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| -Device | CPU | Currently only supports CPU |
+| -Device | CPU | Inference device: CPU, GPU, NPU |
 | -InputSource | DEFAULT | Local file path or URI. Use 'DEFAULT' for built-in sample video |
 | -Model | (auto) | Optional OpenVINO XML model path. Leave empty to use yolov8n from MODELS_PATH |
 | -Precision | FP32 | Model precision: FP32, FP16, INT8 |
-| -PreprocessBackend | opencv | Pre-process backend for gvadetect |
+| -PreprocessBackend | per device | Pre-process backend for gvadetect: ie, opencv, d3d11, d3d11-surface-sharing, d3d12, d3d12-surface-sharing. Defaults to opencv on CPU, d3d12-surface-sharing on GPU and d3d12 on NPU |
 | -OutputType | display | Output type: display, json |
 | -MotionDetectOptions | (empty) | Extra properties for gvamotiondetect (e.g., "threshold=0.5") |
 | -FrameLimiter | (empty) | Optional GStreamer element to insert after decode (e.g., " ! identity eos-after=1000") |
@@ -73,6 +88,11 @@ $env:MODELS_PATH = "C:\models"
 ```PowerShell
 $env:MODELS_PATH = "C:\models"
 .\motion_detect.ps1 -Device CPU -InputSource C:\path\to\video.mp4 -Precision FP32 -PreprocessBackend opencv -OutputType display -MotionDetectOptions "motion-threshold=0.07 min-persistence=2"
+```
+- GPU path (frames stay in D3D12 memory from decode to display):
+```PowerShell
+$env:MODELS_PATH = "C:\models"
+.\motion_detect.ps1 -Device GPU -InputSource C:\path\to\video.mp4 -Precision FP16 -OutputType display
 ```
 - Explicit model path:
 ```PowerShell

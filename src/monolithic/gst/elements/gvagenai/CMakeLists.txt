@@ -19,6 +19,7 @@ find_package(CURL)
 set(GVAGENAI_SOURCES
     gstgvagenai.cpp
     configs.cpp
+    metrics_message.cpp
     backends/genai_backend.cpp
     backends/frame_utils.cpp
     backends/openvino-genai/openvino_genai_pipeline.cpp

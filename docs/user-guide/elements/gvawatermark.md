@@ -3,6 +3,67 @@
 Overlays the metadata on the video frame to visualize the inference
 results.
 
+With `device=GPU`, the element draws with OpenCL straight into the planes of
+`NV12` frames in video memory: `video/x-raw(memory:VAMemory)` on Linux, and
+`video/x-raw(memory:D3D11Memory)` or `video/x-raw(memory:D3D12Memory)` on
+Windows. The frame is not copied to system memory, which the CPU renderer has to
+do for every frame in video memory.
+
+- The GPU renderer draws the same pixels as the CPU renderer: boxes, labels and
+  their backgrounds, keypoints and their connections, instance segmentation
+  masks, and blurred regions.
+- Its cost depends on the area the watermark covers, not on the frame size:
+  labels are rasterized on the CPU once and reused across frames. Blurring large
+  regions is the expensive part, see [Performance consideration](#performance-consideration).
+- Frames in another format, and frames with rotated regions (from oriented
+  detection models such as YOLO-OBB), are drawn by the CPU renderer instead,
+  one frame at a time.
+- Semantic segmentation masks are drawn only on `BGRx`, `BGRA` and `BGR` frames,
+  by the CPU renderer. Neither renderer draws them on `NV12`, and on `I420` the
+  CPU renderer draws no segmentation masks at all: such frames stop the pipeline
+  with an error.
+- The GPU renderer is built when OpenCL is found, and on Linux also VA-API. If
+  the GPU cannot share the frames with OpenCL, the element logs a warning and
+  uses the CPU renderer.
+- On Linux, `device` defaults to `CPU`. Set `device=GPU` and keep the frames in
+  VAMemory:
+
+  ```bash
+  gst-launch-1.0 filesrc location=${VIDEO_FILE} ! decodebin3 ! "video/x-raw(memory:VAMemory)" ! \
+    gvadetect model=${MODEL_FILE} device=GPU pre-process-backend=va-surface-sharing ! queue ! \
+    gvawatermark device=GPU ! vapostproc ! autovideosink
+  ```
+
+> **Note:** On Linux, the GPU renderer draws into the VA surface itself. A decoder
+> may still use that surface as a reference picture, and a `tee` shares it with
+> its other branches, so the watermark can show up in later frames and in the
+> other branches. The CPU renderer is not affected. To prevent it, copy the frame
+> right before `gvawatermark`. The copy does not change the pixels:
+>
+> ```bash
+> ... ! vapostproc disable-passthrough=true ! "video/x-raw(memory:VAMemory),format=NV12" ! gvawatermark device=GPU ! ...
+> ```
+
+See [Displaying analysis results with gvawatermark](../dev_guide/performance_guide.md#8-displaying-analysis-results-with-gvawatermark)
+for when to choose the CPU or the GPU.
+
+On Windows, the element also accepts `video/x-raw(memory:D3D11Memory)` and
+`video/x-raw(memory:D3D12Memory)` in `NV12` and `BGRA`, and differs from the
+Linux listing below:
+
+- `device` defaults to `GPU` on D3D11Memory and D3D12Memory, and to `CPU` on
+  system memory. `device=GPU` with system memory is an error.
+- Either renderer first copies the frame into a texture of its own on the GPU,
+  so the watermark does not show up in other branches of a `tee` or in the
+  decoder's reference frames.
+- With the D3D12 decoders, the pipeline stays in D3D12Memory when every element
+  accepts it, which is faster than D3D11Memory:
+
+  ```bash
+  gst-launch-1.0 filesrc location=${VIDEO_FILE} ! decodebin3 ! gvadetect model=${MODEL_FILE} device=GPU ! queue ! \
+    gvawatermark ! d3d12videosink
+  ```
+
 ```bash
 Pad Templates:
   SINK template: 'sink'
@@ -71,8 +132,8 @@ Element Properties:
                         * show-labels=<bool> enable or disable displaying text labels, default true
                         * font-scale=<double 0.1 to 2.0> scale factor for text labels, default 0.5
                         * thickness=<uint> bounding box thickness, default 2
-                        * color-idx=<int> color-table entry for bounding box, keypoints, and text, default -1 (per-object colors). Built-in table: 0 red, 1 green, 2 blue, 3 yellow, 4 cyan, 5 magenta, 6-17 intermediate hues, 18 black, 19 white
-                        * color-table=<path> file with the colors picked by label id or tracking id, one R,G,B color (0 to 255) per line, '#' starts a comment, default built-in table of 20 colors
+                        * color-idx=<int> built-in color table entry for bounding box, keypoints, and text, default -1 (per-object colors). Built-in table: 0 red, 1 green, 2 blue, 3 yellow, 4 cyan, 5 magenta, 6-17 intermediate hues, 18 black, 19 white
+                        * color-table=<path> file with object colors per label, one 'label: R,G,B' entry (0 to 255) per line, '#' starts a comment, default empty (built-in colors derived from the label)
                         * font-type=<string> font type for text labels, default triplex. Supported fonts: simplex, plain, duplex, complex, triplex, complex_small, script_simplex, script_complex
                         * draw-txt-bg=<bool> enable or disable displaying text labels background, by enabling it the text color is set to black or white, whichever contrasts better with the background, default true
                         * show-roi=<string> colon-separated list of labels to include (only these objects will be shown), default empty
@@ -156,22 +217,48 @@ such as blue and red.
 
 *Uses red color for bounding boxes and text*
 
+### Default Bounding Box Colors
+
+When `color-idx` is not set, the color of a bounding box is derived from the
+object label only, so a given class is always drawn with the same color,
+regardless of the model or the run:
+
+- Labels are compared case-insensitively, ignoring spaces, `_` and `-`
+  (`traffic light`, `traffic_light` and `trafficlight` are the same label).
+- COCO classes use the colors YOLO models have always been drawn with, e.g.
+  `person` red, `bicycle` green, `car` blue, `motorcycle` yellow, `bus` magenta,
+  `truck` pink.
+- Common labels of other models follow their COCO equivalents: `pedestrian` is
+  red like `person`, `vehicle` is blue like `car`, `bike` is green like `bicycle`.
+  `face` is green and `license plate` is yellow.
+- Labels of the pallet defect detection model are distinct: `box` is orange,
+  `defect` is magenta, `shipping_label` is cyan.
+- Any other label gets one of 18 saturated colors (the built-in table without
+  black and white), chosen by a fixed hash of the label text.
+- Tracked objects (with an object ID assigned by `gvatrack`) are colored by
+  their object ID instead, as entry `ID % 20` of the built-in table.
+- Landmarks and keypoints are colored from the built-in table, by point index.
+
 ### Color Table
 
-Objects are colored from a table of 20 built-in colors, by their tracking id when they have one and by
-their label id otherwise. Landmarks and keypoints take their colors from the same table, by point index.
-`color-table=<path>` replaces the built-in table with colors read from a file:
+`color-table=<path>` assigns your own colors to selected labels. The file lists
+one label per line:
 
-- one color per line, as red, green and blue components from 0 to 255, separated by commas or spaces
+- `label: R,G,B`, with red, green and blue components from 0 to 255, separated
+  by commas or spaces
+- labels are matched the same way as above (case, spaces, `_` and `-` are
+  ignored), each label may appear only once
 - `#` starts a comment, empty lines are skipped
-- an id beyond the end of the table wraps around, so a single line draws every object in that color
-- `color-idx=<n>` picks entry `n` of this table for every bounding box and label, from 0 to the number of colors minus one
+- a color from the file takes precedence over the tracking ID color; labels
+  not listed in the file keep their default colors
+- `color-idx=<n>` still draws every bounding box and label in entry `n` of the
+  built-in table (0 to 19), regardless of the color table
 
 ```text
-# colors.txt, picked by label id: 0 person, 1 car, 2 bicycle
-255, 64, 64     # person
-64, 160, 255    # car
-255, 200, 0     # bicycle
+# colors.txt
+person: 255, 64, 64
+car: 64, 160, 255
+traffic light: 255 200 0
 ```
 
 e.g `displ-cfg=color-table=/path/to/colors.txt`

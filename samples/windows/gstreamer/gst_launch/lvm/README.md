@@ -12,9 +12,10 @@ This sample builds a GStreamer pipeline of the following elements:
 **Input**: `filesrc` or `urisourcebin` (automatically detected).
 **Decoding**: `decodebin3` for hardware/software video decoding.
 **Preprocessing**:
-- **CPU**: `videoconvert` and `videoscale` (OpenCV backend).
-- **GPU**: `d3d11convert` (D3D11 backend).
-- **NPU**: `d3d11convert` (D3D11 backend).
+- **CPU**: `videoconvert` and `videoscale` (`opencv` backend).
+- **GPU**: `d3d12convert` (`d3d12-surface-sharing` backend: the pre-processed frame stays in GPU memory).
+- **NPU**: `d3d12convert` (`d3d12` backend).
+- A backend set with `-PreprocessBackend` selects the matching element: `d3d12convert` for `d3d12*`, `d3d11convert` for `d3d11*`, `videoconvert` and `videoscale` for `ie` and `opencv`.
 **Inference**: `gvainference` running the CLIP Vision Transformer model.
 **Metadata**: `gvametaconvert` (JSON with tensor data) and `gvametapublish` (file output).
 **Sink**: `fakesink` (default) or `gvafpscounter` for performance measurement.
@@ -31,14 +32,17 @@ This pipeline extracts image embeddings using a Vision Transformer (ViT) from a 
 ```mermaid
 graph LR
 A[source] --> B[decodebin3]
-    B --> C{DEVICE}
+    B --> C{BACKEND}
 
-    C -->|CPU| D[videoconvert]
+    C -->|ie / opencv| D[videoconvert]
     D --> E[videoscale]
     E --> F[gvainference]
 
-    C -->|GPU/NPU| G[d3d11convert]
+    C -->|d3d12*| G[d3d12convert]
     G --> F
+
+    C -->|d3d11*| N[d3d11convert]
+    N --> F
 
     F --> H{OUTPUT mode}
 
@@ -68,7 +72,7 @@ The sample takes the following *optional* parameters:
 | -Device | `CPU`, `GPU`, or `NPU` | `CPU` |
 | -Precision | `FP32`, `FP16`, or `INT8` | `FP32` |
 | -Model | CLIP model name (see above) | `clip-vit-large-patch14` |
-| -PreprocessBackend | `opencv` (CPU) or `d3d11` (GPU/NPU) | `opencv` for CPU; `d3d11` for GPU/NPU |
+| -PreprocessBackend | `ie`, `opencv`, `d3d11`, `d3d11-surface-sharing`, `d3d12` or `d3d12-surface-sharing` (D3D backends need GPU or NPU) | `opencv` for CPU; `d3d12-surface-sharing` for GPU; `d3d12` for NPU |
 | -OutputType | `json` (save embeddings) or `fps` (benchmark) | `json` |
 | -FrameLimiter | Optional GStreamer element to insert after decode | empty |
 
@@ -93,7 +97,7 @@ Default execution (CPU, FP32, JSON output):
 
 High-performance GPU inference (Intel® Arc™ GPU, FP16):
 ```PowerShell
-.\generate_frame_embedding.ps1 -InputSource "C:\you\video\path\sample.mp4" -Device GPU -Precision FP16 -Model clip-vit-large-patch14 -PreprocessBackend d3d11 -OutputType json
+.\generate_frame_embedding.ps1 -InputSource "C:\you\video\path\sample.mp4" -Device GPU -Precision FP16 -Model clip-vit-large-patch14 -OutputType json
 ```
 
 Benchmark throughput (FPS mode):
