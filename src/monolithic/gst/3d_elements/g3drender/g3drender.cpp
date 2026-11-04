@@ -660,7 +660,7 @@ const cv::Scalar kColorMatched(255, 255, 255); // white — 3D matched (associat
  * about +z and centred on the box centre. Corners 0-3 are the bottom face and
  * 4-7 the top face, in the same order, so the 12 edges are kBoxEdges. */
 std::array<cv::Point3f, 8> box_corners(const GstAnalytics3DODMtd &mtd) {
-    gfloat cx, cy, cz, length, width, height, yaw, pitch, roll;
+    gfloat cx = 0, cy = 0, cz = 0, length = 0, width = 0, height = 0, yaw = 0, pitch = 0, roll = 0;
     gst_analytics_3d_od_mtd_get_location(const_cast<GstAnalytics3DODMtd *>(&mtd), &cx, &cy, &cz, &length, &width,
                                          &height, &yaw, &pitch, &roll);
     const float c = std::cos(yaw), s = std::sin(yaw);

@@ -195,6 +195,11 @@ int unpack_voxels(const float *result, float *features, int32_t *coords) {
 
 std::vector<Box3D> decode(const HeadOutputs &head, const ModelParams &params, float score_threshold) {
     const int P = kNumProposals;
+    const size_t KP = static_cast<size_t>(kNumClasses) * P;
+    if (head.center.size() < 2u * P || head.height.size() < static_cast<size_t>(P) || head.dim.size() < 3u * P ||
+        head.rot.size() < 2u * P || head.vel.size() < 2u * P || head.heatmap.size() < KP ||
+        head.query_heatmap_score.size() < KP || head.top_proposals_class.size() < static_cast<size_t>(P))
+        throw std::invalid_argument("detection head outputs are smaller than " + std::to_string(P) + " proposals");
     const std::array<double, 6> &r = params.post_center_range;
     std::vector<Box3D> boxes;
     for (int i = 0; i < P; i++) {
