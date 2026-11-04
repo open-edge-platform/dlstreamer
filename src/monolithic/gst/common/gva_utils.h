@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -24,6 +24,8 @@ void set_od_id(GstAnalyticsODMtd od_mtd, gint id);
 void gva_buffer_check_and_make_writable(GstBuffer **buffer, const char *called_function_name);
 
 G_END_DECLS
+
+#define GVA_AGGREGATED_ROI_TYPE "dlstreamer-aggregated-roi"
 
 #define GST_VIDEO_REGION_OF_INTEREST_META_ITERATE(buf, state)                                                          \
     ((GstVideoRegionOfInterestMeta *)gst_buffer_iterate_meta_filtered(buf, state,                                      \
