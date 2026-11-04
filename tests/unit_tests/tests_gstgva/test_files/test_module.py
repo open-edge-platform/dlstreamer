@@ -24,8 +24,9 @@ class MyClassWithArgs:
     def __init__(self, path, **kwargs):
         print("MyClassWithArgs.__init__")
 
-    def process_frame(self):
+    def process_frame(self, frame):
         print("MyClassWithArgs.process_frame")
+        return True
 
 
 class MyClassVaapi:

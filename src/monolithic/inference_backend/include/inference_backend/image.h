@@ -11,11 +11,13 @@
 #include "dlstreamer/image_info.h"
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <type_traits>
 
 #ifdef _WIN32
 #include <d3d11.h>
+#include <d3d12.h>
 #endif
 
 using VaApiDisplayPtr = dlstreamer::ContextPtr;
@@ -30,7 +32,7 @@ struct fourcc {
 
 namespace InferenceBackend {
 
-enum class MemoryType { ANY = 0, SYSTEM = 1, DMA_BUFFER = 2, VAAPI = 3, USM_DEVICE_POINTER = 4, D3D11 = 5 };
+enum class MemoryType { ANY = 0, SYSTEM = 1, DMA_BUFFER = 2, VAAPI = 3, USM_DEVICE_POINTER = 4, D3D11 = 5, D3D12 = 6 };
 
 enum FourCC {
     FOURCC_RGBP_F32 = 0x07282024,
@@ -80,6 +82,17 @@ struct Image {
 #endif
             uint32_t d3d11_subresource_index; // Array slice index for texture arrays
             void *gst_d3d11_device;           // GstD3D11Device* from source pipeline
+            void *gst_d3d11_memory;           // GstMemory* (carries the array slice index)
+        };
+        struct { // if type==D3D12
+#ifdef _WIN32
+            struct ID3D12Resource *d3d12_resource;
+#else
+            void *d3d12_resource;
+#endif
+            uint32_t d3d12_subresource_index; // Subresource index of plane 0
+            void *gst_d3d12_device;           // GstD3D12Device* from source pipeline
+            void *gst_d3d12_memory;           // GstMemory* (carries the producer's fence)
         };
     };
     int dma_fd = -1; // if type==DMA_BUFFER
@@ -95,6 +108,12 @@ struct Image {
 
     // Filled in and used by the USMBufferMapper.
     void *map_context = nullptr;
+
+    // Optional producer-supplied factory that prepares a GPU-resident input
+    // for this image. The consumer passes its cl_context (as void*) and the
+    // producer returns a cl_mem (as void*) holding the image pixels as an u8
+    // NHWC buffer. Used by D3D11 surface sharing to avoid CPU readback.
+    std::function<void *(void *cl_context)> create_cl_buffer;
 
     Image() = default;
 };
