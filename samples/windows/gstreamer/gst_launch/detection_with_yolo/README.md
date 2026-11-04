@@ -10,17 +10,19 @@ The string contains a list of GStreamer elements separated by exclamation mark `
 This sample builds GStreamer pipeline of the following elements:
 
 - `filesrc` or `urisourcebin` for input from file/URL
-- `decodebin3` for video decoding (automatically selects D3D11 decoder when available)
+- `decodebin3` for video decoding (automatically selects the D3D12 hardware decoder when available)
 - [gvadetect](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvadetect.html) for full-frame object detection
 - [gvawatermark](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvawatermark.html) for bounding boxes visualization
-- `d3d11convert` for D3D11-accelerated video conversion
-- `autovideosink` for rendering output video to screen
+- `d3d12convert` (or `d3d11convert`) for GPU-accelerated video conversion
+- `d3d12videosink` (or `d3d11videosink`) for rendering output video to screen
 
-> **NOTE**: `sync=false` property in `autovideosink` element disables real-time synchronization so pipeline runs as fast as possible
+> **NOTE**: `sync=false` property in the video sink element disables real-time synchronization so pipeline runs as fast as possible
 
 ## Pipeline Architecture
 
 This pipeline performs object detection using a YOLO model. After decoding, `gvadetect` runs inference on each frame. The output branch is selected at startup via the `OUTPUT` parameter and determines how detected metadata and video are handled — from live display with overlays, to MP4 file recording, JSON metadata logging, FPS benchmarking, or a combined display-and-JSON mode.
+
+The diagram shows the default GPU/NPU pipeline, which keeps frames in D3D12 memory from the decoder to the sink. The elements used with the other pre-processing backends are listed in [Pre-processing Backend Selection](#pre-processing-backend-selection).
 
 ```mermaid
 graph LR
@@ -28,15 +30,15 @@ graph LR
     B --> C[gvadetect: YOLO]
     C --> D{OUTPUT mode}
 
-    D -->|display| E[d3d11convert]
+    D -->|display| E[d3d12convert]
     E --> F[gvawatermark]
     F --> G[gvafpscounter]
-    G --> H[d3d11videosink]
+    G --> H[d3d12videosink]
 
-    D -->|file| I[d3d11convert]
+    D -->|file| I[d3d12convert]
     I --> J[gvawatermark]
     J --> K[gvafpscounter]
-    K --> L[mfh264enc]
+    K --> L[d3d12h264enc]
     L --> M[mp4mux]
     M --> N[filesink]
 
@@ -47,31 +49,44 @@ graph LR
     D -->|fps| R[gvafpscounter]
     R --> S[fakesink]
 
-    D -->|display-and-json| T[d3d11convert]
+    D -->|display-and-json| T[d3d12convert]
     T --> U[gvawatermark]
     U --> V[gvametaconvert]
     V --> W[gvametapublish]
     W --> X[gvafpscounter]
-    X --> Y[d3d11videosink]
+    X --> Y[d3d12videosink]
 ```
 
 ## Windows-Specific Features
 
-### D3D11 Pre-processing Backend
+### D3D11 and D3D12 Pre-processing Backends
 
-On Windows with GPU or NPU devices, this sample uses **D3D11 (Direct3D 11)** as the pre-processing backend instead of VA-API (Linux). This provides:
+On Windows with GPU or NPU devices, this sample uses **Direct3D** pre-processing backends instead of VA-API (Linux):
 
-- Hardware-accelerated video decode via D3D11 decoders
-- Zero-copy or efficient memory transfer between decode and inference
-- Better performance on Intel GPUs with Windows drivers
+- `d3d12` / `d3d11`: the frame is resized and color-converted on the GPU, then passed to OpenVINO™ through system memory.
+- `d3d12-surface-sharing` / `d3d11-surface-sharing`: the pre-processed frame is passed to the OpenVINO™ GPU plugin without leaving GPU memory. Supported on GPU only; on NPU the element falls back to `d3d12` / `d3d11`.
+
+The D3D12 backends work directly on the frames from the D3D12 decoders. The D3D11 backends need the decoder to copy each frame into D3D11 memory.
 
 ### Pre-processing Backend Selection
 
-| Device | Default Backend | Description               |
-| ------ | --------------- | ------------------------- |
-| CPU    | `ie`            | OpenVINO Inference Engine |
-| GPU    | `d3d11`         | Direct3D 11 acceleration  |
-| NPU    | `d3d11`         | Direct3D 11 acceleration  |
+| Device | Default Backend         |
+| ------ | ----------------------- |
+| CPU    | `opencv`                |
+| GPU    | `d3d12-surface-sharing` |
+| NPU    | `d3d12`                 |
+
+The elements after `gvadetect` determine which memory type it receives, so the sample selects them from the backend. A `d3d12` backend accepts only D3D12 memory and a `d3d11` backend only D3D11 memory:
+
+| Backend                          | Conversion     | Display          | File encoder                       |
+| -------------------------------- | -------------- | ---------------- | ---------------------------------- |
+| `d3d12`, `d3d12-surface-sharing` | `d3d12convert` | `d3d12videosink` | `d3d12h264enc rate-control=cqp` \* |
+| `d3d11`, `d3d11-surface-sharing` | `d3d11convert` | `d3d11videosink` | `mfh264enc`                        |
+| `ie`, `opencv`                   | `videoconvert` | `autovideosink`  | `openh264enc`                      |
+
+\* Falls back to `d3d12download ! mfh264enc` when the GPU has no D3D12 video encoder. Constant QP rate control is used because the default rate control of `d3d12h264enc` produces broken streams with some drivers.
+
+The D3D backends require a GPU or NPU device.
 
 ## Models
 
@@ -127,7 +142,7 @@ $set MODELS_PATH = "C:\models"
 | -Device            | GPU              | Inference device: CPU, GPU, NPU                                                         |
 | -InputSource       | Pexels video URL | Input video file or URL                                                                 |
 | -OutputType        | display          | Output type: file, display, fps, json, display-and-json                                 |
-| -PreprocessBackend | auto             | Pre-processing backend: ie, opencv, d3d11                                               |
+| -PreprocessBackend | per device       | Pre-processing backend: ie, opencv, d3d11, d3d11-surface-sharing, d3d12, d3d12-surface-sharing (see [Pre-processing Backend Selection](#pre-processing-backend-selection)) |
 | -Precision         | FP16             | Model precision: INT8, FP32, FP16                                                       |
 | -FrameLimiter      | (empty)          | Optional GStreamer element to insert after decode (e.g., `" ! identity eos-after=100"`) |
 
@@ -157,10 +172,10 @@ Run with CPU and save to file:
 .\yolo_detect.ps1 -Model yolo11s -Device CPU -InputSource C:\videos\test.mp4 -OutputType file
 ```
 
-Run with explicit D3D11 backend:
+Run with the D3D11 surface-sharing backend instead of the default D3D12 one:
 
 ```PowerShell
-.\yolo_detect.ps1 -Model yolo11s -Device GPU -InputSource C:\videos\test.mp4 -OutputType display -PreprocessBackend d3d11
+.\yolo_detect.ps1 -Model yolo11s -Device GPU -InputSource C:\videos\test.mp4 -OutputType display -PreprocessBackend d3d11-surface-sharing
 ```
 
 Run in FPS-only mode (benchmark):
@@ -172,7 +187,7 @@ Run in FPS-only mode (benchmark):
 Run with FP32 precision:
 
 ```PowerShell
-.\yolo_detect.ps1 -Model yolo11s -Device GPU -InputSource C:\videos\test.mp4 -OutputType display -PreprocessBackend d3d11 -Precision FP32
+.\yolo_detect.ps1 -Model yolo11s -Device GPU -InputSource C:\videos\test.mp4 -OutputType display -Precision FP32
 ```
 
 Process only first 100 frames (for testing/benchmarking):
