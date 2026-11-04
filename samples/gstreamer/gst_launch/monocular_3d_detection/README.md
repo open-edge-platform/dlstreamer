@@ -12,7 +12,7 @@ filesrc (assembled mp4) ! decodebin3 ! videoconvert ! gvamono3d ! gvawatermark3d
 ## Data (downloaded on demand)
 
 The sample fetches **front-camera frames and their intrinsics** from
-[PandaSet](https://pandaset.org) (© Hesai & Scale AI, **CC BY 4.0**) at runtime,
+PandaSet (© Hesai & Scale AI, **CC BY 4.0**) at runtime,
 using HTTP range requests so only a few MB are transferred — the 44 GB archive
 is never downloaded. The frames
 are then assembled into a short mp4 (`data/pandaset_<seq>.mp4`, ~10 fps) that the
