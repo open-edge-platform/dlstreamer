@@ -1,12 +1,12 @@
-name: "[DLS] [U24] Build weekly cache imgs"
-run-name: "[DLS] [U24] Build weekly cache imgs"
+name: "[DLS] [U22/24/26] Build weekly cache imgs"
+run-name: "[DLS] [U22/24/26] Build weekly cache imgs"
 on:
   schedule:
     - cron: '0 3 * * *' # 3:00 UTC every day
   workflow_dispatch:
 permissions: {}
 env:
-  dlstreamer-version: "2026.2.0"
+  dlstreamer-version: "2026.3.0"
   DLS_REL_PATH: "./dlstreamer-repo"
 
 jobs:
@@ -20,8 +20,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - path_dockerfile: ./dlstreamer-repo/docker/ubuntu/ubuntu22.Dockerfile
+            ubuntu_version: ubuntu22
           - path_dockerfile: ./dlstreamer-repo/docker/ubuntu/ubuntu24.Dockerfile
             ubuntu_version: ubuntu24
+          - path_dockerfile: ./dlstreamer-repo/docker/ubuntu/ubuntu26.Dockerfile
+            ubuntu_version: ubuntu26
     steps:
       - name: Check out dlstreamer repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #7.0.1
@@ -75,8 +79,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - path_dockerfile: ./dlstreamer-repo/docker/ubuntu/ubuntu22.Dockerfile
+            ubuntu_version: ubuntu22
+            build_arg: Debug
           - path_dockerfile: ./dlstreamer-repo/docker/ubuntu/ubuntu24.Dockerfile
             ubuntu_version: ubuntu24
+            build_arg: Debug
+          - path_dockerfile: ./dlstreamer-repo/docker/ubuntu/ubuntu26.Dockerfile
+            ubuntu_version: ubuntu26
             build_arg: Debug
     steps:
       - name: Check out dlstreamer repository
