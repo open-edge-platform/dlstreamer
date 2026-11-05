@@ -73,14 +73,8 @@ void print_input_and_outputs_info(const ov::Model &network) {
 
 } // namespace
 
-#ifndef ENABLE_D3D_NPU_COLOR_CONV
 ModelConfigurator::ModelConfigurator(std::shared_ptr<ov::Model> model, MemoryType memory_type)
     : _model(std::move(model)), _memory_type(memory_type) {
-#else
-ModelConfigurator::ModelConfigurator(std::shared_ptr<ov::Model> model, MemoryType memory_type,
-                                     ImagePreprocessorType pp_type)
-    : _model(std::move(model)), _memory_type(memory_type), _pp_type(pp_type) {
-#endif
     size_t bs;
     int fmt, mt;
     get_model_image_input_info(_origin_model_in_w, _origin_model_in_h, bs, fmt, mt);
@@ -133,27 +127,11 @@ void ModelConfigurator::get_model_image_input_info(size_t &width, size_t &height
     switch (_memory_type) {
     case MemoryType::SYSTEM:
     case MemoryType::DMA_BUFFER:
-#ifndef ENABLE_D3D_NPU_COLOR_CONV
         if (_model_format == "BGR")
             format = FourCC::FOURCC_BGRP;
         else
             format = FourCC::FOURCC_RGBP;
         break;
-#else
-        if (_pp_type == InferenceBackend::ImagePreprocessorType::D3D11) {
-            if (_model_format == "BGR")
-                format = FourCC::FOURCC_BGRX;
-            else
-                format = FourCC::FOURCC_RGBX;
-            break;
-        } else {
-            if (_model_format == "BGR")
-                format = FourCC::FOURCC_BGRP;
-            else
-                format = FourCC::FOURCC_RGBP;
-            break;
-        }
-#endif
     case MemoryType::VAAPI:
     case MemoryType::D3D11:
         format = FourCC::FOURCC_NV12;
@@ -326,18 +304,6 @@ void ModelConfigurator::configure_image_input(const ConfigHelper &config, ov::pr
         input.tensor().set_layout("NCHW");
     }
 
-#ifdef ENABLE_D3D_NPU_COLOR_CONV
-    if (pp_type == ImagePreprocessorType::D3D11) {
-        input.tensor().set_layout("NHWC");
-        if (_model_format == "BGR") {
-            input.tensor().set_color_format(ov::preprocess::ColorFormat::BGRX);
-            input.preprocess().convert_color(ov::preprocess::ColorFormat::BGR);
-        } else {
-            input.tensor().set_color_format(ov::preprocess::ColorFormat::RGBX);
-            input.preprocess().convert_color(ov::preprocess::ColorFormat::RGB);
-        }
-    }
-#endif
     // OV preprocessing is configured only for IE or VAAPI_SURFACE_SHARING
     if (pp_type == ImagePreprocessorType::VAAPI_SURFACE_SHARING || pp_type == ImagePreprocessorType::IE) {
 

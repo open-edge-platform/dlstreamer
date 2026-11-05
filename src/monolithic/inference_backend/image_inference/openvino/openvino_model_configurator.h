@@ -28,11 +28,7 @@ namespace OpenVino {
 class ModelConfigurator {
   public:
     // Reads the original input size of the model, so construct it before calling configure().
-#ifndef ENABLE_D3D_NPU_COLOR_CONV
     ModelConfigurator(std::shared_ptr<ov::Model> model, MemoryType memory_type);
-#else
-    ModelConfigurator(std::shared_ptr<ov::Model> model, MemoryType memory_type, ImagePreprocessorType pp_type);
-#endif
 
     // Applies the settings of the config to the model. Afterwards model(), batch_size() and the other accessors
     // return the final values.
@@ -88,9 +84,6 @@ class ModelConfigurator {
     std::string _model_format;
     std::string _image_input_name;
     MemoryType _memory_type;
-#ifdef ENABLE_D3D_NPU_COLOR_CONV
-    ImagePreprocessorType _pp_type;
-#endif
     int _auto_batch_num_requests = 0;
     int _batch_size = 0;
     int _batch_timeout = -1;
