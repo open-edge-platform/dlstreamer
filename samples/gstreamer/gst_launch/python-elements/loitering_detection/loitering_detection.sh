@@ -8,7 +8,7 @@
 # Display usage information
 usage() {
     cat << EOF
-Usage: $(basename "$0") [INPUT] [CONFIG_FILE] [MODEL] [DEVICE] [OUTPUT] [JSON_METADATA] [EOS_FRAME] [--eos-frame N]
+Usage: $(basename "$0") [INPUT] [CONFIG_FILE] [MODEL] [DEVICE] [OUTPUT] [JSON_METADATA] [EOS_FRAME]
 
 Description:
   Detects loitering behavior in video using object detection and tracking.
@@ -18,56 +18,45 @@ Description:
 Parameters:
   INPUT       - Input video (file path or URL)
                 Default: https://github.com/open-edge-platform/edge-ai-resources/raw/refs/heads/main/videos/VIRAT_S_000101.mp4
-
+  
   CONFIG_FILE - Zone configuration file for loitering detection
                 Default: <script_dir>/virat_s_000101-config.json
-
+  
   MODEL       - Detection model (path to .xml file for OpenVINO format)
                 Default: \${MODELS_PATH}/public/yolo11s/FP16/yolo11s.xml
                 The default path is built from the MODELS_PATH environment variable
                 (default: ./models). Set MODELS_PATH to point to your models directory.
-
+  
   DEVICE      - Processing device (CPU, GPU, or NPU)
                 Default: GPU
                 Supported: CPU | GPU | NPU
-
+  
   OUTPUT      - Output video file (H.264 MP4 format)
                 Default: loitering_detection_output.mp4
 
   JSON_METADATA - Output file for analytics metadata (JSON Lines format)
                 Default: loitering_detection_output.json
 
-  EOS_FRAME   - Send EOS after N frames
-                Default: 0 (disabled)
-
-Options:
-  --eos-frame N  - Send EOS after N frames (can be used anywhere)
-  --eos-frame=N  - Alternative syntax
+  EOS_FRAME   - Stop after N decoded buffers (default: 0, disabled)
 
 Examples:
   # Run with defaults
   $(basename "$0")
-
+  
   # Use CPU device with custom config and model
   $(basename "$0") input.mp4 config.json ./models/yolo11s.xml CPU output.mp4
-
+  
   # Process with GPU (explicit)
   $(basename "$0") video.mp4 config.json ./models/detection.xml GPU result.mp4
-
+  
   # Use NPU device
   $(basename "$0") input.mp4 config.json ./models/yolo11s.xml NPU output.mp4
-
+  
   # Override models directory via environment variable
   MODELS_PATH=/opt/my_models $(basename "$0") input.mp4 config.json "" GPU output.mp4
 
   # Save analytics metadata to a JSON Lines file
   $(basename "$0") input.mp4 config.json ./models/yolo11s.xml GPU output.mp4 metadata.jsonl
-
-  # Send EOS after 300 frames
-  $(basename "$0") input.mp4 config.json ./models/yolo11s.xml GPU output.mp4 metadata.jsonl --eos-frame 300
-
-  # EOS flag at the beginning
-  $(basename "$0") --eos-frame=300 input.mp4 config.json ./models/yolo11s.xml GPU output.mp4 metadata.jsonl
 
 EOF
     exit 0
@@ -76,37 +65,11 @@ EOF
 set -e
 
 # Handle help flag
-if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
     usage
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# Parse optional --eos-frame flag
-EOS_FRAME=""
-POSITIONAL_ARGS=()
-
-while [[ $# -gt 0 ]]; do
-    if [[ "$1" == "--eos-frame" ]]; then
-        if [[ $# -lt 2 ]]; then
-            echo "Error: --eos-frame requires a value." >&2
-            exit 1
-        fi
-
-        EOS_FRAME="$2"
-        shift 2
-
-    elif [[ "$1" == --eos-frame=* ]]; then
-        EOS_FRAME="${1#*=}"
-        shift
-
-    else
-        POSITIONAL_ARGS+=("$1")
-        shift
-    fi
-done
-
-set -- "${POSITIONAL_ARGS[@]}"
 
 # Configuration parameters
 MODELS_PATH=${MODELS_PATH:-./models}  # Path to models directory (e.g., /path/to/omz_models)
@@ -116,10 +79,7 @@ MODEL=${3:-${MODELS_PATH}/public/yolo11s/FP16/yolo11s.xml} # Detection model (YO
 DEVICE=${4:-"GPU"}
 OUTPUT=${5:-loitering_detection_output.mp4}  # Output video file (H.264 MP4)
 JSON_METADATA=${6:-loitering_detection_output.json}  # Output file for analytics metadata (JSON Lines format)
-
-if [[ -z "$EOS_FRAME" ]]; then
-    EOS_FRAME=${7:-0}
-fi
+EOS_FRAME=${7:-0}
 
 export GST_PLUGIN_PATH="${SCRIPT_DIR}/plugins:${GST_PLUGIN_PATH}"
 export GI_TYPELIB_PATH=/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/opt/intel/dlstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0
@@ -142,22 +102,16 @@ if [[ ! "$DEVICE" =~ ^(CPU|GPU|NPU)$ ]]; then
     exit 1
 fi
 
-# Validate EOS_FRAME parameter
-if ! [[ "$EOS_FRAME" =~ ^[0-9]+$ ]]; then
-    echo "Error: EOS_FRAME must be a non-negative integer."
-    exit 1
-fi
-
-# Configure source element
+# Validate INPUT and select source element
 if [[ "$INPUT" =~ ^https?:// ]]; then
-    SOURCE_ELEMENT="urisourcebin uri=\"${INPUT}\""
+    SOURCE_ELEMENT="urisourcebin uri=${INPUT}"
 else
     if [ ! -f "$INPUT" ]; then
         echo "Error: Input file not found: $INPUT"
         echo "Run '$(basename "$0") --help' for usage information."
         exit 1
     fi
-    SOURCE_ELEMENT="filesrc location=\"${INPUT}\""
+    SOURCE_ELEMENT="filesrc location=${INPUT} "
 fi
 
 # Validate CONFIG_FILE exists (optional but recommended)
@@ -180,13 +134,6 @@ else
     exit 1
 fi
 
-# Configure EOS element
-EOS_ELEMENT=""
-
-if [[ "$EOS_FRAME" -gt 0 ]]; then
-    EOS_ELEMENT="identity eos-after=${EOS_FRAME} ! "
-fi
-
 # Use vah264enc if available, otherwise fallback to openh264enc
 if gst-inspect-1.0 vah264enc &>/dev/null; then
     ENCODER="vah264enc"
@@ -194,12 +141,17 @@ else
     ENCODER="videoconvert ! openh264enc"
 fi
 
+EOS_ELEMENT=""
+if [[ "$EOS_FRAME" != "0" ]]; then
+    EOS_ELEMENT="identity eos-after=${EOS_FRAME} ! "
+fi
+    
 gst-launch-1.0 -e ${SOURCE_ELEMENT} ! decodebin3 ! \
     ${EOS_ELEMENT}gvadetect model=${MODEL} ${GVADETECT_OPTIONS} ! queue ! \
     gvatrack tracking-type=zero-term ! queue ! \
     gvaanalytics config=${CONFIG_FILE} evaluation-point=bottom-center ! queue ! \
     loitering_watermark loitering-threshold=5.0 dashboard-pos="750,60" ! queue ! \
-    gvametaconvert ! gvametapublish file-format=json-lines file-path=${JSON_METADATA} ! queue ! \
+    gvametaconvert ! gvametapublish file-format=json-lines file-path=${JSON_METADATA} ! queue !  \
     gvawatermark device=${WATERMARK_DEVICE} ! \
     gvafpscounter ! queue ! \
     ${ENCODER} bitrate=1024 ! h264parse ! mp4mux ! filesink location=${OUTPUT}

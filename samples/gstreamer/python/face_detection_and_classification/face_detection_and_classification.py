@@ -71,26 +71,9 @@ def parse_args(args):
         default=None,
         help="Path to the age/gender/classification OpenVINO model XML (default: $MODELS_PATH/" + DEFAULT_CLASSIFICATION_MODEL_REL + ")",
     )
-    parser.add_argument(
-        "--eos-frame",
-        type=int,
-        default=0,
-        help="Send EOS after N frames (default: 0, disabled)",
-    )
-
+    parser.add_argument("eos_frame", nargs="?", type=int, default=0, help="Stop after N decoded buffers (default: disabled)")
     parsed = parser.parse_args(args[1:])
-
-    if parsed.eos_frame < 0:
-        parser.error("--eos-frame must be a non-negative integer")
-
-    return (
-        parsed.input,
-        parsed.device,
-        parsed.output,
-        parsed.det_model,
-        parsed.cls_model,
-        parsed.eos_frame,
-    )
+    return parsed.input, parsed.device, parsed.output, parsed.det_model, parsed.cls_model, parsed.eos_frame
 
 
 def prepare_input_video(input_arg):
@@ -117,7 +100,6 @@ def pipeline_loop(pipeline):
     bus = pipeline.get_bus()
     pipeline.set_state(Gst.State.PLAYING)
     terminate = False
-
     while not terminate:
         msg = bus.timed_pop_filtered(
             Gst.CLOCK_TIME_NONE, Gst.MessageType.EOS | Gst.MessageType.ERROR
@@ -131,7 +113,6 @@ def pipeline_loop(pipeline):
             if msg.type == Gst.MessageType.EOS:
                 print("Pipeline complete.")
                 terminate = True
-
     pipeline.set_state(Gst.State.NULL)
 
 
@@ -139,7 +120,6 @@ def main(input_video, device, output, detection_model_path, classification_model
     """Build and run the DL Streamer GStreamer pipeline."""
     models_path = os.environ.get("MODELS_PATH", "./models")
     runtime_dir = get_runtime_dir()
-
     detection_model_path = detection_model_path or os.path.join(
         models_path, DEFAULT_DETECTION_MODEL_REL
     )
@@ -171,15 +151,10 @@ def main(input_video, device, output, detection_model_path, classification_model
             f"filesink location={output_file}"
         )
 
-    eos_element = ""
-
-    if eos_frame > 0:
-        eos_element = f"identity eos-after={eos_frame} ! "
-
+    eos_element = f"identity eos-after={eos_frame} ! " if eos_frame > 0 else ""
     pipeline_string = (
         f"filesrc location={input_video} ! decodebin3 ! "
-        f"{eos_element}"
-        f"gvadetect model={ov_detection_model_path} device={device} batch-size=4 ! queue ! "
+        f"{eos_element}gvadetect model={ov_detection_model_path} device={device} batch-size=4 ! queue ! "
         f"gvaclassify model={ov_classification_model_path} device={device} batch-size=4 ! queue ! "
         f"{sink}"
     )

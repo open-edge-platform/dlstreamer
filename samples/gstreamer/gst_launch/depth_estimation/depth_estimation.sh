@@ -11,18 +11,14 @@
 set -euo pipefail
 
 if [ $# -gt 0 ] && ([ "$1" = "--help" ] || [ "$1" = "-h" ]); then
-  echo "Usage: $0 [INPUT] [DETECT_DEVICE] [DEPTH_DEVICE] [OUTPUT] [EOS_FRAME] [--eos-frame N]"
+  echo "Usage: $0 [INPUT] [DETECT_DEVICE] [DEPTH_DEVICE] [OUTPUT] [EOS_FRAME]"
   echo ""
   echo "Arguments:"
   echo "  INPUT          - Input source (default: Pexels video URL)"
   echo "  DETECT_DEVICE  - Device for YOLO11n detection (default: GPU). Supported: CPU, GPU"
   echo "  DEPTH_DEVICE   - Device for Depth Anything inference (default: GPU). Supported: CPU, GPU"
   echo "  OUTPUT         - Output type (default: display). Supported: display, fps, json, display-and-json"
-  echo "  EOS_FRAME      - Send EOS after N frames (default: 0, disabled)"
-  echo ""
-  echo "Options:"
-  echo "  --eos-frame N  - Send EOS after N frames (can be used anywhere)"
-  echo "  --eos-frame=N  - Alternative syntax"
+  echo "  EOS_FRAME      - Stop after N decoded buffers (default: 0, disabled)"
   echo ""
   echo "Environment:"
   echo "  MODELS_PATH    - Base directory used to resolve default model locations"
@@ -53,48 +49,14 @@ fallback_gpu_device() {
   echo "$value"
 }
 
-# Parse optional --eos-frame flag
-EOS_FRAME=""
-POSITIONAL_ARGS=()
-
-while [[ $# -gt 0 ]]; do
-  if [[ "$1" == "--eos-frame" ]]; then
-    if [[ $# -lt 2 ]]; then
-      echo "Error: --eos-frame requires a value." >&2
-      exit 1
-    fi
-
-    EOS_FRAME="$2"
-    shift 2
-
-  elif [[ "$1" == --eos-frame=* ]]; then
-    EOS_FRAME="${1#*=}"
-    shift
-
-  else
-    POSITIONAL_ARGS+=("$1")
-    shift
-  fi
-done
-
-set -- "${POSITIONAL_ARGS[@]}"
-
 INPUT=${1:-https://videos.pexels.com/video-files/18553046/18553046-hd_1280_720_30fps.mp4}
 DETECT_DEVICE=${2:-GPU}
 DEPTH_DEVICE=${3:-GPU}
 OUTPUT=${4:-display}
-
-if [[ -z "$EOS_FRAME" ]]; then
-  EOS_FRAME=${5:-0}
-fi
+EOS_FRAME=${5:-0}
 
 validate_device "DETECT_DEVICE" "$DETECT_DEVICE"
 validate_device "DEPTH_DEVICE" "$DEPTH_DEVICE"
-
-if ! [[ "$EOS_FRAME" =~ ^[0-9]+$ ]]; then
-  echo "Error: EOS_FRAME must be a non-negative integer." >&2
-  exit 1
-fi
 
 DETECT_DEVICE=$(fallback_gpu_device "DETECT_DEVICE" "$DETECT_DEVICE")
 DEPTH_DEVICE=$(fallback_gpu_device "DEPTH_DEVICE" "$DEPTH_DEVICE")
@@ -121,6 +83,11 @@ else
 fi
 
 CONVERSION_ELEMENT=""
+EOS_ELEMENT=""
+
+if [[ "$EOS_FRAME" != "0" ]]; then
+  EOS_ELEMENT="identity eos-after=${EOS_FRAME} ! "
+fi
 
 if [[ $DETECT_DEVICE == "CPU" ]]; then
   DECODE_ELEMENT="decodebin3"
@@ -135,12 +102,6 @@ else
     CONVERSION_ELEMENT="vapostproc ! "
     DISPLAY_PREFIX=""
   fi
-fi
-
-EOS_ELEMENT=""
-
-if [[ "$EOS_FRAME" -gt 0 ]]; then
-  EOS_ELEMENT="identity eos-after=${EOS_FRAME} ! "
 fi
 
 if [[ $OUTPUT == "display" ]]; then
