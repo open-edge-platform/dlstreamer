@@ -9,8 +9,8 @@ The sample builds a GStreamer pipeline using:
 - `decodebin3` for video decoding
 - `gvaclassify` with `inference-region=full-frame` for human pose estimation
 - `gvawatermark` for visualization of pose keypoints
-- `d3d11convert` for D3D11-accelerated video conversion
-- `autovideosink` for rendering output video to screen
+- `d3d12convert` for GPU-accelerated video conversion (GPU/NPU)
+- `d3d12videosink` (GPU/NPU) or `autovideosink` (CPU) for rendering output video to screen
 
 ## Models
 
@@ -85,7 +85,7 @@ Parameters:
 
 ## Pipeline Architecture
 
-**Note**: Pipeline varies based on device type. GPU/NPU use D3D11 hardware acceleration (`d3d11convert`, `d3d11videosink`, `mfh264enc`), while CPU uses software path (`videoconvert`, `autovideosink`, `openh264enc`).
+**Note**: Pipeline varies based on device type. GPU/NPU keep frames in D3D12 memory from the decoder to the sink (`d3d12convert`, `d3d12videosink`, `d3d12h264enc rate-control=cqp`), while CPU uses software path (`videoconvert`, `autovideosink`, `openh264enc`).
 
 ```mermaid
 graph LR
@@ -95,11 +95,10 @@ graph LR
     D --> E{OUTPUT}
     
     E -->|display<br/>GPU/NPU| F1[queue]
-    F1 --> F2[d3d11convert]
+    F1 --> F2[d3d12convert]
     F2 --> F3[gvawatermark]
-    F3 --> F4[videoconvert]
-    F4 --> F5[gvafpscounter]
-    F5 --> F6[d3d11videosink]
+    F3 --> F5[gvafpscounter]
+    F5 --> F6[d3d12videosink]
     
     E -->|display<br/>CPU| F1C[queue]
     F1C --> F2C[gvawatermark]
@@ -108,10 +107,10 @@ graph LR
     F4C --> F5C[autovideosink]
     
     E -->|file<br/>GPU/NPU| G1[queue]
-    G1 --> G2[d3d11convert]
+    G1 --> G2[d3d12convert]
     G2 --> G3[gvawatermark]
     G3 --> G4[gvafpscounter]
-    G4 --> G5[mfh264enc]
+    G4 --> G5[d3d12h264enc]
     G5 --> G6[h264parse]
     G6 --> G7[mp4mux]
     G7 --> G8[filesink]
@@ -135,13 +134,12 @@ graph LR
     I3 --> I4[fakesink]
     
     E -->|display-and-json<br/>GPU/NPU| J1[queue]
-    J1 --> J2[d3d11convert]
+    J1 --> J2[d3d12convert]
     J2 --> J3[gvawatermark]
     J3 --> J4[gvametaconvert]
     J4 --> J5[gvametapublish]
-    J5 --> J6[videoconvert]
-    J6 --> J7[gvafpscounter]
-    J7 --> J8[d3d11videosink]
+    J5 --> J7[gvafpscounter]
+    J7 --> J8[d3d12videosink]
     
     E -->|display-and-json<br/>CPU| J1C[queue]
     J1C --> J2C[gvawatermark]
@@ -155,9 +153,9 @@ graph LR
 ## Notes
 
 - Windows-specific elements:
-  - Uses `d3d11convert` for GPU acceleration (instead of Linux `vapostproc`)
-  - Uses `mfh264enc` for video encoding (instead of Linux `vah264enc`)
-  - Preprocessing backend: `opencv` for CPU, `d3d11` for GPU/NPU
+  - Uses `d3d12convert` for GPU acceleration
+  - Uses `d3d12h264enc` for video encoding. `d3d12h264enc` uses constant QP rate control because its default rate control produces broken streams with some drivers. When the GPU has no D3D12 video encoder, the sample uses `d3d12download ! mfh264enc` instead.
+  - Preprocessing backend: `opencv` for CPU, `d3d12-surface-sharing` for GPU, `d3d12` for NPU
 - The `sync=false` property in video sink runs pipeline as fast as possible
 - For real-time playback, change to `sync=true`
 

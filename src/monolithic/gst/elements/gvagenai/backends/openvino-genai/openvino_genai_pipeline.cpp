@@ -139,6 +139,15 @@ void OpenVINOGenAIContext::inference_tensor_vector(const std::vector<ov::Tensor>
         }
     }
 
+    // Capture this request's own metrics before they are merged into the lifetime accumulator
+    last_request_metrics.ttft_ms = result.perf_metrics.get_ttft().mean;
+    last_request_metrics.tpot_ms = result.perf_metrics.get_tpot().mean;
+    last_request_metrics.generate_duration_ms = result.perf_metrics.get_generate_duration().mean;
+    last_request_metrics.inference_duration_ms = result.perf_metrics.get_inference_duration().mean;
+    last_request_metrics.prepare_embeddings_duration_ms = result.perf_metrics.get_prepare_embeddings_duration().mean;
+    last_request_metrics.num_input_tokens = result.perf_metrics.get_num_input_tokens();
+    last_request_metrics.num_generated_tokens = result.perf_metrics.get_num_generated_tokens();
+
     // Update metrics
     if (metrics.load_time == 0) {
         metrics = result.perf_metrics;
@@ -169,6 +178,10 @@ std::string OpenVINOGenAIContext::get_last_result() const {
 
 float OpenVINOGenAIContext::get_last_confidence() const {
     return last_confidence;
+}
+
+GenAIRequestMetrics OpenVINOGenAIContext::get_last_request_metrics() const {
+    return last_request_metrics;
 }
 
 std::string OpenVINOGenAIContext::create_json_metadata(GstClockTime timestamp, bool include_metrics) {

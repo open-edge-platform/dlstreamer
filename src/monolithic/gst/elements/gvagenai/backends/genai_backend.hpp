@@ -13,9 +13,11 @@
 
 #include <openvino/runtime/tensor.hpp>
 
+#include <cstdint>
 #include <future>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -23,13 +25,30 @@
 namespace genai {
 
 /**
+ * @brief Performance of a single generation request, as reported by the backend runtime
+ *
+ * Values describe this request only (not an accumulation over the element lifetime).
+ * Durations are in milliseconds; tpot_ms is the mean over this request's decode steps.
+ */
+struct GenAIRequestMetrics {
+    double ttft_ms = 0.0;
+    double tpot_ms = 0.0;
+    double generate_duration_ms = 0.0;
+    double inference_duration_ms = 0.0;
+    double prepare_embeddings_duration_ms = 0.0;
+    uint64_t num_input_tokens = 0;
+    uint64_t num_generated_tokens = 0;
+};
+
+/**
  * @brief Result from a GenAI inference call
  */
 struct GenAIResult {
-    std::string text;         // Model output text
-    float confidence;         // Confidence: [0.0-1.0] or -1.0 if unavailable
-    std::string raw_json;     // Backend-specific metadata (e.g., OpenVINO metrics, HTTP response)
-    std::string backend_name; // Identifier of backend that produced this result
+    std::string text;                           // Model output text
+    float confidence;                           // Confidence: [0.0-1.0] or -1.0 if unavailable
+    std::string raw_json;                       // Backend-specific metadata (e.g., OpenVINO metrics, HTTP response)
+    std::string backend_name;                   // Identifier of backend that produced this result
+    std::optional<GenAIRequestMetrics> metrics; // Set by backends that measure each request (openvino-genai)
 };
 
 /**

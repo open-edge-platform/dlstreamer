@@ -5,3 +5,4 @@
 # ==============================================================================
 
 add_subdirectory(test_config_parser)
+add_subdirectory(test_metrics_message)

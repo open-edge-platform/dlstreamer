@@ -42,6 +42,7 @@ Key operations:
 | model-cache-path | String | Directory for caching compiled models (GPU/NPU only). Used by the `openvino-genai` backend only. | ov_cache |
 | model-instance-id | String | Identifier for sharing a loaded model instance with other `gvagenai` elements, instead of loading a separate copy. Used by the `openvino-genai` backend only. See [Model Sharing](#model-sharing). | null |
 | metrics | Boolean | Include performance metrics in the JSON output. | false |
+| post-metrics | Boolean | Post a `dlstreamer/genai-request` bus message with the performance of every generation request. See [Per-request metrics](#per-request-metrics). `openvino-genai` backend only. | false |
 | http-server-url | String | Base URL of the OpenAI-compatible server (e.g. `http://localhost:8000/v1`). Required for the `openai-http` backend. | null |
 | http-api-key | String | Optional Bearer token / API key for the HTTP server. `openai-http` backend only. | null |
 | http-timeout | String | Optional request timeout in milliseconds. `openai-http` backend only. | null |
@@ -322,7 +323,7 @@ gst-launch-1.0 filesrc location=video.mp4 ! decodebin3 ! \
 
 ## Input/Output
 
-- **Input**: `video/x-raw` in `RGB`, `RGBA`, `RGBx`, `BGR`, `BGRA`, `BGRx`, `NV12`, or `I420`; also `video/x-raw(memory:DMABuf)` (`DMA_DRM`) and `video/x-raw(memory:VAMemory)` (`NV12`) on Linux, and `video/x-raw(memory:D3D11Memory)` (`NV12`) on Windows. The element converts the frame to RGB internally; an explicit `videoconvert` is not required.
+- **Input**: `video/x-raw` in `RGB`, `RGBA`, `RGBx`, `BGR`, `BGRA`, `BGRx`, `NV12`, or `I420`; also `video/x-raw(memory:DMABuf)` (`DMA_DRM`) and `video/x-raw(memory:VAMemory)` (`NV12`) on Linux, and `video/x-raw(memory:D3D11Memory)` / `video/x-raw(memory:D3D12Memory)` (`NV12`, `BGRA`) on Windows. The element converts the frame to RGB internally; an explicit `videoconvert` is not required.
 - **Output**: identical to input. The element operates in-place, pixel data is passed through unchanged and only metadata is added.
 
 ## Metadata
@@ -333,6 +334,21 @@ gst-launch-1.0 filesrc location=video.mp4 ! decodebin3 ! \
 - **`GstGVAJSONMeta`**: added on inference frames only (when a chunk completes). Its `message` is a JSON string with the generated `result`, a `confidence` score (when available), the frame `timestamp`/`timestamp_seconds`, and optionally a `metrics` block (load time, token counts, and latency/throughput statistics in milliseconds). Consume it with `gvametapublish`. Avoid placing a `gvametaconvert` after `gvagenai`, it will produce a second JSON message from the classification metadata, which is distinct from (and lacks the metrics/timestamp of) the one `gvagenai` already wrote.
 
 **Confidence semantics**: for beam search or sampling, `confidence` is the per-token geometric-mean probability in `[0, 1]`. For greedy decoding the pipeline does not compute per-token scores, so confidence is unavailable and omitted from the JSON and reported as `0` in the classification metadata.
+
+## Per-request metrics
+
+With `post-metrics=true`, every completed generation request posts a `GST_MESSAGE_ELEMENT`
+from the `gvagenai` element, with the structure name `dlstreamer/genai-request`. It carries
+that request's time to first token, time per output token, durations and token counts, as
+measured by OpenVINO™ GenAI. The fields are listed in
+[Structured Metrics Messages](../dev_guide/metrics_messages.md).
+
+The `metrics` property is independent: it adds a `metrics` block to the JSON metadata, whose
+values are averages over every request since the element started. Either property can be
+set without the other.
+
+Only the `openvino-genai` backend measures per-request performance. With `openai-http`, no
+message is posted and a warning is logged once.
 
 ## Pipeline Examples
 
@@ -389,7 +405,12 @@ Pad Templates:
                  height: [ 1, 2147483647 ]
               framerate: [ 0/1, 2147483647/1 ]
       video/x-raw(memory:D3D11Memory)
-                 format: { (string)NV12 }
+                 format: { (string)NV12, (string)BGRA }
+                  width: [ 1, 2147483647 ]
+                 height: [ 1, 2147483647 ]
+              framerate: [ 0/1, 2147483647/1 ]
+      video/x-raw(memory:D3D12Memory)
+                 format: { (string)NV12, (string)BGRA }
                   width: [ 1, 2147483647 ]
                  height: [ 1, 2147483647 ]
               framerate: [ 0/1, 2147483647/1 ]
@@ -409,6 +430,16 @@ Pad Templates:
               framerate: [ 0/1, 2147483647/1 ]
       video/x-raw(memory:VAMemory)
                  format: { (string)NV12 }
+                  width: [ 1, 2147483647 ]
+                 height: [ 1, 2147483647 ]
+              framerate: [ 0/1, 2147483647/1 ]
+      video/x-raw(memory:D3D11Memory)
+                 format: { (string)NV12, (string)BGRA }
+                  width: [ 1, 2147483647 ]
+                 height: [ 1, 2147483647 ]
+              framerate: [ 0/1, 2147483647/1 ]
+      video/x-raw(memory:D3D12Memory)
+                 format: { (string)NV12, (string)BGRA }
                   width: [ 1, 2147483647 ]
                  height: [ 1, 2147483647 ]
               framerate: [ 0/1, 2147483647/1 ]
@@ -481,6 +512,9 @@ Element Properties:
   pipeline-config     : OpenVINO device properties passed to the pipeline at construction, as KEY=VALUE,KEY=VALUE format
                         flags: readable, writable
                         String. Default: null
+  post-metrics        : Post a "dlstreamer/genai-request" element message on the bus with the performance of every generation request. Supported by the 'openvino-genai' backend only.
+                        flags: readable, writable
+                        Boolean. Default: false
   prompt              : Text prompt for the GenAI model
                         flags: readable, writable
                         String. Default: null
