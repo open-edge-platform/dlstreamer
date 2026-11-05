@@ -85,7 +85,8 @@ Image WrapRoi(const cv::Mat &frame, int roi_width, int roi_height) {
     src.height = frame.rows;
     src.planes[0] = frame.data;
     src.stride[0] = static_cast<uint32_t>(frame.step);
-    src.rect = Rectangle<uint32_t>(roi_x, roi_y, roi_width, roi_height);
+    // Qualified: on Windows wingdi.h also declares a Rectangle() function
+    src.rect = InferenceBackend::Rectangle<uint32_t>(roi_x, roi_y, roi_width, roi_height);
     return src;
 }
 
