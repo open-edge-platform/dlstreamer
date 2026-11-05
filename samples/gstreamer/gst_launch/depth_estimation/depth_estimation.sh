@@ -11,13 +11,18 @@
 set -euo pipefail
 
 if [ $# -gt 0 ] && ([ "$1" = "--help" ] || [ "$1" = "-h" ]); then
-  echo "Usage: $0 [INPUT] [DETECT_DEVICE] [DEPTH_DEVICE] [OUTPUT]"
+  echo "Usage: $0 [INPUT] [DETECT_DEVICE] [DEPTH_DEVICE] [OUTPUT] [EOS_FRAME] [--eos-frame N]"
   echo ""
   echo "Arguments:"
   echo "  INPUT          - Input source (default: Pexels video URL)"
   echo "  DETECT_DEVICE  - Device for YOLO11n detection (default: GPU). Supported: CPU, GPU"
   echo "  DEPTH_DEVICE   - Device for Depth Anything inference (default: GPU). Supported: CPU, GPU"
   echo "  OUTPUT         - Output type (default: display). Supported: display, fps, json, display-and-json"
+  echo "  EOS_FRAME      - Send EOS after N frames (default: 0, disabled)"
+  echo ""
+  echo "Options:"
+  echo "  --eos-frame N  - Send EOS after N frames (can be used anywhere)"
+  echo "  --eos-frame=N  - Alternative syntax"
   echo ""
   echo "Environment:"
   echo "  MODELS_PATH    - Base directory used to resolve default model locations"
@@ -48,13 +53,48 @@ fallback_gpu_device() {
   echo "$value"
 }
 
+# Parse optional --eos-frame flag
+EOS_FRAME=""
+POSITIONAL_ARGS=()
+
+while [[ $# -gt 0 ]]; do
+  if [[ "$1" == "--eos-frame" ]]; then
+    if [[ $# -lt 2 ]]; then
+      echo "Error: --eos-frame requires a value." >&2
+      exit 1
+    fi
+
+    EOS_FRAME="$2"
+    shift 2
+
+  elif [[ "$1" == --eos-frame=* ]]; then
+    EOS_FRAME="${1#*=}"
+    shift
+
+  else
+    POSITIONAL_ARGS+=("$1")
+    shift
+  fi
+done
+
+set -- "${POSITIONAL_ARGS[@]}"
+
 INPUT=${1:-https://videos.pexels.com/video-files/18553046/18553046-hd_1280_720_30fps.mp4}
 DETECT_DEVICE=${2:-GPU}
 DEPTH_DEVICE=${3:-GPU}
 OUTPUT=${4:-display}
 
+if [[ -z "$EOS_FRAME" ]]; then
+  EOS_FRAME=${5:-0}
+fi
+
 validate_device "DETECT_DEVICE" "$DETECT_DEVICE"
 validate_device "DEPTH_DEVICE" "$DEPTH_DEVICE"
+
+if ! [[ "$EOS_FRAME" =~ ^[0-9]+$ ]]; then
+  echo "Error: EOS_FRAME must be a non-negative integer." >&2
+  exit 1
+fi
 
 DETECT_DEVICE=$(fallback_gpu_device "DETECT_DEVICE" "$DETECT_DEVICE")
 DEPTH_DEVICE=$(fallback_gpu_device "DEPTH_DEVICE" "$DEPTH_DEVICE")
@@ -72,19 +112,12 @@ echo "DEPTH_MODEL: ${DEPTH_MODEL}"
 echo "DETECT_DEVICE: ${DETECT_DEVICE}"
 echo "DEPTH_DEVICE: ${DEPTH_DEVICE}"
 
-
-# Optional extra elements after .mp4 (e.g. "video.mp4 ! identity eos-after=400").
-# INPUT_PATH is used only for source-type detection; full $INPUT goes to filesrc.
-INPUT_PATH="${INPUT%%.mp4*}.mp4"
-[[ "$INPUT" != *".mp4"* ]] && INPUT_PATH="$INPUT"
-
-if [[ $INPUT_PATH == "/dev/video"* ]]; then
-  SOURCE_ELEMENT="v4l2src device=\"${INPUT_PATH}\""
-elif [[ $INPUT_PATH == *"://"* ]]; then
-  SOURCE_ELEMENT="urisourcebin buffer-size=4096 uri=\"${INPUT_PATH}\""
+if [[ $INPUT == "/dev/video"* ]]; then
+  SOURCE_ELEMENT="v4l2src device=\"${INPUT}\""
+elif [[ $INPUT == *"://"* ]]; then
+  SOURCE_ELEMENT="urisourcebin buffer-size=4096 uri=\"${INPUT}\""
 else
-  # keep full $INPUT so identity stays in the pipeline
-  SOURCE_ELEMENT="filesrc location=${INPUT}"
+  SOURCE_ELEMENT="filesrc location=\"${INPUT}\""
 fi
 
 CONVERSION_ELEMENT=""
@@ -104,6 +137,12 @@ else
   fi
 fi
 
+EOS_ELEMENT=""
+
+if [[ "$EOS_FRAME" -gt 0 ]]; then
+  EOS_ELEMENT="identity eos-after=${EOS_FRAME} ! "
+fi
+
 if [[ $OUTPUT == "display" ]]; then
   SINK_ELEMENT="${DISPLAY_PREFIX}gvawatermark ! videoconvert ! gvafpscounter ! autovideosink sync=false"
 elif [[ $OUTPUT == "fps" ]]; then
@@ -113,7 +152,6 @@ elif [[ $OUTPUT == "json" ]]; then
 elif [[ $OUTPUT == "display-and-json" ]]; then
   rm -f output.json
   SINK_ELEMENT="${DISPLAY_PREFIX}gvawatermark ! gvametaconvert add-tensor-data=true ! gvametapublish file-format=json-lines file-path=output.json ! videoconvert ! gvafpscounter ! autovideosink sync=false"
-
 else
   echo "Error: wrong value for OUTPUT parameter" >&2
   echo "Valid values: display, fps, json, display-and-json" >&2
@@ -121,7 +159,7 @@ else
 fi
 
 PIPELINE="gst-launch-1.0 ${SOURCE_ELEMENT} ! ${DECODE_ELEMENT} ! \
-gvadetect model=\"${DETECTION_MODEL}\" device=${DETECT_DEVICE} ${DETECT_PREPROC} ! queue ! \
+${EOS_ELEMENT}gvadetect model=\"${DETECTION_MODEL}\" device=${DETECT_DEVICE} ${DETECT_PREPROC} ! queue ! \
 ${CONVERSION_ELEMENT}queue ! \
 gvaclassify model=\"${DEPTH_MODEL}\" device=${DEPTH_DEVICE} pre-process-backend=opencv skip-raw-tensors=true ! queue ! \
 ${SINK_ELEMENT}"

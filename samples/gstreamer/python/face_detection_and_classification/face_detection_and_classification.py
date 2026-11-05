@@ -71,24 +71,37 @@ def parse_args(args):
         default=None,
         help="Path to the age/gender/classification OpenVINO model XML (default: $MODELS_PATH/" + DEFAULT_CLASSIFICATION_MODEL_REL + ")",
     )
+    parser.add_argument(
+        "--eos-frame",
+        type=int,
+        default=0,
+        help="Send EOS after N frames (default: 0, disabled)",
+    )
+
     parsed = parser.parse_args(args[1:])
-    return parsed.input, parsed.device, parsed.output, parsed.det_model, parsed.cls_model
+
+    if parsed.eos_frame < 0:
+        parser.error("--eos-frame must be a non-negative integer")
+
+    return (
+        parsed.input,
+        parsed.device,
+        parsed.output,
+        parsed.det_model,
+        parsed.cls_model,
+        parsed.eos_frame,
+    )
 
 
 def prepare_input_video(input_arg):
-    """Prepare the input video, downloading the default clip if needed.
-
-    Supports optional extra elements after .mp4 (e.g. "video.mp4 ! identity eos-after=300").
-    """
+    """Prepare the input video, downloading the default clip if needed."""
     runtime_dir = get_runtime_dir()
 
     if input_arg:
-        lower = input_arg.lower()
-        file_src = input_arg[:lower.index(".mp4") + 4].strip() if ".mp4" in lower else input_arg.strip()
-        if not os.path.isfile(file_src):
+        if not os.path.isfile(input_arg):
             sys.stderr.write("Input video file does not exist\n")
             sys.exit(1)
-        return input_arg  # full string so extra elements stay in the pipeline
+        return input_arg
 
     input_video = os.path.join(runtime_dir, "default_video.mp4")
     if not os.path.isfile(input_video):
@@ -104,6 +117,7 @@ def pipeline_loop(pipeline):
     bus = pipeline.get_bus()
     pipeline.set_state(Gst.State.PLAYING)
     terminate = False
+
     while not terminate:
         msg = bus.timed_pop_filtered(
             Gst.CLOCK_TIME_NONE, Gst.MessageType.EOS | Gst.MessageType.ERROR
@@ -117,13 +131,15 @@ def pipeline_loop(pipeline):
             if msg.type == Gst.MessageType.EOS:
                 print("Pipeline complete.")
                 terminate = True
+
     pipeline.set_state(Gst.State.NULL)
 
 
-def main(input_video, device, output, detection_model_path, classification_model_path):
+def main(input_video, device, output, detection_model_path, classification_model_path, eos_frame):
     """Build and run the DL Streamer GStreamer pipeline."""
     models_path = os.environ.get("MODELS_PATH", "./models")
     runtime_dir = get_runtime_dir()
+
     detection_model_path = detection_model_path or os.path.join(
         models_path, DEFAULT_DETECTION_MODEL_REL
     )
@@ -155,8 +171,14 @@ def main(input_video, device, output, detection_model_path, classification_model
             f"filesink location={output_file}"
         )
 
+    eos_element = ""
+
+    if eos_frame > 0:
+        eos_element = f"identity eos-after={eos_frame} ! "
+
     pipeline_string = (
         f"filesrc location={input_video} ! decodebin3 ! "
+        f"{eos_element}"
         f"gvadetect model={ov_detection_model_path} device={device} batch-size=4 ! queue ! "
         f"gvaclassify model={ov_classification_model_path} device={device} batch-size=4 ! queue ! "
         f"{sink}"
@@ -170,6 +192,6 @@ def main(input_video, device, output, detection_model_path, classification_model
 
 
 if __name__ == "__main__":
-    input_argument, device_argument, output_argument, det_model, cls_model = parse_args(sys.argv)
+    input_argument, device_argument, output_argument, det_model, cls_model, eos_frame = parse_args(sys.argv)
     video_path = prepare_input_video(input_argument)
-    sys.exit(main(video_path, device_argument, output_argument, det_model, cls_model))
+    sys.exit(main(video_path, device_argument, output_argument, det_model, cls_model, eos_frame))

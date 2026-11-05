@@ -20,18 +20,12 @@ DEFAULT_MODEL_REL = f"public/{WEIGHTS}/FP16/{WEIGHTS}.xml"
 
 
 def ensure_file(path, description):
-    """Return path if file exists; exit with error otherwise.
-
-    Supports optional extra elements after .mp4 (e.g. "video.mp4 ! identity eos-after=300").
-    Validates only the .mp4 path; returns the original string so extra elements stay in the pipeline.
-    """
-    lower = path.lower()
-    file_src = path[:lower.index(".mp4") + 4].strip() if ".mp4" in lower else path.strip()
-    if not os.path.isfile(file_src):
+    """Return resolved path if file exists; exit with error otherwise."""
+    if not os.path.isfile(path):
         sys.stderr.write(f"Error: {description} not found: {path}\n")
         sys.stderr.write("Set MODELS_PATH or prepare the model with download_ultralytics_models.py\n")
         sys.exit(1)
-    return path
+    return os.path.abspath(path)
 
 
 # wrapper to run the gstreamer pipeline loop
@@ -53,6 +47,7 @@ def pipeline_loop(pipeline):
                 terminate = True
     pipeline.set_state(Gst.State.NULL)
 
+
 # called for each new frame received by appsink — display mode: print prompt-matching detections
 def on_new_sample(sink, object_to_find):
     sample = sink.emit('pull-sample')
@@ -68,6 +63,7 @@ def on_new_sample(sink, object_to_find):
         return Gst.FlowReturn.OK
     return Gst.FlowReturn.Flushing
 
+
 # create and run gstreamer pipeline
 def main(args):
     p = argparse.ArgumentParser(description="Prompt-based object detection")
@@ -79,12 +75,19 @@ def main(args):
                    help="Output mode (default: appsink)")
     p.add_argument("--model", default=None,
                    help="Path to detection model .xml (default: $MODELS_PATH/" + DEFAULT_MODEL_REL + ")")
+    p.add_argument("--eos-frame", type=int, default=0,
+                   help="Send EOS after N frames (default: 0, disabled)")
+
     parsed = p.parse_args(args[1:])
+
+    if parsed.eos_frame < 0:
+        p.error("--eos-frame must be a non-negative integer")
 
     video_file = ensure_file(parsed.input, "input video")
     object_to_find = parsed.prompt
     device = parsed.device
     output = parsed.output
+    eos_frame = parsed.eos_frame
 
     model_path = parsed.model or os.path.join(os.environ.get("MODELS_PATH", "./models"), DEFAULT_MODEL_REL)
     model_file = ensure_file(model_path, "detection model")
@@ -108,10 +111,16 @@ def main(args):
     else:
         sink = "appsink emit-signals=true name=appsink0"
 
+    eos_element = ""
+
+    if eos_frame > 0:
+        eos_element = f"identity eos-after={eos_frame} ! "
+
     # Create GStreamer pipeline, pass input video file and OpenVINO model file
     Gst.init([])
     pipeline = Gst.parse_launch(
             f"filesrc location={video_file} ! decodebin3 ! "
+            f"{eos_element}"
             f"gvadetect model={model_file} device={device} batch-size=4 ! queue ! "
             f"{sink}"
         )
@@ -123,6 +132,7 @@ def main(args):
 
     # execute gstreamer pipeline
     pipeline_loop(pipeline)
+
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))
