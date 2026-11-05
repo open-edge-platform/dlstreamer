@@ -63,15 +63,15 @@ class OpenVINOImageInference : public InferenceBackend::ImageInference {
     void Close() override;
 
   protected:
-    std::unique_ptr<class OpenVinoNewApiImpl> _impl;
+    std::unique_ptr<class OpenVinoModelAdapter> _impl;
 
     struct BatchRequest {
-        ov::InferRequest infer_request_new;
+        ov::InferRequest infer_request;
         std::vector<IFrameBase::Ptr> buffers;
         std::vector<ov::TensorVector> in_tensors;
 
         void start_async() {
-            return this->infer_request_new.start_async();
+            return this->infer_request.start_async();
         }
     };
 

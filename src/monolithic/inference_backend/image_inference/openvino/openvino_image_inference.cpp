@@ -24,6 +24,9 @@
 #include <spdlog/fmt/bundled/ranges.h>
 
 #include "model_api_converters.h"
+#include "openvino_config_helper.h"
+#include "openvino_core.h"
+#include "openvino_formatters.h"
 #include "openvino_image_inference.h"
 
 #include "config.h"
@@ -52,99 +55,7 @@
 #include <unordered_map>
 
 using namespace InferenceBackend;
-
-template <>
-struct fmt::formatter<InferenceBackend::ImagePreprocessorType> : formatter<string_view> {
-    auto format(InferenceBackend::ImagePreprocessorType t, format_context &ctx) const {
-        using InferenceBackend::ImagePreprocessorType;
-        string_view name = "<unknown>";
-        switch (t) {
-        case ImagePreprocessorType::AUTO:
-            name = "auto";
-            break;
-        case ImagePreprocessorType::IE:
-            name = "IE";
-            break;
-        case ImagePreprocessorType::OPENCV:
-            name = "OpenCV";
-            break;
-        case ImagePreprocessorType::VAAPI_SYSTEM:
-            name = "VAAPI System Memory";
-            break;
-        case ImagePreprocessorType::VAAPI_SURFACE_SHARING:
-            name = "VAAPI Surface Sharing";
-            break;
-        case ImagePreprocessorType::D3D11:
-            name = "D3D11 System Memory";
-            break;
-        case ImagePreprocessorType::D3D11_SURFACE_SHARING:
-            name = "D3D11 Surface Sharing";
-            break;
-        }
-        return formatter<string_view>::format(name, ctx);
-    }
-};
-
-template <>
-struct fmt::formatter<std::exception_ptr> {
-    // Max level of nesting printed (format parameter?)
-    static constexpr size_t max_level = 5;
-    mutable size_t level = 0;
-
-    // Fix for an AFL++ compilation issue
-    using return_type = decltype(std::declval<format_context>().out());
-
-    constexpr auto parse(format_parse_context &ctx) {
-        return ctx.begin();
-    }
-
-    size_t current_indent() const {
-        return level * 4;
-    }
-
-    template <typename T>
-    return_type format_nested(const T &ex, format_context &ctx) const {
-        try {
-            std::rethrow_if_nested(ex);
-        } catch (...) {
-            if (level > max_level)
-                return fmt::format_to(ctx.out(), "\n{:.^{}}<...>", "", current_indent());
-            ctx.advance_to(fmt::format_to(ctx.out(), "\n{:.^{}}", "", current_indent()));
-            return format(std::current_exception(), ctx);
-        }
-        return ctx.out();
-    }
-
-    return_type format(const std::exception_ptr &ex_ptr, format_context &ctx) const {
-        if (!ex_ptr)
-            return fmt::format_to(ctx.out(), "<exception is nullptr>");
-
-        try {
-            std::rethrow_exception(ex_ptr);
-        } catch (const std::exception &e) {
-            ctx.advance_to(fmt::format_to(ctx.out(), "{}", e.what()));
-            level++;
-            return format_nested(e, ctx);
-        } catch (const std::string &e) {
-            return fmt::format_to(ctx.out(), "{}", e);
-        } catch (...) {
-            return fmt::format_to(ctx.out(), "<unknown exception type>");
-        }
-
-        return ctx.out();
-    }
-};
-
-template <>
-struct fmt::formatter<ov::AnyMap::value_type> {
-    constexpr auto parse(format_parse_context &ctx) {
-        return ctx.begin();
-    }
-
-    auto format(const ov::AnyMap::value_type &pair, format_context &ctx) const {
-        return fmt::format_to(ctx.out(), "{}: {}", pair.first, pair.second.as<std::string>());
-    }
-};
+using namespace InferenceBackend::OpenVino;
 
 namespace {
 
@@ -203,229 +114,9 @@ void print_input_and_outputs_info(const ov::Model &network) {
     }
 }
 
-ov::element::Type str_to_ov_type(const std::string &type_str) {
-    ov::element::Type ov_type = ov::element::f32;
-    if (type_str == "U8") {
-        ov_type = ov::element::u8;
-    } else if (type_str != "FP32") {
-        throw std::runtime_error("Unsupported input_layer precision: " + type_str);
-    }
-
-    return ov_type;
-}
-
-struct ConfigHelper {
-    const InferenceBackend::InferenceConfig &config;
-    const std::map<std::string, std::string> &base_config = config.at(KEY_BASE);
-    const std::string empty_str;
-
-    struct InputConfig {
-        ov::element::Type type;
-        std::string data_format; // Format of input data: image, image_info, sequence_index, etc.
-    };
-    using InputsConfig = std::map<std::string, InputConfig>;
-
-    ConfigHelper(const InferenceBackend::InferenceConfig &cfg) : config(cfg) {
-    }
-
-    const std::string &device() const {
-        return base_config.at(KEY_DEVICE);
-    }
-
-    int nireq() const {
-        return std::stoi(base_config.at(KEY_NIREQ));
-    }
-
-    const std::string model_path() const {
-        return base_config.at(KEY_MODEL);
-    }
-
-    const std::string custom_preproc_lib() const {
-        return base_config.at(KEY_CUSTOM_PREPROC_LIB);
-    }
-
-    const std::string ov_extension_lib() const {
-        return base_config.at(KEY_OV_EXTENSION_LIB);
-    }
-
-    int batch_size() const {
-        return std::stoi(base_config.at(KEY_BATCH_SIZE));
-    }
-
-    int batch_timeout() const {
-        const auto &inference_config = config.at(InferenceBackend::KEY_INFERENCE);
-        const auto it = inference_config.find(ov::auto_batch_timeout.name());
-        if (it == inference_config.end())
-            return -1;
-        return std::stoi(it->second);
-    }
-
-    const std::string &image_format() const {
-        return base_get_or_empty(KEY_IMAGE_FORMAT);
-    }
-
-    const std::string &model_format() const {
-        static const std::string bgr_str = std::string("BGR");
-        const std::string &format = base_get_or_empty(KEY_MODEL_FORMAT);
-        if (format == empty_str)
-            return bgr_str;
-        return format;
-    }
-
-    static std::vector<float> string_to_floats(const std::string &str) {
-        if (str.empty()) {
-            return {};
-        }
-        try {
-            std::istringstream ss(str);
-            std::vector<float> result;
-            float val = 0.0f;
-            while (ss >> val) {
-                result.push_back(val);
-            }
-            return result;
-        } catch (const std::invalid_argument &e) {
-            // Handle the exception if the conversion fails
-            GVA_ERROR("Invalid argument: %s", e.what());
-            std::throw_with_nested(std::runtime_error("Pre-processing was failed."));
-        } catch (const std::out_of_range &e) {
-            // Handle the exception if the value is out of range for the float type
-            GVA_ERROR("Out of range: %s", e.what());
-            std::throw_with_nested(std::runtime_error("Pre-processing was failed."));
-        }
-    }
-
-    std::vector<float> pixel_value_mean() const {
-        return string_to_floats(base_get_or_empty(KEY_PIXEL_VALUE_MEAN));
-    }
-
-    std::vector<float> pixel_value_scale() const {
-        return string_to_floats(base_get_or_empty(KEY_PIXEL_VALUE_SCALE));
-    }
-
-    bool need_reshape() const {
-        const auto it = base_config.find(KEY_RESHAPE);
-        if (it == base_config.cend())
-            return false;
-        return std::stoi(it->second);
-    }
-
-    bool reshape_static() const {
-        const auto it = base_config.find(KEY_RESHAPE_STATIC);
-        if (it == base_config.cend())
-            return false;
-        return std::stoi(it->second);
-    }
-
-    const std::string &base_get_or_empty(const std::string &key) const {
-        const auto it = base_config.find(key);
-        if (it == base_config.cend())
-            return empty_str;
-        return it->second;
-    }
-
-    size_t base_get_or(const std::string &key, size_t or_value) const {
-        const auto it = base_config.find(key);
-        if (it == base_config.cend())
-            return or_value;
-        return std::stoul(it->second);
-    }
-
-    std::pair<size_t, size_t> reshape_size() const {
-        return {base_get_or(KEY_RESHAPE_WIDTH, 0), base_get_or(KEY_RESHAPE_HEIGHT, 0)};
-    }
-
-    std::pair<size_t, size_t> image_size() const {
-        return {base_get_or("img-width", 0), base_get_or("img-height", 0)};
-    }
-
-    std::pair<size_t, size_t> frame_size() const {
-        return {base_get_or("frame-width", 0), base_get_or("frame-height", 0)};
-    }
-
-    InferenceBackend::ImagePreprocessorType pp_type() const {
-        const std::string &preprocessor_type_str = base_config.count(InferenceBackend::KEY_PRE_PROCESSOR_TYPE)
-                                                       ? base_config.at(InferenceBackend::KEY_PRE_PROCESSOR_TYPE)
-                                                       : "";
-        return static_cast<InferenceBackend::ImagePreprocessorType>(std::stoi(preprocessor_type_str));
-    }
-
-    static ov::AnyMap params_map_to_openvino_map(const std::map<std::string, std::string> &params) {
-        ov::AnyMap m;
-        for (auto &item : params) {
-            if (item.first == ov::num_streams.name()) {
-                m.emplace(item.first, ov::streams::Num(stoi(item.second)));
-            } else if (item.first == ov::log::level.name() || item.first == ov::cache_mode.name() ||
-                       item.first == ov::hint::enable_cpu_pinning.name() || item.first == ov::enable_profiling.name() ||
-                       item.first == ov::hint::model_priority.name() ||
-                       item.first == ov::hint::performance_mode.name() ||
-                       item.first == ov::hint::scheduling_core_type.name() ||
-                       item.first == ov::hint::execution_mode.name() ||
-                       item.first == ov::hint::enable_cpu_pinning.name() ||
-                       item.first == ov::hint::enable_hyper_threading.name() ||
-                       item.first == ov::hint::allow_auto_batching.name() ||
-                       item.first == ov::hint::inference_precision.name() ||
-                       item.first == ov::intel_gpu::enable_loop_unrolling.name() ||
-                       item.first == ov::intel_gpu::disable_winograd_convolution.name() ||
-                       item.first == ov::intel_gpu::hint::queue_throttle.name() ||
-                       item.first == ov::intel_gpu::hint::queue_priority.name() ||
-                       item.first == ov::intel_gpu::hint::host_task_priority.name() ||
-                       item.first == ov::intel_gpu::hint::enable_sdpa_optimization.name() ||
-                       item.first == ov::intel_npu::turbo.name() || item.first == ov::intel_npu::tiles.name() ||
-                       item.first == ov::intel_npu::compilation_mode_params.name()) {
-                m.emplace(item.first, item.second);
-            } else if (item.first == ov::optimal_batch_size.name() || item.first == ov::max_batch_size.name() ||
-                       item.first == ov::auto_batch_timeout.name() || item.first == ov::inference_num_threads.name() ||
-                       item.first == ov::compilation_num_threads.name() ||
-                       item.first == ov::hint::num_requests.name()) {
-                m.emplace(item.first, stoi(item.second));
-            } else {
-                throw std::runtime_error("Unsupported inference param " + item.first);
-            }
-        }
-        return m;
-    }
-
-    ov::AnyMap inference_cfg() const {
-        return params_map_to_openvino_map(config.at(InferenceBackend::KEY_INFERENCE));
-    }
-
-    InputsConfig inputs_cfg() const {
-        InputsConfig res;
-        const auto &input_p = config.at(InferenceBackend::KEY_INPUT_LAYER_PRECISION);
-        for (auto &item : input_p)
-            res[item.first].type = str_to_ov_type(item.second);
-
-        const auto &input_f = config.at(InferenceBackend::KEY_FORMAT);
-        for (auto &item : input_f)
-            res[item.first].data_format = item.second;
-        return res;
-    }
-
-    const std::string &logger_name() const {
-        return base_get_or_empty(dlstreamer::param::logger_name);
-    }
-};
-
 } // namespace
 
-void print_inputs_config(const ConfigHelper::InputsConfig &inputs_cfg) {
-    if (inputs_cfg.empty()) {
-        GVA_INFO("Inputs configuration is not provided");
-        return;
-    }
-
-    GVA_INFO("Provided inputs configuration:");
-    for (const auto &item : inputs_cfg) {
-        std::string_view fmt{"<null>"};
-        if (!item.second.data_format.empty())
-            fmt = item.second.data_format;
-        GVA_INFO("  %s: %s, %s", item.first.c_str(), item.second.type.get_type_name().c_str(),
-                 std::string(fmt).c_str());
-    }
-}
-
-class OpenVinoNewApiImpl {
+class OpenVinoModelAdapter {
     friend class OpenVINOImageInference;
 
     static void log_api_message() {
@@ -445,15 +136,15 @@ class OpenVinoNewApiImpl {
 
   public:
 #ifndef ENABLE_D3D_NPU_COLOR_CONV
-    OpenVinoNewApiImpl(const ConfigHelper &config, dlstreamer::ContextPtr context,
-                       ImageInference::CallbackFunc callback, ImageInference::ErrorHandlingFunc error_handler,
-                       MemoryType memory_type)
+    OpenVinoModelAdapter(const ConfigHelper &config, dlstreamer::ContextPtr context,
+                         ImageInference::CallbackFunc callback, ImageInference::ErrorHandlingFunc error_handler,
+                         MemoryType memory_type)
         : _app_context(std::move(context)), _memory_type(memory_type), _callback(callback),
           _error_handler(error_handler) {
 #else
-    OpenVinoNewApiImpl(const ConfigHelper &config, dlstreamer::ContextPtr context,
-                       ImageInference::CallbackFunc callback, ImageInference::ErrorHandlingFunc error_handler,
-                       MemoryType memory_type, InferenceBackend::ImagePreprocessorType pp_type)
+    OpenVinoModelAdapter(const ConfigHelper &config, dlstreamer::ContextPtr context,
+                         ImageInference::CallbackFunc callback, ImageInference::ErrorHandlingFunc error_handler,
+                         MemoryType memory_type, InferenceBackend::ImagePreprocessorType pp_type)
         : _app_context(std::move(context)), _memory_type(memory_type), _callback(callback), _pp_type(pp_type),
           _error_handler(error_handler) {
 #endif
@@ -464,12 +155,12 @@ class OpenVinoNewApiImpl {
 
         auto ov_extension_lib = config.ov_extension_lib();
         if (!ov_extension_lib.empty()) {
-            core().add_extension(ov_extension_lib);
+            openvino_core().add_extension(ov_extension_lib);
         }
 
         // read model & configure model
         _model_path = config.model_path();
-        _model = core().read_model(_model_path);
+        _model = openvino_core().read_model(_model_path);
 
         {
             size_t bs;
@@ -488,7 +179,7 @@ class OpenVinoNewApiImpl {
         GVA_DEBUG("Num of inference req: %d", _nireq);
     }
 
-    ~OpenVinoNewApiImpl() {
+    ~OpenVinoModelAdapter() {
         log_api_message();
     }
 
@@ -667,7 +358,7 @@ class OpenVinoNewApiImpl {
             return cached->second;
 
         if (!_npu_context)
-            _npu_context = std::make_unique<ov::intel_npu::level_zero::ZeroContext>(core());
+            _npu_context = std::make_unique<ov::intel_npu::level_zero::ZeroContext>(openvino_core());
 
         auto channels_num = get_channels_num(image.format);
         // The DMA-BUF rows are padded to a 64-byte aligned pitch (see alignDmaBufPitch). Wrap the whole
@@ -789,12 +480,6 @@ class OpenVinoNewApiImpl {
             return 3;
         }
         return 0;
-    }
-
-    // Singleton core object
-    static ov::Core &core() {
-        static ov::Core ovcore;
-        return ovcore;
     }
 
   protected:
@@ -1178,13 +863,13 @@ class OpenVinoNewApiImpl {
         // print_input_and_outputs_info(*_model);
         try {
             if (_openvino_context) {
-                _compiled_model = core().compile_model(_model, _openvino_context->remote_context(), ov_params);
+                _compiled_model = openvino_core().compile_model(_model, _openvino_context->remote_context(), ov_params);
             } else {
                 std::string formatted_device = _device;
                 if (_batch_timeout > -1) {
                     formatted_device = fmt::format("BATCH:{}({})", _device, _auto_batch_num_requests);
                 }
-                _compiled_model = core().compile_model(_model, formatted_device, ov_params);
+                _compiled_model = openvino_core().compile_model(_model, formatted_device, ov_params);
             }
         } catch (const std::exception &e) {
             GVA_ERROR("Failed to compile model for device %s: %s", _device.c_str(), e.what());
@@ -1239,7 +924,8 @@ class OpenVinoNewApiImpl {
                 if (_app_context) {
                     try {
                         dlstreamer::D3D11ContextPtr d3d11_ctx = dlstreamer::D3D11Context::create(_app_context);
-                        _openvino_context = std::make_shared<dlstreamer::OpenVINOContext>(core(), _device, d3d11_ctx);
+                        _openvino_context =
+                            std::make_shared<dlstreamer::OpenVINOContext>(openvino_core(), _device, d3d11_ctx);
                     } catch (std::exception &e) {
                         GVA_ERROR("Exception occurred when creating OpenVINO™ toolkit remote context: %s", e.what());
                         std::throw_with_nested(std::runtime_error("couldn't create OV remote context"));
@@ -1254,7 +940,8 @@ class OpenVinoNewApiImpl {
                 if (_app_context) {
                     try {
                         dlstreamer::VAAPIContextPtr vaapi_ctx = dlstreamer::VAAPIContext::create(_app_context);
-                        _openvino_context = std::make_shared<dlstreamer::OpenVINOContext>(core(), _device, vaapi_ctx);
+                        _openvino_context =
+                            std::make_shared<dlstreamer::OpenVINOContext>(openvino_core(), _device, vaapi_ctx);
                     } catch (std::exception &e) {
                         GVA_ERROR("Exception occurred when creating OpenVINO™ toolkit remote context: %s", e.what());
                         std::throw_with_nested(std::runtime_error("couldn't create OV remote context"));
@@ -1275,7 +962,7 @@ void OpenVINOImageInference::SetCompletionCallback(std::shared_ptr<BatchRequest>
     assert(batch_request && "Batch request is null");
 
     auto cb = [=, this](std::exception_ptr ex) {
-        ITT_TASK("completion_callback_lambda_new");
+        ITT_TASK("completion_callback");
 
         try {
             if (ex) {
@@ -1286,13 +973,13 @@ void OpenVINOImageInference::SetCompletionCallback(std::shared_ptr<BatchRequest>
                 this->WorkingFunction(batch_request);
             }
         } catch (const std::exception &e) {
-            GVA_ERROR("An error occurred at inference request completion callback [new]:\n%s",
+            GVA_ERROR("An error occurred at inference request completion callback:\n%s",
                       Utils::createNestedErrorMsg(e).c_str());
         }
 
         FreeRequest(batch_request);
     };
-    batch_request->infer_request_new.set_callback(cb);
+    batch_request->infer_request.set_callback(cb);
 }
 
 OpenVINOImageInference::OpenVINOImageInference(const InferenceBackend::InferenceConfig &config, Allocator *,
@@ -1312,10 +999,10 @@ OpenVINOImageInference::OpenVINOImageInference(const InferenceBackend::Inference
         ConfigHelper cfg_helper(config);
         const auto pp_type = cfg_helper.pp_type();
 #ifndef ENABLE_D3D_NPU_COLOR_CONV
-        _impl = std::make_unique<OpenVinoNewApiImpl>(cfg_helper, context, callback, error_handler, memory_type);
+        _impl = std::make_unique<OpenVinoModelAdapter>(cfg_helper, context, callback, error_handler, memory_type);
 #else
         _impl =
-            std::make_unique<OpenVinoNewApiImpl>(cfg_helper, context, callback, error_handler, memory_type, pp_type);
+            std::make_unique<OpenVinoModelAdapter>(cfg_helper, context, callback, error_handler, memory_type, pp_type);
 #endif
 
         model_name = _impl->_model->get_friendly_name();
@@ -1326,7 +1013,7 @@ OpenVINOImageInference::OpenVINOImageInference(const InferenceBackend::Inference
 
         for (int i = 0; i < nireq; i++) {
             std::shared_ptr<BatchRequest> batch_request = std::make_shared<BatchRequest>();
-            batch_request->infer_request_new = _impl->_compiled_model.create_infer_request();
+            batch_request->infer_request = _impl->_compiled_model.create_infer_request();
             batch_request->in_tensors.resize(_impl->_model->inputs().size());
             SetCompletionCallback(batch_request);
             freeRequests.push(batch_request);
@@ -1423,7 +1110,7 @@ void OpenVINOImageInference::SubmitImageProcessing(const std::string &input_name
 
     // FIXME: single input
     if (request->in_tensors.front().empty()) {
-        request->in_tensors.front().push_back(request->infer_request_new.get_tensor(input_name));
+        request->in_tensors.front().push_back(request->infer_request.get_tensor(input_name));
     }
     const size_t batch_index = request->buffers.size();
     Image dst_img = map_ov_tensor_to_img(request->in_tensors.front().front(), batch_index);
@@ -1455,16 +1142,16 @@ void OpenVINOImageInference::BypassImageProcessing(const std::string &input_name
             // FIXME: input name ?
             for (size_t i = 0; i < request->in_tensors.size(); i++) {
                 // FIXME: move?
-                request->infer_request_new.set_input_tensors(i, request->in_tensors[i]);
+                request->infer_request.set_input_tensors(i, request->in_tensors[i]);
             }
         }
     } else {
         if (ov_tensor.size() == 1) {
-            request->infer_request_new.set_tensor(input_name, ov_tensor.front());
+            request->infer_request.set_tensor(input_name, ov_tensor.front());
         } else {
             // FIXME
             for (size_t i = 0; i < ov_tensor.size(); i++) {
-                request->infer_request_new.set_input_tensor(i, ov_tensor[i]);
+                request->infer_request.set_input_tensor(i, ov_tensor[i]);
             }
         }
     }
@@ -1515,10 +1202,10 @@ void OpenVINOImageInference::ApplyInputPreprocessors(
             !request->in_tensors.front().empty()) {
             intput_tensor = std::make_shared<OpenvinoInputTensor>(request->in_tensors.front().front(), batch_index);
         } else if (model_inputs.size() == 1) {
-            intput_tensor = std::make_shared<OpenvinoInputTensor>(request->infer_request_new.get_input_tensor());
+            intput_tensor = std::make_shared<OpenvinoInputTensor>(request->infer_request.get_input_tensor());
         } else {
             intput_tensor =
-                std::make_shared<OpenvinoInputTensor>(request->infer_request_new.get_tensor(preprocessor.second->name));
+                std::make_shared<OpenvinoInputTensor>(request->infer_request.get_tensor(preprocessor.second->name));
         }
 
         preprocessor.second->preprocessor(intput_tensor);
@@ -1608,9 +1295,9 @@ std::map<std::string, GstStructure *> OpenVINOImageInference::GetModelInfoPrepro
                                                                                   const gchar *pre_proc_config,
                                                                                   const gchar *ov_extension_lib) {
     if (ov_extension_lib && ov_extension_lib[0] != '\0') {
-        OpenVinoNewApiImpl::core().add_extension(ov_extension_lib);
+        openvino_core().add_extension(ov_extension_lib);
     }
-    std::shared_ptr<ov::Model> model = OpenVinoNewApiImpl::core().read_model(model_file);
+    std::shared_ptr<ov::Model> model = openvino_core().read_model(model_file);
 
     auto info = ModelApiConverters::get_model_info_preproc(std::move(model), model_file, pre_proc_config);
     return info;
@@ -1619,9 +1306,9 @@ std::map<std::string, GstStructure *> OpenVINOImageInference::GetModelInfoPrepro
 std::map<std::string, std::vector<size_t>> OpenVINOImageInference::GetModelInputShapes(const std::string model_file,
                                                                                        const gchar *ov_extension_lib) {
     if (ov_extension_lib && ov_extension_lib[0] != '\0') {
-        OpenVinoNewApiImpl::core().add_extension(ov_extension_lib);
+        openvino_core().add_extension(ov_extension_lib);
     }
-    std::shared_ptr<ov::Model> model = OpenVinoNewApiImpl::core().read_model(model_file);
+    std::shared_ptr<ov::Model> model = openvino_core().read_model(model_file);
 
     std::map<std::string, std::vector<size_t>> res;
     for (const auto &input : model->inputs()) {
@@ -1635,7 +1322,7 @@ std::map<std::string, std::vector<size_t>> OpenVINOImageInference::GetModelInput
 
 bool OpenVINOImageInference::IsNpuStridedInputSupported() {
     try {
-        const auto props = OpenVinoNewApiImpl::core().get_property("NPU", ov::supported_properties);
+        const auto props = openvino_core().get_property("NPU", ov::supported_properties);
         return std::find(props.begin(), props.end(), ov::intel_npu::enable_strides_for.name()) != props.end();
     } catch (const std::exception &e) {
         GVA_WARNING("Could not query NPU supported properties: %s", e.what());
@@ -1645,7 +1332,7 @@ bool OpenVINOImageInference::IsNpuStridedInputSupported() {
 
 int OpenVINOImageInference::GetDeviceOptimalBatchSize(const std::string &device) {
     try {
-        return static_cast<int>(OpenVinoNewApiImpl::core().get_property(device, ov::optimal_batch_size));
+        return static_cast<int>(openvino_core().get_property(device, ov::optimal_batch_size));
     } catch (...) {
         return 1; // Fallback if optimal batch size property is not supported
     }
@@ -1675,7 +1362,7 @@ void OpenVINOImageInference::Flush() {
                         for (int i = input_vec.size(); i < batch_size; i++)
                             input_vec.push_back(input_vec.back());
                         // FIXME: move?
-                        request->infer_request_new.set_input_tensors(input_idx, input_vec);
+                        request->infer_request.set_input_tensors(input_idx, input_vec);
                         input_idx++;
                     }
                 }
@@ -1700,7 +1387,7 @@ void OpenVINOImageInference::Close() {
     Flush();
     while (!freeRequests.empty()) {
         auto req = freeRequests.pop();
-        req->infer_request_new.set_callback([](std::exception_ptr) {});
+        req->infer_request.set_callback([](std::exception_ptr) {});
     }
 }
 
@@ -1711,7 +1398,7 @@ void OpenVINOImageInference::WorkingFunction(const std::shared_ptr<BatchRequest>
     const auto &outputs = _impl->_compiled_model.outputs();
     for (size_t i = 0; i < outputs.size(); i++) {
         auto name = outputs[i].get_names().size() > 0 ? outputs[i].get_any_name() : std::string("output");
-        output_blobs[name] = std::make_shared<OpenvinoOutputTensor>(request->infer_request_new.get_output_tensor(i));
+        output_blobs[name] = std::make_shared<OpenvinoOutputTensor>(request->infer_request.get_output_tensor(i));
     }
     callback(output_blobs, request->buffers);
 }
