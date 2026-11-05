@@ -150,7 +150,7 @@ def main():
     # Build pipeline
     pipe = (
         f'filesrc location="{video_file}" ! decodebin3 ! '
-        f"{eos_element}"
+        f"{eos_element} queue ! "
         f'gvadetect model="{detection_model}" device={args.device} '
         f"batch-size={args.batch_size} threshold={args.threshold} ! queue ! "
         f"gvaanalytics_py distance=500 angle=-135,-45 ! queue ! "
