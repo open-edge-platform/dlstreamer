@@ -5,16 +5,18 @@
 # ==============================================================================
 """g3dbevfusion pipeline tests on a nuScenes scene.
 
-Needs the assets from samples/gstreamer/gst_launch/g3dbevfusion/g3dbevfusion_prepare.sh
-(run with NUSCENES_ROOT set) and a GPU. Tests are skipped when they are missing.
+Needs the assets from g3dbevfusion_prepare_model.sh and g3dbevfusion_prepare_data.sh
+in samples/gstreamer/gst_launch/g3dbevfusion/, and a GPU. Tests are skipped when
+they are missing.
 
-  G3DBEVFUSION_CONFIG  runtime config (default: <sample>/.bevfusion/g3dbevfusion.json)
-  G3DBEVFUSION_SCENE   converted scene (default: <sample>/.bevfusion/nuscenes/scene-0103)
+  G3DBEVFUSION_CONFIG  runtime config (default: the last <sample>/bevfusion_ov_model_*/g3dbevfusion.json)
+  G3DBEVFUSION_SCENE   converted scene (default: <sample>/nuscenes_mini_seq/scene-0103)
 
 Detections are read back through the element's G3DBEVFUSION_DUMP_DIR debug
 output: one boxes_<frame>.npy per inferred frame, float32 [N, 11].
 """
 
+import glob
 import json
 import os
 import shutil
@@ -31,9 +33,11 @@ Gst.init(None)
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 DLSTREAMER_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "..", ".."))
-SAMPLE_CACHE = os.path.join(DLSTREAMER_ROOT, "samples", "gstreamer", "gst_launch", "g3dbevfusion", ".bevfusion")
-CONFIG = os.environ.get("G3DBEVFUSION_CONFIG", os.path.join(SAMPLE_CACHE, "g3dbevfusion.json"))
-SCENE = os.environ.get("G3DBEVFUSION_SCENE", os.path.join(SAMPLE_CACHE, "nuscenes", "scene-0103"))
+SAMPLE_DIR = os.path.join(DLSTREAMER_ROOT, "samples", "gstreamer", "gst_launch", "g3dbevfusion")
+CONFIG = os.environ.get("G3DBEVFUSION_CONFIG") or next(
+    reversed(sorted(glob.glob(os.path.join(SAMPLE_DIR, "bevfusion_ov_model_*", "g3dbevfusion.json")))),
+    os.path.join(SAMPLE_DIR, "bevfusion_ov_model_<openvino-version>", "g3dbevfusion.json"))
+SCENE = os.environ.get("G3DBEVFUSION_SCENE", os.path.join(SAMPLE_DIR, "nuscenes_mini_seq", "scene-0103"))
 CAMERAS = ["CAM_FRONT", "CAM_FRONT_RIGHT", "CAM_FRONT_LEFT", "CAM_BACK", "CAM_BACK_LEFT", "CAM_BACK_RIGHT"]
 SCORE_THRESHOLD = 0.3
 

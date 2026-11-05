@@ -4,40 +4,56 @@ This sample runs BEVFusion camera + LiDAR 3D object detection on [nuScenes](http
 
 The sample has four scripts:
 
-- `g3dbevfusion_prepare.sh` prepares the assets from openvino_contrib's [`openvino_bevfusion`](https://github.com/openvinotoolkit/openvino_contrib/tree/master/modules/openvino_bevfusion) module. It:
-  - builds the custom-op extensions against DL Streamer's OpenVINO;
+- `g3dbevfusion_prepare_model.sh <openvino-version>` prepares `bevfusion_ov_model_<openvino-version>/` from openvino_contrib's [`openvino_bevfusion`](https://github.com/openvinotoolkit/openvino_contrib/tree/master/modules/openvino_bevfusion) module. It:
+  - builds the custom-op extensions against that OpenVINO release;
   - downloads the published mmdetection3d checkpoint and exports the OpenVINO IRs;
-  - writes the element's `g3dbevfusion.json`;
-  - with `NUSCENES_ROOT` set, converts the nuScenes scenes.
-- `nuscenes_to_sequence.py` turns nuScenes scenes into numbered per-sensor files for `multifilesrc`. It writes key frames only, so frame N of every sensor is the same sample, along with the static calibration and the ground-truth boxes.
+  - writes the element's `g3dbevfusion.json`.
+- `g3dbevfusion_prepare_data.sh` downloads nuScenes `v1.0-mini` and converts its scenes into `nuscenes_mini_seq/`.
+- `nuscenes_to_sequence.py`, which `g3dbevfusion_prepare_data.sh` calls, turns nuScenes scenes into numbered per-sensor files for `multifilesrc`. It writes key frames only, so frame N of every sensor is the same sample, along with the static calibration and the ground-truth boxes.
 - `g3dbevfusion.sh` runs the pipeline on a converted scene, in `fusion` (six cameras + LiDAR) or `lidar` mode.
-- `bevfusion_reference.py` runs openvino_contrib's Python runtime on the same inputs, to check the element's output frame by frame.
 
 ## Prerequisites
 
 - An Intel GPU: the voxelize and BEV-pool ops are GPU kernels.
-- A Python environment with `torch`, `numpy` and `openvino` for the IR export (`PYTHON=...`).
-- The nuScenes dataset, for example `v1.0-mini` (`samples/` and `v1.0-mini/` under `NUSCENES_ROOT`).
+- For `g3dbevfusion_prepare_model.sh`: `apt-get install git curl g++ python3-venv opencl-c-headers ocl-icd-opencl-dev`. The script installs CPU PyTorch, NumPy and `openvino` into a temporary Python virtual environment of its own.
+- About 5 GB of free disk space while `g3dbevfusion_prepare_data.sh` runs, for the nuScenes `v1.0-mini` download.
 
 ## Prepare
 
 ```bash
-source /opt/intel/openvino_2026/setupvars.sh
-PYTHON=~/bevfusion_venv/bin/python NUSCENES_ROOT=/data/nuscenes ./g3dbevfusion_prepare.sh
+./g3dbevfusion_prepare_model.sh 2026.3.1
+./g3dbevfusion_prepare_data.sh
 ```
 
-The script checks out a fixed commit of [openvinotoolkit/openvino_contrib](https://github.com/openvinotoolkit/openvino_contrib) and applies the patches in [`patches/`](patches/) on top of it. They carry the openvino_bevfusion fixes that g3dbevfusion relies on, from [openvino_contrib#1197](https://github.com/openvinotoolkit/openvino_contrib/pull/1197), until that PR is merged (override the source with `OPENVINO_CONTRIB_URL` and `OPENVINO_CONTRIB_REF`).
+Pass the full OpenVINO version of the DL Streamer release that will run the pipeline, on the host or in its container. The custom-op extensions only load into the OpenVINO release they were built against, so a model directory prepared for 2026.3.1 does not work with 2026.3.0 or 2026.4.0. The script needs no DL Streamer or OpenVINO environment: it builds the extensions against the `openvino` wheel of that version.
 
-Assets go to `.bevfusion/` next to the script: the config, the IRs, the extensions, and `nuscenes/<scene>/` per converted scene. The export takes several minutes; later runs reuse what is already there.
+The model script checks out a fixed commit of [openvinotoolkit/openvino_contrib](https://github.com/openvinotoolkit/openvino_contrib) and applies the patches in [`patches/`](patches/) on top of it. They carry the openvino_bevfusion fixes that g3dbevfusion relies on, from [openvino_contrib#1197](https://github.com/openvinotoolkit/openvino_contrib/pull/1197), until that PR is merged (override the source with `OPENVINO_CONTRIB_URL` and `OPENVINO_CONTRIB_REF`). The export takes several minutes.
+
+The two scripts write only what the pipeline needs, next to themselves:
+
+```text
+bevfusion_ov_model_<openvino-version>/
+  g3dbevfusion.json            the element's config=, with paths relative to itself
+  config.json                  model parameters written by export.py
+  *.xml, *.bin                 voxelize, bev_pool, sparse_encoder, geometry, camera_encoder_b6, full_detection
+  extensions/                  the three custom-op libraries, and sparse_conv.cl
+  gpu_kernels/                 gpu_custom_layers.xml and its OpenCL kernels
+nuscenes_mini_seq/<scene>/
+  CAM_*/%06d.jpg, LIDAR_TOP/%06d.bin
+  calibration.json, calibration_lidar_only.json
+  annotations.json, manifest.csv   ground truth and sample tokens, for checking the output
+```
+
+The Python virtual environment, the sources, the checkpoint, the build trees and the nuScenes download are temporary and removed at the end. Both directories can be moved anywhere. A script does nothing if its directory already exists; remove the directory to prepare it again. Run either script with `--help` for its options, for example `NUSCENES_ROOT` to convert a nuScenes copy you already have.
 
 ## Run
 
 ```bash
 # camera + LiDAR fusion, all frames, rendered to JPEG files
-./g3dbevfusion.sh .bevfusion/nuscenes/scene-0103 .bevfusion/g3dbevfusion.json fusion -1 out/
+./g3dbevfusion.sh nuscenes_mini_seq/scene-0103 bevfusion_ov_model_2026.3.1/g3dbevfusion.json fusion -1 out/
 
 # LiDAR only, first 10 frames, no rendering
-./g3dbevfusion.sh .bevfusion/nuscenes/scene-0103 .bevfusion/g3dbevfusion.json lidar 10
+./g3dbevfusion.sh nuscenes_mini_seq/scene-0103 bevfusion_ov_model_2026.3.1/g3dbevfusion.json lidar 10
 ```
 
 Each sensor is read with `multifilesrc`. Every branch is timestamped at the same 2 fps, so `gvastreammux` pairs frame N of each sensor. The pipeline is:
@@ -50,7 +66,7 @@ gst-launch-1.0 -e \
   multifilesrc location=scene/LIDAR_TOP/%06d.bin caps=application/octet-stream ! \
     g3dlidarparse frame-rate=2 ! queue ! mux.sink_6 \
   gvastreammux name=mux output-mode=container sync-mode=first-pts max-wait-time=5000000000 ! \
-  g3dbevfusion config=.bevfusion/g3dbevfusion.json calibration=scene/calibration.json ! \
+  g3dbevfusion config=bevfusion_ov_model_2026.3.1/g3dbevfusion.json calibration=scene/calibration.json ! \
   g3drender forward-axis=y point-stride=2 width=2400 height=900 ! videoconvert ! jpegenc ! multifilesink location=out/%06d.jpg
 ```
 
