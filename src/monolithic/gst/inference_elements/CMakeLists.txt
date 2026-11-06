@@ -110,3 +110,7 @@ if(WIN32)
     target_link_libraries(${TARGET_NAME} PRIVATE image_inference_async_d3d11)
     target_link_libraries(${TARGET_NAME} PRIVATE image_inference_async_d3d12)
 endif()
+
+if(${ENABLE_AUDIO_INFERENCE_ELEMENTS})
+    add_subdirectory(audio)
+endif()
