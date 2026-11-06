@@ -8,21 +8,17 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DEFAULT_VIDEO_URL="https://github.com/intel-iot-devkit/sample-videos/raw/master/people-detection.mp4"
-DEFAULT_VIDEO="$SCRIPT_DIR/video/people-detection.mp4"
-DEFAULT_MODEL="$SCRIPT_DIR/models/public/yolov8s/FP16/yolov8s.xml"
-DEFAULT_OUTPUT_DIR="$SCRIPT_DIR/output"
 
 rel_path() {
     realpath -m --relative-to=. -- "$1"
 }
 
 show_usage() {
-    echo "Usage: $0 [--input <video.mp4>] [--model <model.xml>] [--output <directory>]"
-    echo "Options (an omitted option uses its default):"
-    echo "  --input <video.mp4>    Input video (default: $(rel_path "$DEFAULT_VIDEO"), downloaded if missing)"
-    echo "  --model <model.xml>    OpenVINO detection model (default: $(rel_path "$DEFAULT_MODEL"), exported if missing)"
-    echo "  --output <directory>   Output directory (default: $(rel_path "$DEFAULT_OUTPUT_DIR"))"
+    echo "Usage: $0 --input <video.mp4> [--model <model.xml>] [--output <directory>]"
+    echo "Options:"
+    echo "  --input <video.mp4>    Input video (required)"
+    echo "  --model <model.xml>    OpenVINO detection model (required)"
+    echo "  --output <directory>   Output directory (required)"
     echo "  -h, --help             Show this help"
     echo "Example: $0 --input /path/to/video.mp4 --model /path/to/model.xml --output /path/to/output"
 }
@@ -41,66 +37,9 @@ show_welcome() {
     echo ""
 }
 
-download_default_video() {
-    echo "Downloading default input video: $DEFAULT_VIDEO_URL"
-    mkdir -p "$(dirname "$DEFAULT_VIDEO")"
-    if ! curl -fL --retry 3 -o "$DEFAULT_VIDEO.part" "$DEFAULT_VIDEO_URL"; then
-        rm -f "$DEFAULT_VIDEO.part"
-        echo "Error: could not download $DEFAULT_VIDEO_URL" >&2
-        exit 1
-    fi
-    mv "$DEFAULT_VIDEO.part" "$DEFAULT_VIDEO"
-}
-
-# Exports yolov8s to OpenVINO IR with the DL Streamer model download script.
-download_default_model() {
-    local tools_dir="" candidate
-    for candidate in "$SCRIPT_DIR/../../../../scripts/download_models" /opt/intel/dlstreamer/scripts/download_models; do
-        if [[ -f "$candidate/download_ultralytics_models.py" ]]; then
-            tools_dir=$(cd "$candidate" && pwd)
-            break
-        fi
-    done
-    if [[ -z "$tools_dir" ]]; then
-        echo "Error: scripts/download_models/download_ultralytics_models.py was not found" >&2
-        exit 1
-    fi
-
-    local venv="$SCRIPT_DIR/.ultralytics_models_venv" created_venv=0
-    if ! env -u PYTHONPATH "$venv/bin/python" -c "import ultralytics" 2>/dev/null; then
-        created_venv=1
-        echo "Python environment not found in $(rel_path "$venv"); creating it for the model export (needs network access, may take a few minutes)..."
-        local requirements="$tools_dir/requirements_download_ultralytics_models.txt"
-        if command -v uv >/dev/null 2>&1; then
-            uv venv --allow-existing "$venv" &&
-                uv pip install --python "$venv/bin/python" --index-strategy unsafe-best-match -r "$requirements"
-        else
-            python3 -m venv "$venv" && "$venv/bin/pip" install -r "$requirements"
-        fi || {
-            echo "Error: could not prepare Python environment in $(rel_path "$venv")" >&2
-            exit 1
-        }
-    fi
-
-    echo "Exporting yolov8s to $(rel_path "$(dirname "$DEFAULT_MODEL")")"
-    # Ultralytics downloads the .pt weights into the working directory; keep them under models/.
-    mkdir -p "$SCRIPT_DIR/models"
-    if ! (cd "$SCRIPT_DIR/models" && env -u PYTHONPATH "$venv/bin/python" "$tools_dir/download_ultralytics_models.py" \
-        --model yolov8s.pt --outdir "$(dirname "$DEFAULT_MODEL")" --half); then
-        echo "Error: could not export yolov8s" >&2
-        exit 1
-    fi
-
-    # Only remove an environment created by this run; a pre-existing one is left alone.
-    if ((created_venv)); then
-        echo "Removing temporary Python environment $(rel_path "$venv")"
-        rm -rf "$venv"
-    fi
-}
-
-INPUT_VIDEO=$DEFAULT_VIDEO
-DETECTION_MODEL=$DEFAULT_MODEL
-OUTPUT_DIR=$DEFAULT_OUTPUT_DIR
+INPUT_VIDEO=""
+DETECTION_MODEL=""
+OUTPUT_DIR=""
 
 while (($# > 0)); do
     case "$1" in
@@ -131,18 +70,22 @@ done
 
 show_welcome
 
-if [[ "$INPUT_VIDEO" == "$DEFAULT_VIDEO" && ! -s "$DEFAULT_VIDEO" ]]; then
-    download_default_video
+if [[ -z "$INPUT_VIDEO" ]]; then
+    echo "Error: --input is required" >&2
+    show_usage >&2
+    exit 2
 fi
 
-if [[ "$DETECTION_MODEL" == "$DEFAULT_MODEL" && ! -s "$DEFAULT_MODEL" ]]; then
-    download_default_model
+if [[ -z "$DETECTION_MODEL" ]]; then
+    echo "Error: --model is required" >&2
+    show_usage >&2
+    exit 2
 fi
 
 if [[ -z "$OUTPUT_DIR" ]]; then
-    echo "Error: output directory must not be empty" >&2
-    show_help_hint
-    exit 1
+    echo "Error: --output is required" >&2
+    show_usage >&2
+    exit 2
 fi
 
 if [[ ! -r "$INPUT_VIDEO" ]]; then

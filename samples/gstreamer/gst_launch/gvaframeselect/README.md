@@ -1,11 +1,10 @@
-# gvaframeselect Sample
+# gvaframeselect Sample (gst-launch command line)
 
-- `gvaframeselect` selects evenly spaced frames from each input block, caches them until the frame budget is collected, computes a shared ROI, then forwards the selected buffers in order. It can also save copies of the selected frames as JPEG images.
-- This sample runs `gvadetect` with the supplied OpenVINO IR model, then selects up to eight frames from every 140-frame block. It saves selected frames as JPEG images and continues forwarding them to `fakesink`.
+This sample demonstrates frame selection with a `gst-launch-1.0` pipeline built from a YOLOv8s person detector followed by the `gvaframeselect` element.
 
-## Pipeline
+## How It Works
 
-The script reads and decodes the input video, converts it to raw video frames, and runs `gvadetect` before frame selection so detection metadata is available to `gvaframeselect`:
+The sample constructs a GStreamer pipeline string and runs it with `gst-launch-1.0`:
 
 ```mermaid
 flowchart LR
@@ -15,7 +14,15 @@ flowchart LR
     class select frameSelect
 ```
 
-`gvaframeselect` selects up to eight evenly spaced frames from each 140-frame block by default, calculates a shared ROI from their detections, and forwards the selected buffers in order. It also writes JPEG copies to the output directory. `fakesink` consumes the forwarded buffers without displaying or encoding them, keeping this sample focused on frame selection and export.
+The pipeline combines the following elements:
+
+* `filesrc` for reading the input video file
+* `decodebin3` and `videoconvert` for video decoding and conversion to raw video frames
+* `gvadetect` for full-frame person detection with YOLOv8s, so detection metadata is available to `gvaframeselect`
+* `gvaframeselect` for selecting evenly spaced frames from each block of frames and computing a shared ROI
+* `fakesink` as the pipeline sink
+
+`gvaframeselect` selects evenly spaced frames from each input block, caches them until the frame budget is collected, computes a shared ROI from their detections, and forwards the selected buffers in order. By default it selects up to eight frames from every 140-frame block. It also saves copies of the selected frames as JPEG images in `selected_frames/`. `fakesink` consumes the forwarded buffers without displaying or encoding them, keeping this sample focused on frame selection and export.
 
 ## Requirements
 
@@ -26,72 +33,40 @@ flowchart LR
 
 ## Input video and model
 
-The sample needs a video with people and a YOLOv8s detection model. Both are downloaded automatically if they are missing, so manual download is optional.
+The sample needs a video with people and a YOLOv8s detection model. The script does not download either of them; you must provide both.
 
 ### Video
 
-- **Source:** [people-detection.mp4](https://github.com/intel-iot-devkit/sample-videos/raw/master/people-detection.mp4) from the [intel-iot-devkit/sample-videos](https://github.com/intel-iot-devkit/sample-videos) repository.
-- **Manual download**, run from this sample's directory:
+Provide an input video that contains people and pass it with `--input`. For example, you can download [people-detection.mp4](https://github.com/intel-iot-devkit/sample-videos/raw/master/people-detection.mp4) from the [intel-iot-devkit/sample-videos](https://github.com/intel-iot-devkit/sample-videos) repository:
 
-  ```bash
-  mkdir -p video
-  curl -fL -o video/people-detection.mp4 \
-      https://github.com/intel-iot-devkit/sample-videos/raw/master/people-detection.mp4
-  ```
+```bash
+curl -fL -o people-detection.mp4 \
+    https://github.com/intel-iot-devkit/sample-videos/raw/master/people-detection.mp4
+```
 
 ### Model
 
-- **Source:** the pretrained `yolov8s.pt` weights from Ultralytics, which the export script fetches automatically, converted to OpenVINO IR (FP16) with [`scripts/download_models/download_ultralytics_models.py`](../../../../scripts/download_models/download_ultralytics_models.py).
-- **Manual download**, run from this sample's directory (see the [download_models README](../../../../scripts/download_models/README.md#2-ultralytics-conversion) for details):
+This sample expects the `yolov8s` model in FP16 precision from Ultralytics, converted to OpenVINO IR.
 
-  ```bash
-  uv venv .ultralytics_models_venv
-  source .ultralytics_models_venv/bin/activate
-  uv pip install --index-strategy unsafe-best-match \
-      -r ../../../../scripts/download_models/requirements_download_ultralytics_models.txt
-  python ../../../../scripts/download_models/download_ultralytics_models.py \
-      --model yolov8s.pt --outdir models/public/yolov8s/FP16 --half
-  ```
+Use the model conversion scripts in [scripts/download_models/](../../../../scripts/download_models/README.md) to prepare it.
+Before running them, create and activate the dedicated model-download virtual environment described in [scripts/download_models/README.md](../../../../scripts/download_models/README.md).
 
-### Automatic download
-
-If the default video or model is missing, `gvaframeselect.sh` downloads it itself. Everything is stored in the directory that contains the script:
-
-| Item | Location |
-|---|---|
-| Video | `video/people-detection.mp4` |
-| Model | `models/public/yolov8s/FP16/yolov8s.xml` and `.bin`; the downloaded weights stay in `models/yolov8s.pt` |
-| Python environment for the export | `.ultralytics_models_venv/`, created only if needed and removed after a successful export |
-
-Downloading needs network access, and the first model export takes a few minutes. Nothing is downloaded when you pass your own `--input` or `--model`; such a path must exist.
+Pass the resulting OpenVINO IR model XML to the script with `--model`. Keep its matching `.bin` weights file alongside it.
 
 ## Usage
 
-The **`gvaframeselect.sh`** script runs the pipeline on a video and saves the selected frames as JPEG images in the output directory. All options are optional; an omitted option uses its default, located next to the script. If you run the script without any options, it tries to download the default video and model on its own, then runs the pipeline with them.
+The **`gvaframeselect.sh`** script runs the pipeline on a video and saves the selected frames as JPEG images in the output directory. `--input`, `--model` and `--output` are required. The selection options are optional and use their defaults when omitted.
 
 | Option | Default | Description |
 |---|---|---|
-| `--input <video.mp4>` | `video/people-detection.mp4` | Input video. If the default is missing, it is downloaded from [intel-iot-devkit/sample-videos](https://github.com/intel-iot-devkit/sample-videos/raw/master/people-detection.mp4). |
-| `--model <model.xml>` | `models/public/yolov8s/FP16/yolov8s.xml` | OpenVINO IR detection model used by `gvadetect`. If the default is missing, it is exported with [`download_ultralytics_models.py`](../../../../scripts/download_models/download_ultralytics_models.py) in a local `.ultralytics_models_venv` Python environment (needs network access). |
-| `--output <directory>` | `output/` | Output directory, created if it does not exist. Selected frames go to `selected_frames/`. |
+| `--input <video.mp4>` | — (required) | Input video file. |
+| `--model <model.xml>` | — (required) | OpenVINO IR detection model used by `gvadetect`; its matching `.bin` file must be alongside it. |
+| `--output <directory>` | — (required) | Output directory, created if it does not exist. Selected frames go to `selected_frames/`. |
 | `--sub-stream-frames N` | 140 | Number of input frames in each selection block (1-4294967295). |
 | `--frame-budget k` | 8 | Maximum selected frames per block (1-4294967295). |
 | `-h`, `--help` | — | Prints the usage and exits. |
 
-If you pass your own `--input` or `--model`, the file must already exist. The script then downloads and exports nothing, and does not fall back to the default. A custom `--model` must be an OpenVINO IR detector XML used by `gvadetect`, with its matching `.bin` weights file alongside it.
-
-Run with the defaults:
-
-```bash
-./gvaframeselect.sh
-```
-
-Run with your own video:
-
-```bash
-./gvaframeselect.sh \
-    --input /path/to/video.mp4
-```
+The input video and the model file must already exist. A custom `--model` must be an OpenVINO IR detector XML used by `gvadetect`, with its matching `.bin` weights file alongside it.
 
 Run with your own video, model, output directory and selection settings:
 
@@ -100,13 +75,10 @@ Run with your own video, model, output directory and selection settings:
     --input /path/to/video.mp4 \
     --model /path/to/model.xml \
     --output /path/to/output \
-    --sub-stream-frames 450 \
-    --frame-budget 12
+    --sub-stream-frames 140 \
+    --frame-budget 8
 ```
 
-**NOTE:** The following `gvaframeselect` settings are fixed in the script and cannot be changed from the command line:
-> - `roi-padding=16`
-> - `target-classes=person,vehicle` and `confidence-threshold=0.5` (element defaults)
 
 ### How frames are selected
 
