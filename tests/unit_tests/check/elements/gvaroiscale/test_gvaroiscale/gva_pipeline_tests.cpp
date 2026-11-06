@@ -14,12 +14,12 @@
 #include "gstgvaroiscale.h"
 #include "gva_utils.h"
 
-#include <gtest/gtest.h>
+#include <glib/gstdio.h>
 #include <gst/analytics/analytics.h>
 #include <gst/app/gstappsink.h>
 #include <gst/app/gstappsrc.h>
 #include <gst/video/video.h>
-#include <glib/gstdio.h>
+#include <gtest/gtest.h>
 
 #include <cstring>
 
