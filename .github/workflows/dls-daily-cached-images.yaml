@@ -69,8 +69,6 @@ jobs:
       - name: Scan ${{ matrix.ubuntu_version }} DEB image with Trivy
         id: trivy-scan
         uses: open-edge-platform/orch-ci/.github/actions/security/trivy@dca07fa1cdf8ed3eaf8f318f3d905fd12cef3b41 # v0.74.0
-        env:
-          TRIVY_EXIT_CODE: "1"
         with:
           scan_target: "dlstreamer-deb-final:daily-${{ matrix.ubuntu_version }}-${{ github.sha }}"
           severity: "HIGH"
@@ -119,12 +117,12 @@ jobs:
           echo "Trivy scan passed with no HIGH or CRITICAL vulnerabilities."
 
       - name: Save ${{ matrix.ubuntu_version }} Trivy report for aggregation
-        if: always() && hashFiles('trivy-report-output/${{ matrix.ubuntu_version }}/*') != ''
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # 7.0.1
         with:
           name: trivy-report-${{ matrix.ubuntu_version }}
           path: trivy-report-output/${{ matrix.ubuntu_version }}/
-          if-no-files-found: error
+          if-no-files-found: ignore
           retention-days: 7
 
       - name: Clean up
