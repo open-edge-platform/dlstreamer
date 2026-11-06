@@ -87,7 +87,6 @@ runs:
           exit 1
         fi
 
-        echo "$install_dir" >> "$GITHUB_PATH"
         echo "trivy_bin=$install_dir/trivy" >> "$GITHUB_OUTPUT"
 
     - name: Download Trivy vulnerability database
