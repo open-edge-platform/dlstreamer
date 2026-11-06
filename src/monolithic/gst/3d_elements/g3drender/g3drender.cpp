@@ -656,9 +656,9 @@ cv::Vec3b height_to_color(float z) {
     return cv::Vec3b(0, static_cast<uint8_t>((1.0f - s) * 180), static_cast<uint8_t>(s * 220 + 80));
 }
 
-const cv::Scalar kColorUnmatched(0, 165, 255);   // orange — 3D unmatched (LiDAR only)
-const cv::Scalar kColor2DUnmatched(0, 255, 0);   // green  — 2D unmatched (camera only)
-const cv::Scalar kColorMatched(255, 255, 255);   // white  — 3D matched (fused detection)
+const cv::Scalar kColorUnmatched(0, 165, 255); // orange — 3D unmatched (LiDAR only)
+const cv::Scalar kColor2DUnmatched(0, 255, 0); // green  — 2D unmatched (camera only)
+const cv::Scalar kColorMatched(255, 255, 255); // white  — 3D matched (fused detection)
 
 /* The 8 corners of a GstAnalytics3DODMtd box, in the lidar frame: length along
  * the box's local x, width along its local y, rotated by yaw counter-clockwise

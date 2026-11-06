@@ -691,6 +691,129 @@ GST_START_TEST(test_cam_proj_bg_baseline_golden) {
 }
 GST_END_TEST;
 
+/* Two cameras in cam-proj, with 3D boxes, so both the points and the boxes are projected. */
+static const Scenario SC_CAM_PROJ_TWO_CAMS = {"cam_proj_two_cams",
+                                              NULL,
+                                              2,
+                                              640,
+                                              240,
+                                              TRUE,
+                                              TRUE,
+                                              1600,
+                                              800,
+                                              -50,
+                                              50,
+                                              -50,
+                                              50,
+                                              2,
+                                              4,
+                                              2.0f,
+                                              2,
+                                              35,
+                                              30,
+                                              180,
+                                              60,
+                                              TRUE};
+
+/* Camera 1's principal point sits this far right of camera 0's, so projecting camera 1 with
+ * camera 0's matrices moves every point and box in the frame. */
+#define CAM1_CX_SHIFT 60.f
+
+static GstBuffer *render_frame(GstHarness *h, const Scenario *sc) {
+    gst_harness_push(h, build_batch_buf(h, sc));
+    GstBuffer *out = gst_harness_pull(h);
+    ck_assert_msg(out != NULL, "g3drender produced no output for %s", sc->label);
+    return out;
+}
+
+static void set_cam_proj_index(GstHarness *h, gint index) {
+    GstElement *el = gst_harness_find_element(h, "g3drender");
+    g_object_set(el, "cam-proj-index", index, NULL);
+    gst_object_unref(el);
+}
+
+/* One frame of the camera on pad @cam_index after a calibration event with @n_entries cameras. */
+static GstBuffer *render_with_calibration(const Scenario *sc, gint cam_index, const gfloat *cx_shift, gint n_entries) {
+    GstHarness *h = make_batch_harness(sc);
+    set_cam_proj_index(h, cam_index);
+    gst_harness_push_event(h, build_calib_event_shifted(cx_shift, n_entries));
+    GstBuffer *out = render_frame(h, sc);
+    gst_harness_teardown(h);
+    return out;
+}
+
+static gboolean same_frame(GstBuffer *a, GstBuffer *b) {
+    GstMapInfo mb;
+    if (gst_buffer_get_size(a) != gst_buffer_get_size(b) || !gst_buffer_map(b, &mb, GST_MAP_READ))
+        return FALSE;
+    gboolean same = gst_buffer_memcmp(a, 0, mb.data, mb.size) == 0;
+    gst_buffer_unmap(b, &mb);
+    return same;
+}
+
+/* Camera 1 is projected with the camera-1 entry alone: changing camera 0's entry leaves the
+ * frame as it was, and giving camera 1 camera 0's matrices changes it. */
+GST_START_TEST(test_cam_proj_uses_camera_calibration) {
+    const Scenario *sc = &SC_CAM_PROJ_TWO_CAMS;
+    const gfloat own[] = {0.f, CAM1_CX_SHIFT};
+    const gfloat other_cam0[] = {CAM1_CX_SHIFT, CAM1_CX_SHIFT};
+    const gfloat cam0_matrices[] = {0.f, 0.f};
+
+    GstBuffer *frame = render_with_calibration(sc, 1, own, 2);
+    GstBuffer *cam0_changed = render_with_calibration(sc, 1, other_cam0, 2);
+    GstBuffer *with_cam0 = render_with_calibration(sc, 1, cam0_matrices, 2);
+    ck_assert_msg(same_frame(frame, cam0_changed), "camera 1's projection depends on the camera-0 entry");
+    ck_assert_msg(!same_frame(frame, with_cam0), "camera 1 was not projected with its camera-1 calibration");
+    gst_buffer_unref(frame);
+    gst_buffer_unref(cam0_changed);
+    gst_buffer_unref(with_cam0);
+}
+GST_END_TEST;
+
+/* Switching cam-proj-index after the calibration arrived switches the matrices with the image. */
+GST_START_TEST(test_cam_proj_index_switch_at_runtime) {
+    const Scenario *sc = &SC_CAM_PROJ_TWO_CAMS;
+    const gfloat both[] = {0.f, CAM1_CX_SHIFT};
+
+    GstHarness *h = make_batch_harness(sc);
+    gst_harness_push_event(h, build_calib_event_shifted(both, 2));
+    GstBuffer *first = render_frame(h, sc);
+    set_cam_proj_index(h, 1);
+    GstBuffer *switched = render_frame(h, sc);
+    gst_harness_teardown(h);
+
+    GstBuffer *expected = render_with_calibration(sc, 1, both, 2);
+    ck_assert_msg(!same_frame(first, switched), "switching cam-proj-index did not change the frame");
+    ck_assert_msg(same_frame(switched, expected), "after switching, camera 1 is not drawn as it is from the start");
+    gst_buffer_unref(first);
+    gst_buffer_unref(switched);
+    gst_buffer_unref(expected);
+}
+GST_END_TEST;
+
+/* A later g3d/calibration event (g3dobjectfuser reloaded its file) replaces the earlier one. */
+GST_START_TEST(test_cam_proj_calibration_replaced) {
+    const Scenario *sc = &SC_CAM_PROJ_TWO_CAMS;
+    const gfloat original[] = {0.f, 0.f};
+    const gfloat reloaded[] = {0.f, CAM1_CX_SHIFT};
+
+    GstHarness *h = make_batch_harness(sc);
+    set_cam_proj_index(h, 1);
+    gst_harness_push_event(h, build_calib_event_shifted(original, 2));
+    GstBuffer *before = render_frame(h, sc);
+    gst_harness_push_event(h, build_calib_event_shifted(reloaded, 2));
+    GstBuffer *after = render_frame(h, sc);
+    gst_harness_teardown(h);
+
+    GstBuffer *expected = render_with_calibration(sc, 1, reloaded, 2);
+    ck_assert_msg(!same_frame(before, after), "the new calibration event was ignored");
+    ck_assert_msg(same_frame(after, expected), "the frame does not use the new calibration");
+    gst_buffer_unref(before);
+    gst_buffer_unref(after);
+    gst_buffer_unref(expected);
+}
+GST_END_TEST;
+
 /* 802 BGR pixels are 2406 bytes, not a multiple of 4. */
 #define UNALIGNED_WIDTH 802
 #define UNALIGNED_HEIGHT 400
@@ -791,6 +914,12 @@ static Suite *g3drender_suite(void) {
     TCase *tc_tiles = tcase_create("tiles-calib");
     tcase_add_test(tc_tiles, test_tiles_with_calib_golden);
     suite_add_tcase(s, tc_tiles);
+
+    TCase *tc_proj_calib = tcase_create("cam-proj-calibration");
+    tcase_add_test(tc_proj_calib, test_cam_proj_uses_camera_calibration);
+    tcase_add_test(tc_proj_calib, test_cam_proj_index_switch_at_runtime);
+    tcase_add_test(tc_proj_calib, test_cam_proj_calibration_replaced);
+    suite_add_tcase(s, tc_proj_calib);
 
     TCase *tc_layout = tcase_create("output-layout");
     tcase_add_test(tc_layout, test_unaligned_width);

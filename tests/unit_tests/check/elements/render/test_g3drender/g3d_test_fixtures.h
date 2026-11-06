@@ -47,6 +47,9 @@ GstEvent *build_calib_event(void);
 /* The synthetic calibration for each of the first @n_cams camera pads, plus
  * class-names when @class_names (NULL-terminated) is given. */
 GstEvent *build_calib_event_for_cameras(guint n_cams, const gchar *const *class_names);
+/* g3d/calibration event with camera-0 .. camera-<n_cams - 1>, each the synthetic calibration with
+ * its principal point moved right by cx_shift[i] pixels. */
+GstEvent *build_calib_event_shifted(const gfloat *cx_shift, gint n_cams);
 
 GstBuffer *build_empty_lidar_buf(GstHarness *h);
 GstBuffer *build_no_meta_lidar_buf(GstHarness *h);
