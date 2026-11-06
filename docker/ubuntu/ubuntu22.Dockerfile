@@ -87,10 +87,10 @@ WORKDIR /
 
 RUN \
     apt-get update && \
-    apt-get install -y -q --no-install-recommends xz-utils=\* python3-pip=\* python3-gi=\* gcc-multilib=\* libglib2.0-dev=\* \
+    apt-get install -y -q --no-install-recommends xz-utils=\* gcc-multilib=\* libglib2.0-dev=\* \
     flex=\* bison=\* autoconf=\* automake=\* libtool=\* libogg-dev=\* make=\* g++=\* libva-dev=\* yasm=\* libglx-dev=\* libdrm-dev=\* \
-    python-gi-dev=\* python3-dev=\* unzip=\* libgflags-dev=\* \
-    libgirepository1.0-dev=\* libx265-dev=\* libx264-dev=\* libde265-dev=\* gudev-1.0=\* libusb-1.0=\* nasm=\* python3-venv=\* \
+    python-gi-dev=\* unzip=\* libgflags-dev=\* \
+    libgirepository1.0-dev=\* libx265-dev=\* libx264-dev=\* libde265-dev=\* gudev-1.0=\* libusb-1.0=\* nasm=\* \
     libcairo2-dev=\* libxt-dev=\* libgirepository1.0-dev=\* libgles2-mesa-dev=\* wayland-protocols=\* libcurl4-openssl-dev=\* \
     libssh2-1-dev=\* cmake=\* git=\* valgrind=\* numactl=\* libvpx-dev=\* libopus-dev=\* libsrtp2-dev=\* libxv-dev=\* \
     linux-libc-dev=\* libpmix2=\* libhwloc15=\* libhwloc-plugins=\* libxcb1-dev=\* libx11-xcb-dev=\* \
@@ -522,7 +522,7 @@ SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 # install prerequisites - gcc and cmake are needed to run .cpp samples
 RUN \
     apt-get update && \
-    apt-get install -y -q --no-install-recommends  libtbb12=\* curl=\* gcc=\* cmake=\*  gpg=\* ca-certificates=\* git=\* python3-venv=\* jq=\* && \
+    apt-get install -y -q --no-install-recommends  libtbb12=\* curl=\* gcc=\* cmake=\*  gpg=\* ca-certificates=\* git=\* jq=\* && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -576,7 +576,9 @@ RUN uv python install 3.11 && \
     PYTHON_LIBDIR="$("$PYTHON_BIN" -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')" && \
     printf '%s\n' "$PYTHON_LIBDIR" > /etc/ld.so.conf.d/uv-python.conf && \
     ldconfig && \
-    ln -s "$PYTHON_BIN" /usr/local/bin/python3.11
+    ln -s "$PYTHON_BIN" /usr/local/bin/python3.11 && \
+    ln -s "$PYTHON_BIN" /usr/local/bin/python3 && \
+    ln -s "$PYTHON_BIN" /usr/local/bin/python
 
 # Install the .deb package plus the DL Streamer Python requirements.
 RUN \
