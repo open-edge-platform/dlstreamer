@@ -73,7 +73,7 @@ def main(args):
                    help="Output mode (default: appsink)")
     p.add_argument("--model", default=None,
                    help="Path to detection model .xml (default: $MODELS_PATH/" + DEFAULT_MODEL_REL + ")")
-    p.add_argument("eos_frame", nargs="?", type=int, default=0, help="Stop after N decoded buffers (default: disabled)")
+    p.add_argument("--eos-frame", type=int, default=0, help="Stop after N decoded buffers (default: disabled)")
     parsed = p.parse_args(args[1:])
 
     video_file = ensure_file(parsed.input, "input video")
