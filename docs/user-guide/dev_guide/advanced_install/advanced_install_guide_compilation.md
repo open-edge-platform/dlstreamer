@@ -98,8 +98,9 @@ Create a Python virtual environment and install required Python
 packages:
 
 > **NOTE:** Ubuntu 22.04's default Python (3.10) is not supported by the
-> OpenVINO™ GenAI Python bindings, so install Python 3.11 with `uv` and use it
-> for the virtual environment below. Ubuntu 24.04 and Ubuntu 26.04
+> OpenVINO™ GenAI Python bindings and is not the interpreter used for DL
+> Streamer's Python elements. Install Python 3.11 with `uv` and use it for the
+> virtual environment below. Ubuntu 24.04 and Ubuntu 26.04
 > can use their default system Python versions. Build native extensions such
 > as PyGObject inside the same environment so their Python ABI matches the
 > interpreter used by DL Streamer's Python elements (e.g. `gvapython`). On
@@ -325,8 +326,11 @@ necessary dependencies using the following commands:
 
 > **NOTE:** Install PyGObject into the activated `~/python3venv` from Step 3
 > so it is built for that environment's Python ABI. Ubuntu 22.04 uses
-> uv-managed Python, which includes its own development headers. Ubuntu 24.04
-> and 26.04 use the system Python, so install its matching `python3-dev`.
+> uv-managed Python, which includes its own development headers; install the
+> native introspection and Cairo development libraries below, but do not use
+> the system-Python `python-gi-dev` or `python3-dev` packages for this
+> environment. Ubuntu 24.04 and 26.04 use the system Python, so install its
+> matching `python3-dev`.
 
 <!--hide_directive::::{tab-set}
 :::{tab-item}hide_directive--> Ubuntu 24
@@ -349,7 +353,7 @@ necessary dependencies using the following commands:
 
   ```bash
   sudo apt-get update
-  sudo apt-get install -y -q --no-install-recommends gcc cmake python-gi-dev \
+  sudo apt-get install -y -q --no-install-recommends gcc cmake pkg-config \
       libglib2.0-dev libcairo2-dev libopencv-objdetect-dev libopencv-photo-dev libopencv-stitching-dev libopencv-video-dev \
       libopencv-calib3d-dev libopencv-core-dev libopencv-dnn-dev libgirepository1.0-dev
 

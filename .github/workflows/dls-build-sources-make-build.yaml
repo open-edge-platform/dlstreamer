@@ -63,12 +63,7 @@ jobs:
         with:
           persist-credentials: false
           path: dlstreamer-repo
-
-      - name: Init submodules
-        if: needs.setup.outputs.should_run == 'true'
-        run: |
-          cd dlstreamer-repo
-          git submodule update --init thirdparty/spdlog
+          submodules: true
 
       # ======================================================== BUILDING PART ========================================================
       - name: Install prerequisites

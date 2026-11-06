@@ -4,6 +4,8 @@ opencv-python==4.11.0.86
 setuptools==84.1.0
 typing-extensions==4.15.0
 defusedxml==0.7.1
+certifi==2026.10.18
+urllib3==2.8.0
 
 # optimizer-specific deps
 sshkeyboard==2.3.1

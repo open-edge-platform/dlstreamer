@@ -1,0 +1,123 @@
+name: "[DLS] [U22] Build Ubuntu 22 image"
+run-name: "[DLS] [U22] Build Ubuntu22 image (by ${{ github.actor }})"
+on:
+  workflow_call:
+    outputs:
+      current-image-size-ubuntu22:
+        description: "Current DEB image size in MB for ubuntu22"
+        value: ${{ jobs.build.outputs.current-image-size-ubuntu22 }}
+  workflow_dispatch:
+
+permissions: {}
+
+env:
+  DLS_REL_PATH: "./dlstreamer"
+
+jobs:
+  setup:
+    name: "Setup Ubuntu 22 build"
+    runs-on: dlstreamer
+    outputs:
+      should_run: ${{ steps.skip-check.outputs.should_run }}
+    steps:
+      - name: Check out dlstreamer repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Check if should skip CI
+        id: skip-check
+        uses: ./.github/actions/common/check-skip-ci
+        with:
+          job_name: "Build Ubuntu22 image"
+          working_directory: "."
+
+  build:
+    name: "Build Ubuntu22 image"
+    runs-on: dlstreamer
+    needs: setup
+    outputs:
+      current-image-size-ubuntu22: ${{ steps.check-size.outputs.current-image-size-ubuntu22 }}
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Skip or execute based on configuration
+        if: needs.setup.outputs.should_run == 'false'
+        run: |
+          echo "## ✅ Ubuntu 22 image build skipped" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason:** Changes only in excluded files" >> $GITHUB_STEP_SUMMARY
+
+      - name: Check out dlstreamer repository
+        if: needs.setup.outputs.should_run == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #7.0.1
+        with:
+          persist-credentials: false
+          path: dlstreamer
+
+      - name: Init submodules
+        if: needs.setup.outputs.should_run == 'true'
+        run: |
+          cd dlstreamer
+          git submodule update --init thirdparty/spdlog
+
+      - name: Pre-pull BuildKit image
+        if: needs.setup.outputs.should_run == 'true'
+        uses: ./dlstreamer/.github/actions/common/pull-buildkit-image
+
+      - name: Set up Docker Buildx
+        if: needs.setup.outputs.should_run == 'true'
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e #4.3.0
+
+      - name: Log in to GitHub Container Registry
+        if: needs.setup.outputs.should_run == 'true'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f #4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Ubuntu22 image
+        if: needs.setup.outputs.should_run == 'true'
+        env:
+          ubuntu22_image: ghcr.io/${{ github.repository }}/deb-final-img-ubuntu22:${{ github.sha }}
+          ubuntu22_image_cached: ghcr.io/${{ github.repository }}/deb-final-img-ubuntu22:buildcache
+        run: |
+          docker buildx build \
+            --load \
+            --target dlstreamer \
+            --tag "${ubuntu22_image}" \
+            --cache-from="${ubuntu22_image_cached}" \
+            --build-arg DLSTREAMER_VERSION=2026.3.0 \
+            --build-arg DLSTREAMER_BUILD_NUMBER=deb-pkg-ubuntu22 \
+            -f ./dlstreamer/docker/ubuntu/ubuntu22.Dockerfile \
+            ${{ env.DLS_REL_PATH }}
+
+      - name: Check Ubuntu22 image size
+        if: needs.setup.outputs.should_run == 'true'
+        id: check-size
+        env:
+          ubuntu22_image: ghcr.io/${{ github.repository }}/deb-final-img-ubuntu22:${{ github.sha }}
+        run: |
+          SIZE_STR=$(docker images --no-trunc --format '{{.Size}}' "$ubuntu22_image")
+          IMAGE_SIZE_MB=$(echo "$SIZE_STR" | awk '
+            /GB$/ { printf "%d", $1 * 1024; next }
+            /MB$/ { printf "%d", $1; next }
+            /kB$/ { printf "0"; next }
+          ')
+
+          if [[ -z "${IMAGE_SIZE_MB}" ]]; then
+            echo "::error::Failed to detect Docker image size for ${ubuntu22_image}"
+            exit 1
+          fi
+
+          echo "Actual image size (docker images SIZE): ${SIZE_STR} (~${IMAGE_SIZE_MB} MB)"
+          echo "current-image-size-ubuntu22=${IMAGE_SIZE_MB}" >> "$GITHUB_OUTPUT"
+          {
+            echo "## 🐳 Docker image size"
+            echo ""
+            echo "| Image | Size |"
+            echo "|-------|------|"
+            echo "| Current Docker ubuntu22-deb | **${SIZE_STR} (~${IMAGE_SIZE_MB} MB)** |"
+          } >> "$GITHUB_STEP_SUMMARY"
