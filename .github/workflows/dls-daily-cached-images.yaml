@@ -69,6 +69,8 @@ jobs:
       - name: Scan ${{ matrix.ubuntu_version }} DEB image with Trivy
         id: trivy-scan
         uses: open-edge-platform/orch-ci/.github/actions/security/trivy@dca07fa1cdf8ed3eaf8f318f3d905fd12cef3b41 # v0.74.0
+        env:
+          TRIVY_EXIT_CODE: "1"
         with:
           scan_target: "dlstreamer-deb-final:daily-${{ matrix.ubuntu_version }}-${{ github.sha }}"
           severity: "HIGH"
@@ -79,42 +81,49 @@ jobs:
           timeout: 20m
           ignore_unfixed: true
 
-      - name: Fail if Trivy found HIGH or CRITICAL vulnerabilities
+      - name: Save table report and check Trivy results
+        if: always()
         env:
           TRIVY_EXIT_CODE: ${{ steps.trivy-scan.outputs.scan_result }}
           TRIVY_REPORT_PATH: ${{ steps.trivy-scan.outputs.report_path }}
+          UBUNTU_VERSION: ${{ matrix.ubuntu_version }}
         run: |
           set -euo pipefail
 
-          if [[ "$TRIVY_EXIT_CODE" != "0" ]]; then
-            echo "::error::Trivy scan failed with exit code ${TRIVY_EXIT_CODE:-unknown}."
+          report_dir="trivy-report-output/${UBUNTU_VERSION}"
+          mkdir -p "$report_dir"
+
+          if [[ -n "$TRIVY_REPORT_PATH" && -s "$TRIVY_REPORT_PATH" ]]; then
+            cp "$TRIVY_REPORT_PATH" "$report_dir/trivy-report.table"
+          else
+            echo "::error::Trivy did not produce a readable table report."
+            printf 'FAIL (Trivy report missing)\n' > "$report_dir/scan-result.txt"
             exit 1
           fi
 
-          if [[ -z "$TRIVY_REPORT_PATH" || ! -f "$TRIVY_REPORT_PATH" ]]; then
-            echo "::error::Trivy did not produce a readable JSON report."
+          high_critical_count=$(grep -Eoc '([│|])[[:space:]]*(HIGH|CRITICAL)[[:space:]]*([│|])' "$report_dir/trivy-report.table" || true)
+          if [[ "$TRIVY_EXIT_CODE" == "0" && "$high_critical_count" == "0" ]]; then
+            result="PASS (0 HIGH/CRITICAL)"
+          else
+            result="FAIL (${high_critical_count} HIGH/CRITICAL; exit code ${TRIVY_EXIT_CODE:-unknown})"
+          fi
+          printf '%s\n' "$result" > "$report_dir/scan-result.txt"
+          echo "## Trivy scan: ${UBUNTU_VERSION}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Result: ${result}" >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "$TRIVY_EXIT_CODE" != "0" || "$high_critical_count" != "0" ]]; then
+            echo "::error::Trivy scan failed or found HIGH/CRITICAL vulnerabilities."
             exit 1
           fi
 
-          if ! jq -e 'type == "object" and (.Results | type == "array")' "$TRIVY_REPORT_PATH" >/dev/null; then
-            echo "::error::Trivy report is not valid JSON vulnerability output."
-            exit 1
-          fi
-
-          vulnerability_count=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH" or .Severity == "CRITICAL")] | length' "$TRIVY_REPORT_PATH")
-          if [[ "$vulnerability_count" -gt 0 ]]; then
-            echo "::error::Trivy found ${vulnerability_count} HIGH or CRITICAL vulnerabilities."
-            exit 1
-          fi
-
-          echo "No HIGH or CRITICAL vulnerabilities found."
+          echo "Trivy scan passed with no HIGH or CRITICAL vulnerabilities."
 
       - name: Save ${{ matrix.ubuntu_version }} Trivy report for aggregation
-        if: always() && steps.trivy-scan.outputs.report_path != ''
+        if: always() && hashFiles('trivy-report-output/${{ matrix.ubuntu_version }}/*') != ''
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # 7.0.1
         with:
           name: trivy-report-${{ matrix.ubuntu_version }}
-          path: ${{ steps.trivy-scan.outputs.report_path }}
+          path: trivy-report-output/${{ matrix.ubuntu_version }}/
           if-no-files-found: error
           retention-days: 7
 
@@ -142,9 +151,7 @@ jobs:
         if: always()
         run: |
           python3 - <<'PY'
-          import json
           import os
-          from collections import Counter
           from pathlib import Path
 
           root = Path("trivy-reports")
@@ -152,68 +159,42 @@ jobs:
           lines = [
               "## Daily DEB image Trivy scan",
               "",
-              "| Image | Result | Critical | High | Medium | Low | Unknown | Total |",
-              "|---|---:|---:|---:|---:|---:|---:|---:|",
+              "| Image | Result |",
+              "|---|---|",
           ]
+          table_reports = []
           overall_failed = False
 
           for platform in platforms:
-              matches = list((root / f"trivy-report-{platform}").glob("*.json"))
-              if len(matches) != 1:
-                  lines.append(f"| {platform} | MISSING ({len(matches)} reports) | - | - | - | - | - | - |")
-                  overall_failed = True
-                  continue
+              table_path = root / f"trivy-report-{platform}" / "trivy-report.table"
+              status_path = root / f"trivy-report-{platform}" / "scan-result.txt"
+              if status_path.is_file():
+                  status = status_path.read_text().strip()
+              else:
+                  status = "FAIL (scan result missing)"
+              lines.append(f"| {platform} | {status} |")
+              overall_failed |= not status.startswith("PASS")
 
-              try:
-                  report = json.loads(matches[0].read_text())
-                  if not isinstance(report, dict) or not isinstance(report.get("Results"), list):
-                      raise ValueError("missing Results array")
-                  severities = Counter()
-                  for result in report["Results"]:
-                      if not isinstance(result, dict):
-                          raise ValueError("invalid result entry")
-                      vulnerabilities = result.get("Vulnerabilities") or []
-                      if not isinstance(vulnerabilities, list):
-                          raise ValueError("invalid vulnerabilities list")
-                      for vulnerability in vulnerabilities:
-                          if not isinstance(vulnerability, dict):
-                              raise ValueError("invalid vulnerability entry")
-                          severities[vulnerability.get("Severity", "UNKNOWN").upper()] += 1
-              except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as error:
-                  lines.append(f"| {platform} | INVALID ({error}) | - | - | - | - | - | - |")
-                  overall_failed = True
-                  continue
+              if table_path.is_file():
+                  table_reports.extend([
+                      "",
+                      f"### {platform} Trivy report",
+                      "",
+                      "```text",
+                      table_path.read_text().rstrip(),
+                      "```",
+                  ])
+              else:
+                  table_reports.extend(["", f"### {platform} Trivy report", "", "Report table is missing."])
 
-              high_critical = severities["HIGH"] + severities["CRITICAL"]
-              status = "FAIL" if high_critical else "PASS"
-              overall_failed |= high_critical > 0
-              total = sum(severities.values())
-              lines.append(
-                  f"| {platform} | {status} | {severities['CRITICAL']} | {severities['HIGH']} | "
-                  f"{severities['MEDIUM']} | {severities['LOW']} | {severities['UNKNOWN']} | {total} |"
-              )
+              if not table_path.is_file():
+                  overall_failed = True
 
           lines.extend(["", f"**Overall result: {'FAIL' if overall_failed else 'PASS'}**"])
+          lines.extend(table_reports)
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
               summary.write("\n".join(lines) + "\n")
           PY
-
-      - name: Print Trivy JSON reports in CI log
-        if: always()
-        shell: bash
-        run: |
-          shopt -s nullglob
-          reports=(trivy-reports/trivy-report-*/*.json)
-          if (( ${#reports[@]} == 0 )); then
-            echo "No Trivy JSON reports were downloaded."
-            exit 0
-          fi
-
-          for report in "${reports[@]}"; do
-            echo "===== ${report} ====="
-            cat "$report"
-            echo
-          done
 
       - name: Create combined ZIP
         run: |
@@ -225,16 +206,14 @@ jobs:
           platforms = ("ubuntu22", "ubuntu24", "ubuntu26")
           reports = []
           for platform in platforms:
-              matches = list((root / f"trivy-report-{platform}").glob("*.json"))
+              matches = list((root / f"trivy-report-{platform}").glob("*.table"))
               if len(matches) != 1:
-                  raise SystemExit(
-                      f"Expected exactly one Trivy JSON report for {platform}, found {len(matches)}"
-                  )
+                  raise SystemExit(f"Expected exactly one Trivy table report for {platform}, found {len(matches)}")
               reports.append((platform, matches[0]))
 
           with ZipFile("trivy-report-all-images.zip", "w", ZIP_DEFLATED) as archive:
               for platform, report in reports:
-                  archive.write(report, arcname=f"{platform}/{report.name}")
+                  archive.write(report, arcname=f"{platform}/trivy-report.table")
           PY
 
       - name: Upload combined Trivy report
