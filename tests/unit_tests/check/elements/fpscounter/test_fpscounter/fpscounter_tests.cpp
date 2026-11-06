@@ -97,6 +97,45 @@ TEST_F(FpsCounterTest, FpsCounters_C_interface_positive) {
     fps_counter_set_output(stdout);
 }
 
+TEST_F(FpsCounterTest, FpsCounters_C_interface_silent) {
+    FILE *tmpFile = getTempFile();
+    ASSERT_TRUE(tmpFile != nullptr);
+    fps_counter_set_output(tmpFile);
+    fps_counter_create_iterative("1", false, false);
+
+    // nothing is expected to be written while the counter is silenced
+    fps_counter_set_silent(true);
+    fps_counter_new_frame(nullptr, "test1", nullptr);
+    usleep(1000000);
+    fps_counter_new_frame(nullptr, "test1", nullptr);
+    fps_counter_eos("test1");
+
+    fseek(tmpFile, 0, SEEK_END);
+    EXPECT_EQ(ftell(tmpFile), 0);
+
+    // changing the output while silenced must not break the silence
+    fps_counter_set_output(tmpFile);
+    fps_counter_new_frame(nullptr, "test1", nullptr);
+    usleep(1000000);
+    fps_counter_new_frame(nullptr, "test1", nullptr);
+
+    fseek(tmpFile, 0, SEEK_END);
+    EXPECT_EQ(ftell(tmpFile), 0);
+
+    // once unsilenced, the configured output is used again
+    fps_counter_set_silent(false);
+    fps_counter_new_frame(nullptr, "test1", nullptr);
+    usleep(1000000);
+    fps_counter_new_frame(nullptr, "test1", nullptr);
+
+    fseek(tmpFile, 0, SEEK_END);
+    EXPECT_GT(ftell(tmpFile), 0);
+
+    fclose(tmpFile);
+
+    fps_counter_set_output(stdout);
+}
+
 GTEST_API_ int main(int argc, char **argv) {
     std::cout << "Running Components::FpsCounterTest from " << __FILE__ << std::endl;
     testing::InitGoogleTest(&argc, argv);
