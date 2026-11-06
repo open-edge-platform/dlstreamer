@@ -200,14 +200,12 @@ jobs:
 
       - name: Scan ${{ matrix.ubuntu_version }} image with Trivy
         if: needs.setup.outputs.should_run == 'true'
-        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@dca07fa1cdf8ed3eaf8f318f3d905fd12cef3b41 #v0.74.0
+        uses: ./dlstreamer/.github/actions/security/trivy-image
         with:
           scan_target: "ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}"
           severity: "HIGH"
-          scan_type: image
           format: table
           report_suffix: "-${{ matrix.ubuntu_version }}-deb-final-image"
-          scan-scope: all
           timeout: 20m
           ignore_unfixed: true
 
