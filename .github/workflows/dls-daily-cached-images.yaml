@@ -1,6 +1,9 @@
 name: "[DLS] [U22/24/26] Build daily cache imgs"
 run-name: "[DLS] [U22/24/26] Build daily cache imgs"
 on:
+  push:
+    branches:
+      - nsz-fix-u22-trivy
   schedule:
     - cron: '0 3 * * *' # 3:00 UTC every day
   workflow_dispatch:
@@ -64,19 +67,105 @@ jobs:
             ${{ env.DLS_REL_PATH }}
 
       - name: Scan ${{ matrix.ubuntu_version }} DEB image with Trivy
-        uses: ./dlstreamer-repo/.github/actions/security/trivy-image
+        id: trivy-scan
+        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@dca07fa1cdf8ed3eaf8f318f3d905fd12cef3b41 # v0.74.0
         with:
           scan_target: "dlstreamer-deb-final:daily-${{ matrix.ubuntu_version }}-${{ github.sha }}"
           severity: "HIGH"
-          format: table
+          scan_type: image
+          format: json
           report_suffix: "-${{ matrix.ubuntu_version }}-daily-deb-image"
+          scan-scope: all
           timeout: 20m
           ignore_unfixed: true
+
+      - name: Fail if Trivy found HIGH or CRITICAL vulnerabilities
+        env:
+          TRIVY_EXIT_CODE: ${{ steps.trivy-scan.outputs.scan_result }}
+          TRIVY_REPORT_PATH: ${{ steps.trivy-scan.outputs.report_path }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$TRIVY_EXIT_CODE" != "0" ]]; then
+            echo "::error::Trivy scan failed with exit code ${TRIVY_EXIT_CODE:-unknown}."
+            exit 1
+          fi
+
+          if [[ -z "$TRIVY_REPORT_PATH" || ! -f "$TRIVY_REPORT_PATH" ]]; then
+            echo "::error::Trivy did not produce a readable JSON report."
+            exit 1
+          fi
+
+          if ! jq -e 'type == "object" and (.Results | type == "array")' "$TRIVY_REPORT_PATH" >/dev/null; then
+            echo "::error::Trivy report is not valid JSON vulnerability output."
+            exit 1
+          fi
+
+          vulnerability_count=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH" or .Severity == "CRITICAL")] | length' "$TRIVY_REPORT_PATH")
+          if [[ "$vulnerability_count" -gt 0 ]]; then
+            echo "::error::Trivy found ${vulnerability_count} HIGH or CRITICAL vulnerabilities."
+            exit 1
+          fi
+
+          echo "No HIGH or CRITICAL vulnerabilities found."
+
+      - name: Save ${{ matrix.ubuntu_version }} Trivy report for aggregation
+        if: always() && steps.trivy-scan.outputs.report_path != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # 7.0.1
+        with:
+          name: trivy-report-${{ matrix.ubuntu_version }}
+          path: ${{ steps.trivy-scan.outputs.report_path }}
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Clean up
         if: always()
         run: |
           rm -rf dlstreamer-repo
+
+  aggregate-trivy-reports:
+    name: Create combined Trivy report
+    runs-on: dlstreamer
+    needs: build-dls-deb-img
+    if: always()
+    permissions:
+      contents: read
+    steps:
+      - name: Download image Trivy reports
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: trivy-report-*
+          path: trivy-reports
+
+      - name: Create combined ZIP
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZIP_DEFLATED, ZipFile
+
+          root = Path("trivy-reports")
+          platforms = ("ubuntu22", "ubuntu24", "ubuntu26")
+          reports = []
+          for platform in platforms:
+              matches = list((root / f"trivy-report-{platform}").glob("*.json"))
+              if len(matches) != 1:
+                  raise SystemExit(
+                      f"Expected exactly one Trivy JSON report for {platform}, found {len(matches)}"
+                  )
+              reports.append((platform, matches[0]))
+
+          with ZipFile("trivy-report-all-images.zip", "w", ZIP_DEFLATED) as archive:
+              for platform, report in reports:
+                  archive.write(report, arcname=f"{platform}/{report.name}")
+          PY
+
+      - name: Upload combined Trivy report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # 7.0.1
+        with:
+          name: trivy-report-all-images
+          path: trivy-report-all-images.zip
+          if-no-files-found: error
+          retention-days: 7
 
   build-dls-dev-img:
     name: Build DLS ${{ matrix.ubuntu_version }} dev debug img
