@@ -73,7 +73,7 @@ jobs:
           scan_target: "dlstreamer-deb-final:daily-${{ matrix.ubuntu_version }}-${{ github.sha }}"
           severity: "HIGH"
           scan_type: image
-          format: json
+          format: table
           report_suffix: "-${{ matrix.ubuntu_version }}-daily-deb-image"
           scan-scope: all
           timeout: 20m
@@ -136,6 +136,84 @@ jobs:
         with:
           pattern: trivy-report-*
           path: trivy-reports
+          if-no-artifact-found: warn
+
+      - name: Add Trivy results to job summary
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from collections import Counter
+          from pathlib import Path
+
+          root = Path("trivy-reports")
+          platforms = ("ubuntu22", "ubuntu24", "ubuntu26")
+          lines = [
+              "## Daily DEB image Trivy scan",
+              "",
+              "| Image | Result | Critical | High | Medium | Low | Unknown | Total |",
+              "|---|---:|---:|---:|---:|---:|---:|---:|",
+          ]
+          overall_failed = False
+
+          for platform in platforms:
+              matches = list((root / f"trivy-report-{platform}").glob("*.json"))
+              if len(matches) != 1:
+                  lines.append(f"| {platform} | MISSING ({len(matches)} reports) | - | - | - | - | - | - |")
+                  overall_failed = True
+                  continue
+
+              try:
+                  report = json.loads(matches[0].read_text())
+                  if not isinstance(report, dict) or not isinstance(report.get("Results"), list):
+                      raise ValueError("missing Results array")
+                  severities = Counter()
+                  for result in report["Results"]:
+                      if not isinstance(result, dict):
+                          raise ValueError("invalid result entry")
+                      vulnerabilities = result.get("Vulnerabilities") or []
+                      if not isinstance(vulnerabilities, list):
+                          raise ValueError("invalid vulnerabilities list")
+                      for vulnerability in vulnerabilities:
+                          if not isinstance(vulnerability, dict):
+                              raise ValueError("invalid vulnerability entry")
+                          severities[vulnerability.get("Severity", "UNKNOWN").upper()] += 1
+              except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as error:
+                  lines.append(f"| {platform} | INVALID ({error}) | - | - | - | - | - | - |")
+                  overall_failed = True
+                  continue
+
+              high_critical = severities["HIGH"] + severities["CRITICAL"]
+              status = "FAIL" if high_critical else "PASS"
+              overall_failed |= high_critical > 0
+              total = sum(severities.values())
+              lines.append(
+                  f"| {platform} | {status} | {severities['CRITICAL']} | {severities['HIGH']} | "
+                  f"{severities['MEDIUM']} | {severities['LOW']} | {severities['UNKNOWN']} | {total} |"
+              )
+
+          lines.extend(["", f"**Overall result: {'FAIL' if overall_failed else 'PASS'}**"])
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+              summary.write("\n".join(lines) + "\n")
+          PY
+
+      - name: Print Trivy JSON reports in CI log
+        if: always()
+        shell: bash
+        run: |
+          shopt -s nullglob
+          reports=(trivy-reports/trivy-report-*/*.json)
+          if (( ${#reports[@]} == 0 )); then
+            echo "No Trivy JSON reports were downloaded."
+            exit 0
+          fi
+
+          for report in "${reports[@]}"; do
+            echo "===== ${report} ====="
+            cat "$report"
+            echo
+          done
 
       - name: Create combined ZIP
         run: |
