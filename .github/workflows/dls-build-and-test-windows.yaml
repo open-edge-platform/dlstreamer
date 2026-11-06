@@ -138,15 +138,8 @@ jobs:
         with:
           persist-credentials: false
           path: dlstreamer-repo
-          submodules: false
+          submodules: true
           fetch-depth: 1
-
-      - name: Init submodules
-        if: needs.setup.outputs.should_run == 'true'
-        run: |
-          cd dlstreamer-repo
-          git submodule update --init thirdparty/spdlog
-          git submodule update --init thirdparty/googletest
 
       - name: Copy DLStreamer repo
         if: needs.setup.outputs.should_run == 'true'

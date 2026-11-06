@@ -32,11 +32,7 @@ jobs:
         with:
           persist-credentials: false
           path: dlstreamer-repo
-
-      - name: Init submodules
-        run: |
-          cd dlstreamer-repo
-          git submodule update --init thirdparty/spdlog
+          submodules: true
 
       - name: Pre-pull BuildKit image
         uses: ./dlstreamer-repo/.github/actions/common/pull-buildkit-image
@@ -53,9 +49,12 @@ jobs:
 
       - name: Build deb final img with cache from GHCR
         env:
+          deb_final_img: dlstreamer-deb-final:daily-${{ matrix.ubuntu_version }}-${{ github.sha }}
           deb_final_img_cached: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:buildcache
         run: |
           docker buildx build \
+            --load \
+            --tag "${deb_final_img}" \
             --target dlstreamer \
             --cache-to=type=registry,ref=${deb_final_img_cached},mode=max \
             --cache-from=type=registry,ref=${deb_final_img_cached} \
@@ -63,6 +62,16 @@ jobs:
             --build-arg DLSTREAMER_BUILD_NUMBER=deb-pkg-${{ matrix.ubuntu_version }} \
             -f ${{ matrix.path_dockerfile }} \
             ${{ env.DLS_REL_PATH }}
+
+      - name: Scan ${{ matrix.ubuntu_version }} DEB image with Trivy
+        uses: ./dlstreamer-repo/.github/actions/security/trivy-image
+        with:
+          scan_target: "dlstreamer-deb-final:daily-${{ matrix.ubuntu_version }}-${{ github.sha }}"
+          severity: "HIGH"
+          format: table
+          report_suffix: "-${{ matrix.ubuntu_version }}-daily-deb-image"
+          timeout: 20m
+          ignore_unfixed: true
 
       - name: Clean up
         if: always()
@@ -94,11 +103,7 @@ jobs:
         with:
           persist-credentials: false
           path: dlstreamer-repo
-
-      - name: Init submodules
-        run: |
-          cd dlstreamer-repo
-          git submodule update --init thirdparty/spdlog
+          submodules: true
 
       - name: Pre-pull BuildKit image
         uses: ./dlstreamer-repo/.github/actions/common/pull-buildkit-image
@@ -146,11 +151,7 @@ jobs:
         with:
           persist-credentials: false
           path: dlstreamer-repo
-
-      - name: Init submodules
-        run: |
-          cd dlstreamer-repo
-          git submodule update --init thirdparty/spdlog
+          submodules: true
 
       - name: Pre-pull BuildKit image
         uses: ./dlstreamer-repo/.github/actions/common/pull-buildkit-image

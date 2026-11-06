@@ -169,6 +169,7 @@ runs:
           --format "$REPORT_FORMAT"
           --output "$report_file"
           --timeout "$SCAN_TIMEOUT"
+          --exit-code 1
         )
         if [[ "$IGNORE_UNFIXED" == "true" ]]; then
           args+=(--ignore-unfixed)

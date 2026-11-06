@@ -94,17 +94,6 @@ jobs:
             -f ./dlstreamer/docker/ubuntu/ubuntu22.Dockerfile \
             ${{ env.DLS_REL_PATH }}
 
-      - name: Scan Ubuntu22 image with Trivy
-        if: needs.setup.outputs.should_run == 'true'
-        uses: ./dlstreamer/.github/actions/security/trivy-image
-        with:
-          scan_target: "ghcr.io/${{ github.repository }}/deb-final-img-ubuntu22:${{ github.sha }}"
-          severity: "HIGH"
-          format: table
-          report_suffix: "-ubuntu22-deb-final-image"
-          timeout: 20m
-          ignore_unfixed: true
-
       - name: Check Ubuntu22 image size
         if: needs.setup.outputs.should_run == 'true'
         id: check-size

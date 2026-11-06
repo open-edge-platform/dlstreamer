@@ -141,13 +141,8 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #7.0.1
         with:
           persist-credentials: false
+          submodules: true
           path: dlstreamer
-
-      - name: Init submodules
-        if: needs.setup.outputs.should_run == 'true'
-        run: |
-          cd dlstreamer
-          git submodule update --init thirdparty/spdlog
 
       - name: Check out test repository
         if: needs.setup.outputs.should_run == 'true'
@@ -197,17 +192,6 @@ jobs:
             --build-arg DLSTREAMER_BUILD_NUMBER=deb-pkg-${ubuntu_version} \
             -f ${path_dockerfile} \
             ${{ env.DLS_REL_PATH }}
-
-      - name: Scan ${{ matrix.ubuntu_version }} image with Trivy
-        if: needs.setup.outputs.should_run == 'true'
-        uses: ./dlstreamer/.github/actions/security/trivy-image
-        with:
-          scan_target: "ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:${{ github.sha }}"
-          severity: "HIGH"
-          format: table
-          report_suffix: "-${{ matrix.ubuntu_version }}-deb-final-image"
-          timeout: 20m
-          ignore_unfixed: true
 
       - name: Build dlstreamer img with python
         if: needs.setup.outputs.should_run == 'true'

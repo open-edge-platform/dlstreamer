@@ -65,11 +65,7 @@ jobs:
         with:
           persist-credentials: false
           path: dlstreamer-repo
-
-      - name: Init submodules
-        run: |
-          cd dlstreamer-repo
-          git submodule update --init thirdparty/spdlog
+          submodules: true
 
       - name: Ensure uv is installed
         run: |
