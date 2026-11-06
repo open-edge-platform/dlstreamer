@@ -58,6 +58,10 @@ Key measurement for `latency_tracer_pipeline`:
 - `fps` - frames per second indicating the throughput of the pipeline, calculated as `1000 / latency` where latency is in milliseconds
 - `frame_num` - frame number for which latencies values are calculated
 
+Statistics cover the current run of a pipeline. When a pipeline goes from `PAUSED` to `READY`, for example when it is
+stopped, the tracer resets its pipeline and element statistics, so a restarted pipeline begins again from
+`frame_num` 1. Pausing and resuming a pipeline keeps its statistics.
+
 ### Configuration options
 
 The `latency_tracer` can be configured to show latencies only for elements or a pipeline:
