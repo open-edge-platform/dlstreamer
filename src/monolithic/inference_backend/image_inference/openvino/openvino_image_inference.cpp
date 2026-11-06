@@ -47,9 +47,11 @@ void log_openvino_version() {
 
 } // namespace
 
-void OpenVINOImageInference::SetCompletionCallback(std::shared_ptr<BatchRequest> &batch_request) {
-    assert(batch_request && "Batch request is null");
+void OpenVINOImageInference::SetCompletionCallback(InferSlot *slot) {
+    assert(slot && "Infer slot is null");
 
+    // The callback may run on an OpenVINO thread until Close() has waited for every request, which happens before the
+    // slots are destroyed.
     auto cb = [=, this](std::exception_ptr ex) {
         ITT_TASK("completion_callback");
 
@@ -57,25 +59,25 @@ void OpenVINOImageInference::SetCompletionCallback(std::shared_ptr<BatchRequest>
             if (ex) {
                 std::string ex_string = fmt::format("exception occured during inference: {}", ex);
                 GVA_ERROR("%s", ex_string.c_str());
-                this->handleError(batch_request->buffers);
+                this->handleError(slot->buffers);
             } else {
-                this->WorkingFunction(batch_request);
+                this->WorkingFunction(slot);
             }
         } catch (const std::exception &e) {
             GVA_ERROR("An error occurred at inference request completion callback:\n%s",
                       Utils::createNestedErrorMsg(e).c_str());
         }
 
-        FreeRequest(batch_request);
+        FreeSlot(slot);
     };
-    batch_request->infer_request.set_callback(cb);
+    slot->infer_request.set_callback(cb);
 }
 
 OpenVINOImageInference::OpenVINOImageInference(const InferenceBackend::InferenceConfig &config, Allocator *,
                                                dlstreamer::ContextPtr context, CallbackFunc callback,
                                                ErrorHandlingFunc error_handler, MemoryType memory_type)
     : context_(context), memory_type(memory_type), callback(callback), handleError(error_handler),
-      batch_size(std::stoi(config.at(KEY_BASE).at(KEY_BATCH_SIZE))), batch_timeout(-1), requests_processing_(0U) {
+      batch_size(std::stoi(config.at(KEY_BASE).at(KEY_BATCH_SIZE))), batch_timeout(-1), frames_in_flight_(0U) {
 
     try {
         if (config.count(KEY_INFERENCE) > 0) {
@@ -114,11 +116,11 @@ OpenVINOImageInference::OpenVINOImageInference(const InferenceBackend::Inference
         image_layer = prepared_model.image_input_name;
 
         for (int i = 0; i < nireq; i++) {
-            std::shared_ptr<BatchRequest> batch_request = std::make_shared<BatchRequest>();
-            batch_request->infer_request = compiled_model.create_infer_request();
-            batch_request->in_tensors.resize(prepared_model.model->inputs().size());
-            SetCompletionCallback(batch_request);
-            freeRequests.push(batch_request);
+            auto &slot = slots.emplace_back(std::make_unique<InferSlot>());
+            slot->infer_request = compiled_model.create_infer_request();
+            slot->in_tensors.resize(prepared_model.model->inputs().size());
+            SetCompletionCallback(slot.get());
+            free_slots.release(slot.get());
         }
 
         if (pp_type == InferenceBackend::ImagePreprocessorType::OPENCV ||
@@ -139,19 +141,19 @@ OpenVINOImageInference::~OpenVINOImageInference() {
     Close();
 }
 
-void OpenVINOImageInference::FreeRequest(std::shared_ptr<BatchRequest> request) {
-    const size_t buffer_size = request->buffers.size();
-    request->buffers.clear();
-    for (auto &in_vec : request->in_tensors) {
+void OpenVINOImageInference::FreeSlot(InferSlot *slot) {
+    const size_t frame_count = slot->buffers.size();
+    slot->buffers.clear();
+    for (auto &in_vec : slot->in_tensors) {
         in_vec.clear();
     }
-    freeRequests.push(request);
-    requests_processing_ -= buffer_size;
+    free_slots.release(slot);
+    frames_in_flight_ -= frame_count;
     request_processed_.notify_all();
 }
 
 bool OpenVINOImageInference::IsQueueFull() {
-    return freeRequests.empty();
+    return !free_slots.has_free();
 }
 
 const std::string &OpenVINOImageInference::GetModelName() const {
@@ -261,58 +263,62 @@ void OpenVINOImageInference::Flush() {
 
     std::unique_lock<std::mutex> flush_lk(flush_mutex);
 
-    while (requests_processing_ != 0) {
-        auto request = freeRequests.pop();
+    while (frames_in_flight_ != 0) {
+        // Nothing is acquired when the pool is closed and every request is still in flight; wait for them below.
+        if (auto acquired = free_slots.acquire()) {
+            auto slot = *acquired;
 
-        if (request->buffers.size() > 0) {
-            try {
-                // WA: Fill non-complete batch with last element for bypass preprocessing only.
-                // When software preprocessing is used, frames are written directly into the infer-request-owned
-                // batched tensor, so any unfilled tail slots in the last partial batch already contain data from a
-                // previous request reuse.
-                if (batch_size > 1 && !DoNeedImagePreProcessing(nullptr)) {
-                    size_t input_idx = 0;
-                    for (auto &input_vec : request->in_tensors) {
-                        for (int i = input_vec.size(); i < batch_size; i++)
-                            input_vec.push_back(input_vec.back());
-                        // FIXME: move?
-                        request->infer_request.set_input_tensors(input_idx, input_vec);
-                        input_idx++;
+            if (slot->buffers.size() > 0) {
+                try {
+                    // WA: Fill non-complete batch with last element for bypass preprocessing only.
+                    // When software preprocessing is used, frames are written directly into the infer-request-owned
+                    // batched tensor, so any unfilled tail slots in the last partial batch already contain data from
+                    // a previous request reuse.
+                    if (batch_size > 1 && !DoNeedImagePreProcessing(nullptr)) {
+                        size_t input_idx = 0;
+                        for (auto &input_vec : slot->in_tensors) {
+                            for (int i = input_vec.size(); i < batch_size; i++)
+                                input_vec.push_back(input_vec.back());
+                            // FIXME: move?
+                            slot->infer_request.set_input_tensors(input_idx, input_vec);
+                            input_idx++;
+                        }
                     }
-                }
 
-                request->start_async();
-            } catch (const std::exception &e) {
-                GVA_ERROR("Couldn't start inferece on flush: %s", e.what());
-                this->handleError(request->buffers);
-                FreeRequest(request);
+                    slot->start_async();
+                } catch (const std::exception &e) {
+                    GVA_ERROR("Couldn't start inferece on flush: %s", e.what());
+                    this->handleError(slot->buffers);
+                    FreeSlot(slot);
+                }
+            } else {
+                free_slots.release(slot);
             }
-        } else {
-            freeRequests.push(request);
         }
 
         // wait_for unlocks flush_mutex until we get notify
-        // waiting will be continued if requests_processing_ != 0
-        request_processed_.wait_for(flush_lk, std::chrono::seconds(1), [this] { return requests_processing_ == 0; });
+        // waiting will be continued if frames_in_flight_ != 0
+        request_processed_.wait_for(flush_lk, std::chrono::seconds(1), [this] { return frames_in_flight_ == 0; });
     }
 }
 
 void OpenVINOImageInference::Close() {
+    // Wake a thread that waits in SubmitImage for a free request, so it does not block the Flush below.
+    free_slots.close();
     Flush();
-    while (!freeRequests.empty()) {
-        auto req = freeRequests.pop();
-        req->infer_request.set_callback([](std::exception_ptr) {});
+    while (auto req = free_slots.acquire()) {
+        (*req)->infer_request.set_callback([](std::exception_ptr) {});
     }
 }
 
-void OpenVINOImageInference::WorkingFunction(const std::shared_ptr<BatchRequest> &request) {
-    assert(request);
+void OpenVINOImageInference::WorkingFunction(InferSlot *slot) {
+    assert(slot);
 
     std::map<std::string, OutputBlob::Ptr> output_blobs;
     const auto &outputs = compiled_model.outputs();
     for (size_t i = 0; i < outputs.size(); i++) {
         auto name = outputs[i].get_names().size() > 0 ? outputs[i].get_any_name() : std::string("output");
-        output_blobs[name] = std::make_shared<OpenvinoOutputTensor>(request->infer_request.get_output_tensor(i));
+        output_blobs[name] = std::make_shared<OpenvinoOutputTensor>(slot->infer_request.get_output_tensor(i));
     }
-    callback(output_blobs, request->buffers);
+    callback(output_blobs, slot->buffers);
 }

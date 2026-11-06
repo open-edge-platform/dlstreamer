@@ -19,9 +19,9 @@
 #include <thread>
 
 #include "config.h"
+#include "infer_slot_pool.h"
 #include "openvino_image_to_tensor_converter.h"
 #include "openvino_prepared_model.h"
-#include "safe_queue.h"
 
 class OpenVINOImageInference : public InferenceBackend::ImageInference {
   public:
@@ -65,7 +65,7 @@ class OpenVINOImageInference : public InferenceBackend::ImageInference {
     void Close() override;
 
   protected:
-    struct BatchRequest {
+    struct InferSlot {
         ov::InferRequest infer_request;
         std::vector<IFrameBase::Ptr> buffers;
         std::vector<ov::TensorVector> in_tensors;
@@ -75,8 +75,8 @@ class OpenVINOImageInference : public InferenceBackend::ImageInference {
         }
     };
 
-    void HandleError(const std::shared_ptr<BatchRequest> &request);
-    void WorkingFunction(const std::shared_ptr<BatchRequest> &request);
+    void HandleError(InferSlot *slot);
+    void WorkingFunction(InferSlot *slot);
 
     dlstreamer::ContextPtr context_;
     InferenceBackend::MemoryType memory_type;
@@ -94,27 +94,29 @@ class OpenVINOImageInference : public InferenceBackend::ImageInference {
     int batch_size;
     int batch_timeout;
     int nireq;
-    SafeQueue<std::shared_ptr<BatchRequest>> freeRequests;
+    // All slots live here for as long as the object does; everything else only points to them.
+    std::vector<std::unique_ptr<InferSlot>> slots;
+    InferSlotPool<InferSlot *> free_slots;
 
     std::unique_ptr<InferenceBackend::ImagePreprocessor> pre_processor;
 
     // Threading
     std::mutex requests_mutex_;
-    std::atomic<unsigned int> requests_processing_;
+    std::atomic<unsigned int> frames_in_flight_;
     std::condition_variable request_processed_;
     std::mutex flush_mutex;
 
   private:
-    void FreeRequest(std::shared_ptr<BatchRequest> request);
+    void FreeSlot(InferSlot *slot);
     bool DoNeedImagePreProcessing(const InferenceBackend::ImagePtr src_img);
-    void SubmitImageProcessing(const std::string &input_name, std::shared_ptr<BatchRequest> request,
+    void SubmitImageProcessing(const std::string &input_name, InferSlot *slot,
                                const InferenceBackend::Image &src_img,
                                const InferenceBackend::InputImageLayerDesc::Ptr &pre_proc_info,
                                const InferenceBackend::ImageTransformationParams::Ptr image_transform_info);
-    void BypassImageProcessing(const std::string &input_name, std::shared_ptr<BatchRequest> request,
+    void BypassImageProcessing(const std::string &input_name, InferSlot *slot,
                                const InferenceBackend::Image &src_img, size_t batch_size);
-    void SetCompletionCallback(std::shared_ptr<BatchRequest> &batch_request);
+    void SetCompletionCallback(InferSlot *slot);
     void
-    ApplyInputPreprocessors(std::shared_ptr<BatchRequest> &request,
+    ApplyInputPreprocessors(InferSlot *slot,
                             const std::map<std::string, InferenceBackend::InputLayerDesc::Ptr> &input_preprocessors);
 };
