@@ -56,4 +56,7 @@ Element Properties:
   print-latency       : Write average frame latency for all streams. Needs timecodestamper element at the beginning of pipeline.
                         flags: readable, writable
                         Boolean. Default: false
+  silent              : If true, redirects all printed output to the null device, silencing the element. The avg-fps property is still updated.
+                        flags: readable, writable
+                        Boolean. Default: false
 ```
