@@ -18,10 +18,6 @@ add_subdirectory(registrator)
 add_subdirectory(3d_registrator)
 add_subdirectory(tracers/latency_tracer)
 
-if(${ENABLE_AUDIO_INFERENCE_ELEMENTS})
-    add_subdirectory(audio_inference_elements)
-endif()
-
 # [INTERNAL-ANCHOR-BEGIN]
 if(${ENABLE_MTCNN})
     add_subdirectory(gvamtcnn)
