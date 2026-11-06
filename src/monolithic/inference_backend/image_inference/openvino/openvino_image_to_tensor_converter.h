@@ -58,6 +58,30 @@ class ImageToTensorConverter {
     std::unique_ptr<ov::intel_npu::level_zero::ZeroContext> npu_context_;
     std::unordered_map<int, ov::Tensor> npu_dmabuf_tensor_cache_;
     std::mutex npu_dmabuf_cache_mutex_;
+
+    // Fix for https://github.com/open-edge-platform/dlstreamer/issues/1240: GPU remote tensors of the VA surfaces
+    // shared with the GPU (VAAPI_SURFACE_SHARING path), cached per surface for the lifetime of this converter.
+    // The surfaces are the VaApiImagePool buffers, which outlive the converter (see ImageNv12SurfaceToTensor).
+    struct VaSurfaceKey {
+        void *va_display;
+        uint32_t va_surface_id;
+        uint32_t width;
+        uint32_t height;
+        bool operator==(const VaSurfaceKey &o) const {
+            return va_display == o.va_display && va_surface_id == o.va_surface_id && width == o.width &&
+                   height == o.height;
+        }
+    };
+    struct VaSurfaceKeyHash {
+        size_t operator()(const VaSurfaceKey &k) const {
+            size_t h = std::hash<void *>{}(k.va_display);
+            h ^= std::hash<uint64_t>{}((uint64_t(k.va_surface_id) << 32) ^ (uint64_t(k.width) << 16) ^ k.height) +
+                 0x9e3779b9 + (h << 6) + (h >> 2);
+            return h;
+        }
+    };
+    std::unordered_map<VaSurfaceKey, std::vector<ov::Tensor>, VaSurfaceKeyHash> va_surface_tensor_cache_;
+    std::mutex va_surface_tensor_cache_mutex_;
 };
 
 } // namespace OpenVino
