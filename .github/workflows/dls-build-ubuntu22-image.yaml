@@ -1,5 +1,5 @@
 name: "[DLS] [U22] Build Ubuntu 22 image"
-run-name: "[DLS] [U22] Build Ubuntu 22 image (by ${{ github.actor }})"
+run-name: "[DLS] [U22] Build Ubuntu22 image (by ${{ github.actor }})"
 on:
   workflow_call:
     outputs:
@@ -30,11 +30,11 @@ jobs:
         id: skip-check
         uses: ./.github/actions/common/check-skip-ci
         with:
-          job_name: "Build Ubuntu 22 image"
+          job_name: "Build Ubuntu22 image"
           working_directory: "."
 
   build:
-    name: "Build Ubuntu 22 image"
+    name: "Build Ubuntu22 image"
     runs-on: dlstreamer
     needs: setup
     outputs:
@@ -78,7 +78,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Ubuntu 22 image
+      - name: Build Ubuntu22 image
         if: needs.setup.outputs.should_run == 'true'
         env:
           ubuntu22_image: ghcr.io/${{ github.repository }}/deb-final-img-ubuntu22:${{ github.sha }}
@@ -94,7 +94,7 @@ jobs:
             -f ./dlstreamer/docker/ubuntu/ubuntu22.Dockerfile \
             ${{ env.DLS_REL_PATH }}
 
-      - name: Scan Ubuntu 22 image with Trivy
+      - name: Scan Ubuntu22 image with Trivy
         if: needs.setup.outputs.should_run == 'true'
         uses: ./dlstreamer/.github/actions/security/trivy-image
         with:
@@ -105,7 +105,7 @@ jobs:
           timeout: 20m
           ignore_unfixed: true
 
-      - name: Check Ubuntu 22 image size
+      - name: Check Ubuntu22 image size
         if: needs.setup.outputs.should_run == 'true'
         id: check-size
         env:
@@ -132,11 +132,3 @@ jobs:
             echo "|-------|------|"
             echo "| Current Docker ubuntu22-deb | **${SIZE_STR} (~${IMAGE_SIZE_MB} MB)** |"
           } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Clean up
-        if: always() && needs.setup.outputs.should_run == 'true'
-        env:
-          ubuntu22_image: ghcr.io/${{ github.repository }}/deb-final-img-ubuntu22:${{ github.sha }}
-        run: |
-          rm -rf dlstreamer
-          docker rmi "${ubuntu22_image}" || true
