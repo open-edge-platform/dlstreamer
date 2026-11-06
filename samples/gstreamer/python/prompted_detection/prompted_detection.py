@@ -73,6 +73,7 @@ def main(args):
                    help="Output mode (default: appsink)")
     p.add_argument("--model", default=None,
                    help="Path to detection model .xml (default: $MODELS_PATH/" + DEFAULT_MODEL_REL + ")")
+    p.add_argument("--eos-frame", type=int, default=0, help="Stop after N decoded buffers (default: disabled)")
     parsed = p.parse_args(args[1:])
 
     video_file = ensure_file(parsed.input, "input video")
@@ -104,9 +105,10 @@ def main(args):
 
     # Create GStreamer pipeline, pass input video file and OpenVINO model file
     Gst.init([])
+    eos_element = f"identity eos-after={parsed.eos_frame} ! " if parsed.eos_frame > 0 else ""
     pipeline = Gst.parse_launch(
             f"filesrc location={video_file} ! decodebin3 ! "
-            f"gvadetect model={model_file} device={device} batch-size=4 ! queue ! "
+            f"{eos_element}gvadetect model={model_file} device={device} batch-size=4 ! queue ! "
             f"{sink}"
         )
 
@@ -120,3 +122,4 @@ def main(args):
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))
+
