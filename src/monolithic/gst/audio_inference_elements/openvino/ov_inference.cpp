@@ -6,7 +6,6 @@
 
 #include "ov_inference.h"
 #include "audio_defs.h"
-#include "core_singleton.h"
 #include "dlstreamer/openvino/utils.h"
 #include "dlstreamer/tensor_info.h"
 #include "dlstreamer/utils.h"

@@ -19,6 +19,8 @@
 #include <thread>
 
 #include "config.h"
+#include "openvino_image_to_tensor_converter.h"
+#include "openvino_prepared_model.h"
 #include "safe_queue.h"
 
 class OpenVINOImageInference : public InferenceBackend::ImageInference {
@@ -63,8 +65,6 @@ class OpenVINOImageInference : public InferenceBackend::ImageInference {
     void Close() override;
 
   protected:
-    std::unique_ptr<class OpenVinoModelAdapter> _impl;
-
     struct BatchRequest {
         ov::InferRequest infer_request;
         std::vector<IFrameBase::Ptr> buffers;
@@ -82,6 +82,11 @@ class OpenVINOImageInference : public InferenceBackend::ImageInference {
     InferenceBackend::MemoryType memory_type;
     CallbackFunc callback;
     ErrorHandlingFunc handleError;
+
+    std::string model_path;
+    InferenceBackend::OpenVino::PreparedModel prepared_model;
+    ov::CompiledModel compiled_model;
+    std::unique_ptr<InferenceBackend::OpenVino::ImageToTensorConverter> img_to_tensor;
 
     std::string model_name;
     std::string image_layer;

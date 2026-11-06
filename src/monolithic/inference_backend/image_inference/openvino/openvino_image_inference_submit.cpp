@@ -11,7 +11,6 @@
 #include "openvino_image_inference.h"
 
 #include "openvino_blob_wrapper.h"
-#include "openvino_model_adapter.h"
 
 #include "inference_backend/logger.h"
 #include "safe_arithmetic.hpp"
@@ -110,7 +109,7 @@ void OpenVINOImageInference::BypassImageProcessing(const std::string &input_name
                                                    const Image &src_img, size_t batch_size) {
     ITT_TASK(__FUNCTION__);
 
-    auto ov_tensor = _impl->_img_to_tensor->image_to_tensors(src_img);
+    auto ov_tensor = img_to_tensor->image_to_tensors(src_img);
 
     if (batch_size > 1) {
         if (ov_tensor.size() != request->in_tensors.size())
@@ -149,7 +148,7 @@ bool OpenVINOImageInference::DoNeedImagePreProcessing(const InferenceBackend::Im
 
     // OV plugins exhibit low peformance (serialization) when VA pre-processor generates non-continous tensors
     // Add OpenCV pre-rocessor to compress non-continous tensors on top of VA pre-processor which does resize/crop/etc.
-    if ((_impl->_memory_type == MemoryType::SYSTEM) &&
+    if ((memory_type == MemoryType::SYSTEM) &&
         ((image->format == FourCC::FOURCC_RGBP) || (image->format == FourCC::FOURCC_BGRP))) {
 
         if (!isImageContiguous(*image)) {
@@ -179,7 +178,7 @@ void OpenVINOImageInference::ApplyInputPreprocessors(
                 continue;
         }
 
-        const auto &model_inputs = _impl->model()->inputs();
+        const auto &model_inputs = prepared_model.model->inputs();
         std::shared_ptr<OpenvinoInputTensor> intput_tensor = nullptr;
         if ((preprocessor.first == KEY_image) && (model_inputs.size() == 1) && !request->in_tensors.empty() &&
             !request->in_tensors.front().empty()) {

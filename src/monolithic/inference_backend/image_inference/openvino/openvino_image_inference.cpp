@@ -20,7 +20,7 @@
 #include "openvino_core.h"
 #include "openvino_formatters.h"
 #include "openvino_image_inference.h"
-#include "openvino_model_adapter.h"
+#include "openvino_model_compilation.h"
 
 #include "config.h"
 #include "inference_backend/logger.h"
@@ -38,6 +38,14 @@
 
 using namespace InferenceBackend;
 using namespace InferenceBackend::OpenVino;
+
+namespace {
+
+void log_openvino_version() {
+    GVA_DEBUG("OpenVINO version: %s", ov::get_openvino_version().buildNumber);
+}
+
+} // namespace
 
 void OpenVINOImageInference::SetCompletionCallback(std::shared_ptr<BatchRequest> &batch_request) {
     assert(batch_request && "Batch request is null");
@@ -79,18 +87,36 @@ OpenVINOImageInference::OpenVINOImageInference(const InferenceBackend::Inference
 
         ConfigHelper cfg_helper(config);
         const auto pp_type = cfg_helper.pp_type();
-        _impl = std::make_unique<OpenVinoModelAdapter>(cfg_helper, context, callback, error_handler, memory_type);
+        log_openvino_version();
 
-        model_name = _impl->model()->get_friendly_name();
-        nireq = _impl->_nireq;
-        batch_size = _impl->batch_size();
-        batch_timeout = _impl->batch_timeout();
-        image_layer = _impl->image_input_name();
+        const std::string &device = cfg_helper.device();
+        const std::string ov_extension_lib = cfg_helper.ov_extension_lib();
+        if (!ov_extension_lib.empty()) {
+            openvino_core().add_extension(ov_extension_lib);
+        }
+
+        // read the model, prepare it for the pipeline, then compile it on the device
+        model_path = cfg_helper.model_path();
+        prepared_model = prepare_model(openvino_core().read_model(model_path), cfg_helper, memory_type);
+
+        const auto remote_context = create_remote_context(device, memory_type, context);
+        img_to_tensor = std::make_unique<ImageToTensorConverter>(remote_context);
+        compiled_model = compile_model_for_device(prepared_model, cfg_helper, device, memory_type, remote_context);
+
+        nireq = cfg_helper.nireq();
+        if (!nireq)
+            nireq = compiled_model.get_property(ov::optimal_number_of_infer_requests);
+        GVA_DEBUG("Num of inference req: %d", nireq);
+
+        model_name = prepared_model.model->get_friendly_name();
+        batch_size = prepared_model.batch_size;
+        batch_timeout = prepared_model.batch_timeout;
+        image_layer = prepared_model.image_input_name;
 
         for (int i = 0; i < nireq; i++) {
             std::shared_ptr<BatchRequest> batch_request = std::make_shared<BatchRequest>();
-            batch_request->infer_request = _impl->_compiled_model.create_infer_request();
-            batch_request->in_tensors.resize(_impl->model()->inputs().size());
+            batch_request->infer_request = compiled_model.create_infer_request();
+            batch_request->in_tensors.resize(prepared_model.model->inputs().size());
             SetCompletionCallback(batch_request);
             freeRequests.push(batch_request);
         }
@@ -146,21 +172,36 @@ size_t OpenVINOImageInference::GetNireq() const {
 
 void OpenVINOImageInference::GetModelImageInputInfo(size_t &width, size_t &height, size_t &batch_size, int &format,
                                                     int &memory_type_) const {
-    _impl->get_model_image_input_info(width, height, batch_size, format, memory_type_);
+    const ImageInputInfo &info = prepared_model.image_input;
+    width = info.width;
+    height = info.height;
+    batch_size = info.batch_size;
+    format = info.format;
+    memory_type_ = info.memory_type;
 }
 
 std::map<std::string, std::vector<size_t>> OpenVINOImageInference::GetModelInputsInfo() const {
-    auto info = _impl->get_model_inputs_info();
-    return info;
+    std::map<std::string, std::vector<size_t>> res;
+    for (auto node : prepared_model.model->get_parameters()) {
+        auto shape = node->is_dynamic() ? node->get_input_partial_shape(0).get_min_shape() : node->get_shape();
+        res.emplace(node->get_friendly_name(), std::move(shape));
+    }
+
+    return res;
 }
 
 std::map<std::string, std::vector<size_t>> OpenVINOImageInference::GetModelOutputsInfo() const {
-    auto info = _impl->get_model_outputs_info();
-    return info;
+    std::map<std::string, std::vector<size_t>> res;
+    for (auto &node : prepared_model.model->outputs()) {
+        auto shape = node.get_node()->is_dynamic() ? node.get_partial_shape().get_min_shape() : node.get_shape();
+        auto name = node.get_names().size() > 0 ? node.get_any_name() : std::string("output");
+        res.emplace(name, std::move(shape));
+    }
+    return res;
 }
 
 std::map<std::string, GstStructure *> OpenVINOImageInference::GetModelInfoPostproc() const {
-    auto info = ModelApiConverters::get_model_info_postproc(_impl->model(), _impl->_model_path);
+    auto info = ModelApiConverters::get_model_info_postproc(prepared_model.model, model_path);
     return info;
 }
 
@@ -268,7 +309,7 @@ void OpenVINOImageInference::WorkingFunction(const std::shared_ptr<BatchRequest>
     assert(request);
 
     std::map<std::string, OutputBlob::Ptr> output_blobs;
-    const auto &outputs = _impl->_compiled_model.outputs();
+    const auto &outputs = compiled_model.outputs();
     for (size_t i = 0; i < outputs.size(); i++) {
         auto name = outputs[i].get_names().size() > 0 ? outputs[i].get_any_name() : std::string("output");
         output_blobs[name] = std::make_shared<OpenvinoOutputTensor>(request->infer_request.get_output_tensor(i));
