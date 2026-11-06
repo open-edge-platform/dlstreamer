@@ -3,6 +3,67 @@
 Overlays the metadata on the video frame to visualize the inference
 results.
 
+With `device=GPU`, the element draws with OpenCL straight into the planes of
+`NV12` frames in video memory: `video/x-raw(memory:VAMemory)` on Linux, and
+`video/x-raw(memory:D3D11Memory)` or `video/x-raw(memory:D3D12Memory)` on
+Windows. The frame is not copied to system memory, which the CPU renderer has to
+do for every frame in video memory.
+
+- The GPU renderer draws the same pixels as the CPU renderer: boxes, labels and
+  their backgrounds, keypoints and their connections, instance segmentation
+  masks, and blurred regions.
+- Its cost depends on the area the watermark covers, not on the frame size:
+  labels are rasterized on the CPU once and reused across frames. Blurring large
+  regions is the expensive part, see [Performance consideration](#performance-consideration).
+- Frames in another format, and frames with rotated regions (from oriented
+  detection models such as YOLO-OBB), are drawn by the CPU renderer instead,
+  one frame at a time.
+- Semantic segmentation masks are drawn only on `BGRx`, `BGRA` and `BGR` frames,
+  by the CPU renderer. Neither renderer draws them on `NV12`, and on `I420` the
+  CPU renderer draws no segmentation masks at all: such frames stop the pipeline
+  with an error.
+- The GPU renderer is built when OpenCL is found, and on Linux also VA-API. If
+  the GPU cannot share the frames with OpenCL, the element logs a warning and
+  uses the CPU renderer.
+- On Linux, `device` defaults to `CPU`. Set `device=GPU` and keep the frames in
+  VAMemory:
+
+  ```bash
+  gst-launch-1.0 filesrc location=${VIDEO_FILE} ! decodebin3 ! "video/x-raw(memory:VAMemory)" ! \
+    gvadetect model=${MODEL_FILE} device=GPU pre-process-backend=va-surface-sharing ! queue ! \
+    gvawatermark device=GPU ! vapostproc ! autovideosink
+  ```
+
+> **Note:** On Linux, the GPU renderer draws into the VA surface itself. A decoder
+> may still use that surface as a reference picture, and a `tee` shares it with
+> its other branches, so the watermark can show up in later frames and in the
+> other branches. The CPU renderer is not affected. To prevent it, copy the frame
+> right before `gvawatermark`. The copy does not change the pixels:
+>
+> ```bash
+> ... ! vapostproc disable-passthrough=true ! "video/x-raw(memory:VAMemory),format=NV12" ! gvawatermark device=GPU ! ...
+> ```
+
+See [Displaying analysis results with gvawatermark](../dev_guide/performance_guide.md#8-displaying-analysis-results-with-gvawatermark)
+for when to choose the CPU or the GPU.
+
+On Windows, the element also accepts `video/x-raw(memory:D3D11Memory)` and
+`video/x-raw(memory:D3D12Memory)` in `NV12` and `BGRA`, and differs from the
+Linux listing below:
+
+- `device` defaults to `GPU` on D3D11Memory and D3D12Memory, and to `CPU` on
+  system memory. `device=GPU` with system memory is an error.
+- Either renderer first copies the frame into a texture of its own on the GPU,
+  so the watermark does not show up in other branches of a `tee` or in the
+  decoder's reference frames.
+- With the D3D12 decoders, the pipeline stays in D3D12Memory when every element
+  accepts it, which is faster than D3D11Memory:
+
+  ```bash
+  gst-launch-1.0 filesrc location=${VIDEO_FILE} ! decodebin3 ! gvadetect model=${MODEL_FILE} device=GPU ! queue ! \
+    gvawatermark ! d3d12videosink
+  ```
+
 ```bash
 Pad Templates:
   SINK template: 'sink'

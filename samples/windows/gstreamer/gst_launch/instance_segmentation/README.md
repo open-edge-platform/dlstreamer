@@ -9,7 +9,7 @@ The sample builds a GStreamer pipeline using:
 - `decodebin3` for video decoding
 - `gvadetect` for instance segmentation
 - `gvawatermark` for mask and bounding box visualization
-- `d3d11convert` for D3D11-accelerated processing
+- `d3d12convert` for GPU-accelerated processing (GPU/NPU)
 
 ## Models
 
@@ -100,7 +100,7 @@ COCO classes include: person, bicycle, car, motorcycle, airplane, bus, train, tr
 
 ## Pipeline Architecture
 
-**Note**: Pipeline varies based on device type. GPU/NPU use D3D11 hardware acceleration (`d3d11convert`, `d3d11videosink`, `mfh264enc`), while CPU uses software path (`videoconvert`, `autovideosink`, `openh264enc`).
+**Note**: Pipeline varies based on device type. GPU/NPU keep frames in D3D12 memory from the decoder to the sink (`d3d12convert`, `d3d12videosink`, `d3d12h264enc rate-control=cqp`), while CPU uses software path (`videoconvert`, `autovideosink`, `openh264enc`).
 
 ```mermaid
 graph LR
@@ -109,10 +109,10 @@ graph LR
     C --> D[queue]
     D --> E{OUTPUT}
     
-    E -->|file<br/>GPU/NPU| F1[d3d11convert]
+    E -->|file<br/>GPU/NPU| F1[d3d12convert]
     F1 --> F2[gvawatermark]
     F2 --> F3[gvafpscounter]
-    F3 --> F4[mfh264enc]
+    F3 --> F4[d3d12h264enc]
     F4 --> F5[h264parse]
     F5 --> F6[mp4mux]
     F6 --> F7[filesink]
@@ -125,11 +125,10 @@ graph LR
     F5C --> F6C[mp4mux]
     F6C --> F7C[filesink]
     
-    E -->|display<br/>GPU/NPU| G1[d3d11convert]
+    E -->|display<br/>GPU/NPU| G1[d3d12convert]
     G1 --> G2[gvawatermark]
-    G2 --> G3[videoconvertscale]
-    G3 --> G4[gvafpscounter]
-    G4 --> G5[d3d11videosink]
+    G2 --> G4[gvafpscounter]
+    G4 --> G5[d3d12videosink]
     
     E -->|display<br/>CPU| G1C[gvawatermark]
     G1C --> G2C[videoconvertscale]
@@ -143,13 +142,12 @@ graph LR
     I1 --> I2[gvametapublish]
     I2 --> I3[fakesink]
     
-    E -->|display-and-json<br/>GPU/NPU| J1[d3d11convert]
+    E -->|display-and-json<br/>GPU/NPU| J1[d3d12convert]
     J1 --> J2[gvawatermark]
     J2 --> J3[gvametaconvert]
     J3 --> J4[gvametapublish]
-    J4 --> J5[videoconvert]
-    J5 --> J6[gvafpscounter]
-    J6 --> J7[d3d11videosink]
+    J4 --> J6[gvafpscounter]
+    J6 --> J7[d3d12videosink]
     
     E -->|display-and-json<br/>CPU| J1C[gvawatermark]
     J1C --> J2C[gvametaconvert]
@@ -158,11 +156,12 @@ graph LR
     J4C --> J5C[gvafpscounter]
     J5C --> J6C[autovideosink]
     
-    E -->|jpeg<br/>GPU/NPU| K1[d3d11convert]
+    E -->|jpeg<br/>GPU/NPU| K1[d3d12convert]
     K1 --> K2[gvawatermark]
-    K2 --> K3[videoconvert]
-    K3 --> K4[jpegenc]
-    K4 --> K5[multifilesink]
+    K2 --> K3[d3d12download]
+    K3 --> K4[videoconvert]
+    K4 --> K5[jpegenc]
+    K5 --> K6[multifilesink]
     
     E -->|jpeg<br/>CPU| K1C[videoconvert]
     K1C --> K2C[gvawatermark]
@@ -175,7 +174,7 @@ graph LR
 1. **Use yolo11s-seg model** for faster inference
 2. **GPU device** provides best performance
 3. **Lower input resolution** reduces processing time
-4. **Preprocessing backend**: Use `d3d11` for GPU, `opencv` for CPU
+4. **Preprocessing backend**: `d3d12-surface-sharing` for GPU, `d3d12` for NPU, `opencv` for CPU
 
 ## See also
 * [Windows Samples overview](../../../../README.md)

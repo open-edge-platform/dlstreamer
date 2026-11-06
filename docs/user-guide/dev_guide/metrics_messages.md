@@ -30,6 +30,7 @@ A consumer should process the versions it knows, ignore fields it does not know,
 | Structure name | Posted by | Enable with | Posted |
 |---|---|---|---|
 | `dlstreamer/latency-window` | [latency_tracer](./latency_tracer.md) | `post-metrics=true` tracer parameter | Once per interval window per source-to-sink branch |
+| `dlstreamer/genai-request` | [gvagenai](../elements/gvagenai.md) | `post-metrics=true` | Once per generation request |
 
 ### `dlstreamer/latency-window`
 
@@ -79,6 +80,27 @@ Windows of several intervals or branches can be combined exactly: add up `count`
 minimum of `min_ms` and the maximum of `max_ms`. Averaging the per-window means or
 percentiles instead would weight windows equally regardless of how many frames they hold.
 
+### `dlstreamer/genai-request`
+
+Performance of one `gvagenai` generation request, as measured by OpenVINO™ GenAI. The values
+describe that request only. The `metrics` block of the element's JSON metadata, in contrast,
+holds averages over every request since the element started.
+
+Only the `openvino-genai` backend measures these values. With the `openai-http` backend no
+message is posted, and the element logs a warning once.
+
+| Field | Type | Description |
+|---|---|---|
+| `version` | uint | Schema version, `1` |
+| `frames` | uint | Number of frames the request was generated from |
+| `ttft_ms` | double | Time to first token |
+| `tpot_ms` | double | Time per output token, averaged over this request's decode steps |
+| `generate_duration_ms` | double | Duration of the whole `generate()` call |
+| `inference_duration_ms` | double | Time spent in model inference |
+| `prepare_embeddings_duration_ms` | double | Time spent preparing the image and text embeddings |
+| `num_input_tokens` | uint64 | Number of input tokens, including image tokens |
+| `num_generated_tokens` | uint64 | Number of generated tokens |
+
 ## Reading messages in Python
 
 ```python
@@ -104,6 +126,11 @@ def on_message(bus, message):
                 count = s.get_value("count")
                 print(f"{s.get_value('sink')}: avg latency {s.get_value('sum_ms') / count:.2f} ms, "
                       f"{1000 * count / s.get_value('window_ms'):.1f} fps")
+        elif s.get_name() == "dlstreamer/genai-request":  # from a gvagenai element with post-metrics=true
+            if s.get_value("version") != 1:
+                print(f"skipping unknown {s.get_name()} version {s.get_value('version')}")
+            else:
+                print(f"TTFT {s.get_value('ttft_ms'):.1f} ms, TPOT {s.get_value('tpot_ms'):.1f} ms")
     elif message.type in (Gst.MessageType.EOS, Gst.MessageType.ERROR):
         loop.quit()
 

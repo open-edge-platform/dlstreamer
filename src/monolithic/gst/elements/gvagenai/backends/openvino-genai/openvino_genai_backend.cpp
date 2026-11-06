@@ -45,6 +45,7 @@ std::future<GenAIResult> OpenVINOGenAIBackend::submit(GenRequest req) {
         result.confidence = context_->get_last_confidence();
         result.raw_json = context_->create_json_metadata(req.timestamp, include_metrics_);
         result.backend_name = describe();
+        result.metrics = context_->get_last_request_metrics();
 
         promise.set_value(std::move(result));
     } catch (const std::exception &e) {

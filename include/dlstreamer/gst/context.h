@@ -17,6 +17,7 @@
 #include "dlstreamer/gst/mappers/gst_to_vaapi.h"
 #else
 #include "dlstreamer/gst/mappers/gst_to_d3d11.h"
+#include "dlstreamer/gst/mappers/gst_to_d3d12.h"
 #endif
 
 namespace dlstreamer {
@@ -65,11 +66,21 @@ class GSTContextQuery : public BaseContext {
             return value;
         }
 #else
-        if (key == BaseContext::key::d3d_device) {
+        if (key == BaseContext::key::d3d11_device) {
             GstD3D11Device *d3d11_device = NULL;
             if (gst_structure_get(_structure, "device", GST_TYPE_D3D11_DEVICE, &d3d11_device, NULL)) {
                 value = reinterpret_cast<handle_t>(d3d11_device);
-                // gst_clear_object(&d3d11_device);
+                // gst_structure_get returns a new reference, and handle() is called per frame.
+                // _context holds its own reference while this object lives, so the pointer stays valid.
+                gst_object_unref(d3d11_device);
+            }
+            return value;
+        }
+        if (key == BaseContext::key::d3d12_device) {
+            GstD3D12Device *d3d12_device = NULL;
+            if (gst_structure_get(_structure, "device", GST_TYPE_D3D12_DEVICE, &d3d12_device, NULL)) {
+                value = reinterpret_cast<handle_t>(d3d12_device);
+                gst_object_unref(d3d12_device); // see the D3D11 case above
             }
             return value;
         }
@@ -93,6 +104,7 @@ class GSTContextQuery : public BaseContext {
     static constexpr auto VA_DISPLAY_PROPERTY_NAME = "va-display";
 
     static constexpr auto D3D11_CONTEXT_NAME = "gst.d3d11.device.handle";
+    static constexpr auto D3D12_CONTEXT_NAME = "gst.d3d12.device.handle";
 
     const char *get_context_name(MemoryType memory_type) {
 #ifndef _WIN32
@@ -110,6 +122,10 @@ class GSTContextQuery : public BaseContext {
         if (memory_type == MemoryType::D3D11) {
             set_memory_type(MemoryType::D3D11);
             return D3D11_CONTEXT_NAME;
+        }
+        if (memory_type == MemoryType::D3D12) {
+            set_memory_type(MemoryType::D3D12);
+            return D3D12_CONTEXT_NAME;
         }
 #endif
         return memory_type_to_string(memory_type);
@@ -172,6 +188,8 @@ class GSTContext : public BaseContext {
 #else
         if (input_type == MemoryType::GST && output_type == MemoryType::D3D11)
             mapper = std::make_shared<MemoryMapperGSTToD3D11>(input_context, output_context);
+        if (input_type == MemoryType::GST && output_type == MemoryType::D3D12)
+            mapper = std::make_shared<MemoryMapperGSTToD3D12>(input_context, output_context);
 #endif
         if (input_type == MemoryType::GST && output_type == MemoryType::OpenCL)
             mapper = std::make_shared<MemoryMapperGSTToOpenCL>(input_context, output_context);
