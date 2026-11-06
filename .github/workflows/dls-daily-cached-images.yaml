@@ -1,9 +1,6 @@
 name: "[DLS] [U22/24/26] Build daily cache imgs"
 run-name: "[DLS] [U22/24/26] Build daily cache imgs"
 on:
-  push:
-    branches:
-      - nsz-fix-u22-trivy
   schedule:
     - cron: '0 3 * * *' # 3:00 UTC every day
   workflow_dispatch:
