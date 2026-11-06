@@ -114,3 +114,7 @@ endif()
 if(${ENABLE_AUDIO_INFERENCE_ELEMENTS})
     add_subdirectory(audio)
 endif()
+
+if(ENABLE_GENAI)
+    add_subdirectory(vlm/gvagenai)
+endif()
