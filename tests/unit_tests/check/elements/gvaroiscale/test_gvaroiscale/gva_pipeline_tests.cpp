@@ -14,12 +14,12 @@
 #include "gstgvaroiscale.h"
 #include "gva_utils.h"
 
+#include <gtest/gtest.h>
 #include <gst/analytics/analytics.h>
 #include <gst/app/gstappsink.h>
 #include <gst/app/gstappsrc.h>
 #include <gst/video/video.h>
 #include <glib/gstdio.h>
-#include <gtest/gtest.h>
 
 #include <cstring>
 
@@ -132,9 +132,9 @@ TEST_F(GvaPipelineTest, EventFramesAreSelectedScaledAndForwardedWithRoiMetadata)
     ASSERT_NE(roi_scale, nullptr);
     ASSERT_NE(sink, nullptr);
 
-    GstCaps *input_caps = gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, "BGR", "width", G_TYPE_INT,
-                                              INPUT_WIDTH, "height", G_TYPE_INT, INPUT_HEIGHT, "framerate",
-                                              GST_TYPE_FRACTION, 30, 1, nullptr);
+    GstCaps *input_caps =
+        gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, "BGR", "width", G_TYPE_INT, INPUT_WIDTH, "height",
+                            G_TYPE_INT, INPUT_HEIGHT, "framerate", GST_TYPE_FRACTION, 30, 1, nullptr);
     g_object_set(source, "caps", input_caps, "format", GST_FORMAT_TIME, nullptr);
     gst_caps_unref(input_caps);
     gst_util_set_object_arg(G_OBJECT(source), "stream-type", "stream");
@@ -181,8 +181,7 @@ TEST_F(GvaPipelineTest, EventFramesAreSelectedScaledAndForwardedWithRoiMetadata)
         GstAnalyticsODMtd detection;
         ASSERT_TRUE(gst_analytics_relation_meta_iterate(relation_meta, &state, gst_analytics_od_mtd_get_mtd_type(),
                                                         &detection));
-        EXPECT_EQ(gst_analytics_od_mtd_get_obj_type(&detection),
-                  g_quark_from_static_string(GVA_AGGREGATED_ROI_TYPE));
+        EXPECT_EQ(gst_analytics_od_mtd_get_obj_type(&detection), g_quark_from_static_string(GVA_AGGREGATED_ROI_TYPE));
         gint x = 0, y = 0, width = 0, height = 0;
         gfloat confidence = 0.0f;
         ASSERT_TRUE(gst_analytics_od_mtd_get_location(&detection, &x, &y, &width, &height, &confidence));

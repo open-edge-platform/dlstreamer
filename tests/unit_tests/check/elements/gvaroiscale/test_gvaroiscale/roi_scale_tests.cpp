@@ -9,9 +9,9 @@
  *           invalid crops, and element-level output counts, caps, pixels, metadata, and DISCONT handling.
  */
 
-#include "roi_scale.hpp"
-#include "gva_utils.h"
 #include "gstgvaroiscale.h"
+#include "gva_utils.h"
+#include "roi_scale.hpp"
 
 #include <gst/check/gstharness.h>
 #include <gtest/gtest.h>
@@ -56,9 +56,9 @@ using BufferPtr = std::unique_ptr<GstBuffer, decltype(&gst_buffer_unref)>;
 class GvaRoiScaleTest : public ::testing::Test {
   protected:
     void SetUp() override {
-        GstElement *element = GST_ELEMENT(g_object_new(GST_TYPE_GVA_ROI_SCALE, "out-width", 4u, "out-height", 4u,
-                                                       "target-classes", "person,vehicle", "confidence-threshold",
-                                                       0.5, "output-dir", "", nullptr));
+        GstElement *element =
+            GST_ELEMENT(g_object_new(GST_TYPE_GVA_ROI_SCALE, "out-width", 4u, "out-height", 4u, "target-classes",
+                                     "person,vehicle", "confidence-threshold", 0.5, "output-dir", "", nullptr));
         harness = gst_harness_new_with_element(element, "sink", "src");
         gst_object_unref(element);
         ASSERT_NE(harness, nullptr);
@@ -74,7 +74,7 @@ class GvaRoiScaleTest : public ::testing::Test {
     GstBuffer *make_frame() {
         GstBuffer *buffer = gst_buffer_new_allocate(nullptr, 24, nullptr);
         const guint8 pixels[] = {10, 20, 30, 10, 20, 30, 100, 110, 120, 100, 110, 120,
-                                  10, 20, 30, 10, 20, 30, 100, 110, 120, 100, 110, 120};
+                                 10, 20, 30, 10, 20, 30, 100, 110, 120, 100, 110, 120};
         gst_buffer_fill(buffer, 0, pixels, sizeof(pixels));
         GST_BUFFER_PTS(buffer) = 123;
         GST_BUFFER_DTS(buffer) = 100;
@@ -93,14 +93,15 @@ class GvaRoiScaleTest : public ::testing::Test {
         EXPECT_EQ(gst_analytics_od_mtd_get_obj_type(&detection), g_quark_from_string(label));
         gint actual_x = 0, actual_y = 0, actual_width = 0, actual_height = 0;
         gfloat actual_confidence = 0;
-        ASSERT_TRUE(gst_analytics_od_mtd_get_location(&detection, &actual_x, &actual_y, &actual_width,
-                                                     &actual_height, &actual_confidence));
+        ASSERT_TRUE(gst_analytics_od_mtd_get_location(&detection, &actual_x, &actual_y, &actual_width, &actual_height,
+                                                      &actual_confidence));
         EXPECT_EQ(actual_x, x);
         EXPECT_EQ(actual_y, y);
         EXPECT_EQ(actual_width, width);
         EXPECT_EQ(actual_height, height);
         EXPECT_FLOAT_EQ(actual_confidence, confidence);
-        EXPECT_FALSE(gst_analytics_relation_meta_iterate(meta, &state, gst_analytics_od_mtd_get_mtd_type(), &detection));
+        EXPECT_FALSE(
+            gst_analytics_relation_meta_iterate(meta, &state, gst_analytics_od_mtd_get_mtd_type(), &detection));
     }
 
     GstHarness *harness = nullptr;
@@ -262,8 +263,8 @@ TEST(RoiScale, AggregatedRoiTakesPrecedenceOverDetectionMetadata) {
     GstBuffer *buffer = gst_buffer_new();
     GstAnalyticsRelationMeta *relation_meta = gst_buffer_add_analytics_relation_meta(buffer);
     GstAnalyticsODMtd detection;
-    ASSERT_TRUE(gst_analytics_relation_meta_add_od_mtd(relation_meta, g_quark_from_static_string("person"), 0, 0, 2,
-                                                       2, 0.9f, &detection));
+    ASSERT_TRUE(gst_analytics_relation_meta_add_od_mtd(relation_meta, g_quark_from_static_string("person"), 0, 0, 2, 2,
+                                                       0.9f, &detection));
     ASSERT_NE(gst_buffer_add_video_region_of_interest_meta(buffer, GVA_AGGREGATED_ROI_TYPE, 2, 1, 3, 4), nullptr);
     GArray *classes = make_classes({"person"});
 
@@ -289,7 +290,7 @@ TEST(RoiScale, AggregatedRoiTakesPrecedenceOverDetectionMetadata) {
 TEST(RoiScale, PreservesAspectRatioAndCentersCropOnBlackCanvas) {
     GstVideoInfo input_info;
     ASSERT_TRUE(gst_video_info_set_format(&input_info, GST_VIDEO_FORMAT_RGB, 4, 2));
-    const std::vector<guint8> pixels = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
+    const std::vector<guint8> pixels = {1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12,
                                         21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32};
     GstBuffer *input = make_rgb_buffer(input_info, pixels);
     GST_BUFFER_PTS(input) = 123;

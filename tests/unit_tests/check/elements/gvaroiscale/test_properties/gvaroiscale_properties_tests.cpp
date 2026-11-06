@@ -95,8 +95,8 @@ TEST_F(GvaRoiScalePropertiesTest, ExposesExpectedDefaultsAndPropertySpecs) {
  * Expected: getters return each assigned value unchanged.
  */
 TEST_F(GvaRoiScalePropertiesTest, SetPropertiesCanBeReadBack) {
-    g_object_set(element, "out-width", 640u, "out-height", 360u, "confidence-threshold", 0.75,
-                 "output-dir", "/tmp/gva-scaled-rois", "target-classes", "person,vehicle", nullptr);
+    g_object_set(element, "out-width", 640u, "out-height", 360u, "confidence-threshold", 0.75, "output-dir",
+                 "/tmp/gva-scaled-rois", "target-classes", "person,vehicle", nullptr);
 
     guint out_width = 0;
     guint out_height = 0;

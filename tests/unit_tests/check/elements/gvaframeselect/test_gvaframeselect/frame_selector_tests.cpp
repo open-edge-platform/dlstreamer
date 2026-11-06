@@ -32,8 +32,7 @@ class GvaFrameSelectTest : public ::testing::Test {
         harness = gst_harness_new_with_element(element, "sink", "src");
         gst_object_unref(element);
         ASSERT_NE(harness, nullptr);
-        gst_harness_set_src_caps_str(harness,
-                                    "video/x-raw,format=BGR,width=16,height=16,framerate=30/1");
+        gst_harness_set_src_caps_str(harness, "video/x-raw,format=BGR,width=16,height=16,framerate=30/1");
     }
 
     void TearDown() override {
@@ -56,7 +55,7 @@ class GvaFrameSelectTest : public ::testing::Test {
         ASSERT_NE(meta, nullptr);
         GstAnalyticsODMtd detection;
         ASSERT_TRUE(gst_analytics_relation_meta_add_od_mtd(meta, g_quark_from_string(label), x, y, width, height,
-                                                         confidence, &detection));
+                                                           confidence, &detection));
     }
 
     GstHarness *harness = nullptr;

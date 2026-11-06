@@ -11,13 +11,13 @@
 
 #include "drop_log_throttle/drop_log_throttle.hpp"
 #include "event_session_controller/event_session_controller.hpp"
-#include "pre_event_ring/pre_event_ring.hpp"
 #include "gstgvaeventrecorder.h"
+#include "pre_event_ring/pre_event_ring.hpp"
 
+#include <glib/gstdio.h>
 #include <gst/analytics/analytics.h>
 #include <gst/check/gstharness.h>
 #include <gst/gst.h>
-#include <glib/gstdio.h>
 #include <gtest/gtest.h>
 
 #include <memory>
@@ -44,12 +44,11 @@ class GvaEventRecorderTest : public ::testing::Test {
         const std::string message = error ? error->message : "Could not create temporary directory";
         g_clear_error(&error);
         ASSERT_NE(output_dir, nullptr) << message;
-        GstElement *element = GST_ELEMENT(g_object_new(GST_TYPE_GVAEVENTRECORDER, "target-classes", "person,vehicle",
-                                                       "confidence-threshold", 0.5, "pre-event-frames", 2u,
-                                                       "post-event-frames", 2u, "event-gap-frames", 0u,
-                                                       "cooldown-value", static_cast<guint64>(0), "encoder-mode",
-                                                       GST_GVAEVENTRECORDER_ENCODER_SOFTWARE, "event-clip-output-dir",
-                                                       output_dir, "flush-interval-ms", 0u, nullptr));
+        GstElement *element = GST_ELEMENT(
+            g_object_new(GST_TYPE_GVAEVENTRECORDER, "target-classes", "person,vehicle", "confidence-threshold", 0.5,
+                         "pre-event-frames", 2u, "post-event-frames", 2u, "event-gap-frames", 0u, "cooldown-value",
+                         static_cast<guint64>(0), "encoder-mode", GST_GVAEVENTRECORDER_ENCODER_SOFTWARE,
+                         "event-clip-output-dir", output_dir, "flush-interval-ms", 0u, nullptr));
         harness = gst_harness_new_with_element(element, "sink", "src");
         gst_object_unref(element);
         ASSERT_NE(harness, nullptr);
@@ -111,7 +110,8 @@ class GvaEventRecorderTest : public ::testing::Test {
         gpointer state = nullptr;
         GstAnalyticsClsMtd classification;
         guint event_count = 0, trigger_count = 0;
-        while (gst_analytics_relation_meta_iterate(meta, &state, gst_analytics_cls_mtd_get_mtd_type(), &classification)) {
+        while (
+            gst_analytics_relation_meta_iterate(meta, &state, gst_analytics_cls_mtd_get_mtd_type(), &classification)) {
             if (gst_analytics_mtd_has_semantic_tag(reinterpret_cast<GstAnalyticsMtd *>(&classification), "event")) {
                 ++event_count;
                 ASSERT_EQ(gst_analytics_cls_mtd_get_length(&classification), 1u);
@@ -119,7 +119,7 @@ class GvaEventRecorderTest : public ::testing::Test {
                 EXPECT_FLOAT_EQ(gst_analytics_cls_mtd_get_level(&classification, 0), 1.0f);
             }
             if (gst_analytics_mtd_has_semantic_tag(reinterpret_cast<GstAnalyticsMtd *>(&classification),
-                                                  "event_trigger")) {
+                                                   "event_trigger")) {
                 ++trigger_count;
                 ASSERT_NE(trigger_class, nullptr);
                 ASSERT_EQ(gst_analytics_cls_mtd_get_length(&classification), 1u);

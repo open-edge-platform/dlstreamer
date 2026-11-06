@@ -90,9 +90,9 @@ TEST_F(GvaEventRecorderPropertiesTest, ExposesExpectedDefaultsAndPropertySpecs) 
     guint flush_interval_ms = 0;
     g_object_get(element, "target-classes", &target_classes, "confidence-threshold", &confidence_threshold,
                  "pre-event-frames", &pre_event_frames, "post-event-frames", &post_event_frames, "event-gap-frames",
-                 &event_gap_frames, "cooldown-value", &cooldown_value, "max-concurrent-events",
-                 &max_concurrent_events, "event-clip-output-dir", &output_dir, "encoder-mode", &encoder_mode,
-                 "drop-log-interval-ms", &drop_log_interval_ms, "flush-interval-ms", &flush_interval_ms, nullptr);
+                 &event_gap_frames, "cooldown-value", &cooldown_value, "max-concurrent-events", &max_concurrent_events,
+                 "event-clip-output-dir", &output_dir, "encoder-mode", &encoder_mode, "drop-log-interval-ms",
+                 &drop_log_interval_ms, "flush-interval-ms", &flush_interval_ms, nullptr);
 
     EXPECT_STREQ(target_classes, "person,vehicle");
     EXPECT_DOUBLE_EQ(confidence_threshold, 0.5);
@@ -138,8 +138,8 @@ TEST_F(GvaEventRecorderPropertiesTest, ExposesExpectedDefaultsAndPropertySpecs) 
  * Expected: getters return each assigned string, enum, confidence, and integer value unchanged.
  */
 TEST_F(GvaEventRecorderPropertiesTest, SetPropertiesCanBeReadBack) {
-    g_object_set(element, "target-classes", "person,bicycle", "confidence-threshold", 0.75, "pre-event-frames",
-                 11u, "post-event-frames", 12u, "event-gap-frames", 2u, "cooldown-value", static_cast<guint64>(900),
+    g_object_set(element, "target-classes", "person,bicycle", "confidence-threshold", 0.75, "pre-event-frames", 11u,
+                 "post-event-frames", 12u, "event-gap-frames", 2u, "cooldown-value", static_cast<guint64>(900),
                  "max-concurrent-events", 2u, "event-clip-output-dir", "/tmp/gva-event-clips", "encoder-mode",
                  GST_GVAEVENTRECORDER_ENCODER_AUTO, "drop-log-interval-ms", 250u, "flush-interval-ms", 500u, nullptr);
 
@@ -156,9 +156,9 @@ TEST_F(GvaEventRecorderPropertiesTest, SetPropertiesCanBeReadBack) {
     guint flush_interval_ms = 0;
     g_object_get(element, "target-classes", &target_classes, "confidence-threshold", &confidence_threshold,
                  "pre-event-frames", &pre_event_frames, "post-event-frames", &post_event_frames, "event-gap-frames",
-                 &event_gap_frames, "cooldown-value", &cooldown_value, "max-concurrent-events",
-                 &max_concurrent_events, "event-clip-output-dir", &output_dir, "encoder-mode", &encoder_mode,
-                 "drop-log-interval-ms", &drop_log_interval_ms, "flush-interval-ms", &flush_interval_ms, nullptr);
+                 &event_gap_frames, "cooldown-value", &cooldown_value, "max-concurrent-events", &max_concurrent_events,
+                 "event-clip-output-dir", &output_dir, "encoder-mode", &encoder_mode, "drop-log-interval-ms",
+                 &drop_log_interval_ms, "flush-interval-ms", &flush_interval_ms, nullptr);
 
     EXPECT_STREQ(target_classes, "person,bicycle");
     EXPECT_DOUBLE_EQ(confidence_threshold, 0.75);
