@@ -8,7 +8,7 @@
 **Hardware-accelerated video analytics pipelines — CPU, GPU and NPU, from a single line of code to production-grade edge AI**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-[![Ubuntu](https://img.shields.io/badge/Ubuntu-22.04%20%7C%2024.04-orange?logo=ubuntu)](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/system_requirements.html)
+[![Ubuntu](https://img.shields.io/badge/Ubuntu-22.04%20%7C%2024.04%20%7C%2026.04-orange?logo=ubuntu)](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/system_requirements.html)
 [![Windows](https://img.shields.io/badge/Windows-11-blue?logo=windows)](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/system_requirements.html)
 [![OpenVINO](https://img.shields.io/badge/OpenVINO-powered-blue)](https://docs.openvino.ai)
 [![GStreamer](https://img.shields.io/badge/GStreamer-based-brightgreen)](https://gstreamer.freedesktop.org)
@@ -66,7 +66,7 @@ chmod +x DLS_install_prerequisites.sh
 ./DLS_install_prerequisites.sh
 ```
 
-> This script detects your Intel GPU/NPU, installs the correct drivers for Ubuntu 22.04 or 24.04, and adds your user to the required groups. Use `--reinstall-npu-driver=yes` to force-reinstall the NPU driver. Run `./DLS_install_prerequisites.sh --help` for all options.
+> This script detects your Intel GPU/NPU, installs the correct drivers for Ubuntu 22.04, 24.04 or 26.04, and adds your user to the required groups. Use `--reinstall-npu-driver=yes` to force-reinstall the NPU driver. Run `./DLS_install_prerequisites.sh --help` for all options.
 
 ### Step 2 — Install DL Streamer
 
@@ -96,6 +96,8 @@ echo "deb [signed-by=/usr/share/keyrings/dls-archive-keyring.gpg] https://apt.re
 sudo bash -c 'echo "deb [signed-by=/usr/share/keyrings/intel-gpg-archive-keyring.gpg] https://apt.repos.intel.com/openvino ubuntu24 main" | sudo tee /etc/apt/sources.list.d/intel-openvino.list'
 sudo apt update && sudo apt-get install -y intel-dlstreamer
 ```
+
+> For **Ubuntu 26.04**, replace `ubuntu24` with `ubuntu26` in both the DL Streamer and OpenVINO repository lines above. For **Ubuntu 22.04**, use `ubuntu22`.
 
 Full installation guide: [Install Guide for Ubuntu](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/install/install_guide_ubuntu.html) | [Windows](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/install/install_guide_windows.html)
 
@@ -226,7 +228,7 @@ cat output_from_python.json
 | Intel Arc discrete GPU (Alchemist, Battlemage) | — | ✅ | — |
 | 11th–13th Gen Intel Core | ✅ | ✅ | — |
 
-Operating systems: **Ubuntu 22.04 / 24.04**, **Windows 11**.
+Operating systems: **Ubuntu 22.04 / 24.04 / 26.04**, **Windows 11**.
 
 [Full system requirements →](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/system_requirements.html)
 
