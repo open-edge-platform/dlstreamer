@@ -83,8 +83,8 @@ Every command below is relative to that directory.
 
 No further Python setup is needed — `vlm_self_checkout.py` and the bundled `gvaframeselection_py`
 element import nothing beyond the standard library and `gi`. The one-time model exports described
-in [Prepare Models](#prepare-models) run in their own virtual environments, documented together
-with the conversion scripts.
+in [Prepare Models](#prepare-models) run in their own virtual environment, built from the
+`export_requirements.txt` file shipped with this sample.
 
 > **Note:** the sample never downloads media or models. Prepare the input video and export
 > both models beforehand, as described below.
@@ -101,44 +101,39 @@ Pass the file with `--video-path`.
 
 ## Prepare Models
 
-Both models are exported once, outside of the sample, with the
-[model conversion scripts](../../../../scripts/download_models/README.md) (each script
-documents its own virtual environment and requirements file). Exporting into `$MODELS_PATH`
-places them in the layout shared with the other DL Streamer samples, which is where the sample
-looks for them by default.
+This sample expects two OpenVINO IR models:
 
-### Detection (YOLO26s)
+* `yolo26s` in INT8 precision from Ultralytics for object detection
+* `openbmb/MiniCPM-V-4_5` from Hugging Face for VLM classification — or any other
+  image-text-to-text model supported by optimum-intel
 
-Export an Ultralytics detection model to OpenVINO IR with the
-[Ultralytics conversion](../../../../scripts/download_models/README.md#2-ultralytics-conversion), for example:
+Use the model conversion scripts in
+[scripts/download_models/](../../../../scripts/download_models/README.md) to prepare both models:
+the [Ultralytics conversion](../../../../scripts/download_models/README.md#2-ultralytics-conversion)
+for the detection model and the
+[Hugging Face conversion](../../../../scripts/download_models/README.md#1-hugging-face-conversion)
+for the VLM. Before running them, create and activate the dedicated model-download virtual
+environment described in
+[scripts/download_models/README.md](../../../../scripts/download_models/README.md).
 
-```bash
-python3 ../../../../scripts/download_models/download_ultralytics_models.py \
-    --model yolo26s.pt \
-    --outdir "${MODELS_PATH}/public/yolo26s/INT8" \
-    --int8
+For the VLM export there is one difference: install
+[`export_requirements.txt`](export_requirements.txt) from this sample directory instead of the
+script's own `requirements_download_hf_models.txt`. It pins the dependency versions this VLM
+export needs. The detection model is exported with the Ultralytics script's own requirements
+file, unchanged.
+
+Set the `MODELS_PATH` environment variable to the main directory (the one given as
+`--outdir <output_dir>`) where models have been exported, for example:
+
+```sh
+export MODELS_PATH="$HOME/models"
 ```
 
-This produces `$MODELS_PATH/public/yolo26s/INT8/yolo26s.xml`, the default value of
-`--detect-model-path`.
-
-### VLM (MiniCPM-V-4.5)
-
-Export an image-text-to-text model to OpenVINO IR with the
-[Hugging Face conversion](../../../../scripts/download_models/README.md#1-hugging-face-conversion), for example:
-
-```bash
-python3 ../../../../scripts/download_models/download_hf_models.py \
-    --model openbmb/MiniCPM-V-4_5 \
-    --outdir "${MODELS_PATH}/public"
-```
-
-This produces `$MODELS_PATH/public/openbmb_MiniCPM-V-4_5/`, the default value of
-`--vlm-model-path`. Any other image-text-to-text model supported by optimum-intel can be
-exported the same way and passed explicitly.
-
-A relative model path is looked up in the current directory and then in `$MODELS_PATH`, so a
-model exported elsewhere can also be passed as a plain or absolute path.
+Exporting into `$MODELS_PATH` places both models in the layout shared with the other DL Streamer
+samples, which is where the sample looks for them by default: `$MODELS_PATH/public/yolo26s/INT8/yolo26s.xml`
+for `--detect-model-path` and `$MODELS_PATH/public/openbmb_MiniCPM-V-4_5/` for `--vlm-model-path`.
+A relative model path is looked up in the current directory and then in `$MODELS_PATH`, so a model
+exported elsewhere can also be passed as a plain or absolute path.
 
 ## Running the Sample
 

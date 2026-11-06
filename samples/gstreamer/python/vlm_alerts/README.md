@@ -44,7 +44,7 @@ Every command below is relative to that directory.
 
 No further Python setup is needed — `vlm_alerts.py` imports nothing beyond the standard library
 and `gi`. The one-time model export described in [Prepare Model](#prepare-model) runs in its own
-virtual environment, documented together with the conversion scripts.
+virtual environment, built from the `export_requirements.txt` file shipped with this sample.
 
 ## Download Video
 
@@ -60,21 +60,33 @@ four-stream scenario (**`--stream-groups`**).
 
 ## Prepare Model
 
-Any image-text-to-text model supported by optimum-intel can be used. Smaller models (1B-4B parameters) are recommended for edge deployment. For example, OpenGVLab/InternVL3_5-2B.
+This sample expects one OpenVINO IR model: any image-text-to-text model supported by
+optimum-intel. Smaller models (1B-4B parameters) are recommended for edge deployment, for example
+`OpenGVLab/InternVL3_5-2B`, which is what `--model-path` resolves to by default.
 
-Export the model once with the [Hugging Face model conversion](../../../../scripts/download_models/README.md#1-hugging-face-conversion) script, which documents its own virtual environment and requirements file. Exporting into `$MODELS_PATH/public` keeps the model in the layout shared with the other DL Streamer samples, for example:
+Use the Hugging Face model conversion script in
+[scripts/download_models/](../../../../scripts/download_models/README.md#1-hugging-face-conversion)
+to export the model. Before running it, create and activate the dedicated model-download virtual
+environment described in
+[scripts/download_models/README.md](../../../../scripts/download_models/README.md), with one
+difference: install [`export_requirements.txt`](export_requirements.txt) from this sample
+directory instead of the script's own `requirements_download_hf_models.txt`. It pins the
+dependency versions these VLM exports need.
 
-```code
-python3 ../../../../scripts/download_models/download_hf_models.py \
-    --model OpenGVLab/InternVL3_5-2B \
-    --outdir "${MODELS_PATH}/public" \
-    --extra_args --task image-text-to-text
+Image-text-to-text models are not detected automatically by the export script, so pass
+`--task image-text-to-text` to it as an extra argument, after `--extra_args`.
+
+Set the `MODELS_PATH` environment variable to the main directory (the one given as
+`--outdir <output_dir>`) where models have been exported, for example:
+
+```sh
+export MODELS_PATH="$HOME/models"
 ```
 
-Exported this way, the model is picked up automatically: `--model-path` defaults to
-`public/OpenGVLab_InternVL3_5-2B`, which is resolved inside `$MODELS_PATH`. To use a different
-model, pass the exported directory explicitly. A relative path is looked up in the current
-directory and then in `$MODELS_PATH`.
+Exporting into `$MODELS_PATH/public` keeps the model in the layout shared with the other DL
+Streamer samples, where `--model-path` finds it by default. To use a different model, pass its
+exported directory explicitly: a relative path is looked up in the current directory and then in
+`$MODELS_PATH`.
 
 ## Pipeline Architecture
 
