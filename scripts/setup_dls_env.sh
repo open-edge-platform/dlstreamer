@@ -19,9 +19,6 @@ if [ "$ID" = "ubuntu" ] && [ "$VERSION_ID" = "22.04" ]; then
     elif [ -x "$HOME/python3venv/bin/python" ]; then
         DLS_PYTHON_BIN="$HOME/python3venv/bin/python"
         export PATH="$HOME/python3venv/bin:$PATH"
-    elif [ -x "/python3venv/bin/python" ]; then
-        DLS_PYTHON_BIN="/python3venv/bin/python"
-        export PATH="/python3venv/bin:$PATH"
     fi
 
     if [ -n "${DLS_PYTHON_BIN:-}" ]; then
@@ -34,33 +31,7 @@ if [ "$ID" = "ubuntu" ] && [ "$VERSION_ID" = "22.04" ]; then
             echo "Ubuntu 22.04 requires Python 3.11; found $DLS_PYTHON_VERSION at $DLS_PYTHON_BIN" >&2
             return 1
         fi
-        DLS_PYTHON_LIBDIR="$("$DLS_PYTHON_BIN" -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')"
-        if [ -z "$DLS_PYTHON_LIBDIR" ]; then
-            echo "Could not determine Python library directory for $DLS_PYTHON_BIN" >&2
-            return 1
-        fi
-        case ":${LD_LIBRARY_PATH:-}:" in
-            *":$DLS_PYTHON_LIBDIR:"*) ;;
-            *) export LD_LIBRARY_PATH="$DLS_PYTHON_LIBDIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ;;
-        esac
-
-        GST_PYTHON_OVERRIDES=/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages/gi/overrides
-        if [ ! -f "$GST_PYTHON_OVERRIDES/GstAnalytics.py" ]; then
-            echo "GStreamer GstAnalytics override not found at $GST_PYTHON_OVERRIDES" >&2
-            return 1
-        fi
-        DLS_PYTHON_SITE_PACKAGES="$("$DLS_PYTHON_BIN" -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')"
-        if [ ! -d "$DLS_PYTHON_SITE_PACKAGES" ]; then
-            echo "Python site-packages directory not found: $DLS_PYTHON_SITE_PACKAGES" >&2
-            return 1
-        fi
-        printf '%s\n' "import importlib.util; exec(\"import gi.overrides\\np='$GST_PYTHON_OVERRIDES'\\nif p not in gi.overrides.__path__: gi.overrides.__path__.append(p)\") if importlib.util.find_spec('gi') is not None else None" \
-            > "$DLS_PYTHON_SITE_PACKAGES/dlstreamer-gst-overrides.pth" || {
-                echo "Could not configure GStreamer Python overrides in $DLS_PYTHON_SITE_PACKAGES" >&2
-                return 1
-            }
         unset DLS_PYTHON_BIN DLS_PYTHON_VERSION
-        unset DLS_PYTHON_LIBDIR DLS_PYTHON_SITE_PACKAGES GST_PYTHON_OVERRIDES
     fi
 fi
 export GST_PLUGIN_FEATURE_RANK=${GST_PLUGIN_FEATURE_RANK},ximagesink:MAX

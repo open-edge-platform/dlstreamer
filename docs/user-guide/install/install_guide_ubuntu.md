@@ -128,12 +128,6 @@ or samples are not installed by default. You can install them using
 the commands from
 [Advanced Install Guide Compilation / Install Python dependencies](../dev_guide/advanced_install/advanced_install_guide_compilation.md#step-9-install-python-dependencies-optional).
 
-> **NOTE (Ubuntu 22.04):** Python elements and samples require Python 3.11.
-> Ubuntu's system Python 3.10 is not changed. Set up Python 3.11 and the
-> `python3venv` environment as described in
-> [Advanced Install Guide Step 3](../dev_guide/advanced_install/advanced_install_guide_compilation.md#step-3-set-up-a-python-environment)
-> before installing the optional Python dependencies.
-
 ### [Optional] Step 5: Post installation steps
 
 #### Download the model and run hello_dlstreamer script
@@ -153,26 +147,12 @@ using the following command:
 >   MODELS_PATH and execute the `hello_dlstreamer.sh` script.
 
 ```bash
-DOWNLOAD_VENV="$HOME/.virtualenvs/download-models"
-mkdir -p "$DOWNLOAD_VENV" "$HOME/models"
-
-if grep -q '^VERSION_ID="22.04"$' /etc/os-release; then
-  if ! command -v uv >/dev/null 2>&1; then
-    curl -LsSf https://astral.sh/uv/install.sh | sh
-  fi
-  export PATH="$HOME/.local/bin:$PATH"
-  uv python install 3.11
-  uv venv --python 3.11 "$DOWNLOAD_VENV"
-  uv pip install --python "$DOWNLOAD_VENV/bin/python" --no-cache-dir --upgrade pip \
-    -r /opt/intel/dlstreamer/scripts/download_models/requirements_download_ultralytics_models.txt
-else
-  sudo apt install -y python3-venv
-  python3 -m venv "$DOWNLOAD_VENV"
-  "$DOWNLOAD_VENV/bin/python" -m pip install --no-cache-dir --upgrade pip \
-    -r /opt/intel/dlstreamer/scripts/download_models/requirements_download_ultralytics_models.txt
-fi
-
-source "$DOWNLOAD_VENV/bin/activate"
+sudo apt install -y python3-venv
+mkdir -p "$HOME/.virtualenvs/download-models" "$HOME/models"
+python3 -m venv "$HOME/.virtualenvs/download-models"
+"$HOME/.virtualenvs/download-models/bin/pip" install --no-cache-dir --upgrade pip \
+  -r /opt/intel/dlstreamer/scripts/download_models/requirements_download_ultralytics_models.txt
+source "$HOME/.virtualenvs/download-models/bin/activate"
 export MODELS_PATH="$HOME/models"
 python3 /opt/intel/dlstreamer/scripts/download_models/download_ultralytics_models.py \
   --model yolo11s --int8 --outdir "$MODELS_PATH/public/yolo11s/INT8"
