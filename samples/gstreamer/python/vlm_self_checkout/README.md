@@ -82,9 +82,12 @@ Every command below is relative to that directory.
   searched.
 
 No further Python setup is needed — `vlm_self_checkout.py` and the bundled `gvaframeselection_py`
-element import nothing beyond the standard library and `gi`. The one-time model exports described
-in [Prepare Models](#prepare-models) run in their own virtual environment, built from the
-`export_requirements.txt` file shipped with this sample.
+element import nothing beyond the standard library and `gi`. For model export, use the model-download
+environment and main requirements file described in the
+[Hugging Face conversion guide](../../../../scripts/download_models/README.md#1-hugging-face-conversion).
+The conversion script automatically selects compatible Hugging Face package versions in a
+temporary virtual environment when a model requires them; other export dependencies are reused
+from the model-download environment.
 
 > **Note:** the sample never downloads media or models. Prepare the input video and export
 > both models beforehand, as described below.
@@ -116,11 +119,10 @@ for the VLM. Before running them, create and activate the dedicated model-downlo
 environment described in
 [scripts/download_models/README.md](../../../../scripts/download_models/README.md).
 
-For the VLM export there is one difference: install
-[`export_requirements.txt`](export_requirements.txt) from this sample directory instead of the
-script's own `requirements_download_hf_models.txt`. It pins the dependency versions this VLM
-export needs. The detection model is exported with the Ultralytics script's own requirements
-file, unchanged.
+For the VLM export, install the Hugging Face script's
+`requirements_download_hf_models.txt`; the conversion script automatically selects compatible
+dependencies for version-capped VLM architectures without changing the model-download environment.
+The detection model is exported with the Ultralytics script's own requirements file, unchanged.
 
 Set the `MODELS_PATH` environment variable to the main directory (the one given as
 `--outdir <output_dir>`) where models have been exported, for example:

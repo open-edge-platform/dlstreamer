@@ -43,8 +43,11 @@ Every command below is relative to that directory.
   without the variable only the current directory is searched.
 
 No further Python setup is needed — `vlm_alerts.py` imports nothing beyond the standard library
-and `gi`. The one-time model export described in [Prepare Model](#prepare-model) runs in its own
-virtual environment, built from the `export_requirements.txt` file shipped with this sample.
+and `gi`. For model export, use the model-download environment and main requirements file described
+in the [Hugging Face conversion guide](../../../../scripts/download_models/README.md#1-hugging-face-conversion).
+The conversion script automatically selects compatible Hugging Face package versions in a
+temporary virtual environment when a model requires them; other export dependencies are reused
+from the model-download environment.
 
 ## Download Video
 
@@ -68,10 +71,10 @@ Use the Hugging Face model conversion script in
 [scripts/download_models/](../../../../scripts/download_models/README.md#1-hugging-face-conversion)
 to export the model. Before running it, create and activate the dedicated model-download virtual
 environment described in
-[scripts/download_models/README.md](../../../../scripts/download_models/README.md), with one
-difference: install [`export_requirements.txt`](export_requirements.txt) from this sample
-directory instead of the script's own `requirements_download_hf_models.txt`. It pins the
-dependency versions these VLM exports need.
+[scripts/download_models/README.md](../../../../scripts/download_models/README.md), and install
+the script's `requirements_download_hf_models.txt`. The conversion script automatically selects
+compatible export dependencies for version-capped VLM architectures without changing that
+environment.
 
 Image-text-to-text models are not detected automatically by the export script, so pass
 `--task image-text-to-text` to it as an extra argument, after `--extra_args`.

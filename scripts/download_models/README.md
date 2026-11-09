@@ -77,6 +77,11 @@ The script classifies a model into one of three support levels:
 - `1` — Custom export path: handled in `hf_utils.py` (currently CLIP/RT-DETR custom converters).
 - `2` — Unsupported: prints an error and exits with code `1`.
 
+For architectures whose OpenVINO export config requires older Hugging Face packages, the script
+automatically retries in a temporary virtual environment with compatible `transformers` and
+`huggingface_hub` versions. `optimum-intel` and other export dependencies are reused from the
+main environment; that environment is not modified.
+
 When `--model` does not include `@revision`, the script downloads the latest available Hugging Face revision at runtime.
 Use `repo_id@revision` to make runs reproducible.
 
