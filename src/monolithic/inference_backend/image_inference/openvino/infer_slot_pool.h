@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
-// InferSlotPool is the pool of free slots of OpenVINOImageInference. A slot is one infer request together with the
+// InferSlotPool is the pool of empty slots of OpenVINOImageInference. A slot is one infer request together with the
 // batch of frames being filled for it. The submitting thread takes a slot with acquire() and blocks while none is
 // free, which limits the number of requests in flight. A slot returns to the pool with release() when its inference is
 // done. close() ends the waiting at shutdown. Slot is a cheap-to-copy handle, such as a pointer; the pool does not own
@@ -33,22 +33,12 @@ class InferSlotPool {
         condition_.notify_one();
     }
 
-    // Returns a partly filled batch to the pool so that the next acquire() gets it and the next frame continues it.
-    void put_back_partial(Slot slot) {
-        ITT_TASK("InferSlotPool::put_back_partial");
-        {
-            std::lock_guard lock(mutex_);
-            free_.push_front(slot);
-        }
-        condition_.notify_one();
-    }
-
-    // Blocks until a slot is free and returns it. Returns nothing once the pool is closed and has no free slot.
+    // Blocks until a slot is free and returns it. Returns nothing once the pool is closed.
     std::optional<Slot> acquire() {
         ITT_TASK("InferSlotPool::acquire");
         std::unique_lock lock(mutex_);
         condition_.wait(lock, [this] { return !free_.empty() || closed_; });
-        if (free_.empty())
+        if (closed_)
             return std::nullopt;
         Slot slot = free_.front();
         free_.pop_front();
@@ -61,8 +51,7 @@ class InferSlotPool {
         return !free_.empty();
     }
 
-    // Wakes every thread blocked in acquire(). Slots that are still free can be acquired; after that acquire()
-    // returns nothing instead of blocking.
+    // Wakes every thread blocked in acquire(); from now on acquire() returns nothing.
     void close() {
         {
             std::lock_guard lock(mutex_);

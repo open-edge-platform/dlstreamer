@@ -96,7 +96,11 @@ class OpenVINOImageInference : public InferenceBackend::ImageInference {
     int nireq;
     // All slots live here for as long as the object does; everything else only points to them.
     std::vector<std::unique_ptr<InferSlot>> slots;
+    // Empty slots only. A slot being filled is current_slot_; a slot running inference is in neither.
     InferSlotPool<InferSlot *> free_slots;
+    // The slot that takes the next frame, null if none. Written under requests_mutex_; atomic so that IsQueueFull() can
+    // read it without the lock.
+    std::atomic<InferSlot *> current_slot_{nullptr};
 
     std::unique_ptr<InferenceBackend::ImagePreprocessor> pre_processor;
 

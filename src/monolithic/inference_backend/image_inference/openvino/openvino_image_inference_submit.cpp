@@ -203,12 +203,16 @@ void OpenVINOImageInference::SubmitImage(
 
     std::unique_lock<std::mutex> lk(requests_mutex_);
     ++frames_in_flight_;
-    auto acquired = free_slots.acquire();
-    if (!acquired) {
-        --frames_in_flight_;
-        throw std::runtime_error("Inference is closed, cannot submit an image");
+    InferSlot *slot = current_slot_;
+    if (!slot) {
+        auto acquired = free_slots.acquire();
+        if (!acquired) {
+            --frames_in_flight_;
+            throw std::runtime_error("Inference is closed, cannot submit an image");
+        }
+        slot = *acquired;
+        current_slot_ = slot;
     }
-    InferSlot *slot = *acquired;
 
     try {
         if (DoNeedImagePreProcessing(frame->GetImage())) {
@@ -233,9 +237,8 @@ void OpenVINOImageInference::SubmitImage(
     try {
         // start inference asynchronously if enough buffers for batching
         if (slot->buffers.size() >= safe_convert<size_t>(batch_size)) {
+            current_slot_ = nullptr;
             slot->start_async();
-        } else {
-            free_slots.put_back_partial(slot);
         }
     } catch (const std::exception &e) {
         std::throw_with_nested(std::runtime_error("Inference async start was failed."));

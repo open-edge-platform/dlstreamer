@@ -153,7 +153,7 @@ void OpenVINOImageInference::FreeSlot(InferSlot *slot) {
 }
 
 bool OpenVINOImageInference::IsQueueFull() {
-    return !free_slots.has_free();
+    return !current_slot_ && !free_slots.has_free();
 }
 
 const std::string &OpenVINOImageInference::GetModelName() const {
@@ -263,39 +263,36 @@ void OpenVINOImageInference::Flush() {
 
     std::unique_lock<std::mutex> flush_lk(flush_mutex);
 
-    while (frames_in_flight_ != 0) {
-        // Nothing is acquired when the pool is closed and every request is still in flight; wait for them below.
-        if (auto acquired = free_slots.acquire()) {
-            auto slot = *acquired;
-
-            if (slot->buffers.size() > 0) {
-                try {
-                    // WA: Fill non-complete batch with last element for bypass preprocessing only.
-                    // When software preprocessing is used, frames are written directly into the infer-request-owned
-                    // batched tensor, so any unfilled tail slots in the last partial batch already contain data from
-                    // a previous request reuse.
-                    if (batch_size > 1 && !DoNeedImagePreProcessing(nullptr)) {
-                        size_t input_idx = 0;
-                        for (auto &input_vec : slot->in_tensors) {
-                            for (int i = input_vec.size(); i < batch_size; i++)
-                                input_vec.push_back(input_vec.back());
-                            // FIXME: move?
-                            slot->infer_request.set_input_tensors(input_idx, input_vec);
-                            input_idx++;
-                        }
+    if (InferSlot *slot = current_slot_.exchange(nullptr)) {
+        if (slot->buffers.empty()) {
+            free_slots.release(slot);
+        } else {
+            try {
+                // WA: Fill non-complete batch with last element for bypass preprocessing only.
+                // When software preprocessing is used, frames are written directly into the infer-request-owned
+                // batched tensor, so any unfilled tail slots in the last partial batch already contain data from
+                // a previous request reuse.
+                if (batch_size > 1 && !DoNeedImagePreProcessing(nullptr)) {
+                    size_t input_idx = 0;
+                    for (auto &input_vec : slot->in_tensors) {
+                        for (int i = input_vec.size(); i < batch_size; i++)
+                            input_vec.push_back(input_vec.back());
+                        // FIXME: move?
+                        slot->infer_request.set_input_tensors(input_idx, input_vec);
+                        input_idx++;
                     }
-
-                    slot->start_async();
-                } catch (const std::exception &e) {
-                    GVA_ERROR("Couldn't start inferece on flush: %s", e.what());
-                    this->handleError(slot->buffers);
-                    FreeSlot(slot);
                 }
-            } else {
-                free_slots.release(slot);
+
+                slot->start_async();
+            } catch (const std::exception &e) {
+                GVA_ERROR("Couldn't start inferece on flush: %s", e.what());
+                this->handleError(slot->buffers);
+                FreeSlot(slot);
             }
         }
+    }
 
+    while (frames_in_flight_ != 0) {
         // wait_for unlocks flush_mutex until we get notify
         // waiting will be continued if frames_in_flight_ != 0
         request_processed_.wait_for(flush_lk, std::chrono::seconds(1), [this] { return frames_in_flight_ == 0; });
@@ -306,8 +303,8 @@ void OpenVINOImageInference::Close() {
     // Wake a thread that waits in SubmitImage for a free request, so it does not block the Flush below.
     free_slots.close();
     Flush();
-    while (auto req = free_slots.acquire()) {
-        (*req)->infer_request.set_callback([](std::exception_ptr) {});
+    for (auto &slot : slots) {
+        slot->infer_request.set_callback([](std::exception_ptr) {});
     }
 }
 
