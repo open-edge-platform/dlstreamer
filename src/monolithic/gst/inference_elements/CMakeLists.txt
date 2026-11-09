@@ -7,6 +7,7 @@
 set (TARGET_NAME "inference_elements")
 
 find_package(OpenCV REQUIRED core imgproc)
+find_package(OpenCV REQUIRED COMPONENTS geometry)
 find_package(PkgConfig REQUIRED)
 find_package(OpenVINO REQUIRED Runtime)
 pkg_check_modules(GSTREAMER gstreamer-1.0>=1.16 REQUIRED)

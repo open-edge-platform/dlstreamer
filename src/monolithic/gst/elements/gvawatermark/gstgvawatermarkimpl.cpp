@@ -20,6 +20,7 @@
 
 #include <inference_backend/logger.h>
 #include <safe_arithmetic.hpp>
+#include <opencv2/geometry.hpp>
 
 #include "gva_caps.h"
 #include "inference_backend/buffer_mapper.h"

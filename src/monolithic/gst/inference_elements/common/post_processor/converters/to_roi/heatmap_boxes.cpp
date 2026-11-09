@@ -9,6 +9,7 @@
 #include "inference_backend/image_inference.h"
 #include "inference_backend/logger.h"
 #include "safe_arithmetic.hpp"
+#include <opencv2/geometry.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 
