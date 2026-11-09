@@ -14,7 +14,7 @@
 #include <gst/gst.h>
 #include <gst/video/video.h>
 
-#include <opencv2/calib.hpp>
+#include <opencv2/geometry/3d.hpp>
 #include <opencv2/imgproc.hpp>
 
 #include <algorithm>

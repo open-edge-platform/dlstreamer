@@ -16,9 +16,6 @@
     "zlib"
   ],
   "features": {
-    "calib": {
-      "description": "Camera calibration module"
-    },
     "geometry": {
       "description": "Geometry module"
     },

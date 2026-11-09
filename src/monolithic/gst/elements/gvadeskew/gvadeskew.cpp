@@ -11,14 +11,14 @@
 #include <gst/video/video.h>
 #include <nlohmann/json.hpp>
 #include <opencv2/core/quaternion.hpp>
+#include <opencv2/geometry/3d.hpp>
 
 enum {
     PROP_0,
     PROP_INTRINSICS_FILE,
 };
 
-static const cv::Mat DEFAULT_INTRINSICS(
-    cv::Matx<double, 3, 3>(1000.0, 0.0, 960.0, 0.0, 1000.0, 540.0, 0.0, 0.0, 1.0));
+static const cv::Mat DEFAULT_INTRINSICS(cv::Matx<double, 3, 3>(1000.0, 0.0, 960.0, 0.0, 1000.0, 540.0, 0.0, 0.0, 1.0));
 
 static void gst_gvadeskew_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec);
 static void gst_gvadeskew_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec);
@@ -162,11 +162,11 @@ static bool get_closest_face_points(const std::vector<float> &translation, const
 // Convert quaternion to rotation matrix
 cv::Mat quaternionToRotationMatrix(const std::vector<float> &q) {
     float qx = q[0], qy = q[1], qz = q[2], qw = q[3];
-    cv::Mat R(cv::Matx<double, 3, 3>(1 - 2 * qy * qy - 2 * qz * qz, 2 * qx * qy - 2 * qz * qw,
-                                     2 * qx * qz + 2 * qy * qw, 2 * qx * qy + 2 * qz * qw,
-                                     1 - 2 * qx * qx - 2 * qz * qz, 2 * qy * qz - 2 * qx * qw,
-                                     2 * qx * qz - 2 * qy * qw, 2 * qy * qz + 2 * qx * qw,
-                                     1 - 2 * qx * qx - 2 * qy * qy));
+    cv::Mat R(
+        cv::Matx<double, 3, 3>(1 - 2 * qy * qy - 2 * qz * qz, 2 * qx * qy - 2 * qz * qw, 2 * qx * qz + 2 * qy * qw,
+                               2 * qx * qy + 2 * qz * qw, 1 - 2 * qx * qx - 2 * qz * qz, 2 * qy * qz - 2 * qx * qw,
+                               2 * qx * qz - 2 * qy * qw, 2 * qy * qz + 2 * qx * qw, 1 - 2 * qx * qx - 2 * qy * qy));
+
     return R;
 }
 

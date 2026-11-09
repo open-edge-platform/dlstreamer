@@ -6,7 +6,6 @@
       "features": [
         "world",
         "opencl",
-        "calib",
         "geometry",
         "fs",
         "intrinsics",

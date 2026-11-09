@@ -4,11 +4,12 @@ vcpkg_from_github(
     REF "${VERSION}"
     SHA512 e90c75b1ce8332639c853e14a59059ec9b89ffa1d5435ab59820f4fa2e12d30846592672af808817d542a91248b164f6d54eeb6331be52e48062113f24d4c835
     HEAD_REF 5.x
+    PATCHES
+        0001-vcpkg-install-layout.patch
 )
 
 vcpkg_check_features(OUT_FEATURE_OPTIONS FEATURE_OPTIONS
     FEATURES
-        "calib"      BUILD_opencv_calib
         "geometry"   BUILD_opencv_geometry
         "intrinsics" CV_ENABLE_INTRINSICS
         "jpeg"       WITH_JPEG

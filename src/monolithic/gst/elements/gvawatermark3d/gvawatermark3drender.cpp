@@ -17,6 +17,7 @@
 #include <gst/video/video.h>
 #include <nlohmann/json.hpp>
 #include <opencv2/core/quaternion.hpp>
+#include <opencv2/geometry/3d.hpp>
 #include <sstream>
 
 enum {
@@ -26,8 +27,7 @@ enum {
 };
 
 // A generic fallback camera intrinsics matrix (e.g., 1920x1080, fx=fy=1000, cx=960, cy=540)
-static const cv::Mat DEFAULT_INTRINSICS(
-    cv::Matx<double, 3, 3>(1000.0, 0.0, 960.0, 0.0, 1000.0, 540.0, 0.0, 0.0, 1.0));
+static const cv::Mat DEFAULT_INTRINSICS(cv::Matx<double, 3, 3>(1000.0, 0.0, 960.0, 0.0, 1000.0, 540.0, 0.0, 0.0, 1.0));
 
 GST_DEBUG_CATEGORY_STATIC(gst_gva_watermark3d_render_debug_category);
 #define GST_CAT_DEFAULT gst_gva_watermark3d_render_debug_category
