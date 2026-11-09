@@ -165,11 +165,11 @@ jobs:
 
       - name: Set up Docker Buildx
         if: needs.setup.outputs.should_run == 'true'
-        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e #4.3.0
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 #4.4.1
 
       - name: Log in to GitHub Container Registry
         if: needs.setup.outputs.should_run == 'true'
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f #4.6.0
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 #4.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -314,7 +314,7 @@ jobs:
             --image-name="${deb_final_testing_img}"
 
       - name: Upload Docker test results
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 #7.0.2
         if: needs.setup.outputs.should_run == 'true' && steps.run_docker_tests.outcome == 'success'
         with:
           name: DLS_functional_tests_${{ matrix.runner_print_label }}_docker_${{ matrix.ubuntu_version }}_results
@@ -428,7 +428,7 @@ jobs:
           fi
 
       - name: Upload hello_dlstreamer output video
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 #7.0.2
         if: ${{ !cancelled() && needs.setup.outputs.should_run == 'true' }}
         with:
           name: DLS_hello_dlstreamer_output_video_${{ matrix.runner_print_label }}_${{ matrix.ubuntu_version }}_CPU_yolo11s
@@ -536,7 +536,7 @@ jobs:
           deactivate
 
       - name: Upload host test results
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 #7.0.2
         if: ${{ !cancelled() && needs.setup.outputs.should_run == 'true' }}
         with:
           name: DLS_functional_tests_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_results
@@ -702,7 +702,7 @@ jobs:
           deactivate
 
       - name: Upload diff reports for failed host tests
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 #7.0.2
         if: ${{ !cancelled() && needs.setup.outputs.should_run == 'true' }}
         with:
           name: DLS_functional_tests_${{ matrix.runner_print_label }}_on_host_${{ matrix.ubuntu_version }}_diff_reports
@@ -781,7 +781,7 @@ jobs:
 
       # Each matrix leg uploads its own diff_reports artifact; combine them here.
       - name: Download all per-platform diff report artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: "DLS_functional_tests_*_diff_reports"
           path: merged-diff-reports
@@ -841,7 +841,7 @@ jobs:
           } > "$INDEX"
 
       - name: Upload combined diff reports and GT update proposals artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 #7.0.2
         if: always()
         with:
           name: DIFF_REPORTS_DLS_functional_tests
