@@ -484,6 +484,97 @@ jobs:
           UV_PYTHON_PREFERENCE=only-system uv venv --python python3 $HOME/.virtualenvs/dlstreamer
           VIRTUAL_ENV=$HOME/.virtualenvs/dlstreamer uv pip install --no-cache-dir -r $DLS_REL_PATH/requirements.txt
 
+      # TEMPORARY: diagnoses the libgstpython.so segmentation fault seen on Ubuntu 26
+      # when the GStreamer 'python' plugin is loaded into an already running interpreter
+      # (python_smart_nvr_*). Remove this step once the root cause is fixed.
+      - name: 🩺 TEMP diagnose gst-python plugin load
+        if: ${{ !cancelled() && needs.setup.outputs.should_run == 'true' && matrix.ubuntu_version == 'ubuntu26' }}
+        continue-on-error: true
+        run: |
+          set +e
+          # shellcheck source=/dev/null
+          source /opt/intel/dlstreamer/scripts/setup_dls_env.sh
+          export MODELS_PATH=${{ env.MODELS_PATH }}
+          export GST_REGISTRY_FORK=no
+          export GST_DEBUG_NO_COLOR=1
+
+          cat > /tmp/gst_py_probe.py <<'PY'
+          import sys
+          print("executable :", sys.executable)
+          print("version    :", sys.version.replace("\n", " "))
+          print("prefix     :", sys.prefix)
+          print("base_prefix:", sys.base_prefix)
+          import gi
+          print("gi         :", gi.__file__, gi.__version__)
+          from gi import _gi
+          print("gi._gi     :", _gi.__file__)
+          import gi.overrides
+          print("overrides  :", list(gi.overrides.__path__))
+          gi.require_version("Gst", "1.0")
+          from gi.repository import Gst
+          print("Gst        :", Gst)
+          print("Gst ovr    :", getattr(Gst, "_overrides_module", None))
+          sys.stdout.flush()
+          Gst.init(sys.argv)
+          print("Gst.init OK:", Gst.version_string())
+          print("python plug:", Gst.Registry.get().find_plugin("python"))
+          PY
+
+          echo "::group::Shared library linkage"
+          for so in /opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/libgstpython.so \
+                    /opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages/gi/overrides/_gi_gst*.so \
+                    "$HOME"/.virtualenvs/dlstreamer/lib/python3*/site-packages/gi/_gi*.so \
+                    /usr/lib/python3/dist-packages/gi/_gi*.so; do
+            echo "--- ${so}"
+            ldd "${so}" 2>&1 | grep -Ei 'girepository|glib-2.0|libpython|not found'
+          done
+          echo "pkg-config pygobject-3.0: $(pkg-config --modversion pygobject-3.0 2>&1)"
+          echo "::endgroup::"
+
+          echo "::group::gst-inspect-1.0 python (no pre-existing interpreter)"
+          GST_REGISTRY=/tmp/gstreg-inspect.bin gst-inspect-1.0 python 2>&1 | head -20
+          echo "::endgroup::"
+
+          echo "::group::venv python3 (pip-built PyGObject)"
+          source "$HOME"/.virtualenvs/dlstreamer/bin/activate
+          GST_REGISTRY=/tmp/gstreg-venv.bin GST_DEBUG=pyplugin:9 python3 /tmp/gst_py_probe.py 2>&1 | tail -60
+          echo "exit=${PIPESTATUS[0]}"
+          echo "::endgroup::"
+
+          echo "::group::venv python3 with distro gi first on sys.path"
+          GST_REGISTRY=/tmp/gstreg-venv-distrogi.bin \
+            PYTHONPATH=/usr/lib/python3/dist-packages:${PYTHONPATH} python3 /tmp/gst_py_probe.py 2>&1 | tail -40
+          echo "exit=${PIPESTATUS[0]}"
+          deactivate
+          echo "::endgroup::"
+
+          echo "::group::system /usr/bin/python3 (distro python3-gi)"
+          GST_REGISTRY=/tmp/gstreg-system.bin GST_DEBUG=pyplugin:9 /usr/bin/python3 /tmp/gst_py_probe.py 2>&1 | tail -60
+          echo "exit=${PIPESTATUS[0]}"
+          echo "::endgroup::"
+
+          echo "::group::gdb backtrace (venv python3)"
+          sudo apt-get install -y -q --no-install-recommends gdb >/dev/null 2>&1
+          source "$HOME"/.virtualenvs/dlstreamer/bin/activate
+          GST_REGISTRY=/tmp/gstreg-gdb.bin gdb -batch -ex run -ex "bt 40" -ex "info sharedlibrary" \
+              --args python3 /tmp/gst_py_probe.py --gst-disable-segtrap 2>&1 | tail -80
+          echo "::endgroup::"
+
+          echo "::group::gdb backtrace (real smart_nvr sample)"
+          SMART_NVR=""
+          for cand in "$HOME"/dlstreamer/samples/gstreamer/python/smart_nvr/smart_nvr.py \
+                      /opt/intel/dlstreamer/samples/gstreamer/python/smart_nvr/smart_nvr.py \
+                      "${DLS_REL_PATH}"/samples/gstreamer/python/smart_nvr/smart_nvr.py; do
+            if [ -f "${cand}" ]; then SMART_NVR="${cand}"; break; fi
+          done
+          echo "sample: ${SMART_NVR}"
+          GST_REGISTRY=/tmp/gstreg-gdb-sample.bin gdb -batch -ex run -ex "bt 40" \
+              --args python3 "${SMART_NVR}" \
+              --input ${{ env.VIDEO_INPUTS_PATH }}/Pexels_Videos_2431853-hd_1920_1080_25fps.mp4 \
+              --device CPU --output json 2>&1 | tail -80
+          deactivate
+          echo "::endgroup::"
+
       - name: 🚀 Run on host tests
         if: ${{ !cancelled() && needs.setup.outputs.should_run == 'true' }}
         id: run_onhost_tests
