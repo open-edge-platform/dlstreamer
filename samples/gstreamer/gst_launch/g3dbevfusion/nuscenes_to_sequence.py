@@ -9,7 +9,7 @@ GStreamer reads sensors with multifilesrc, which needs sequentially numbered
 files, while nuScenes names files by log and timestamp and links them through
 its JSON tables. For every requested scene this writes:
 
-    <out>/<scene>/CAM_FRONT/%06d.jpg ... CAM_BACK_RIGHT/%06d.jpg   (symlinks)
+    <out>/<scene>/CAM_FRONT/%06d.jpg ... CAM_BACK_RIGHT/%06d.jpg   (copies)
     <out>/<scene>/LIDAR_TOP/%06d.bin    float32 [x, y, z, intensity] per point
     <out>/<scene>/calibration.json      sensor topology + static calibration
     <out>/<scene>/calibration_lidar_only.json  the same rig without cameras
@@ -31,7 +31,7 @@ ignoring ego motion between each camera's exposure and the lidar timestamp
 import argparse
 import csv
 import json
-import os
+import shutil
 import sys
 from pathlib import Path
 
@@ -178,11 +178,12 @@ def convert_scene(nusc, name, out_root):
         if index == 0:
             write_calibration(nusc, scene_dir, scene, frame)
 
+        # Copies rather than symlinks, so the sequence outlives the dataset.
         for ch in CAMERAS:
-            link = scene_dir / ch / f'{index:06d}.jpg'
-            if link.is_symlink() or link.exists():
-                link.unlink()
-            os.symlink((nusc.root / frame[ch]['filename']).resolve(), link)
+            image = scene_dir / ch / f'{index:06d}.jpg'
+            if image.is_symlink():
+                image.unlink()
+            shutil.copyfile(nusc.root / frame[ch]['filename'], image)
 
         points = np.fromfile(nusc.root / frame[LIDAR]['filename'], dtype=np.float32).reshape(-1, 5)
         np.ascontiguousarray(points[:, :4]).tofile(scene_dir / LIDAR / f'{index:06d}.bin')
