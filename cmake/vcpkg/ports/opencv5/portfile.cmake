@@ -42,6 +42,8 @@ vcpkg_cmake_configure(
         -DBUILD_JPEG=OFF
         -DBUILD_PNG=OFF
         -DBUILD_ZLIB=OFF
+        -DOpenCV_INSTALL_BINARIES_PREFIX=
+        -DOPENCV_BIN_INSTALL_PATH=bin
         -DWITH_FFMPEG=OFF
         -DWITH_IPP=OFF
         -DWITH_OPENEXR=OFF
