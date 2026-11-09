@@ -122,6 +122,9 @@ ENV UV_PYTHON_PREFERENCE=only-system
 
 USER dlstreamer
 
+# PyGObject is pinned to the version shipped by this distro (pkg-config pygobject-3.0 = 3.56.2),
+# so the gi module matches the headers libgstpython.so is built against. An older pin such as
+# 3.50.0 segfaults when the GStreamer 'python' plugin is loaded from a Python 3.14 process.
 RUN \
     uv venv --python python3 /python3venv && \
     VIRTUAL_ENV=/python3venv uv pip install --no-cache-dir --no-deps \
@@ -138,7 +141,7 @@ RUN \
     pyzbar==0.1.9 \
     six==1.16.0 \
     pycairo==1.26.0 \
-    PyGObject==3.50.0 \
+    PyGObject==3.56.2 \
     setuptools==84.1.0 \
     pytest==8.3.3 \
     pluggy==1.5.0 \
