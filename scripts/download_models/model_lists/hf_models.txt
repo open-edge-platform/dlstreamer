@@ -75,7 +75,7 @@ openai/whisper-tiny@169d4a4341b33bc18d8881c4b69c2e104e1cc0af
 llava-hf/llava-interleave-qwen-0.5b-hf@1090956dd1c79bc93ae98dcf395590369435ec91
 
 # Supported VLMs with export profiles automatically use the configured transformers and
-# huggingface_hub versions in a temporary environment. einops and timm are in common requirements.
+# huggingface_hub versions in a temporary environment.
 OpenGVLab/InternVL3_5-2B@7d7bd7bcc35b77b391883ebd7f9686cfa0e25cc0
 
 # Heavy VLM/Video models
