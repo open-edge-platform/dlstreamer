@@ -415,28 +415,8 @@ def main() -> int:
                     command = [
                         sys.executable,
                         "-c",
-                        "import importlib.util, json, sys\n"
-                        "from pathlib import Path\n"
-                        "import transformers, huggingface_hub\n"
-                        "print('[EXPORT ENV] Python:', sys.executable, flush=True)\n"
-                        "print('[EXPORT ENV] transformers:', transformers.__version__, "
-                        "transformers.__file__, flush=True)\n"
-                        "print('[EXPORT ENV] huggingface_hub:', huggingface_hub.__version__, "
-                        "huggingface_hub.__file__, flush=True)\n"
-                        "print('[EXPORT ENV] sys.path:', json.dumps(sys.path), flush=True)\n"
-                        "spec = importlib.util.find_spec('optimum.commands.register')\n"
-                        "paths = list(spec.submodule_search_locations or []) if spec else []\n"
-                        "print('[EXPORT ENV] Optimum registration paths:', "
-                        "json.dumps(paths), flush=True)\n"
-                        "for path in paths:\n"
-                        "    directory = Path(path)\n"
-                        "    print('[EXPORT ENV] Registration directory:', "
-                        "str(directory.resolve()), flush=True)\n"
-                        "    print('[EXPORT ENV] Registration files:', "
-                        "json.dumps(sorted(str(file) for file in directory.glob('*.py'))), "
-                        "flush=True)\n"
-                        "from optimum.commands.optimum_cli import main\n"
-                        "sys.exit(main())",
+                        "from optimum.commands.optimum_cli import main; "
+                        "import sys; sys.exit(main())",
                         "export",
                         "openvino",
                         "--model",
