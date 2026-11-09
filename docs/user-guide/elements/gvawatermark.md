@@ -25,6 +25,11 @@ do for every frame in video memory.
 - The GPU renderer is built when OpenCL is found, and on Linux also VA-API. If
   the GPU cannot share the frames with OpenCL, the element logs a warning and
   uses the CPU renderer.
+- On Meteor Lake and Arrow Lake integrated GPUs with the `i915` kernel driver,
+  `device=GPU` uses the CPU renderer. There the compute runtime submits work
+  directly to the GPU while OpenVINO runs on it, and the OpenCL renderer then
+  slows inference down. Setting `NEOReadDebugKeys=1 EnableDirectSubmission=0`
+  turns that off, and the element uses the GPU renderer again.
 - On Linux, `device` defaults to `CPU`. Set `device=GPU` and keep the frames in
   VAMemory:
 
