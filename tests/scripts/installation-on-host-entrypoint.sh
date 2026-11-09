@@ -18,7 +18,7 @@ PREREQUISITES_SCRIPT_PATH="$(dirname "$0")/../../scripts"
 # full OpenVINO C++ runtime (same layout and setupvars.sh as the plain
 # OpenVINO archive) - keep in sync with OPENVINO_GENAI_VERSION in
 # docker/ubuntu/ubuntuNN.Dockerfile whenever OpenVINO is bumped.
-DEFAULT_OPENVINO_GENAI_VERSION=2026.5.0.0.dev20261030
+DEFAULT_OPENVINO_GENAI_VERSION=2026.5.0.0rc1
 
 # Function to display text in a given color
 echo_color() {
@@ -75,7 +75,7 @@ install_openvino() {
     sudo mkdir -p /opt/intel
 
     local openvino_genai_ver="openvino_genai_ubuntu${ubuntu_major}_${openvino_genai_version}_x86_64"
-    local openvino_genai_pkg="https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/${openvino_genai_version}/${openvino_genai_ver}.tar.gz"
+    local openvino_genai_pkg="https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/pre-release/${openvino_genai_version}/${openvino_genai_ver}.tar.gz"
     local genai_version_marker=/opt/intel/openvino_genai/.installed_version
 
     if [ -d /opt/intel/openvino_genai ] && [ "$(cat "$genai_version_marker" 2>/dev/null)" != "$openvino_genai_version" ]; then
