@@ -159,7 +159,7 @@ def run_with_compatible_export_dependencies(
     with tempfile.TemporaryDirectory(prefix="dlstreamer-hf-export-") as temp_dir:
         venv_dir = Path(temp_dir) / "venv"
         subprocess.run(
-            [sys.executable, "-m", "venv", "--system-site-packages", str(venv_dir)],
+            [sys.executable, "-m", "venv", str(venv_dir)],
             check=True,
         )
         python = venv_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
@@ -176,7 +176,7 @@ def run_with_compatible_export_dependencies(
         shared_packages.write_text(
             "".join(
                 f"{package_dir}\n"
-                for package_dir in site.getsitepackages()
+                for package_dir in site.getsitepackages([sys.prefix])
                 if Path(package_dir).is_dir()
             ),
             encoding="utf-8",

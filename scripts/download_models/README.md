@@ -80,7 +80,8 @@ The script classifies a model into one of three support levels:
 For architectures whose OpenVINO export config requires older Hugging Face packages, the script
 automatically retries in a temporary virtual environment with compatible `transformers` and
 `huggingface_hub` versions. `optimum-intel` and other export dependencies are reused from the
-main environment; that environment is not modified.
+main environment; that environment is not modified. The temporary environment does not inherit
+system site-packages, avoiding conflicts with other Optimum installations.
 The Optimum CLI entry point is run with the export environment's Python interpreter, not a
 console script from `PATH`, so it uses the selected package versions.
 
