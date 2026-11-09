@@ -375,9 +375,9 @@ COPY --from=ffmpeg-builder /usr/local/lib/pkgconfig/libav* /usr/local/lib/pkgcon
 COPY --from=ffmpeg-builder /usr/local/lib/pkgconfig/libswscale* /usr/local/lib/pkgconfig/
 COPY --from=ffmpeg-builder /usr/local/include/ /usr/local/include/
 COPY --from=gstreamer-builder ${GSTREAMER_DIR} ${GSTREAMER_DIR}
-COPY --from=opencv-builder /usr/local/include/opencv4 /usr/local/include/opencv4
+COPY --from=opencv-builder /usr/local/include/opencv5 /usr/local/include/opencv5
 COPY --from=opencv-builder /copy_libs/ /usr/local/lib64/
-COPY --from=opencv-builder /usr/local/lib64/cmake/opencv4 /usr/local/lib64/cmake/opencv4
+COPY --from=opencv-builder /usr/local/lib64/cmake/opencv5 /usr/local/lib64/cmake/opencv5
 COPY --from=kafka-builder /copy_libs/ /usr/local/lib/
 COPY --from=kafka-builder /usr/local/include/librdkafka /usr/local/include/librdkafka
 COPY --from=realsense-builder /copy_libs/ /usr/local/lib64/
@@ -490,7 +490,7 @@ RUN \
     find /usr/local/lib -regextype grep -regex ".*libav.*so\.[0-9]*$" -exec cp {} /${RPM_PKG_NAME}/opt/ffmpeg \; && \
     find /usr/local/lib -regextype grep -regex ".*libswscale.*so\.[0-9]*$" -exec cp {} /${RPM_PKG_NAME}/opt/ffmpeg \; && \
     find /usr/local/lib -regextype grep -regex ".*libswresample.*so\.[0-9]*$" -exec cp {} /${RPM_PKG_NAME}/opt/ffmpeg \; && \
-    cp -r /usr/local/include/opencv4/* /${RPM_PKG_NAME}/opt/opencv/include && \
+    cp -r /usr/local/include/opencv5/* /${RPM_PKG_NAME}/opt/opencv/include && \
     cp "${DLSTREAMER_DIR}"/LICENSE /${RPM_PKG_NAME}/ && \
     rpmdev-setuptree && \
     tar -czf ~/rpmbuild/SOURCES/${RPM_PKG_NAME}.tar.gz -C / ${RPM_PKG_NAME} && \

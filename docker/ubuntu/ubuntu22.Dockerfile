@@ -366,9 +366,9 @@ SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
 
 COPY --from=gstreamer-builder ${GSTREAMER_DIR} ${GSTREAMER_DIR}
-COPY --from=opencv-builder /usr/local/include/opencv4 /usr/local/include/opencv4
+COPY --from=opencv-builder /usr/local/include/opencv5 /usr/local/include/opencv5
 COPY --from=opencv-builder /copy_libs/ /usr/local/lib/
-COPY --from=opencv-builder /usr/local/lib/cmake/opencv4 /usr/local/lib/cmake/opencv4
+COPY --from=opencv-builder /usr/local/lib/cmake/opencv5 /usr/local/lib/cmake/opencv5
 COPY --from=kafka-builder /usr/local/include/librdkafka /usr/local/include/librdkafka
 COPY --from=kafka-builder /copy_libs/ /usr/local/lib/
 COPY --from=realsense-builder /copy_libs/ /usr/local/lib/
@@ -481,7 +481,7 @@ RUN \
     cp "${DLSTREAMER_DIR}/girs/"*.gir /deb-pkg/opt/intel/dlstreamer/share/gir-1.0/ && \
     cp "${DLSTREAMER_DIR}/build/src/gst/metadata/"*.typelib /deb-pkg/opt/intel/dlstreamer/lib/girepository-1.0/ && \
     cp -a /usr/local/lib/libopencv*.so* /deb-pkg/opt/opencv/ && \
-    cp -r /usr/local/include/opencv4/* /deb-pkg/opt/opencv/include && \
+    cp -r /usr/local/include/opencv5/* /deb-pkg/opt/opencv/include && \
     cp -a /usr/local/lib/librdkafka*.so* /deb-pkg/opt/rdkafka/ && \
     cp -a /usr/local/lib/librealsense* /deb-pkg/opt/librealsense/ && \
     rm -rf /deb-pkg/opt/intel/dlstreamer/archived && \
