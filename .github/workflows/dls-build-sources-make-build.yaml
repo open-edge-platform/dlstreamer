@@ -100,7 +100,7 @@ jobs:
             sudo apt-get install -y wget vainfo xz-utils python3-pip python3-gi gcc-multilib libglib2.0-dev \
                 flex bison autoconf automake libtool libogg-dev make g++ libva-dev yasm libglx-dev libdrm-dev \
                 python-gi-dev python3-dev unzip libgflags-dev libcurl4-openssl-dev gobject-introspection \
-                libgirepository1.0-dev libx265-dev libx264-dev libde265-dev libgudev-1.0-dev libusb-1.0 nasm python3-venv \
+                libgirepository1.0-dev libgirepository-2.0-dev libx265-dev libx264-dev libde265-dev libgudev-1.0-dev libusb-1.0 nasm python3-venv \
                 libcairo2-dev libxt-dev libgirepository1.0-dev libgles2-mesa-dev wayland-protocols \
                 libssh2-1-dev cmake git valgrind numactl libvpx-dev libopus-dev libsrtp2-dev libxv-dev \
                 linux-libc-dev libpmix2t64 libhwloc15 libhwloc-plugins libxcb1-dev libx11-xcb-dev \
