@@ -154,7 +154,7 @@ RUN cp -a /usr/local/lib/libav* ./ && \
 # ==============================================================================
 FROM ffmpeg-builder AS opencv-builder
 
-ARG OPENCV_VERSION=4.13.0
+ARG OPENCV_VERSION=5.1.0
 # OpenCV
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 

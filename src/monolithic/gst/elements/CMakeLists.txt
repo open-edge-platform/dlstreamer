@@ -6,7 +6,12 @@
 
 set (TARGET_NAME "elements")
 
-find_package(OpenCV REQUIRED core imgproc calib3d)
+find_package(OpenCV REQUIRED COMPONENTS core imgproc)
+if(OpenCV_VERSION VERSION_LESS 5.0)
+    find_package(OpenCV REQUIRED COMPONENTS calib3d)
+else()
+    find_package(OpenCV REQUIRED COMPONENTS calib)
+endif()
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GSTREAMER gstreamer-1.0>=1.16 REQUIRED)
 pkg_check_modules(GSTVIDEO gstreamer-video-1.0>=1.16 REQUIRED)

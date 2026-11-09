@@ -7,7 +7,12 @@
 set(TARGET_NAME "g3drender")
 
 find_package(PkgConfig REQUIRED)
-find_package(OpenCV REQUIRED COMPONENTS core imgproc calib3d)
+find_package(OpenCV REQUIRED COMPONENTS core imgproc)
+if(OpenCV_VERSION VERSION_LESS 5.0)
+    find_package(OpenCV REQUIRED COMPONENTS calib3d)
+else()
+    find_package(OpenCV REQUIRED COMPONENTS calib)
+endif()
 pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0)
 pkg_check_modules(GSTREAMER_BASE REQUIRED gstreamer-base-1.0)
 pkg_check_modules(GSTANALYTICS gstreamer-analytics-1.0>=1.28 REQUIRED)

@@ -151,7 +151,7 @@ ENV PATH="/python3venv/bin:${PATH}"
 # ==============================================================================
 FROM builder AS opencv-builder
 
-ARG OPENCV_VERSION=4.13.0
+ARG OPENCV_VERSION=5.1.0
 
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
