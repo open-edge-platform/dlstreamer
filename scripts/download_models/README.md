@@ -81,6 +81,8 @@ For architectures whose OpenVINO export config requires older Hugging Face packa
 automatically retries in a temporary virtual environment with compatible `transformers` and
 `huggingface_hub` versions. `optimum-intel` and other export dependencies are reused from the
 main environment; that environment is not modified.
+The Optimum CLI entry point is run with the export environment's Python interpreter, not a
+console script from `PATH`, so it uses the selected package versions.
 
 When `--model` does not include `@revision`, the script downloads the latest available Hugging Face revision at runtime.
 Use `repo_id@revision` to make runs reproducible.

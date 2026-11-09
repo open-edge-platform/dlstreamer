@@ -148,15 +148,6 @@ def validate_extra_args(extra_args: list[str]) -> None:
             )
 
 
-def resolve_optimum_cli() -> str:
-    """Prefer the optimum-cli next to the running interpreter over any on PATH."""
-    for name in ("optimum-cli", "optimum-cli.exe"):
-        candidate = Path(sys.executable).with_name(name)
-        if candidate.exists():
-            return str(candidate)
-    return "optimum-cli"
-
-
 def run_with_compatible_export_dependencies(
     args: argparse.Namespace,
     model_id: str,
@@ -420,9 +411,12 @@ def main() -> int:
                         raise ValueError(
                             f"Export variant '{args.export_variant}' is not supported for model '{model_id}'"
                         )
-                    # Standard export using optimum-cli
+                    # The console script's shebang can point to the parent environment.
                     command = [
-                        resolve_optimum_cli(),
+                        sys.executable,
+                        "-c",
+                        "from optimum.commands.optimum_cli import main; "
+                        "import sys; sys.exit(main())",
                         "export",
                         "openvino",
                         "--model",
