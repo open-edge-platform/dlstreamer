@@ -14,11 +14,18 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 USER root
 
+# PyGObject >= 3.52 (pinned on Python 3.14 / Ubuntu 26) builds against girepository-2.0,
+# which is only available on Ubuntu 26.04.
+# hadolint ignore=SC1091
 RUN \
     apt-get update && \
     apt-get install -y -q --no-install-recommends gcc=\* cmake=\* python3-full=\* python-gi-dev=\* python3-dev=\* python3-pip=\* \
     libglib2.0-dev=\* libcairo2-dev=\* libopencv-objdetect-dev=\* libopencv-photo-dev=\* libopencv-stitching-dev=\* libopencv-video-dev=\* \
     libopencv-calib3d-dev=\* libopencv-core-dev=\* libopencv-dnn-dev=\* libgirepository1.0-dev=\* && \
+    . /etc/os-release && \
+    if [ "$VERSION_ID" = "26.04" ]; then \
+        apt-get install -y -q --no-install-recommends libgirepository-2.0-dev=\*; \
+    fi && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
