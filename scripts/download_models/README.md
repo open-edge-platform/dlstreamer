@@ -130,7 +130,8 @@ python download_ultralytics_models.py \
   --model <ultralytics_name_or_pt_path> \
   [--outdir <output_dir>] \
   [--half] \
-  [--int8]
+  [--int8] \
+  [--data <dataset.yaml>]
 ```
 
 ### Arguments
@@ -145,6 +146,8 @@ python download_ultralytics_models.py \
   `${MODELS_PATH}/public/yolo11n/FP16`.
 - `--half` (optional): Export in FP16.
 - `--int8` (optional): Export in INT8.
+- `--data` (optional): Dataset YAML used for INT8 calibration, for example
+  `coco128.yaml`. If omitted, Ultralytics uses its default calibration dataset.
 
 For Hugging Face repositories, the exported XML and BIN use the repository ID
 with `/` replaced by `_` instead of the generic `model.xml` and `model.bin`.
@@ -163,8 +166,8 @@ python download_ultralytics_models.py --model yolo11n.pt@v8.3.0 --outdir ./expor
 # Export a local checkpoint in FP16
 python download_ultralytics_models.py --model /path/to/model.pt --outdir ./exports --half
 
-# Export in INT8
-python download_ultralytics_models.py --model yolo11s.pt --outdir ./exports --int8
+# Export in INT8 using coco128 for calibration
+python download_ultralytics_models.py --model yolo11s.pt --outdir ./exports --int8 --data coco128.yaml
 ```
 
 ## 3) TIMM conversion
