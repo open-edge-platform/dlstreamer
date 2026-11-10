@@ -37,16 +37,7 @@ bool isNpuZeroCopyInputSupported(const InferenceConfig &config) {
     try {
         const auto &base_config = config.at(KEY_BASE);
 
-        // Resolve the effective model batch size the same way as the OpenVINO backend: 0 means auto
-        // (device optimal batch size), and auto-batching (batch timeout set) keeps the model at batch 1.
-        int batch_size = std::stoi(base_config.at(KEY_BATCH_SIZE));
-        const auto inf_it = config.find(KEY_INFERENCE);
-        const bool auto_batching = inf_it != config.end() && inf_it->second.count(ov::auto_batch_timeout.name()) &&
-                                   std::stoi(inf_it->second.at(ov::auto_batch_timeout.name())) > -1;
-        if (auto_batching)
-            batch_size = 1;
-        else if (batch_size == 0)
-            batch_size = OpenVINOImageInference::GetDeviceOptimalBatchSize(base_config.at(KEY_DEVICE));
+        const int batch_size = OpenVino::resolve_batch_settings(OpenVino::ConfigHelper(config)).batch_size;
         if (batch_size > 1) {
             GVA_WARNING("NPU zero-copy: batch-size %d is not supported, only batch-size 1 is", batch_size);
             return false;

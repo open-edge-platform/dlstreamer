@@ -461,6 +461,19 @@ void configure_model_inputs(Preparation &p, const ConfigHelper &config, ov::prep
 
 } // namespace
 
+BatchSettings resolve_batch_settings(const ConfigHelper &config) {
+    BatchSettings settings;
+    settings.batch_size = config.batch_size();
+    if (settings.batch_size == 0)
+        settings.batch_size = OpenVINOImageInference::GetDeviceOptimalBatchSize(config.device());
+
+    if (config.batch_timeout() > -1) {
+        settings.auto_batch_num_requests = settings.batch_size;
+        settings.batch_size = 1;
+    }
+    return settings;
+}
+
 PreparedModel prepare_model(std::shared_ptr<ov::Model> model, const ConfigHelper &config, MemoryType memory_type) {
     Preparation p;
     p.model = std::move(model);
@@ -489,16 +502,10 @@ PreparedModel prepare_model(std::shared_ptr<ov::Model> model, const ConfigHelper
         reshape_model(p, config, frame_height, frame_width, false);
     }
 
-    p.batch_size = config.batch_size();
-    if (p.batch_size == 0)
-        p.batch_size = OpenVINOImageInference::GetDeviceOptimalBatchSize(config.device());
-
+    const BatchSettings batch = resolve_batch_settings(config);
+    p.batch_size = batch.batch_size;
+    p.auto_batch_num_requests = batch.auto_batch_num_requests;
     p.batch_timeout = config.batch_timeout();
-
-    if (p.batch_timeout > -1) {
-        p.auto_batch_num_requests = p.batch_size;
-        p.batch_size = 1;
-    }
 
     GVA_DEBUG("Setting batch size of %d to model", p.batch_size);
     // Every input carries an 'N' layout by now (image via configure_image_input, aux inputs tagged

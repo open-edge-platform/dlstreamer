@@ -46,6 +46,18 @@ struct PreparedModel {
     ImageInputInfo image_input;
 };
 
+// Batch settings the model is prepared with, resolved from the batch-size and batch-timeout of the config.
+struct BatchSettings {
+    // Batch size of the model. 1 when OpenVINO auto-batching (batch-timeout) is used.
+    int batch_size = 0;
+    // Number of requests OpenVINO auto-batching groups into one device batch; 0 when it is not used.
+    int auto_batch_num_requests = 0;
+};
+
+// batch-size 0 means the device's optimal batch size. With a batch-timeout (auto-batching) that size becomes the number
+// of grouped requests and the model itself stays at batch 1.
+BatchSettings resolve_batch_settings(const ConfigHelper &config);
+
 // Applies the settings of the config to the model, in this order: reshape, input layouts and pre-processing, batch
 // size.
 PreparedModel prepare_model(std::shared_ptr<ov::Model> model, const ConfigHelper &config, MemoryType memory_type);

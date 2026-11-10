@@ -76,17 +76,10 @@ void OpenVINOImageInference::SetCompletionCallback(InferSlot *slot) {
 OpenVINOImageInference::OpenVINOImageInference(const InferenceBackend::InferenceConfig &config, Allocator *,
                                                dlstreamer::ContextPtr context, CallbackFunc callback,
                                                ErrorHandlingFunc error_handler, MemoryType memory_type)
-    : context_(context), memory_type(memory_type), callback(callback), handleError(error_handler),
-      batch_size(std::stoi(config.at(KEY_BASE).at(KEY_BATCH_SIZE))), batch_timeout(-1), frames_in_flight_(0U) {
+    : context_(context), memory_type(memory_type), callback(callback), handleError(error_handler), batch_size(0),
+      batch_timeout(-1), frames_in_flight_(0U) {
 
     try {
-        if (config.count(KEY_INFERENCE) > 0) {
-            const auto &inference_config = config.at(KEY_INFERENCE);
-            if (inference_config.count(ov::auto_batch_timeout.name()) > 0) {
-                batch_timeout = std::stoi(inference_config.at(ov::auto_batch_timeout.name()));
-            }
-        }
-
         ConfigHelper cfg_helper(config);
         const auto pp_type = cfg_helper.pp_type();
         log_openvino_version();

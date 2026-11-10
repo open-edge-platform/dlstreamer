@@ -84,9 +84,11 @@ struct ConfigHelper {
     }
 
     int batch_timeout() const {
-        const auto &inference_config = config.at(InferenceBackend::KEY_INFERENCE);
-        const auto it = inference_config.find(ov::auto_batch_timeout.name());
-        if (it == inference_config.end())
+        const auto inference_config = config.find(InferenceBackend::KEY_INFERENCE);
+        if (inference_config == config.end())
+            return -1;
+        const auto it = inference_config->second.find(ov::auto_batch_timeout.name());
+        if (it == inference_config->second.end())
             return -1;
         return std::stoi(it->second);
     }
