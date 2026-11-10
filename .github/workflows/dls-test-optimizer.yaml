@@ -104,12 +104,7 @@ jobs:
         with:
           persist-credentials: false
           path: dlstreamer
-
-      - name: Init submodules
-        if: matrix.runner_print_label != 'SKIP'
-        run: |
-          cd dlstreamer
-          git submodule update --init thirdparty/spdlog
+          submodules: true
 
       - name: Check out test repository
         if: matrix.runner_print_label != 'SKIP'

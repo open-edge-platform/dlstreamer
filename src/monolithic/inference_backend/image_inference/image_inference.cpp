@@ -189,9 +189,8 @@ ImageInference::Ptr ImageInference::createImageInferenceInstance(MemoryType inpu
                                 "The model input cannot be fed to the NPU or batch size is greater than 1.");
                 } else {
                     // Use DMA-BUF for zero-copy
-                    // memory_type_to_use = MemoryType::DMA_BUFFER;
-                    // GVA_INFO("NPU zero-copy enabled.");
-                    GVA_INFO("NPU zero-copy feasible but not enabled.");
+                    memory_type_to_use = MemoryType::DMA_BUFFER;
+                    GVA_INFO("NPU zero-copy enabled.");
                 }
             }
 #endif

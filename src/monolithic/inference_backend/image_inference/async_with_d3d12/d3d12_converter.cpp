@@ -131,9 +131,12 @@ void D3D12Converter::SetupPreprocessing(const InputImageLayerDesc::Ptr &pre_proc
     uint16_t dst_region_height = src_rect_height;
 
     // Resize preparations
+    // Central-resize crops the source directly, so the regular resize step must not run before it
+    const bool central_resize =
+        pre_proc_info->doNeedCrop() && pre_proc_info->getCropType() == InputImageLayerDesc::Crop::CENTRAL_RESIZE;
     double resize_scale_param_x = 1;
     double resize_scale_param_y = 1;
-    if (pre_proc_info->doNeedResize() &&
+    if (!central_resize && pre_proc_info->doNeedResize() &&
         (src_rect_width != input_width_except_padding || src_rect_height != input_height_except_padding)) {
         if (pre_proc_info->isAspectRatioMultipleOfResize()) {
             throw std::runtime_error("Aspect-ratio-multiple-of resize is supported only by the OpenCV preprocessor");
@@ -174,22 +177,23 @@ void D3D12Converter::SetupPreprocessing(const InputImageLayerDesc::Ptr &pre_proc
         uint16_t cropped_width = dst_region_width - cropped_border_x;
         uint16_t cropped_height = dst_region_height - cropped_border_y;
 
-        if (pre_proc_info->getCropType() == InputImageLayerDesc::Crop::CENTRAL_RESIZE) {
+        if (central_resize) {
             // Center-crop within the source region (ROI or full frame)
-            uint16_t crop_size = (std::min)(src_rect_width, src_rect_height);
-            uint16_t startX = (src_rect_width - crop_size) / 2;
-            uint16_t startY = (src_rect_height - crop_size) / 2;
+            const auto crop = InputImageLayerDesc::CalculateCentralResizeCrop(
+                src_rect_width, src_rect_height, input_width_except_padding, input_height_except_padding);
 
-            src_rect_x += startX;
-            src_rect_y += startY;
-            src_rect_w = crop_size;
-            src_rect_h = crop_size;
+            src_rect_x += safe_convert<uint32_t>(crop.x);
+            src_rect_y += safe_convert<uint32_t>(crop.y);
+            src_rect_w = safe_convert<uint32_t>(crop.width);
+            src_rect_h = safe_convert<uint32_t>(crop.height);
 
             dst_region_width = input_width_except_padding;
             dst_region_height = input_height_except_padding;
 
             if (image_transform_info)
-                image_transform_info->CropHasDone(startX, startY);
+                image_transform_info->CropThenResizeHasDone(
+                    crop.x, crop.y, safe_convert<double>(input_width_except_padding) / crop.width,
+                    safe_convert<double>(input_height_except_padding) / crop.height);
         } else {
             switch (pre_proc_info->getCropType()) {
             case InputImageLayerDesc::Crop::CENTRAL:
