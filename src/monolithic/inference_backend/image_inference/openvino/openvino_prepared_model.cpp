@@ -128,8 +128,7 @@ ov::Layout get_ov_node_layout(const ov::Output<ov::Node> &node, bool from_shape_
     const auto &pshape = node.get_partial_shape();
     result = get_image_layout_from_shape(pshape);
     if (result.empty())
-        GVA_WARNING("Node '%s': couldn't determine layout for shape %s", node_name.c_str(),
-                    pshape.to_string().c_str());
+        GVA_WARNING("Node '%s': couldn't determine layout for shape %s", node_name.c_str(), pshape.to_string().c_str());
     else
         GVA_INFO("Node '%s': got layout %s for shape %s", node_name.c_str(), result.to_string().c_str(),
                  pshape.to_string().c_str());
@@ -401,8 +400,8 @@ void configure_image_input(Preparation &p, const ConfigHelper &config, ov::prepr
     if (model_layout.empty()) {
         // Need to specify H and W dimensions in model, others are not important
         model_layout = "??HW";
-        GVA_WARNING("Layout for '%s' input is not explicitly set, so it's defaulted to %s",
-                    node.get_any_name().c_str(), model_layout.to_string().c_str());
+        GVA_WARNING("Layout for '%s' input is not explicitly set, so it's defaulted to %s", node.get_any_name().c_str(),
+                    model_layout.to_string().c_str());
         input.model().set_layout(model_layout);
     }
 }

@@ -113,12 +113,11 @@ class OpenVINOImageInference : public InferenceBackend::ImageInference {
   private:
     void FreeSlot(InferSlot *slot);
     bool DoNeedImagePreProcessing(const InferenceBackend::ImagePtr src_img);
-    void SubmitImageProcessing(const std::string &input_name, InferSlot *slot,
-                               const InferenceBackend::Image &src_img,
+    void SubmitImageProcessing(const std::string &input_name, InferSlot *slot, const InferenceBackend::Image &src_img,
                                const InferenceBackend::InputImageLayerDesc::Ptr &pre_proc_info,
                                const InferenceBackend::ImageTransformationParams::Ptr image_transform_info);
-    void BypassImageProcessing(const std::string &input_name, InferSlot *slot,
-                               const InferenceBackend::Image &src_img, size_t batch_size);
+    void BypassImageProcessing(const std::string &input_name, InferSlot *slot, const InferenceBackend::Image &src_img,
+                               size_t batch_size);
     void SetCompletionCallback(InferSlot *slot);
     void
     ApplyInputPreprocessors(InferSlot *slot,

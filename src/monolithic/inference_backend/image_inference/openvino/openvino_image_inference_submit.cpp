@@ -84,8 +84,8 @@ Image map_ov_tensor_to_img(ov::Tensor &tensor, size_t batch_index) {
 
 } // namespace
 
-void OpenVINOImageInference::SubmitImageProcessing(const std::string &input_name, InferSlot *slot,
-                                                   const Image &src_img, const InputImageLayerDesc::Ptr &pre_proc_info,
+void OpenVINOImageInference::SubmitImageProcessing(const std::string &input_name, InferSlot *slot, const Image &src_img,
+                                                   const InputImageLayerDesc::Ptr &pre_proc_info,
                                                    const ImageTransformationParams::Ptr image_transform_info) {
     ITT_TASK(__FUNCTION__);
     assert(slot);
@@ -105,8 +105,8 @@ void OpenVINOImageInference::SubmitImageProcessing(const std::string &input_name
     }
 }
 
-void OpenVINOImageInference::BypassImageProcessing(const std::string &input_name, InferSlot *slot,
-                                                   const Image &src_img, size_t batch_size) {
+void OpenVINOImageInference::BypassImageProcessing(const std::string &input_name, InferSlot *slot, const Image &src_img,
+                                                   size_t batch_size) {
     ITT_TASK(__FUNCTION__);
 
     auto ov_tensor = img_to_tensor->image_to_tensors(src_img);

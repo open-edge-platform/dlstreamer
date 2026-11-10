@@ -46,7 +46,8 @@ struct PreparedModel {
     ImageInputInfo image_input;
 };
 
-// Applies the settings of the config to the model, in this order: reshape, input layouts and pre-processing, batch size.
+// Applies the settings of the config to the model, in this order: reshape, input layouts and pre-processing, batch
+// size.
 PreparedModel prepare_model(std::shared_ptr<ov::Model> model, const ConfigHelper &config, MemoryType memory_type);
 
 } // namespace OpenVino

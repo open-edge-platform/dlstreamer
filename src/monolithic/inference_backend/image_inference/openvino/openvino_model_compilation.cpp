@@ -98,7 +98,8 @@ dlstreamer::OpenVINOContextPtr create_remote_context(const std::string &device, 
             if (app_context) {
                 try {
                     dlstreamer::VAAPIContextPtr vaapi_ctx = dlstreamer::VAAPIContext::create(app_context);
-                    openvino_context = std::make_shared<dlstreamer::OpenVINOContext>(openvino_core(), device, vaapi_ctx);
+                    openvino_context =
+                        std::make_shared<dlstreamer::OpenVINOContext>(openvino_core(), device, vaapi_ctx);
                 } catch (std::exception &e) {
                     GVA_ERROR("Exception occurred when creating OpenVINO™ toolkit remote context: %s", e.what());
                     std::throw_with_nested(std::runtime_error("couldn't create OV remote context"));
