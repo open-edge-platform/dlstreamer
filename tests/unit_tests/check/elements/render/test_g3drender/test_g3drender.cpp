@@ -6,6 +6,7 @@
 
 #include <gst/check/gstcheck.h>
 #include <gst/check/gstharness.h>
+#include <glib/gstdio.h>
 
 #include "g3d_test_fixtures.h"
 #include "g3d_test_golden.h"
@@ -13,6 +14,16 @@
 #ifndef TEST_FILES_DIR
 #define TEST_FILES_DIR ""
 #endif
+
+static gchar *render_output_path(const gchar *filename) {
+    const gchar *output_dir = g_getenv("G3DRENDER_OUTPUT_DIR");
+    if (!output_dir || !*output_dir)
+        output_dir = g_get_tmp_dir();
+    else if (g_mkdir_with_parents(output_dir, 0755) != 0)
+        g_error("Failed to create g3drender output directory: %s", output_dir);
+
+    return g_build_filename(output_dir, filename, NULL);
+}
 
 /*
  * Synthetic scene: LiDAR X=forward Y=left. Three 3D detections at R=20 m:
@@ -303,9 +314,10 @@ static void run_scenario_impl(const Scenario *sc) {
         save_png(golden_path, m.data, out_w, out_h);
         g_print("  dumped golden -> %s\n", golden_path);
     } else {
-        gchar *tmp_path = g_build_filename(g_get_tmp_dir(), sc->out_name, NULL);
-        save_png(tmp_path, m.data, out_w, out_h);
-        g_free(tmp_path);
+        gchar *output_path = render_output_path(sc->out_name);
+        save_png(output_path, m.data, out_w, out_h);
+        g_print("  rendered output -> %s\n", output_path);
+        g_free(output_path);
 
         gint gw = 0, gh = 0;
         guint8 *golden = load_png(golden_path, &gw, &gh);
@@ -506,10 +518,10 @@ GST_START_TEST(test_tiles_with_calib_golden) {
         save_png(golden_path, m.data, out_w, out_h);
         g_print("  dumped golden -> %s\n", golden_path);
     } else {
-        gchar *tmp_path = g_build_filename(g_get_tmp_dir(), sc->out_name, NULL);
-        save_png(tmp_path, m.data, out_w, out_h);
-        g_print("  saved -> %s\n", tmp_path);
-        g_free(tmp_path);
+        gchar *output_path = render_output_path(sc->out_name);
+        save_png(output_path, m.data, out_w, out_h);
+        g_print("  rendered output -> %s\n", output_path);
+        g_free(output_path);
 
         gint gw = 0, gh = 0;
         guint8 *golden = load_png(golden_path, &gw, &gh);
@@ -594,10 +606,10 @@ GST_START_TEST(test_cam_proj_bg_tuned_golden) {
         save_png(golden_path, m.data, out_w, out_h);
         g_print("  dumped golden -> %s\n", golden_path);
     } else {
-        gchar *tmp_path = g_build_filename(g_get_tmp_dir(), sc->out_name, NULL);
-        save_png(tmp_path, m.data, out_w, out_h);
-        g_print("  saved -> %s\n", tmp_path);
-        g_free(tmp_path);
+        gchar *output_path = render_output_path(sc->out_name);
+        save_png(output_path, m.data, out_w, out_h);
+        g_print("  rendered output -> %s\n", output_path);
+        g_free(output_path);
 
         gint gw = 0, gh = 0;
         guint8 *golden = load_png(golden_path, &gw, &gh);
@@ -649,10 +661,10 @@ GST_START_TEST(test_cam_proj_bg_baseline_golden) {
         save_png(golden_path, m.data, out_w, out_h);
         g_print("  dumped golden -> %s\n", golden_path);
     } else {
-        gchar *tmp_path = g_build_filename(g_get_tmp_dir(), sc->out_name, NULL);
-        save_png(tmp_path, m.data, out_w, out_h);
-        g_print("  saved -> %s\n", tmp_path);
-        g_free(tmp_path);
+        gchar *output_path = render_output_path(sc->out_name);
+        save_png(output_path, m.data, out_w, out_h);
+        g_print("  rendered output -> %s\n", output_path);
+        g_free(output_path);
 
         gint gw = 0, gh = 0;
         guint8 *golden = load_png(golden_path, &gw, &gh);

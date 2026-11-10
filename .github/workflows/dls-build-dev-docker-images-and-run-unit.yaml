@@ -327,6 +327,7 @@ jobs:
           name: DLS_unit_tests_${{ matrix.runner_print_label }}_${{ matrix.ubuntu_version }}
           path: |
             ${{ env.RESULTS_DIR }}/*.xml
+            ${{ env.RESULTS_DIR }}/g3drender/*.png
 
       - name: Clean up
         if: always() && needs.setup.outputs.should_run == 'true'
