@@ -199,10 +199,16 @@ GstBuffer *stream_buffer(GstAnalyticsBatchStream *stream) {
     return GST_BUFFER_CAST(stream->objects[0]);
 }
 
-// Holds the six mapped camera frames for the duration of one inference.
+// Holds the six mapped camera frames for the duration of one inference. Not
+// copyable or movable: a copy would unmap the same frames twice.
 struct CameraFrames {
     std::array<GstVideoFrame, bev::kNumCameras> frames{};
     std::array<bool, bev::kNumCameras> mapped{};
+    CameraFrames() = default;
+    CameraFrames(const CameraFrames &) = delete;
+    CameraFrames &operator=(const CameraFrames &) = delete;
+    CameraFrames(CameraFrames &&) = delete;
+    CameraFrames &operator=(CameraFrames &&) = delete;
     ~CameraFrames() {
         for (int i = 0; i < bev::kNumCameras; i++)
             if (mapped[i])
@@ -262,9 +268,10 @@ static gboolean gst_g3d_bevfusion_start(GstBaseTransform *trans) {
         GST_ELEMENT_ERROR(self, RESOURCE, SETTINGS, ("The config and calibration properties are required"), (NULL));
         return FALSE;
     }
+    const gchar *device = (self->device && *self->device) ? self->device : DEFAULT_DEVICE;
     try {
         load_calibration(self->calibration, priv);
-        priv->runtime = std::make_unique<bev::Runtime>(self->config, self->device);
+        priv->runtime = std::make_unique<bev::Runtime>(self->config, device);
         if (!priv->camera_slot_by_pad.empty())
             priv->runtime->set_calibration(priv->cameras);
         // Debug aid: per-frame boxes (and with G3DBEVFUSION_DUMP_TENSORS=1 every
@@ -278,7 +285,7 @@ static gboolean gst_g3d_bevfusion_start(GstBaseTransform *trans) {
     }
     priv->calibration_event_sent = false;
     priv->frames_fusion = priv->frames_lidar_only = priv->frames_without_lidar = 0;
-    GST_INFO_OBJECT(self, "BEVFusion ready on %s; lidar on pad %u, %zu cameras", self->device, priv->lidar_pad,
+    GST_INFO_OBJECT(self, "BEVFusion ready on %s; lidar on pad %u, %zu cameras", device, priv->lidar_pad,
                     priv->camera_slot_by_pad.size());
     return TRUE;
 }
@@ -315,6 +322,9 @@ static GstFlowReturn gst_g3d_bevfusion_transform_ip(GstBaseTransform *trans, Gst
     std::array<GstAnalyticsBatchStream *, bev::kNumCameras> camera_streams{};
     for (gsize i = 0; i < batch->n_streams; ++i) {
         GstAnalyticsBatchStream *stream = &batch->streams[i];
+        // A stream without a buffer this batch counts as missing.
+        if (!stream_buffer(stream))
+            continue;
         const gchar *type = stream_media_type(stream);
         if (stream->index == priv->lidar_pad && g_strcmp0(type, "application/x-lidar") == 0) {
             lidar_stream = stream;
@@ -388,7 +398,8 @@ static GstFlowReturn gst_g3d_bevfusion_transform_ip(GstBaseTransform *trans, Gst
                                   ("pad %u has caps %" GST_PTR_FORMAT, stream->index, caps));
                 return GST_FLOW_ERROR;
             }
-            if (!gst_video_frame_map(&frames.frames[slot], &info, stream_buffer(stream), GST_MAP_READ)) {
+            GstBuffer *cam_buf = stream_buffer(stream);
+            if (!cam_buf || !gst_video_frame_map(&frames.frames[slot], &info, cam_buf, GST_MAP_READ)) {
                 gst_buffer_unmap(lidar_buf, &lidar_map);
                 GST_ELEMENT_ERROR(self, STREAM, FAILED, ("Failed to map camera frame on pad %u", stream->index),
                                   (NULL));

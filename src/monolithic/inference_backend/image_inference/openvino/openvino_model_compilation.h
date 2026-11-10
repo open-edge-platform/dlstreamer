@@ -5,7 +5,7 @@
  ******************************************************************************/
 
 // Compiling a PreparedModel for a device. GPU surface sharing needs an OpenVINO remote context first, which is created
-// from the VA-API (Linux) or D3D11 (Windows) context of the pipeline.
+// from the VA-API (Linux) or D3D11/D3D12 (Windows) context of the pipeline.
 
 #pragma once
 
@@ -25,7 +25,7 @@ namespace InferenceBackend {
 namespace OpenVino {
 
 // Creates the OpenVINO remote context for GPU surface sharing. Returns null for other devices and memory types.
-// app_context is the VA-API or D3D11 context of the pipeline; it may be null when no GPU surface sharing is used.
+// app_context is the VA-API or D3D11/D3D12 context of the pipeline; it may be null when no GPU surface sharing is used.
 dlstreamer::OpenVINOContextPtr create_remote_context(const std::string &device, MemoryType memory_type,
                                                      const dlstreamer::ContextPtr &app_context);
 

@@ -18,7 +18,7 @@ add_executable(${TARGET_NAME} ${MAIN_SRC} ${MAIN_HEADERS})
 
 # gvagenai is a static library; expose its source dir so the test can include configs.hpp
 target_include_directories(${TARGET_NAME} PRIVATE
-        ${CMAKE_SOURCE_DIR}/src/monolithic/gst/elements/gvagenai
+        ${CMAKE_SOURCE_DIR}/src/monolithic/gst/inference_elements/vlm/gvagenai
 )
 
 target_link_libraries(${TARGET_NAME}

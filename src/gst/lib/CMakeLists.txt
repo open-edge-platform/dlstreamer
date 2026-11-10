@@ -29,7 +29,9 @@ if(WIN32)
     target_include_directories(${TARGET_NAME}
     PRIVATE
         ${GSTD3D11_INCLUDE_DIRS}
+        ${GSTD3D12_INCLUDE_DIRS}
     )
+    target_compile_definitions(${TARGET_NAME} PRIVATE GST_USE_UNSTABLE_API)
 endif()
 
 target_link_libraries(${TARGET_NAME}
@@ -47,6 +49,7 @@ if(WIN32)
     target_link_libraries(${TARGET_NAME}
     PRIVATE
         ${GSTD3D11_LIBRARIES}
+        ${GSTD3D12_LIBRARIES}
     )
 endif()
 

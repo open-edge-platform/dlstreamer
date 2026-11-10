@@ -33,6 +33,7 @@ namespace {
 struct Preparation {
     std::shared_ptr<ov::Model> model;
     MemoryType memory_type;
+    ImagePreprocessorType pp_type = ImagePreprocessorType::AUTO;
     std::string model_format;
     std::string image_input_name;
     int batch_size = 0;
@@ -226,7 +227,19 @@ ImageInputInfo describe_image_input(const Preparation &p) {
             info.format = FourCC::FOURCC_RGBP;
         break;
     case MemoryType::VAAPI:
+        info.format = FourCC::FOURCC_NV12;
+        break;
     case MemoryType::D3D11:
+    case MemoryType::D3D12:
+#ifdef _WIN32
+        // D3D11/D3D12 surface sharing wraps a BGRA/RGBA texture as a single OpenCL
+        // buffer, so the texture format must match the model's channel order.
+        if (p.pp_type == ImagePreprocessorType::D3D11_SURFACE_SHARING ||
+            p.pp_type == ImagePreprocessorType::D3D12_SURFACE_SHARING) {
+            info.format = p.model_format == "BGR" ? FourCC::FOURCC_BGRA : FourCC::FOURCC_RGBA;
+            break;
+        }
+#endif
         info.format = FourCC::FOURCC_NV12;
         break;
     default:
@@ -287,23 +300,37 @@ void configure_image_input(Preparation &p, const ConfigHelper &config, ov::prepr
 
     // OPENCV and VAAPI pre-processors handle color coversion and scaling, input tensors in NCHW format
     if (pp_type == ImagePreprocessorType::OPENCV || pp_type == ImagePreprocessorType::VAAPI_SYSTEM ||
-        pp_type == ImagePreprocessorType::D3D11) {
+        pp_type == ImagePreprocessorType::D3D11 || pp_type == ImagePreprocessorType::D3D12) {
         input.tensor().set_layout("NCHW");
     }
 
-    // OV preprocessing is configured only for IE or VAAPI_SURFACE_SHARING
-    if (pp_type == ImagePreprocessorType::VAAPI_SURFACE_SHARING || pp_type == ImagePreprocessorType::IE) {
+    // OV preprocessing is configured for IE, VAAPI_SURFACE_SHARING, D3D11_SURFACE_SHARING or D3D12_SURFACE_SHARING
+    if (pp_type == ImagePreprocessorType::VAAPI_SURFACE_SHARING ||
+        pp_type == ImagePreprocessorType::D3D11_SURFACE_SHARING ||
+        pp_type == ImagePreprocessorType::D3D12_SURFACE_SHARING || pp_type == ImagePreprocessorType::IE) {
 
-        // IE and VAAPI_SURFACE_SHARING assume input tensors in NHWC format
+        // Surface sharing and IE assume input tensors in NHWC format
         const auto color_format_pair = get_ov_color_format(config.image_format());
         input.tensor().set_color_format(color_format_pair.first, color_format_pair.second);
         input.tensor().set_layout("NHWC");
 
-        // VAAPI_SURFACE_SHARING pre-processor requires NV12 input surface in GPU memory
+        // Surface sharing pre-processor requires NV12 input surface in GPU memory
         if (pp_type == ImagePreprocessorType::VAAPI_SURFACE_SHARING) {
             assert(p.memory_type == MemoryType::VAAPI);
             assert(color_format_pair.first == ov::preprocess::ColorFormat::NV12_TWO_PLANES);
             input.tensor().set_memory_type(ov::intel_gpu::memory_type::surface);
+        }
+        if (pp_type == ImagePreprocessorType::D3D11_SURFACE_SHARING) {
+            assert(p.memory_type == MemoryType::D3D11);
+            // BGRA/RGBA via OpenCL interop feeds an NHWC u8 CL buffer tensor and does not use
+            // memory_type::surface. Only the NV12 path uses surface tagging.
+            if (color_format_pair.first == ov::preprocess::ColorFormat::NV12_TWO_PLANES)
+                input.tensor().set_memory_type(ov::intel_gpu::memory_type::surface);
+        }
+        if (pp_type == ImagePreprocessorType::D3D12_SURFACE_SHARING) {
+            assert(p.memory_type == MemoryType::D3D12);
+            // BGRA via cl_khr_external_memory buffer import, plain NHWC u8 buffer tensor.
+            assert(color_format_pair.first != ov::preprocess::ColorFormat::NV12_TWO_PLANES);
         }
 
         // Convert input tensor color space into model color space if necessary
@@ -439,6 +466,8 @@ PreparedModel prepare_model(std::shared_ptr<ov::Model> model, const ConfigHelper
     Preparation p;
     p.model = std::move(model);
     p.memory_type = memory_type;
+    p.pp_type = config.pp_type();
+    p.model_format = config.model_format();
 
     // The pre-processing configured below compares the frame size with the size the model was read with.
     const ImageInputInfo original_input = describe_image_input(p);
@@ -452,7 +481,6 @@ PreparedModel prepare_model(std::shared_ptr<ov::Model> model, const ConfigHelper
     auto ppp = ov::preprocess::PrePostProcessor(p.model);
     configure_model_inputs(p, config, ppp);
     p.model = ppp.build();
-    p.model_format = config.model_format();
 
     // dynamic shapes may have height=0 and width=0 after IE preprocessing
     // set lower and upper bound of dynamic shapes to match original frame dimensions

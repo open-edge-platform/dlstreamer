@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -23,6 +23,9 @@ ImagePreprocessor *ImagePreprocessor::Create(ImagePreprocessorType type, const s
         p = CreatePreProcOpenCV(custom_preproc_lib);
         break;
     case ImagePreprocessorType::D3D11:
+        p = CreatePreProcOpenCV(custom_preproc_lib);
+        break;
+    case ImagePreprocessorType::D3D12:
         p = CreatePreProcOpenCV(custom_preproc_lib);
         break;
     }

@@ -8,7 +8,7 @@
 # Display usage information
 usage() {
     cat << EOF
-Usage: $(basename "$0") [INPUT] [CONFIG_FILE] [MODEL] [DEVICE] [OUTPUT] [JSON_METADATA]
+Usage: $(basename "$0") [INPUT] [CONFIG_FILE] [MODEL] [DEVICE] [OUTPUT] [JSON_METADATA] [EOS_FRAME]
 
 Description:
   Detects loitering behavior in video using object detection and tracking.
@@ -36,6 +36,8 @@ Parameters:
 
   JSON_METADATA - Output file for analytics metadata (JSON Lines format)
                 Default: loitering_detection_output.json
+
+  EOS_FRAME   - Stop after N decoded buffers (default: 0, disabled)
 
 Examples:
   # Run with defaults
@@ -77,6 +79,7 @@ MODEL=${3:-${MODELS_PATH}/public/yolo11s/FP16/yolo11s.xml} # Detection model (YO
 DEVICE=${4:-"GPU"}
 OUTPUT=${5:-loitering_detection_output.mp4}  # Output video file (H.264 MP4)
 JSON_METADATA=${6:-loitering_detection_output.json}  # Output file for analytics metadata (JSON Lines format)
+EOS_FRAME=${7:-0}
 
 export GST_PLUGIN_PATH="${SCRIPT_DIR}/plugins:${GST_PLUGIN_PATH}"
 export GI_TYPELIB_PATH=/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/opt/intel/dlstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0
@@ -137,13 +140,18 @@ if gst-inspect-1.0 vah264enc &>/dev/null; then
 else
     ENCODER="videoconvert ! openh264enc"
 fi
+
+EOS_ELEMENT=""
+if [[ "$EOS_FRAME" != "0" ]]; then
+    EOS_ELEMENT="identity eos-after=${EOS_FRAME} ! "
+fi
     
 gst-launch-1.0 -e ${SOURCE_ELEMENT} ! decodebin3 ! \
-    gvadetect model=${MODEL} ${GVADETECT_OPTIONS} ! queue ! \
+    ${EOS_ELEMENT}gvadetect model=${MODEL} ${GVADETECT_OPTIONS} ! queue ! \
     gvatrack tracking-type=zero-term ! queue ! \
     gvaanalytics config=${CONFIG_FILE} evaluation-point=bottom-center ! queue ! \
     loitering_watermark loitering-threshold=5.0 dashboard-pos="750,60" ! queue ! \
     gvametaconvert ! gvametapublish file-format=json-lines file-path=${JSON_METADATA} ! queue !  \
     gvawatermark device=${WATERMARK_DEVICE} ! \
     gvafpscounter ! queue ! \
-    ${ENCODER} bitrate=1024 ! h264parse ! mp4mux ! filesink location=${OUTPUT} 
+    ${ENCODER} bitrate=1024 ! h264parse ! mp4mux ! filesink location=${OUTPUT}

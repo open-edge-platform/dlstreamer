@@ -214,6 +214,13 @@ void OpenVINOImageInference::SubmitImage(
         current_slot_ = slot;
     }
 
+    // A partial batch already holds earlier frames: remember the sizes so that a failure rolls back only what this
+    // frame added.
+    const size_t prev_buffers = slot->buffers.size();
+    std::vector<size_t> prev_tensors;
+    for (const auto &in_vec : slot->in_tensors)
+        prev_tensors.push_back(in_vec.size());
+
     try {
         if (DoNeedImagePreProcessing(frame->GetImage())) {
             SubmitImageProcessing(
@@ -231,6 +238,13 @@ void OpenVINOImageInference::SubmitImage(
         slot->buffers.push_back(frame);
     } catch (const std::exception &e) {
         GVA_ERROR("Pre-processing has failed: %s", e.what());
+        // The slot stays the current one, holding only the frames that were there before this one. Drop this frame
+        // from the in-flight count, otherwise a later Flush() waits for it forever.
+        slot->buffers.resize(prev_buffers);
+        for (size_t i = 0; i < prev_tensors.size(); i++)
+            slot->in_tensors[i].resize(prev_tensors[i]);
+        --frames_in_flight_;
+        request_processed_.notify_all();
         std::throw_with_nested(std::runtime_error("Pre-processing was failed."));
     }
 
@@ -241,6 +255,13 @@ void OpenVINOImageInference::SubmitImage(
             slot->start_async();
         }
     } catch (const std::exception &e) {
-        std::throw_with_nested(std::runtime_error("Inference async start was failed."));
+        // The slot holds the whole batch now: fail all of its frames, as Flush() and the completion callback do.
+        // Not rethrown, so the caller does not report this frame twice.
+        GVA_ERROR("Inference async start has failed: %s", e.what());
+        // handleError pushes the frames downstream, which can block: don't hold requests_mutex_ over it, as the
+        // completion callback doesn't. The slot is ours until FreeSlot.
+        lk.unlock();
+        handleError(slot->buffers);
+        FreeSlot(slot);
     }
 }

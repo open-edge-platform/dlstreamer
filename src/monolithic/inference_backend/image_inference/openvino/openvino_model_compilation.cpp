@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
-// Remote context creation differs per platform (VA-API on Linux, D3D11 on Windows), see create_remote_context().
+// Remote context creation differs per platform (VA-API on Linux, D3D11/D3D12 on Windows), see create_remote_context().
 
 #include "openvino_model_compilation.h"
 
@@ -21,6 +21,7 @@
 
 #ifdef _WIN32
 #include <dlstreamer/d3d11/context.h>
+#include <dlstreamer/d3d12/context.h>
 #endif
 
 #ifndef _WIN32
@@ -69,18 +70,27 @@ dlstreamer::OpenVINOContextPtr create_remote_context(const std::string &device, 
     // FIXME: invert to reduce nesting
     if (is_device_gpu(device) && !is_device_multi(device)) {
 #ifdef _WIN32
-        if (memory_type == MemoryType::D3D11 || memory_type == MemoryType::SYSTEM) {
+        if (memory_type == MemoryType::D3D11 || memory_type == MemoryType::D3D12 || memory_type == MemoryType::SYSTEM) {
             if (app_context) {
                 try {
-                    dlstreamer::D3D11ContextPtr d3d11_ctx = dlstreamer::D3D11Context::create(app_context);
-                    openvino_context = std::make_shared<dlstreamer::OpenVINOContext>(openvino_core(), device, d3d11_ctx);
+                    if (app_context->memory_type() == dlstreamer::MemoryType::D3D12) {
+                        // No D3D12 interop in the OV GPU plugin: use OV's own OpenCL context on the
+                        // matching GPU and bridge D3D12 resources through cl_khr_external_memory.
+                        dlstreamer::D3D12ContextPtr d3d12_ctx = dlstreamer::D3D12Context::create(app_context);
+                        openvino_context =
+                            std::make_shared<dlstreamer::OpenVINOContext>(openvino_core(), device, d3d12_ctx);
+                    } else {
+                        dlstreamer::D3D11ContextPtr d3d11_ctx = dlstreamer::D3D11Context::create(app_context);
+                        openvino_context =
+                            std::make_shared<dlstreamer::OpenVINOContext>(openvino_core(), device, d3d11_ctx);
+                    }
                 } catch (std::exception &e) {
                     GVA_ERROR("Exception occurred when creating OpenVINO™ toolkit remote context: %s", e.what());
                     std::throw_with_nested(std::runtime_error("couldn't create OV remote context"));
                 }
 
-            } else if (memory_type == MemoryType::D3D11) {
-                throw std::runtime_error("Display must be provided for GPU device with d3d11 backend");
+            } else if (memory_type == MemoryType::D3D11 || memory_type == MemoryType::D3D12) {
+                throw std::runtime_error("Display must be provided for GPU device with d3d11/d3d12 backend");
             }
         }
 #else

@@ -162,7 +162,9 @@ class InputImageLayerDesc {
         return resize_multiple;
     }
     bool doNeedCrop() const {
-        if (crop == Crop::NO or resize == Resize::NO_ASPECT_RATIO)
+        if (crop == Crop::NO)
+            return false;
+        if (resize == Resize::NO_ASPECT_RATIO and crop != Crop::CENTRAL_RESIZE)
             return false;
         return true;
     }
@@ -230,6 +232,34 @@ class InputImageLayerDesc {
         const size_t resized_width = constrainToMultiple(scale_width * static_cast<double>(input_width), multiple);
 
         return {resized_width, resized_height};
+    }
+
+    struct CropRect {
+        size_t x;
+        size_t y;
+        size_t width;
+        size_t height;
+    };
+
+    // Largest centered region with the target aspect ratio; scaling it to the target is equivalent to
+    // resizing the shortest edge (preserving aspect ratio) and center-cropping.
+    static CropRect CalculateCentralResizeCrop(size_t src_width, size_t src_height, size_t target_width,
+                                               size_t target_height) {
+        if (!src_width || !src_height || !target_width || !target_height) {
+            throw std::invalid_argument("Central-resize crop requires non-zero source and target sizes");
+        }
+
+        size_t crop_width = src_width;
+        size_t crop_height = src_height;
+        if (safe_mul(src_width, target_height) > safe_mul(src_height, target_width)) {
+            crop_width = safe_mul(src_height, target_width) / target_height;
+            crop_width = crop_width ? crop_width : 1;
+        } else {
+            crop_height = safe_mul(src_width, target_height) / target_width;
+            crop_height = crop_height ? crop_height : 1;
+        }
+
+        return {(src_width - crop_width) / 2, (src_height - crop_height) / 2, crop_width, crop_height};
     }
 
   private:
@@ -308,6 +338,13 @@ class ImageTransformationParams {
     }
     bool WasResize() const {
         return was_resize;
+    }
+
+    // Crop offset is given in source coordinates, the resize is applied to the cropped region afterwards
+    void CropThenResizeHasDone(size_t crop_x, size_t crop_y, double _resize_scale_x, double _resize_scale_y) {
+        ResizeHasDone(_resize_scale_x, _resize_scale_y);
+        CropHasDone(safe_convert<size_t>(safe_convert<double>(crop_x) * _resize_scale_x + 0.5),
+                    safe_convert<size_t>(safe_convert<double>(crop_y) * _resize_scale_y + 0.5));
     }
 
     void PaddingHasDone(size_t _padding_size_x, size_t _padding_size_y) {

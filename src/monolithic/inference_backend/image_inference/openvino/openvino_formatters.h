@@ -48,6 +48,12 @@ struct fmt::formatter<InferenceBackend::ImagePreprocessorType> : formatter<strin
         case ImagePreprocessorType::D3D11_SURFACE_SHARING:
             name = "D3D11 Surface Sharing";
             break;
+        case ImagePreprocessorType::D3D12:
+            name = "D3D12 System Memory";
+            break;
+        case ImagePreprocessorType::D3D12_SURFACE_SHARING:
+            name = "D3D12 Surface Sharing";
+            break;
         }
         return formatter<string_view>::format(name, ctx);
     }

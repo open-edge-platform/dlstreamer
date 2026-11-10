@@ -353,7 +353,10 @@ Factory Details:
 Pad Templates:
   SINK template: 'sink_%u'  (On request, video/x-raw, video/x-raw(memory:VAMemory) NV12,
                              video/x-raw(memory:DMABuf) DMA_DRM, application/x-lidar,
-                             application/x-radar-processed)
+                             application/x-radar-processed; on Windows
+                             video/x-raw(memory:D3D11Memory) and
+                             video/x-raw(memory:D3D12Memory) NV12/BGRA instead of
+                             VAMemory and DMABuf)
   SRC template:  'src'      (Always, the sink caps above (passthrough) OR
                              multistream/x-analytics-batch(meta:GstAnalyticsBatchMeta) (container))
 

@@ -48,6 +48,15 @@ void expect(const json &cfg, const char *key, const T &want, const fs::path &fil
         throw std::runtime_error(file.string() + ": '" + key + "' does not match what this element was built for");
 }
 
+// Fills a fixed-size parameter from a JSON array of exactly that length.
+template <typename T, size_t N>
+void read_array(const json &value, const char *key, std::array<T, N> &out, const fs::path &file) {
+    const auto v = value.get<std::vector<T>>();
+    if (v.size() != N)
+        throw std::runtime_error(file.string() + ": '" + key + "' must have " + std::to_string(N) + " values");
+    std::copy_n(v.begin(), N, out.begin());
+}
+
 ModelParams load_model_params(const fs::path &file) {
     const json cfg = read_json(file);
     expect(cfg, "image_size", std::vector<int>{kImageH, kImageW}, file);
@@ -59,19 +68,13 @@ ModelParams load_model_params(const fs::path &file) {
 
     ModelParams p;
     p.resize_lim = cfg.at("resize_lim").at(0).get<double>();
-    const auto mean = cfg.at("image_normalize").at("mean").get<std::vector<float>>();
-    const auto std = cfg.at("image_normalize").at("std").get<std::vector<float>>();
-    std::copy_n(mean.begin(), 3, p.mean.begin());
-    std::copy_n(std.begin(), 3, p.std.begin());
-    const auto dbound = cfg.at("depth").at("dbound").get<std::vector<double>>();
-    std::copy_n(dbound.begin(), 3, p.dbound.begin());
-    const auto pcr = cfg.at("point_cloud_range").get<std::vector<double>>();
-    std::copy_n(pcr.begin(), 6, p.point_cloud_range.begin());
-    const auto vs = cfg.at("voxel_size").get<std::vector<double>>();
-    std::copy_n(vs.begin(), 3, p.voxel_size.begin());
+    read_array(cfg.at("image_normalize").at("mean"), "mean", p.mean, file);
+    read_array(cfg.at("image_normalize").at("std"), "std", p.std, file);
+    read_array(cfg.at("depth").at("dbound"), "dbound", p.dbound, file);
+    read_array(cfg.at("point_cloud_range"), "point_cloud_range", p.point_cloud_range, file);
+    read_array(cfg.at("voxel_size"), "voxel_size", p.voxel_size, file);
     const json &post = cfg.at("post_processing");
-    const auto range = post.at("post_center_range").get<std::vector<double>>();
-    std::copy_n(range.begin(), 6, p.post_center_range.begin());
+    read_array(post.at("post_center_range"), "post_center_range", p.post_center_range, file);
     p.out_size_factor = post.at("out_size_factor").get<int>();
     p.class_names = cfg.at("class_names").get<std::vector<std::string>>();
     return p;

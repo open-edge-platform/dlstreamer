@@ -14,6 +14,11 @@
 
 #include <openvino/runtime/intel_gpu/properties.hpp>
 
+#ifdef _WIN32
+#define CL_TARGET_OPENCL_VERSION 300
+#include <CL/cl.h>
+#endif
+
 #include <cassert>
 #include <stdexcept>
 
@@ -42,12 +47,14 @@ std::vector<ov::Tensor> ImageToTensorConverter::image_to_tensors(const Image &im
     case FourCC::FOURCC_RGBA:
     case FourCC::FOURCC_RGBX:
     case FourCC::FOURCC_BGR:
+        if (image.create_cl_buffer)
+            return image_d3d_bgrx_surface_to_tensor(image);
         return {image_bgrx_to_tensor(image)};
 
     case FourCC::FOURCC_NV12:
-        if (image.type != MemoryType::VAAPI)
-            return image_nv12_to_tensor(image);
-        return image_nv12_surface_to_tensor(image);
+        if (image.type == MemoryType::VAAPI)
+            return image_nv12_surface_to_tensor(image);
+        return image_nv12_to_tensor(image);
 
     case FourCC::FOURCC_I420:
         return image_i420_to_tensor(image);
@@ -171,6 +178,19 @@ std::vector<ov::Tensor> ImageToTensorConverter::image_nv12_surface_to_tensor(con
     auto uv_tensor = rmt_ctx.create_tensor(ov::element::u8, {1, height / 2, width / 2, 2}, tensor_params);
 
     return {y_tensor, uv_tensor};
+}
+
+// D3D11/D3D12 BGRA/RGBA texture wrapped via OpenCL interop by the producer.
+// The image's create_cl_buffer callback receives our cl_context and returns a cl_mem holding the texture pixels as
+// an u8 NHWC buffer; we wrap that cl_mem as an ov::Tensor on the GPU remote context (D3DContext for D3D11, plain
+// ClContext for D3D12, both expose create_tensor(cl_mem)).
+std::vector<ov::Tensor> ImageToTensorConverter::image_d3d_bgrx_surface_to_tensor(const Image &image) {
+    if (!_gpu_context)
+        throw std::runtime_error("D3D surface sharing requires a GPU device with an OpenVINO™ remote context");
+    auto cl_rmt_ctx = _gpu_context->remote_context<ov::intel_gpu::ocl::ClContext>();
+    auto *cl_ctx = _gpu_context->handle(dlstreamer::OpenVINOContext::key::cl_context);
+    auto *cl_buf = static_cast<cl_mem>(image.create_cl_buffer(cl_ctx));
+    return {cl_rmt_ctx.create_tensor(ov::element::u8, {1, image.height, image.width, 4}, cl_buf)};
 }
 
 std::vector<ov::Tensor> ImageToTensorConverter::image_i420_to_tensor(const Image &image) const {

@@ -6,7 +6,7 @@
 
 // Wraps the memory of an InferenceBackend::Image as ov::Tensor(s) without copying it, so it can be set as model input.
 // Covers the formats the backend feeds to a model (RGBP/BGRP, BGRX family, NV12, I420) and the two zero-copy paths:
-// DMA-BUF imported into the NPU, and VA surfaces shared with the GPU.
+// DMA-BUF imported into the NPU, and GPU surfaces shared with the GPU (VA surfaces, D3D textures).
 
 #pragma once
 
@@ -27,7 +27,7 @@ namespace OpenVino {
 
 class ImageToTensorConverter {
   public:
-    // gpu_context is only used for images that are VA surfaces (NV12 in GPU memory); it may be null otherwise.
+    // gpu_context is only used for images that are GPU surfaces (VA surfaces, D3D textures); it may be null otherwise.
     explicit ImageToTensorConverter(dlstreamer::OpenVINOContextPtr gpu_context);
 
     // One tensor per model input plane: 1 for packed and planar RGB, 2 for NV12 (Y, UV), 3 for I420 (Y, U, V).
@@ -43,6 +43,7 @@ class ImageToTensorConverter {
     ov::Tensor image_bgrx_to_tensor(const Image &image);
     std::vector<ov::Tensor> image_nv12_to_tensor(const Image &image);
     std::vector<ov::Tensor> image_nv12_surface_to_tensor(const Image &image);
+    std::vector<ov::Tensor> image_d3d_bgrx_surface_to_tensor(const Image &image);
     std::vector<ov::Tensor> image_i420_to_tensor(const Image &image) const;
 
     dlstreamer::OpenVINOContextPtr _gpu_context;

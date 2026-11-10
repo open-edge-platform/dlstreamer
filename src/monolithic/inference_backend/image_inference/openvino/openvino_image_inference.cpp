@@ -124,7 +124,8 @@ OpenVINOImageInference::OpenVINOImageInference(const InferenceBackend::Inference
         }
 
         if (pp_type == InferenceBackend::ImagePreprocessorType::OPENCV ||
-            pp_type == InferenceBackend::ImagePreprocessorType::D3D11) {
+            pp_type == InferenceBackend::ImagePreprocessorType::D3D11 ||
+            pp_type == InferenceBackend::ImagePreprocessorType::D3D12) {
             std::string pp_type_string = fmt::format("creating pre-processor, type: {}", pp_type);
             GVA_INFO("%s", pp_type_string.c_str());
             const std::string custom_preproc_lib = cfg_helper.custom_preproc_lib();
