@@ -1,0 +1,46 @@
+openvino_bevfusion: reuse the sparse encoder's output-cell table.
+
+For each strided convolution the sparse encoder finds the output voxels on
+the CPU with a dense table of every output cell. The table was allocated and
+filled with -1 on every inference: 720x720x21 ints (44 MB) at the first
+strided level, about 50 MB in total. That took about 20 ms per inference,
+half of the encoder's time, for tables in which only a few tens of thousands
+of cells are ever set.
+
+Keep one table per strided level across inferences and reset only the cells
+the inference set. The output voxels and their order are unchanged, so the
+results are identical. On an Intel Arc Pro B60 the encoder takes about 25 ms
+instead of 44 ms.
+
+Remove this patch once openvino_contrib carries an equivalent change.
+
+diff --git a/modules/openvino_bevfusion/openvino_extensions/sparse_encoder/sparse_encoder_op.cpp b/modules/openvino_bevfusion/openvino_extensions/sparse_encoder/sparse_encoder_op.cpp
+index ea7c933a83f46380e94999f78f1f0e6701b3c2f0..a214b6ac09d48bdc69db42aabcd928a77f8a7309 100644
+--- a/modules/openvino_bevfusion/openvino_extensions/sparse_encoder/sparse_encoder_op.cpp
++++ b/modules/openvino_bevfusion/openvino_extensions/sparse_encoder/sparse_encoder_op.cpp
+@@ -1572,8 +1572,15 @@ bool SparseEncoderOp::evaluate(
+                 int src_N = levels[si].N;
+                 const int* src_coords = levels[si].coords_ptr;
+                 
++                // Dense output-cell table, -1 = not yet emitted. It is
++                // 720x720x21 ints (44 MB) at the first level, so allocating
++                // and filling it every frame cost about 20 ms; keep one per
++                // level and reset only the cells this frame touched.
+                 size_t oh_entries = (size_t)X_out * Y_out * Z_out;
+-                std::vector<int> h_out_hash(oh_entries, -1);
++                static std::vector<int> s_out_hash[4];
++                std::vector<int>& h_out_hash = s_out_hash[si];
++                if (h_out_hash.size() != oh_entries)
++                    h_out_hash.assign(oh_entries, -1);
+                 std::vector<int> out_coords;
+                 out_coords.reserve(src_N * 4);
+                 int next_idx = 0;
+@@ -1604,6 +1611,8 @@ bool SparseEncoderOp::evaluate(
+                             }
+                 }
+                 int N_out = (int)out_coords.size() / 4;
++                for (int i = 0; i < N_out; i++)
++                    h_out_hash[((int64_t)out_coords[i*4+1] * Y_out + out_coords[i*4+2]) * Z_out + out_coords[i*4+3]] = -1;
+                 
+                 // Morton-sort output coordinates for cache locality
+                 if (use_morton) {

@@ -50,7 +50,7 @@ Pass the full OpenVINO version of the DL Streamer release that runs the pipeline
 
 Run either script with `--help` for every option, including `BEVFUSION_ROOT` to use an existing openvino_contrib checkout and `NUSCENES_ROOT` to convert an existing nuScenes copy.
 
-The model script checks out a fixed commit of [openvinotoolkit/openvino_contrib](https://github.com/openvinotoolkit/openvino_contrib) and applies the patches in `samples/gstreamer/gst_launch/g3dbevfusion/patches/` on top of it. They carry the openvino_bevfusion fixes that g3dbevfusion relies on, from [openvino_contrib#1197](https://github.com/openvinotoolkit/openvino_contrib/pull/1197), until that PR is merged (override the source with `OPENVINO_CONTRIB_URL` and `OPENVINO_CONTRIB_REF`). They also include a fix that gives the BEV-pool op a zeroed accumulator: without it the camera branch pools into stale GPU memory and fusion detects nothing on OpenVINO 2026.5.
+The model script checks out a fixed commit of [openvinotoolkit/openvino_contrib](https://github.com/openvinotoolkit/openvino_contrib) and applies the patches in `samples/gstreamer/gst_launch/g3dbevfusion/patches/` on top of it. They carry the openvino_bevfusion fixes that g3dbevfusion relies on, from [openvino_contrib#1197](https://github.com/openvinotoolkit/openvino_contrib/pull/1197), until that PR is merged (override the source with `OPENVINO_CONTRIB_URL` and `OPENVINO_CONTRIB_REF`). They also include a fix that gives the BEV-pool op a zeroed accumulator: without it the camera branch pools into stale GPU memory and fusion detects nothing on OpenVINO 2026.5. A third patch removes a per-frame allocation from the sparse encoder that took about half of its time.
 
 ### Runtime configuration
 
