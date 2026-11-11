@@ -113,9 +113,12 @@ uv pip install -r /opt/intel/dlstreamer/scripts/download_models/requirements_dow
 python3 /opt/intel/dlstreamer/scripts/download_models/download_ultralytics_models.py \
   --model yolo11n.pt \
   --outdir ~/models/yolo11n \
-  --int8
+  --int8 \
+  --data coco128.yaml
 source /opt/intel/dlstreamer/scripts/setup_dls_env.sh
 ```
+
+For INT8 export, `--data` selects the dataset YAML used for calibration. If omitted, Ultralytics uses its default dataset.
 
 **Step 2 — Run the pipeline.** Change `device=GPU` to `device=CPU` or `device=NPU` — no other code changes needed.
 

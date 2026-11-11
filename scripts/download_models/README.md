@@ -77,6 +77,14 @@ The script classifies a model into one of three support levels:
 - `1` — Custom export path: handled in `hf_utils.py` (currently CLIP/RT-DETR custom converters).
 - `2` — Unsupported: prints an error and exits with code `1`.
 
+For architectures whose OpenVINO export config requires older Hugging Face packages, the script
+automatically retries in a temporary virtual environment with compatible `transformers` and
+`huggingface_hub` versions. `optimum-intel` and other export dependencies are reused from the
+main environment; that environment is not modified. The temporary environment does not inherit
+system site-packages, avoiding conflicts with other Optimum installations.
+The Optimum CLI entry point is run with the export environment's Python interpreter, not a
+console script from `PATH`, so it uses the selected package versions.
+
 When `--model` does not include `@revision`, the script downloads the latest available Hugging Face revision at runtime.
 Use `repo_id@revision` to make runs reproducible.
 
@@ -122,7 +130,8 @@ python download_ultralytics_models.py \
   --model <ultralytics_name_or_pt_path> \
   [--outdir <output_dir>] \
   [--half] \
-  [--int8]
+  [--int8] \
+  [--data <dataset.yaml>]
 ```
 
 ### Arguments
@@ -137,6 +146,8 @@ python download_ultralytics_models.py \
   `${MODELS_PATH}/public/yolo11n/FP16`.
 - `--half` (optional): Export in FP16.
 - `--int8` (optional): Export in INT8.
+- `--data` (optional): Dataset YAML used for INT8 calibration, for example
+  `coco128.yaml`. If omitted, Ultralytics uses its default calibration dataset.
 
 For Hugging Face repositories, the exported XML and BIN use the repository ID
 with `/` replaced by `_` instead of the generic `model.xml` and `model.bin`.
@@ -155,8 +166,8 @@ python download_ultralytics_models.py --model yolo11n.pt@v8.3.0 --outdir ./expor
 # Export a local checkpoint in FP16
 python download_ultralytics_models.py --model /path/to/model.pt --outdir ./exports --half
 
-# Export in INT8
-python download_ultralytics_models.py --model yolo11s.pt --outdir ./exports --int8
+# Export in INT8 using coco128 for calibration
+python download_ultralytics_models.py --model yolo11s.pt --outdir ./exports --int8 --data coco128.yaml
 ```
 
 ## 3) TIMM conversion

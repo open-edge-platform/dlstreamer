@@ -489,6 +489,25 @@ What the GPU/NPU passthrough flags do:
 | `--device /dev/accel` | Gives the container access to the Intel® **NPU** |
 | `--group-add $(stat -c "%g" /dev/accel/accel*)` | Grants non-root permission to the NPU |
 
+On Intel® Core™ Ultra Series 3 (model 3xx), NPU zero-copy (DMA-BUF) inference also needs
+`/dev/dma_heap/system`. This device is root-only by default. Run the following on the host first
+to give the `render` group access to the device until the next reboot:
+
+```bash
+sudo chgrp render /dev/dma_heap/system
+sudo chmod 0660 /dev/dma_heap/system
+```
+
+Then add these flags to the `docker run` command above:
+
+```bash
+  --device /dev/dma_heap/system \
+  --group-add $(stat -c "%g" /dev/dma_heap/system) \
+```
+
+The container gets the host's owner and permissions for the device, so you need to repeat the host
+step after every reboot.
+
 Now, **inside the container**, run a pipeline. Since a container is typically
 headless, we output to a file:
 

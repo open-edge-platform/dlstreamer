@@ -49,6 +49,14 @@ def parse_args() -> argparse.Namespace:
         help="Use INT8 precision for OpenVINO export",
     )
     parser.add_argument(
+        "--data",
+        default=None,
+        help=(
+            "Dataset YAML for INT8 calibration (e.g. coco128.yaml). "
+            "If omitted, Ultralytics uses its default dataset."
+        ),
+    )
+    parser.add_argument(
         "--classes",
         default=None,
         help="Comma-separated class names to bake into the model via set_classes() (YOLOE text-prompt models only).",
@@ -272,11 +280,13 @@ def main() -> int:
                 return 1
             model.set_classes(classes, model.get_text_pe(classes))
 
+        export_options = {"data": args.data} if args.data is not None else {}
         exported_model_path = model.export(
             format="openvino",
             dynamic=True,
             half=half,
             int8=int8,
+            **export_options,
         )
 
         if not exported_model_path or not Path(exported_model_path).exists():
