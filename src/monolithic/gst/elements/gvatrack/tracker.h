@@ -8,14 +8,32 @@
 
 #include <memory>
 #include <unordered_map>
+#include <vector>
 
 #include "itracker.h"
 #include <dlstreamer/base/memory_mapper.h>
 #include <dlstreamer/context.h>
 
+#include <gst/gst.h>
 #include <vas/ot.h>
 
 namespace VasWrapper {
+
+struct GstStructureDeleter {
+    void operator()(GstStructure *s) const {
+        gst_structure_free(s);
+    }
+};
+using GstStructurePtr = std::unique_ptr<GstStructure, GstStructureDeleter>;
+
+// Data of the last detection associated with a track, carried forward to the regions the tracker
+// generates on frames without an associated detection (e.g. frames skipped by inference-interval)
+struct TrackState {
+    double confidence = 0.0;
+    // Non-detection tensors of the region (e.g. keypoints, instance segmentation mask). They are
+    // stored relative to the bounding box, so they follow the box predicted by the tracker.
+    std::vector<GstStructurePtr> tensors;
+};
 
 class Tracker : public ITracker {
   public:
@@ -28,8 +46,7 @@ class Tracker : public ITracker {
   private:
     std::unique_ptr<class TrackerBackend> _impl;
     std::unordered_map<int, std::string> labels;
-    // Last detection confidence per tracking_id
-    std::unordered_map<uint64_t, double> confidences;
+    std::unordered_map<uint64_t, TrackState> track_states;
 };
 
 } // namespace VasWrapper
