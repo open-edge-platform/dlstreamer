@@ -14,6 +14,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <future>
 #include <mutex>
 #include <stdexcept>
 
@@ -322,12 +323,17 @@ std::vector<Box3D> Runtime::infer(const FrameInput &frame, float score_threshold
     if (!frame.points || frame.point_stride < 4)
         throw std::invalid_argument("lidar points are required (at least x, y, z, intensity per point)");
 
-    impl_->run_lidar(frame);
     if (frame.cameras) {
         if (!impl_->has_calibration)
             throw std::logic_error("camera calibration must be set before running with cameras");
+        // The two branches share no buffers and only read the frame, so the
+        // lidar branch runs on its own thread while this one runs the camera
+        // branch. The future's destructor joins it if run_camera throws.
+        std::future<void> lidar = std::async(std::launch::async, [&] { impl_->run_lidar(frame); });
         impl_->run_camera(frame);
+        lidar.get();
     } else {
+        impl_->run_lidar(frame);
         // Lidar-only: the fused head sees an empty camera BEV.
         std::fill(impl_->camera_bev.begin(), impl_->camera_bev.end(), 0.0f);
     }
