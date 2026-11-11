@@ -35,7 +35,6 @@
 # DLSTREAMER_VERSION      # DL Streamer
 # DLSTREAMER_BUILD_NUMBER # Build ID
 # GST_VERSION             # GStreamer
-# FFMPEG_VERSION          # FFmpeg
 # OPENCV_VERSION          # OpenCV
 # REALSENSE_VERSION       # RealSense
 # KAFKA_VERSION           # librdkafka

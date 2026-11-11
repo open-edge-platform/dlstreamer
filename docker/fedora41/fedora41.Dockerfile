@@ -38,7 +38,6 @@
 # DLSTREAMER_VERSION      # DL Streamer
 # DLSTREAMER_BUILD_NUMBER # Build ID
 # GST_VERSION             # GStreamer
-# FFMPEG_VERSION          # FFmpeg
 # OPENVINO_VERSION        # OpenVINO
 # OPENCV_VERSION          # OpenCV
 # REALSENSE_VERSION       # RealSense
