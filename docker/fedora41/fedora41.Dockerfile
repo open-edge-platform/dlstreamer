@@ -101,7 +101,7 @@ RUN \
     six==1.16.0 \
     pycairo==1.26.0 \
     PyGObject==3.50.0 \
-    setuptools==84.0.0 \
+    setuptools==84.1.0 \
     pytest==8.3.3 \
     pluggy==1.5.0 \
     exceptiongroup==1.2.2 \
@@ -158,7 +158,7 @@ RUN cp -a /usr/local/lib64/libopencv* ./
 # ==============================================================================
 FROM opencv-builder AS gstreamer-builder
 # Build GStreamer
-ARG GST_VERSION=1.28.2
+ARG GST_VERSION=1.28.8
 
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 WORKDIR /home/dlstreamer

@@ -111,6 +111,7 @@ def main() -> int:
         if args.power_metrics_endpoint:
             optimizer.set_metrics_url(args.power_metrics_endpoint)
 
+        logger.info("Using optimization profile: %s", args.optimization_profile)
         match args.optimization_profile:
             case "coarse":
                 optimizer.set_sample_duration(5)
@@ -258,9 +259,9 @@ def _display_summary_power(best_pipeline, best_result, initial_pipeline, initial
     logger.info("=============================== SUMMARY ==============================")
     if best_result["power"] < initial_result["power"]:
         logger.info("Optimized pipeline found with %.2f less watts used over the original pipeline.", initial_result["power"] - best_result["power"])
-        logger.info("Original pipeline power usage: %.2f", initial_result["power"])
+        logger.info("Original pipeline watt usage: %.2f", initial_result["power"])
         logger.info("Optimized pipeline: %s", str(best_pipeline))
-        logger.info("Optimized pipeline power usage: %.2f", best_result["power"])
+        logger.info("Optimized pipeline watt usage: %.2f", best_result["power"])
         if args.maximize_streams:
             full_pipeline = " ".join([best_pipeline] * best_result["streams"])
             logger.info("Number of streams pipeline can support: %d", best_result["streams"])
@@ -268,7 +269,7 @@ def _display_summary_power(best_pipeline, best_result, initial_pipeline, initial
     else:
         logger.info("No optimized pipeline found that outperforms the original pipeline.")
         logger.info("Original pipeline: %s", str(initial_pipeline))
-        logger.info("Original pipeline power usage: %.2f", initial_result["power"])
+        logger.info("Original pipeline watt usage: %.2f", initial_result["power"])
     logger.info("======================================================================")
 
 ###################################################################################################

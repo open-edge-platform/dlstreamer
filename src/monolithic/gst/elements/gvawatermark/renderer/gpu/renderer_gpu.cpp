@@ -18,6 +18,7 @@
 #include <climits>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <map>
 #include <mutex>
@@ -25,6 +26,8 @@
 
 #ifdef _WIN32
 #include <dlstreamer/d3d11/device_lock.h>
+#include <dlstreamer/d3d11/opencl_sharing.h>
+#include <dlstreamer/opencl/command_queue.h>
 #else
 #include <unistd.h>
 #endif
@@ -216,6 +219,15 @@ struct PciBusInfo {
 constexpr cl_device_info DEVICE_PCI_BUS_INFO = 0x410F;
 #endif
 
+/* cl_intel_device_attribute_query, likewise. */
+#ifdef CL_DEVICE_IP_VERSION_INTEL
+constexpr cl_device_info DEVICE_IP_VERSION = CL_DEVICE_IP_VERSION_INTEL;
+constexpr cl_device_info DEVICE_ID = CL_DEVICE_ID_INTEL;
+#else
+constexpr cl_device_info DEVICE_IP_VERSION = 0x4250;
+constexpr cl_device_info DEVICE_ID = 0x4251;
+#endif
+
 /* Kernel driver bound to the device behind `dev` ("i915", "xe", ...), found
  * through cl_khr_pci_bus_info and sysfs; empty if either is unavailable. */
 std::string kernel_driver(cl_device_id dev) {
@@ -233,6 +245,68 @@ std::string kernel_driver(cl_device_id dev) {
     target[len] = '\0';
     const char *name = std::strrchr(target, '/');
     return name ? name + 1 : target;
+}
+
+/* An Xe-LPG integrated GPU (Meteor Lake, Arrow Lake): the GPUs on which the
+ * compute runtime uses "ULLS light" direct submission over i915, as soon as
+ * OpenVINO's GPU plugin is loaded, which it is next to any GPU inference.
+ * Under it the renderer is slower than the CPU one: releasing a surface import
+ * stops the ring the process shares with OpenVINO and waits for the GPU to
+ * drain, and a surface the ring knows stays busy for VA until the ring stops,
+ * so drawing and inference end up taking turns (61 fps against 81 without the
+ * watermark on Arrow Lake with YOLO11s). See compute-runtime's
+ * OsContextLinux::isDirectSubmissionSupported; i915 has no VM_BIND, and among
+ * the GPUs it drives only Xe-LPG supports the light variant.
+ *
+ * Fills the IP version and the PCI device ID, which tell the two apart: Arrow
+ * Lake S and U report the IP version of Meteor Lake U. */
+struct XeLpg {
+    cl_version ip = 0;
+    cl_uint device_id = 0;
+
+    /* The compute runtime's own layout, not CL_MAKE_VERSION's:
+     * architecture << 22 | release << 14 | revision. */
+    cl_uint architecture() const {
+        return ip >> 22;
+    }
+    cl_uint release() const {
+        return (ip >> 14) & 0xff;
+    }
+    cl_uint revision() const {
+        return ip & 0x3f;
+    }
+
+    const char *platform() const {
+        switch (device_id) {
+        case 0x7D40:
+        case 0x7D45:
+        case 0x7D55:
+        case 0x7DD5:
+            return "Meteor Lake";
+        case 0x7D41:
+        case 0x7D51:
+        case 0x7D67:
+        case 0x7DD1:
+            return "Arrow Lake";
+        default:
+            return release() == 74 ? "Arrow Lake" : "Meteor Lake or Arrow Lake";
+        }
+    }
+};
+
+bool xe_lpg(cl_device_id dev, XeLpg *info) {
+    if (clGetDeviceInfo(dev, DEVICE_IP_VERSION, sizeof(info->ip), &info->ip, nullptr) != CL_SUCCESS)
+        return false;
+    clGetDeviceInfo(dev, DEVICE_ID, sizeof(info->device_id), &info->device_id, nullptr);
+    return info->architecture() == 12 && (info->release() == 70 || info->release() == 71 || info->release() == 74);
+}
+
+/* Whether the compute runtime's EnableDirectSubmission debug key turns direct
+ * submission off. */
+bool direct_submission_disabled() {
+    const char *read_keys = std::getenv("NEOReadDebugKeys");
+    const char *enable = std::getenv("EnableDirectSubmission");
+    return read_keys && std::atoi(read_keys) == 1 && enable && std::atoi(enable) == 0;
 }
 
 } // namespace
@@ -289,6 +363,10 @@ struct RendererGPU::SharedContext {
      * as gvatrack tracking-type=zero-term fails intermittently, and the
      * watermark itself runs slower than with per-frame imports. */
     bool cache_imports = true;
+
+    SharedContext() = default;
+    SharedContext(const SharedContext &) = delete;
+    SharedContext &operator=(const SharedContext &) = delete;
 
     ~SharedContext() {
         if (program)
@@ -354,18 +432,14 @@ bool RendererGPU::SharedContext::build(renderer_gpu::Device display) {
     /* cl_khr_d3d11_sharing imports a texture, and cl_intel_d3d11_nv12_media_sharing
      * extends it to the two planes of an NV12 one. */
     for (cl_platform_id platform : platforms) {
-        auto ext = [platform](const char *name) { return clGetExtensionFunctionAddressForPlatform(platform, name); };
-        auto get_devices = reinterpret_cast<clGetDeviceIDsFromD3D11KHR_fn>(ext("clGetDeviceIDsFromD3D11KHR"));
-        auto create_texture = reinterpret_cast<clCreateFromD3D11Texture2DKHR_fn>(ext("clCreateFromD3D11Texture2DKHR"));
-        auto acquire_fn = reinterpret_cast<clEnqueueAcquireD3D11ObjectsKHR_fn>(ext("clEnqueueAcquireD3D11ObjectsKHR"));
-        auto release_fn = reinterpret_cast<clEnqueueReleaseD3D11ObjectsKHR_fn>(ext("clEnqueueReleaseD3D11ObjectsKHR"));
-        if (!get_devices || !create_texture || !acquire_fn || !release_fn)
+        const dlstreamer::D3D11SharingFunctions sharing(platform);
+        if (!sharing.get_device_ids || !sharing.create_from_texture2d || !sharing.acquire || !sharing.release)
             continue;
 
         cl_device_id dev = nullptr;
         cl_uint num_devices = 0;
-        cl_int err = get_devices(platform, CL_D3D11_DEVICE_KHR, d3d11, CL_PREFERRED_DEVICES_FOR_D3D11_KHR, 1, &dev,
-                                 &num_devices);
+        cl_int err = sharing.get_device_ids(platform, CL_D3D11_DEVICE_KHR, d3d11, CL_PREFERRED_DEVICES_FOR_D3D11_KHR, 1,
+                                            &dev, &num_devices);
         if (err != CL_SUCCESS || num_devices == 0 || !dev)
             continue;
         if (!has_extension(dev, "cl_intel_d3d11_nv12_media_sharing"))
@@ -389,9 +463,9 @@ bool RendererGPU::SharedContext::build(renderer_gpu::Device display) {
         this->platform = platform;
         this->device = dev;
         this->context = ctx;
-        this->create_from_d3d11 = create_texture;
-        this->acquire = acquire_fn;
-        this->release = release_fn;
+        this->create_from_d3d11 = sharing.create_from_texture2d;
+        this->acquire = sharing.acquire;
+        this->release = sharing.release;
 
         if (!build_program()) {
             this->platform = nullptr;
@@ -439,6 +513,16 @@ bool RendererGPU::SharedContext::build(renderer_gpu::Device display) {
         if (err != CL_SUCCESS || num_devices == 0 || !dev)
             continue;
 
+        const std::string driver = kernel_driver(dev);
+        XeLpg igpu;
+        if (driver == "i915" && xe_lpg(dev, &igpu) && !direct_submission_disabled()) {
+            GST_WARNING("gvawatermark GPU renderer: %s iGPU (device 0x%04x, IP version %u.%u.%u) on i915 runs with "
+                        "direct submission, under which the CPU renderer is faster; using it. "
+                        "NEOReadDebugKeys=1 EnableDirectSubmission=0 turns direct submission off",
+                        igpu.platform(), igpu.device_id, igpu.architecture(), igpu.release(), igpu.revision());
+            return false;
+        }
+
         /* CL_CONTEXT_INTEROP_USER_SYNC = CL_FALSE puts VA<->CL synchronization
          * on the driver, so the acquire/release pair around the kernels is all
          * the sync we need; no explicit vaSyncSurface. */
@@ -469,7 +553,6 @@ bool RendererGPU::SharedContext::build(renderer_gpu::Device display) {
             continue;
         }
 
-        const std::string driver = kernel_driver(dev);
         this->cache_imports = driver != "i915";
 
         char name[256] = {};
@@ -517,49 +600,23 @@ std::shared_ptr<RendererGPU::SharedContext> RendererGPU::SharedContext::get(rend
 RendererGPU::RendererGPU(std::shared_ptr<SharedContext> shared, std::shared_ptr<ColorConverter> color_converter,
                          int width, int height)
     : _shared(std::move(shared)), _color_converter(std::move(color_converter)), _width(width), _height(height) {
-    // Same white as RendererNV12::draw_text, so limited range video gets Y=235
-    const Color white = _color_converter->convert(Color(255, 255, 255));
-    _white = cv::Scalar(white[0], white[1], white[2]);
 }
 
 cl_command_queue RendererGPU::create_queue(cl_int *err) {
-    cl_command_queue queue = clCreateCommandQueueWithProperties(_shared->context, _shared->device, nullptr, err);
-#if defined(_WIN32) && defined(CL_DEVICE_QUEUE_FAMILY_PROPERTIES_INTEL)
+#ifdef _WIN32
     /* Every frame waits for its kernels, and a default queue shares the
      * engine OpenVINO runs inference on, so the wait includes whatever
-     * inference is in flight: several ms per frame next to a detector. Another
-     * engine that runs every command, 'rcs' next to 'ccs', avoids that. */
-    if (!queue)
-        return queue;
-    size_t size = 0;
-    if (clGetDeviceInfo(_shared->device, CL_DEVICE_QUEUE_FAMILY_PROPERTIES_INTEL, 0, nullptr, &size) != CL_SUCCESS ||
-        size == 0)
-        return queue;
-    std::vector<cl_queue_family_properties_intel> families(size / sizeof(cl_queue_family_properties_intel));
-    cl_uint default_family = 0;
-    if (clGetDeviceInfo(_shared->device, CL_DEVICE_QUEUE_FAMILY_PROPERTIES_INTEL, size, families.data(), nullptr) !=
-            CL_SUCCESS ||
-        clGetCommandQueueInfo(queue, CL_QUEUE_FAMILY_INTEL, sizeof(default_family), &default_family, nullptr) !=
-            CL_SUCCESS)
-        return queue;
-
-    for (cl_uint i = 0; i < families.size(); ++i) {
-        if (i == default_family || families[i].capabilities != CL_QUEUE_DEFAULT_CAPABILITIES_INTEL ||
-            families[i].count == 0)
-            continue;
-        const cl_queue_properties props[] = {CL_QUEUE_FAMILY_INTEL, i, CL_QUEUE_INDEX_INTEL, 0, 0};
-        cl_int other_err = CL_SUCCESS;
-        cl_command_queue other =
-            clCreateCommandQueueWithProperties(_shared->context, _shared->device, props, &other_err);
-        if (other && other_err == CL_SUCCESS) {
-            GST_INFO("gvawatermark GPU renderer: kernels on engine '%s' rather than '%s'", families[i].name,
-                     families[default_family].name);
-            clReleaseCommandQueue(queue);
-            return other;
-        }
-    }
-#endif
+     * inference is in flight: several ms per frame next to a detector. */
+    std::string engine, default_engine;
+    cl_command_queue queue =
+        dlstreamer::create_queue_on_other_engine(_shared->context, _shared->device, err, &engine, &default_engine);
+    if (queue && engine != default_engine)
+        GST_INFO("gvawatermark GPU renderer: kernels on engine '%s' rather than '%s'", engine.c_str(),
+                 default_engine.c_str());
     return queue;
+#else
+    return clCreateCommandQueueWithProperties(_shared->context, _shared->device, nullptr, err);
+#endif
 }
 
 std::unique_ptr<RendererGPU> RendererGPU::create(renderer_gpu::Device display, int width, int height,
@@ -1082,7 +1139,8 @@ void RendererGPU::calibrate_blur_fma() {
             uint32_t seed = 1;
             for (int it = 0; it < (1 << 24) && p.fused == p.plain; ++it) {
                 for (uint8_t &v : p.px) {
-                    seed = seed * 1664525u + 1013904223u;
+                    /* Widened so the mod 2^32 wrap is explicit; same sequence. */
+                    seed = static_cast<uint32_t>(uint64_t{seed} * 1664525u + 1013904223u);
                     v = static_cast<uint8_t>(seed >> 24);
                 }
                 p.fused = cvRound(sum(k, p.px, TAPS, true));
@@ -1364,7 +1422,7 @@ void RendererGPU::flush_spans_overlapping(int plane, int x0, int y0, int x1, int
 
 bool RendererGPU::flatten_rect(const render::Rect &rect) {
     if (rect.rotation != 0.0) {
-        _last_unsupported = "rotated rectangle (obb=true)";
+        _last_unsupported = "rotated rectangle from an oriented detection";
         return false;
     }
     if (rect.thick <= 0) {
@@ -1398,7 +1456,7 @@ bool RendererGPU::flatten_text(const render::Text &text) {
 
     /* draw_text_bg fills the background with the primitive colour, extended to
      * whole 2x2 blocks like align_to_u_v_blocks() does, and draw_text then
-     * writes the label in white. */
+     * writes the label in the contrasting colour. */
     if (text.draw_bg) {
         int baseline = 0;
         const cv::Size size = cv::getTextSize(text.text, text.fonttype, text.fontscale, text.thick, &baseline);
@@ -1413,7 +1471,7 @@ bool RendererGPU::flatten_text(const render::Text &text) {
                  plane_color_uv(text.color));
     }
 
-    const cv::Scalar color = text.draw_bg ? _white : text.color;
+    const cv::Scalar color = text.draw_bg ? text.contrast_color : text.color;
 
     /* One glyph serves both planes: Y takes it pixel for pixel and UV blends by
      * how much of each 2x2 block it covers. */

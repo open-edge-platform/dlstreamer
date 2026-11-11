@@ -217,10 +217,14 @@ void VaApiConverter::SetupPipelineRegionsWithCustomParams(const InputImageLayerD
     uint16_t input_height_except_padding = dst_height - (padding_y * 2);
 
     // Resize preparations
+    // Central-resize crops the source directly, so the regular resize step must not run before it
+    const bool central_resize =
+        pre_proc_info->doNeedCrop() && pre_proc_info->getCropType() == InputImageLayerDesc::Crop::CENTRAL_RESIZE;
     double resize_scale_param_x = 1;
     double resize_scale_param_y = 1;
-    if (pre_proc_info->doNeedResize() && (src_surface_region.width != input_width_except_padding ||
-                                          src_surface_region.height != input_height_except_padding)) {
+    if (!central_resize && pre_proc_info->doNeedResize() &&
+        (src_surface_region.width != input_width_except_padding ||
+         src_surface_region.height != input_height_except_padding)) {
         if (pre_proc_info->isAspectRatioMultipleOfResize()) {
             throw std::runtime_error("Aspect-ratio-multiple-of resize is supported only by the OpenCV preprocessor");
         }
@@ -264,21 +268,31 @@ void VaApiConverter::SetupPipelineRegionsWithCustomParams(const InputImageLayerD
         uint16_t cropped_width = dst_surface_region.width - cropped_border_x;
         uint16_t cropped_height = dst_surface_region.height - cropped_border_y;
 
-        if (pre_proc_info->getCropType() == InputImageLayerDesc::Crop::CENTRAL_RESIZE) {
-            uint16_t crop_size = std::min(src_width, src_height);
-            uint16_t startX = (src_width - crop_size) / 2;
-            uint16_t startY = (src_height - crop_size) / 2;
+        if (central_resize) {
+            // Center-crop within the current source region (ROI); an empty region means the full frame
+            if (src_surface_region.width == 0 || src_surface_region.height == 0) {
+                src_surface_region.x = 0;
+                src_surface_region.y = 0;
+                src_surface_region.width = src_width;
+                src_surface_region.height = src_height;
+            }
+            const auto crop = InputImageLayerDesc::CalculateCentralResizeCrop(
+                src_surface_region.width, src_surface_region.height, input_width_except_padding,
+                input_height_except_padding);
 
-            src_surface_region.x = safe_convert<int16_t>(startX);
-            src_surface_region.y = safe_convert<int16_t>(startY);
-            src_surface_region.width = crop_size;
-            src_surface_region.height = crop_size;
+            src_surface_region.x = safe_convert<int16_t>(src_surface_region.x + crop.x);
+            src_surface_region.y = safe_convert<int16_t>(src_surface_region.y + crop.y);
+            src_surface_region.width = safe_convert<uint16_t>(crop.width);
+            src_surface_region.height = safe_convert<uint16_t>(crop.height);
+            pipeline_param.surface_region = &src_surface_region;
 
             dst_surface_region.width = input_width_except_padding;
             dst_surface_region.height = input_height_except_padding;
 
             if (image_transform_info)
-                image_transform_info->CropHasDone(startX, startY);
+                image_transform_info->CropThenResizeHasDone(
+                    crop.x, crop.y, safe_convert<double>(input_width_except_padding) / crop.width,
+                    safe_convert<double>(input_height_except_padding) / crop.height);
         } else {
             switch (pre_proc_info->getCropType()) {
             case InputImageLayerDesc::Crop::CENTRAL:

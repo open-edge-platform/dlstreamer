@@ -68,6 +68,7 @@ struct ZoneDwellState {
 // Structure to store object tracking history for tripwire crossing and dwell time detection
 struct ObjectTrackingState {
     guint64 tracking_id;
+    GstClockTime last_seen = GST_CLOCK_TIME_NONE;
     Point last_point;
     bool has_previous_position = false;
     std::unordered_map<std::string, ZoneDwellState> zone_entry_times; // zone_id → dwell state
@@ -81,4 +82,5 @@ void attach_tripwire_drawing_metadata(GstBaseTransform *base, GstBuffer *buf, co
 void process_object_detections(GstBaseTransform *base, GstAnalyticsRelationMeta *analytics_meta,
                                const std::vector<Zone> &zones, const std::vector<Tripwire> &tripwires,
                                std::map<guint64, ObjectTrackingState> &tracking_states,
-                               ObjectEvaluationPoint evaluation_point, gdouble current_time_sec);
+                               ObjectEvaluationPoint evaluation_point, gdouble current_time_sec,
+                               GstClockTime observation_time = GST_CLOCK_TIME_NONE);

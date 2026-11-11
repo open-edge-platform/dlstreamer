@@ -16,17 +16,15 @@ Multi-stream pipelines (those utilizing the `tee` element) are also currently no
 ## Prerequisites
 Before using the DLS Optimizer, ensure you have:
 - Installed DL Streamer [intallation steps.](../install/install_guide_ubuntu.md)
-- Installed any necessary [DL Streamer python dependencies.](./advanced_install/advanced_install_guide_compilation.md#step-10-install-python-dependencies-optional)
+- Installed any necessary [DL Streamer python dependencies.](./advanced_install/advanced_install_guide_compilation.md#step-9-install-python-dependencies-optional)
 - Configured environment variables for the current terminal session.
-- Installed the OpenVINO python library.
 
 ```bash
-   uv  venv ~/python3venv
-   source ~/python3venv/bin/activate
    source /opt/intel/dlstreamer/scripts/setup_dls_env.sh
-   cd /opt/intel/dlstreamer/scripts/optimizer
-   uv pip install openvino==2026.3.1
 ```
+
+This script configures `PYTHONPATH`, including the OpenVINO™ Python
+bindings, so they can be imported by Python.
 
 ## Using the optimizer as a tool
 >**Note**\

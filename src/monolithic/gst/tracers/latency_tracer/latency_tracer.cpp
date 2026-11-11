@@ -7,6 +7,8 @@
 #include "latency_tracer.h"
 #include "gmutex_lock_guard.h"
 #include "latency_tracer_meta.h"
+#include <algorithm>
+#include <array>
 #include <mutex>
 #include <string>
 #include <tuple>
@@ -29,6 +31,31 @@ using BufferListArgs = tuple<LatencyTracer *, guint64, GstPad *>;
 
 static GQuark data_string = g_quark_from_static_string("latency_tracer");
 
+// Bus message posted for every pipeline interval window when "post-metrics" is enabled. Bump the version when a
+// field is removed or changes meaning; consumers skip versions they do not know.
+#define LATENCY_WINDOW_MESSAGE_NAME "dlstreamer/latency-window"
+#define LATENCY_WINDOW_MESSAGE_VERSION 1u
+
+// Upper bounds of the frame latency buckets in the window messages: R10 preferred numbers from 1 ms to 100 s, so
+// every bucket is about 25 % wide. A frame of latency L is counted in the first bucket whose bound is >= L, and in
+// the extra last bucket when L exceeds every bound (OpenTelemetry explicit-bucket convention).
+static const gdouble latency_bucket_bounds_ms[] = {
+    1,    1.25, 1.6,  2,    2.5,  3.15, 4,     5,     6.3,   8,     10,    12.5,  16,    20,    25,    31.5,  40,
+    50,   63,   80,   100,  125,  160,  200,   250,   315,   400,   500,   630,   800,   1000,  1250,  1600,  2000,
+    2500, 3150, 4000, 5000, 6300, 8000, 10000, 12500, 16000, 20000, 25000, 31500, 40000, 50000, 63000, 80000, 100000};
+static constexpr size_t latency_bucket_count = G_N_ELEMENTS(latency_bucket_bounds_ms) + 1;
+
+// Raw aggregates of one interval window of a branch. Sums and counts, unlike averages, can be merged exactly.
+struct LatencyWindow {
+    gdouble window_ms; // actual window length
+    guint count;       // frames that reached the sink
+    gdouble sum_ms;    // sum, minimum and maximum of frame latency
+    gdouble min_ms;
+    gdouble max_ms;
+    gdouble sum_sq_ms;                               // sum of squared frame latency, for the standard deviation
+    std::array<guint, latency_bucket_count> buckets; // frame latency histogram, for percentiles
+};
+
 // Element type classification for caching
 enum class ElementType {
     SOURCE,    // Element with no sink pads (produces data)
@@ -49,11 +76,17 @@ struct BranchStats {
     gdouble interval_min;
     gdouble interval_max;
     guint interval_frame_count;
+    gdouble interval_sum_sq;                                  // only collected with post-metrics
+    std::array<guint, latency_bucket_count> interval_buckets; // only collected with post-metrics
     GstClockTime interval_init_time;
     GstClockTime first_frame_init_ts;
+    GstElement *sink_element; // posts the window messages; set once when the branch is created
+    gboolean post_metrics;
     mutex mtx;
 
     BranchStats() {
+        sink_element = nullptr;
+        post_metrics = FALSE;
         total_latency = 0.0;
         min = G_MAXDOUBLE; // Initialize to max value so first frame sets it
         max = 0.0;
@@ -62,6 +95,8 @@ struct BranchStats {
         interval_min = G_MAXDOUBLE;
         interval_max = 0.0;
         interval_frame_count = 0;
+        interval_sum_sq = 0.0;
+        interval_buckets.fill(0);
         interval_init_time = 0;
         first_frame_init_ts = 0;
         pipeline_name = "";
@@ -73,12 +108,16 @@ struct BranchStats {
         interval_max = 0.0;
         interval_init_time = now;
         interval_frame_count = 0;
+        interval_sum_sq = 0.0;
+        interval_buckets.fill(0);
     }
 
     void cal_log_pipeline_latency(guint64 ts, guint64 init_ts, gint interval) {
         // Local copies for logging outside the lock
         gdouble frame_latency, avg, local_min, local_max, pipeline_latency, fps;
         guint local_count;
+        LatencyWindow window;
+        gboolean window_done = FALSE;
 
         {
             lock_guard<mutex> guard(mtx);
@@ -101,6 +140,21 @@ struct BranchStats {
             local_min = min;
             local_max = max;
             local_count = frame_count;
+
+            interval_frame_count += 1;
+            interval_total += frame_latency;
+            if (frame_latency < interval_min)
+                interval_min = frame_latency;
+            if (frame_latency > interval_max)
+                interval_max = frame_latency;
+            if (post_metrics) {
+                interval_sum_sq += frame_latency * frame_latency;
+                const gdouble *end = latency_bucket_bounds_ms + G_N_ELEMENTS(latency_bucket_bounds_ms);
+                interval_buckets[std::lower_bound(latency_bucket_bounds_ms, end, frame_latency) -
+                                 latency_bucket_bounds_ms] += 1;
+            }
+            if ((gdouble)GST_CLOCK_DIFF(interval_init_time, ts) / ns_to_ms >= interval)
+                window_done = take_window(ts, &window);
         } // Lock released here
 
         // Log outside the lock to minimize lock duration
@@ -111,30 +165,83 @@ struct BranchStats {
 
         gst_tracer_record_log(tr_pipeline, pipeline_name.c_str(), source_name.c_str(), sink_name.c_str(), frame_latency,
                               avg, local_min, local_max, pipeline_latency, fps, local_count);
-        cal_log_pipeline_interval(ts, frame_latency, interval);
+        if (window_done)
+            report_window(window);
     }
 
-    void cal_log_pipeline_interval(guint64 ts, gdouble frame_latency, gint interval) {
-        interval_frame_count += 1;
-        interval_total += frame_latency;
-        if (frame_latency < interval_min)
-            interval_min = frame_latency;
-        if (frame_latency > interval_max)
-            interval_max = frame_latency;
-        gdouble ms = (gdouble)GST_CLOCK_DIFF(interval_init_time, ts) / ns_to_ms;
-        if (ms >= interval) {
-            gdouble pipeline_latency = ms / interval_frame_count;
-            gdouble fps = ms_to_s / pipeline_latency;
-            gdouble interval_avg = interval_total / interval_frame_count;
-            GST_TRACE(
-                "[Latency Tracer Interval] Pipeline: %s, Source: %s -> Sink: %s - Interval: %.2f ms, Avg: %.2f ms, "
-                "Min: %.2f ms, Max: %.2f ms",
-                pipeline_name.c_str(), source_name.c_str(), sink_name.c_str(), ms, interval_avg, interval_min,
-                interval_max);
-            gst_tracer_record_log(tr_pipeline_interval, pipeline_name.c_str(), source_name.c_str(), sink_name.c_str(),
-                                  ms, interval_avg, interval_min, interval_max, pipeline_latency, fps);
-            reset_interval(ts);
+    // Reports the window collected so far, e.g. when the stream ends before the interval has elapsed
+    void flush_window(GstClockTime ts) {
+        LatencyWindow window;
+        gboolean window_done;
+        {
+            lock_guard<mutex> guard(mtx);
+            window_done = take_window(ts, &window);
         }
+        if (window_done)
+            report_window(window);
+    }
+
+    // Ends the current window at ts and starts the next one. Call with mtx held. Returns FALSE for an empty window.
+    gboolean take_window(GstClockTime ts, LatencyWindow *window) {
+        if (interval_frame_count == 0)
+            return FALSE;
+        window->window_ms = (gdouble)GST_CLOCK_DIFF(interval_init_time, ts) / ns_to_ms;
+        window->count = interval_frame_count;
+        window->sum_ms = interval_total;
+        window->min_ms = interval_min;
+        window->max_ms = interval_max;
+        window->sum_sq_ms = interval_sum_sq;
+        window->buckets = interval_buckets;
+        reset_interval(ts);
+        return TRUE;
+    }
+
+    void report_window(const LatencyWindow &window) {
+        gdouble pipeline_latency = window.window_ms / window.count;
+        gdouble fps = ms_to_s / pipeline_latency;
+        gdouble interval_avg = window.sum_ms / window.count;
+        GST_TRACE("[Latency Tracer Interval] Pipeline: %s, Source: %s -> Sink: %s - Interval: %.2f ms, Avg: %.2f ms, "
+                  "Min: %.2f ms, Max: %.2f ms",
+                  pipeline_name.c_str(), source_name.c_str(), sink_name.c_str(), window.window_ms, interval_avg,
+                  window.min_ms, window.max_ms);
+        gst_tracer_record_log(tr_pipeline_interval, pipeline_name.c_str(), source_name.c_str(), sink_name.c_str(),
+                              window.window_ms, interval_avg, window.min_ms, window.max_ms, pipeline_latency, fps);
+        if (post_metrics)
+            post_window_message(window);
+    }
+
+    void post_window_message(const LatencyWindow &window) {
+        GstStructure *s = gst_structure_new_empty(LATENCY_WINDOW_MESSAGE_NAME);
+        gst_structure_set(s, "version", G_TYPE_UINT, LATENCY_WINDOW_MESSAGE_VERSION, NULL);
+        gst_structure_set(s, "pipeline", G_TYPE_STRING, pipeline_name.c_str(), NULL);
+        gst_structure_set(s, "source", G_TYPE_STRING, source_name.c_str(), NULL);
+        gst_structure_set(s, "sink", G_TYPE_STRING, sink_name.c_str(), NULL);
+        gst_structure_set(s, "window_ms", G_TYPE_DOUBLE, window.window_ms, NULL);
+        gst_structure_set(s, "count", G_TYPE_UINT, window.count, NULL);
+        gst_structure_set(s, "sum_ms", G_TYPE_DOUBLE, window.sum_ms, NULL);
+        gst_structure_set(s, "min_ms", G_TYPE_DOUBLE, window.min_ms, NULL);
+        gst_structure_set(s, "max_ms", G_TYPE_DOUBLE, window.max_ms, NULL);
+        gst_structure_set(s, "sum_sq_ms", G_TYPE_DOUBLE, window.sum_sq_ms, NULL);
+
+        GValue bounds = G_VALUE_INIT, counts = G_VALUE_INIT, item = G_VALUE_INIT;
+        gst_value_array_init(&bounds, G_N_ELEMENTS(latency_bucket_bounds_ms));
+        g_value_init(&item, G_TYPE_DOUBLE);
+        for (gdouble bound : latency_bucket_bounds_ms) {
+            g_value_set_double(&item, bound);
+            gst_value_array_append_value(&bounds, &item);
+        }
+        g_value_unset(&item);
+        gst_value_array_init(&counts, latency_bucket_count);
+        g_value_init(&item, G_TYPE_UINT);
+        for (guint count : window.buckets) {
+            g_value_set_uint(&item, count);
+            gst_value_array_append_value(&counts, &item);
+        }
+        g_value_unset(&item);
+        gst_structure_take_value(s, "bucket_bounds_ms", &bounds);
+        gst_structure_take_value(s, "bucket_counts", &counts);
+
+        gst_element_post_message(sink_element, gst_message_new_element(GST_OBJECT_CAST(sink_element), s));
     }
 };
 
@@ -295,9 +402,27 @@ static void latency_tracer_constructed(GObject *object) {
         }
         gst_structure_get_int(params_struct, "interval", &lt->interval);
         GST_INFO_OBJECT(lt, "interval set to %d ms", lt->interval);
+        if (gst_structure_has_field(params_struct, "post-metrics")) {
+            // Accept post-metrics=true as well as the typed or numeric forms, e.g. post-metrics=(boolean)true or 1
+            gboolean post = FALSE;
+            if (!gst_structure_get_boolean(params_struct, "post-metrics", &post)) {
+                gint number = 0;
+                const gchar *text = gst_structure_get_string(params_struct, "post-metrics");
+                if (gst_structure_get_int(params_struct, "post-metrics", &number))
+                    post = number != 0;
+                else if (text)
+                    post = !g_ascii_strcasecmp(text, "true") || !g_ascii_strcasecmp(text, "yes");
+                else
+                    GST_WARNING_OBJECT(lt, "Invalid post-metrics value, expected true or false");
+            }
+            lt->post_metrics = post;
+            GST_INFO_OBJECT(lt, "post-metrics set to %s", post ? "true" : "false");
+        }
         gst_structure_free(params_struct);
     }
     g_free(params);
+    if (lt->post_metrics && !(lt->flags & LATENCY_TRACER_FLAG_PIPELINE))
+        GST_WARNING_OBJECT(lt, "post-metrics needs flags to include pipeline; no messages will be posted");
 }
 
 static void latency_tracer_finalize(GObject *object) {
@@ -845,6 +970,8 @@ static void do_push_buffer_pre(LatencyTracer *lt, guint64 ts, GstPad *pad, GstBu
                     branch_ptr->source_name = GST_ELEMENT_NAME(source);
                     branch_ptr->sink_name = GST_ELEMENT_NAME(sink);
                     branch_ptr->first_frame_init_ts = meta->init_ts;
+                    branch_ptr->sink_element = sink;
+                    branch_ptr->post_metrics = lt->post_metrics;
                     branch_ptr->reset_interval(ts);
                     GST_INFO_OBJECT(lt, "Tracking new branch: %s, %s -> %s", branch_ptr->pipeline_name.c_str(),
                                     branch_ptr->source_name.c_str(), branch_ptr->sink_name.c_str());
@@ -877,6 +1004,32 @@ static void do_push_buffer_list_pre(LatencyTracer *lt, guint64 ts, GstPad *pad, 
             return TRUE;
         },
         &args);
+}
+
+// At EOS the last window of a branch is usually shorter than the interval and would never be reported, so
+// report it when EOS reaches the branch's sink. An aborted pipeline does not send EOS and reports nothing.
+static void do_push_event_pre(LatencyTracer *lt, guint64 ts, GstPad *pad, GstEvent *event) {
+    if (GST_EVENT_TYPE(event) != GST_EVENT_EOS || !(lt->flags & LATENCY_TRACER_FLAG_PIPELINE))
+        return;
+    GstPad *peer_pad = gst_pad_get_peer(pad);
+    if (!peer_pad)
+        return;
+    GstElement *sink = get_real_pad_parent(peer_pad);
+    gst_object_unref(peer_pad);
+    if (!sink)
+        return;
+
+    vector<BranchStats *> branches;
+    if (is_sink_element_cached(lt, sink)) {
+        GMutexLockGuard lock(get_tracer_mutex(lt));
+        for (auto &entry : *get_branch_stats_map(lt)) {
+            if (std::get<1>(entry.first) == sink)
+                branches.push_back(&entry.second);
+        }
+    }
+    gst_object_unref(sink);
+    for (auto *branch : branches)
+        branch->flush_window(ts);
 }
 
 static void on_element_change_state_post(LatencyTracer *lt, guint64 ts, GstElement *elem, GstStateChange change,
@@ -941,11 +1094,6 @@ static void on_element_change_state_post(LatencyTracer *lt, guint64 ts, GstEleme
             GMutexLockGuard lock(mtx);
             GST_INFO_OBJECT(lt, "Found %zu source(s) and %zu sink(s)", sources->size(), sinks->size());
         }
-
-        GstTracer *tracer = GST_TRACER(lt);
-        gst_tracing_register_hook(tracer, "pad-push-pre", G_CALLBACK(do_push_buffer_pre));
-        gst_tracing_register_hook(tracer, "pad-push-list-pre", G_CALLBACK(do_push_buffer_list_pre));
-        gst_tracing_register_hook(tracer, "pad-pull-range-post", G_CALLBACK(do_pull_range_post));
     }
 }
 // GStreamer tracer hook for element creation
@@ -969,6 +1117,7 @@ static void latency_tracer_init(LatencyTracer *lt) {
     lt->pipeline = nullptr;
     lt->flags = static_cast<LatencyTracerFlags>(LATENCY_TRACER_FLAG_ELEMENT | LATENCY_TRACER_FLAG_PIPELINE);
     lt->interval = 1000;
+    lt->post_metrics = FALSE;
 
     lt->branch_stats = new unordered_map<BranchKey, BranchStats, BranchKeyHash>();
     lt->sources_list = new vector<GstElement *>();
@@ -983,6 +1132,13 @@ static void latency_tracer_init(LatencyTracer *lt) {
     GstTracer *tracer = GST_TRACER(lt);
     gst_tracing_register_hook(tracer, "element-new", G_CALLBACK(on_element_new));
     gst_tracing_register_hook(tracer, "element-change-state-post", G_CALLBACK(on_element_change_state_post));
+    // Register every hook exactly once: GStreamer keeps hooks in a process-wide list without
+    // de-duplication, so registering again (e.g. per pipeline state change) runs the callback
+    // once per registration and counts each buffer several times.
+    gst_tracing_register_hook(tracer, "pad-push-pre", G_CALLBACK(do_push_buffer_pre));
+    gst_tracing_register_hook(tracer, "pad-push-list-pre", G_CALLBACK(do_push_buffer_list_pre));
+    gst_tracing_register_hook(tracer, "pad-pull-range-post", G_CALLBACK(do_pull_range_post));
+    gst_tracing_register_hook(tracer, "pad-push-event-pre", G_CALLBACK(do_push_event_pre));
     GST_OBJECT_UNLOCK(lt);
 }
 

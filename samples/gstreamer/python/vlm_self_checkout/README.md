@@ -15,7 +15,7 @@ Both the object detection model and the VLM run locally on the edge AI device. N
 1. **Detects** objects in each video frame using a YOLO26s model (`gvadetect`)
 2. **Tracks** detected objects across frames (`gvatrack`) and filters by visibility duration
 3. **Selects** frames of interest for enhanced VLM classification using a custom Python element (`gvaframeselection_py`, see `plugins/python/gvaFrameSelection.py`)
-4. **Classifies** tracked items against a known inventory using a VLM (`gvagenai` with MiniCPM-V 4.5 by default)
+4. **Classifies** tracked items against a known inventory using a VLM (`gvagenai`, for example MiniCPM-V 4.5)
 5. **Publishes** structured JSONL results and saves snapshot images of classified items
 6. **Writes** an annotated output video with watermarked detection and VLM classification results (`gvawatermark`)
 
@@ -62,55 +62,111 @@ A **GObject signal bridge** communicates analytics results from Path 2 back to P
 
 ## Prerequisites
 
-- DL Streamer installed on host, or DL Streamer docker image
-- Intel EdgeAI System with integrated GPU/NPU (or set `--detect-device CPU --genai-device CPU`)
-- Python dependencies installed with:
-
 ```bash
-uv venv .vlm-self-checkout-venv
-source .vlm-self-checkout-venv/bin/activate
-curl -LO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/3/samples/export-requirements.txt
-uv pip install -r export-requirements.txt -r requirements.txt
+cd samples/gstreamer/python/vlm_self_checkout
 ```
 
-## Model Preparation
+Every command below is relative to that directory.
 
-### Detection (YOLO26s)
+- A DL Streamer build that includes the `gvagenai` element. The `intel/dlstreamer` Docker image
+  already provides it.
+- An Intel GPU with VA-API support. The pipeline rescales frames for the VLM with `vapostproc` and
+  encodes the annotated video with `vah264enc`, so VA-API is required even when inference itself
+  runs with `--detect-device CPU --genai-device CPU`.
+- The GStreamer Python bindings (`gi`). They come with DL Streamer — the Docker image installs
+  PyGObject system-wide and the `intel-dlstreamer` package depends on `python3-gi`. For a build
+  from sources follow the
+  [DL Streamer Installation Guide](../../../../docs/user-guide/install/install_guide_index.md).
+- `MODELS_PATH` set to the shared model store. The default `--detect-model-path` and
+  `--vlm-model-path` are resolved inside it; without the variable only the current directory is
+  searched.
 
-The script automatically downloads `yolo26s.pt` from the Ultralytics hub and converts to OpenVINO IR format under `models/yolo26s_int8_openvino_model/`.
-Use `--detect-model-id` to select a different object detection model.
+No further Python setup is needed — `vlm_self_checkout.py` and the bundled `gvaframeselection_py`
+element import nothing beyond the standard library and `gi`. For model export, use the model-download
+environment and main requirements file described in the
+[Hugging Face conversion guide](../../../../scripts/download_models/README.md#1-hugging-face-conversion).
+The conversion script automatically selects compatible Hugging Face package versions in a
+temporary virtual environment when a model requires them; other export dependencies are reused
+from the model-download environment.
+
+> **Note:** the sample never downloads media or models. Prepare the input video and export
+> both models beforehand, as described below.
+
+## Download Video
+
+Download an example self-checkout video file:
 
 ```bash
-python3 vlm_self_checkout.py --detect-model-id <yolo_model_id>
+curl -L -o checkout.mp4 "https://www.pexels.com/download/video/35256160"
 ```
 
-### VLM (MiniCPM-V-4.5)
+Pass the file with `--video-path`.
 
-The script automatically downloads `openbmb/MiniCPM-V-4_5` from the HuggingFace hub and converts to OpenVINO IR format under `models/MiniCPM-V-4_5/`.
-Use `--vlm-model-id` to select a different VLM model from HuggingFace hub.
+## Prepare Models
 
-```bash
-python3 vlm_self_checkout.py --vlm-model-id <vlm_model_id>
+This sample expects two OpenVINO IR models:
+
+* `yolo26s` in INT8 precision from Ultralytics for object detection
+* `openbmb/MiniCPM-V-4_5` from Hugging Face for VLM classification — or any other
+  image-text-to-text model supported by optimum-intel
+
+Use the model conversion scripts in
+[scripts/download_models/](../../../../scripts/download_models/README.md) to prepare both models:
+the [Ultralytics conversion](../../../../scripts/download_models/README.md#2-ultralytics-conversion)
+for the detection model and the
+[Hugging Face conversion](../../../../scripts/download_models/README.md#1-hugging-face-conversion)
+for the VLM. Before running them, create and activate the dedicated model-download virtual
+environment described in
+[scripts/download_models/README.md](../../../../scripts/download_models/README.md).
+
+For the VLM export, install the Hugging Face script's
+`requirements_download_hf_models.txt`; the conversion script automatically selects compatible
+dependencies for version-capped VLM architectures without changing the model-download environment.
+The detection model is exported with the Ultralytics script's own requirements file, unchanged.
+
+Set the `MODELS_PATH` environment variable to the main directory (the one given as
+`--outdir <output_dir>`) where models have been exported, for example:
+
+```sh
+export MODELS_PATH="$HOME/models"
 ```
+
+Exporting into `$MODELS_PATH` places both models in the layout shared with the other DL Streamer
+samples, which is where the sample looks for them by default: `$MODELS_PATH/public/yolo26s/INT8/yolo26s.xml`
+for `--detect-model-path` and `$MODELS_PATH/public/openbmb_MiniCPM-V-4_5/` for `--vlm-model-path`.
+A relative model path is looked up in the current directory and then in `$MODELS_PATH`, so a model
+exported elsewhere can also be passed as a plain or absolute path.
 
 ## Running the Sample
 
-Basic usage (downloads a sample video and exports the detection model automatically):
+Basic usage, with both models taken from the shared model store (`$MODELS_PATH`):
 
 ```bash
-python3 vlm_self_checkout.py
+python3 vlm_self_checkout.py --video-path checkout.mp4
 ```
 
-With non-default AI models and user-defined input video file (and inventory):
+With non-default devices and a custom inventory:
 
 ```bash
 python3 vlm_self_checkout.py \
-    --video-url https://example.com/checkout.mp4 \
+    --video-path checkout.mp4 \
     --inventory-file my-custom-inventory.txt \
-    --detect-model-id yolo11s \
+    --detect-model-path public/yolo11s/INT8/yolo11s.xml \
     --detect-device NPU \
-    --vlm-model-id Qwen/Qwen2-VL-2B-Instruct \
+    --vlm-model-path public/OpenGVLab_InternVL3_5-2B \
     --genai-device GPU
+```
+
+Alternative models such as `yolo11s` and `OpenGVLab/InternVL3_5-2B` are exported with the very
+same conversion scripts, only with a different `--model` argument.
+
+With models exported into a local directory instead of the model store:
+
+```bash
+python3 vlm_self_checkout.py \
+    --video-path /path/to/checkout.mp4 \
+    --detect-model-path ./models/yolo26s_int8_openvino_model/yolo26s.xml \
+    --vlm-model-path ./models/openbmb_MiniCPM-V-4_5
 ```
 
 ## Custom GStreamer Element: `gvaframeselection_py`
@@ -120,8 +176,13 @@ The `plugins/python/gvaFrameSelection.py` file implements a custom `GstBase.Base
 - **Drops** frames with no detected objects
 - **Filters out** excluded object types (configured via `excluded_objects.txt`, e.g., `person`, `dining_table`)
 - **Tracks** how long each object has been visible using `GstAnalytics.TrackingMtd`
-- **Passes** a frame once an object is tracked for at least `threshold` milliseconds (default: 1500)
+- **Passes** a frame once an object has been tracked for at least `threshold` milliseconds *and*
+  its class matches at least one inventory item. A matured object without an inventory match is
+  skipped, so the frame is dropped instead of reaching the VLM with a stale prompt
 - **Dynamically updates** the `gvagenai` prompt with matching inventory items from `inventory.txt`
+
+The `threshold` property defaults to 1500 ms and is set on the element inside the pipeline; it is
+not exposed as a command-line argument.
 
 ## Configuration Files
 
@@ -134,20 +195,23 @@ The `plugins/python/gvaFrameSelection.py` file implements a custom `GstBase.Base
 
 | Argument | Default | Description |
 |---|---|---|
-| `--video-url` | Pexels sample video | URL to download a video from |
-| `--detect-model-id` | `yolo26s` | Ultralytics model id for detection |
+| `--video-path` | *(required)* | Path to a local video file |
+| `--detect-model-path` | `public/yolo26s/INT8/yolo26s.xml` | Path to a detection model `.xml` exported beforehand. A relative path is looked up in the current directory and in `$MODELS_PATH` |
 | `--detect-device` | `GPU` | Device for YOLO detection inference |
 | `--threshold` | `0.4` | Detection confidence threshold (not frame selection threshold) |
-| `--inventory-file` | `config/inventory.txt` | Path to inventory items list |
-| `--excluded-objects-file` | `config/excluded_objects.txt` | Path to excluded object types list |
-| `--vlm-model-id` | `openbmb/MiniCPM-V-4_5` | Hugging Face model ID for VLM (downloaded and exported to OpenVINO) |
+| `--inventory-file` | `<sample dir>/config/inventory.txt` | Path to inventory items list |
+| `--excluded-objects-file` | `<sample dir>/config/excluded_objects.txt` | Path to excluded object types list |
+| `--vlm-model-path` | `public/openbmb_MiniCPM-V-4_5` | Path to an OpenVINO VLM model directory exported beforehand. A relative path is looked up in the current directory and in `$MODELS_PATH` |
 | `--genai-device` | `GPU` | Device for VLM inference |
-| `--genai-prompt` | Self-checkout item description | Initial prompt for VLM inference |
+| `--genai-prompt` | `Describe the items visible on the self-checkout counter.` | Initial prompt, used until `gvaframeselection_py` replaces it with an inventory-specific one |
+| `--results-dir` | `<sample dir>/results` | Directory for output files |
+| `--output-json` | *(unset)* | Path of the JSON Lines output file, overriding `<results-dir>/vlm_self_checkout-<video_stem>.jsonl` |
 
 ## Output
 
-Results are written to the `results/` directory:
+Results are written to the `results/` directory next to `vlm_self_checkout.py`, or to
+`--results-dir`:
 
 - `vlm_self_checkout-<video>.mp4` — annotated output video with watermarked detections and VLM results
-- `vlm_self_checkout-<video>.jsonl` — structured JSON Lines with VLM classification metadata
+- `vlm_self_checkout-<video>.jsonl` — structured JSON Lines with VLM classification metadata (or the file given by `--output-json`)
 - `vlm_self_checkout-<video>-*.jpeg` — snapshot images of frames sent to the VLM

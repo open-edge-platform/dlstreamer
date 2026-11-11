@@ -12,6 +12,7 @@
 #include "gstradarprocess.h"
 
 #include "g3d_lidar_meta.h"
+#include "g3dbevfusion.h"
 #include "g3dinference.h"
 #include "g3dlidarparse.h"
 #include "g3dlidarsrc.h"
@@ -33,6 +34,8 @@ static gboolean plugin_init(GstPlugin *plugin) {
     if (!gst_element_register(plugin, "g3dobjectfuser", GST_RANK_NONE, GST_TYPE_G3D_OBJECT_FUSER))
         return FALSE;
     if (!gst_element_register(plugin, "g3drender", GST_RANK_NONE, GST_TYPE_G3D_RENDER))
+        return FALSE;
+    if (!gst_element_register(plugin, "g3dbevfusion", GST_RANK_NONE, GST_TYPE_G3D_BEVFUSION))
         return FALSE;
 
     // Register metadata

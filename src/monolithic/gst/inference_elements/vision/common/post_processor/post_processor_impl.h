@@ -1,0 +1,74 @@
+/*******************************************************************************
+ * Copyright (C) 2021-2026 Intel Corporation
+ *
+ * SPDX-License-Identifier: MIT
+ ******************************************************************************/
+
+#pragma once
+
+#include "converter_facade.h"
+#include "zeroshot_embeddings.h"
+
+#include "inference_backend/image_inference.h"
+
+#include <cstdint>
+#include <map>
+#include <memory>
+#include <vector>
+
+class InferenceImpl;
+typedef struct _GvaBaseInference GvaBaseInference;
+
+namespace post_processing {
+
+class PostProcessorImpl {
+  protected:
+    std::vector<ConverterFacade> converters;
+    const std::string any_layer_name = "ANY";
+
+  public:
+    enum class ExitStatus { SUCCESS, FAIL };
+
+    struct Initializer {
+        /* image info */
+        ModelImageInputInfo image_info;
+        /* model info */
+        std::string model_name;
+        ModelOutputsInfo model_outputs;
+        /* model proc info */
+        std::map<std::string, GstStructure *> output_processors;
+        std::map<std::string, std::vector<std::string>> labels;
+        /* other */
+        ConverterType converter_type;
+        AttachType attach_type;
+        bool use_default = true;
+        double threshold = 0.5;
+        bool threshold_explicitly_set = false;
+        bool skip_raw_tensors = false;
+        // CLIP zero-shot: the class bank parsed by loadEmbeddingsFromFile(), plus the path it came
+        // from - kept only so a misconfiguration can be reported against the file the user named.
+        ZeroShotEmbeddings zeroshot_embeddings;
+        std::string zeroshot_embeddings_file;
+        uint32_t zeroshot_topk = 1;
+
+        std::string custom_postproc_lib;
+    };
+
+    PostProcessorImpl(Initializer initializer);
+
+    ExitStatus process(const OutputBlobs &, FramesWrapper &) const;
+
+    // Applied to every converter. Safe to call from any thread, see BlobToMetaConverter::setConfidenceThreshold()
+    void setConfidenceThreshold(double threshold) const {
+        for (const auto &converter : converters)
+            converter.setConfidenceThreshold(threshold);
+    }
+
+    PostProcessorImpl() = default;
+    ~PostProcessorImpl() = default;
+
+  private:
+    void setDefaultConverter(GstStructure *model_proc_output, const ModelOutputsInfo &model_outputs_info,
+                             ConverterType converter_type);
+};
+} // namespace post_processing

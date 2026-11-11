@@ -10,8 +10,8 @@
 #   1. Download the gstreamer monorepo tarball into $env:TEMP\dlstreamer_tmp
 #   2. Extract it once into a stable sibling directory and seed a local git
 #      baseline. The baseline is preserved across runs for incremental builds.
-#   3. Hard-reset the source tree and re-apply
-#      dependencies/patches/0020-gst-analytics.patch every run.
+#   3. Hard-reset the source tree and re-apply the GstAnalytics patches
+#      (dependencies/patches/0020..0023) every run.
 #   4. Configure and build dependencies/windows/CMakeLists.txt to produce
 #      gstanalytics-1.0-0.dll.
 #   5. Compile the GIR into a typelib using g-ir-compiler from the existing
@@ -24,7 +24,7 @@
 #Requires -Version 5.1
 
 param(
-	[string]$GStreamerVersion = "1.28.2",
+	[string]$GStreamerVersion = "1.28.8",
 	[string]$GStreamerDir,
 	[string]$OutputZip,
 	[string]$CMakeExe
@@ -34,7 +34,12 @@ $ErrorActionPreference = 'Stop'
 
 $ScriptDir = $PSScriptRoot
 $RepoRoot  = [System.IO.Path]::GetFullPath((Join-Path $ScriptDir "..\.."))
-$PatchFile = Join-Path $RepoRoot "dependencies\patches\0020-gst-analytics.patch"
+$PatchFiles = @(
+	"0020-analytics-adding-group-mtd.patch",
+	"0021-analytics-add-semantic-tag-getter-to-GstAnalyticsGro.patch",
+	"0022-analyics-modelinfo-Allow-modelinfo-file-to-have-a-si.patch",
+	"0023-analytics-move-semantic-tag-from-GstAnalyticsGroupMt.patch"
+) | ForEach-Object { Join-Path $RepoRoot "dependencies\patches\$_" }
 $RepoGir   = Join-Path $ScriptDir "GstAnalytics-1.0.gir"
 
 if (-not $GStreamerDir) {
@@ -54,8 +59,10 @@ if (-not $OutputZip) {
 	$OutputZip = Join-Path $ScriptDir "gstanalytics.zip"
 }
 
-if (-not (Test-Path $PatchFile)) {
-	throw "Patch file not found: $PatchFile"
+foreach ($PatchFile in $PatchFiles) {
+	if (-not (Test-Path $PatchFile)) {
+		throw "Patch file not found: $PatchFile"
+	}
 }
 if (-not (Test-Path $RepoGir)) {
 	throw "GstAnalytics-1.0.gir not found in repo: $RepoGir"
@@ -159,23 +166,25 @@ else {
 }
 
 # ---------------------------------------------------------------------------
-# 3. Reset + reapply patch every run
+# 3. Reset + reapply patches every run
 # ---------------------------------------------------------------------------
-Write-Section "Resetting source tree and applying patch"
+Write-Section "Resetting source tree and applying patches"
 Push-Location $SrcRoot
 try {
 	& git -c core.autocrlf=false -c core.safecrlf=false reset --hard --quiet 2>&1 | Write-Host
 	if ($LASTEXITCODE -ne 0) { throw "git reset failed" }
 	& git -c core.autocrlf=false -c core.safecrlf=false clean -fdx --quiet 2>&1 | Write-Host
 	if ($LASTEXITCODE -ne 0) { throw "git clean failed" }
-	# Patch uses monorepo paths (a/subprojects/gst-plugins-bad/...), so strip
+	# Patches use monorepo paths (a/subprojects/gst-plugins-bad/...), so strip
 	# 3 leading components when applying against the gst-plugins-bad tarball.
 	# --include filters by post-strip paths, restricting the apply to the
-	# gst-libs/ tree; the python overrides hunk (subprojects/gst-python/...)
-	# is handled separately by setup_python_env.ps1.
-	& git -c core.autocrlf=false -c core.safecrlf=false apply -p3 --include="gst-libs/*" `
-		--ignore-whitespace --whitespace=nowarn $PatchFile 2>&1 | Write-Host
-	if ($LASTEXITCODE -ne 0) { throw "Failed to apply patch $PatchFile" }
+	# gst-libs/ tree; the python overrides hunks (subprojects/gst-python/...)
+	# are handled separately by setup_python_env.ps1.
+	foreach ($PatchFile in $PatchFiles) {
+		& git -c core.autocrlf=false -c core.safecrlf=false apply -p3 --include="gst-libs/*" `
+			--ignore-whitespace --whitespace=nowarn $PatchFile 2>&1 | Write-Host
+		if ($LASTEXITCODE -ne 0) { throw "Failed to apply patch $PatchFile" }
+	}
 }
 finally { Pop-Location }
 

@@ -1,0 +1,180 @@
+/*******************************************************************************
+ * Copyright (C) 2018-2026 Intel Corporation
+ *
+ * SPDX-License-Identifier: MIT
+ ******************************************************************************/
+
+#pragma once
+
+#include "config.h"
+
+#include "gva_caps.h"
+#include "inference_singleton.h"
+#include "processor_types.h"
+
+#include <gst/base/gstbasetransform.h>
+#include <gst/gst.h>
+#include <gst/video/video.h>
+
+#ifndef _WIN32
+#include <sched.h>
+#else
+#include <windows.h>
+#define MAX_WIN_PROCESSOR_GROUPS 64
+typedef struct {
+    KAFFINITY group_mask[MAX_WIN_PROCESSOR_GROUPS];
+    WORD num_groups;
+} WinCorePinningMask;
+#endif
+
+#define DEFAULT_BATCH_TIMEOUT -1
+
+G_BEGIN_DECLS
+
+#define GST_TYPE_GVA_BASE_INFERENCE_REGION (gst_gva_base_inference_get_inf_region())
+#define GST_TYPE_GVA_BASE_INFERENCE (gva_base_inference_get_type())
+#define GVA_BASE_INFERENCE(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), GST_TYPE_GVA_BASE_INFERENCE, GvaBaseInference))
+#define GVA_BASE_INFERENCE_CLASS(klass)                                                                                \
+    (G_TYPE_CHECK_CLASS_CAST((klass), GST_TYPE_GVA_BASE_INFERENCE, GvaBaseInferenceClass))
+#define GVA_BASE_INFERENCE_GET_CLASS(obj)                                                                              \
+    (G_TYPE_INSTANCE_GET_CLASS((obj), GST_TYPE_GVA_BASE_INFERENCE, GvaBaseInferenceClass))
+
+typedef void (*OnBaseInferenceInitializedFunction)(GvaBaseInference *base_inference);
+
+typedef enum { GST_GVA_DETECT_TYPE, GST_GVA_CLASSIFY_TYPE, GST_GVA_INFERENCE_TYPE, GST_GVA_MONO3D_TYPE } InferenceType;
+typedef enum { FULL_FRAME, ROI_LIST } InferenceRegionType;
+
+typedef struct _GvaBaseInference {
+    GstBaseTransform base_transform;
+
+    // properties
+    gboolean no_block;
+    gboolean reshape;
+    gboolean share_va_display_ctx;
+    gboolean share_d3d_ctx;
+#ifndef _WIN32
+    cpu_set_t core_pinning_mask;
+#else
+    WinCorePinningMask core_pinning_mask;
+#endif
+    guint inference_interval;
+    // TRUE once inference-interval has been set by the user (also while running). Otherwise an element that shares its
+    // model with a master element takes the interval of the master when it acquires the model.
+    gboolean inference_interval_set;
+    guint batch_size;
+    gint batch_timeout;
+    guint reshape_width;
+    guint reshape_height;
+    guint nireq;
+    guint cpu_streams;
+    guint gpu_streams;
+    gchar *model;
+    gchar *model_proc;
+    gchar *device;
+    gchar *model_instance_id;
+    gchar *scheduling_policy;
+    gchar *ie_config;
+    gchar *pre_proc_config;
+    gchar *allocator_name;
+    gchar *pre_proc_type;
+    gchar *object_class;
+    gchar *labels;
+    gchar *scale_method;
+    gchar *custom_preproc_lib;
+    gchar *custom_postproc_lib;
+    gchar *ov_extension_lib;
+
+    // other fields
+    struct GvaBaseInferencePrivate *priv;
+
+    InferenceType type;
+    GstVideoInfo *info;
+    CapsFeature caps_feature;
+    // Publicly configured inference region requested by the user via the element property.
+    // This field preserves the external contract and is still used for property validation,
+    // reporting, and any logic that needs the original user intent.
+    InferenceRegionType inference_region;
+    // Runtime execution region after internal mode resolution.
+    //
+    // Most elements execute exactly what the user requested, so this usually matches
+    // 'inference_region'. The important exception is depth-estimation classify-on-ROI mode:
+    // the user still configures ROI_LIST because results are consumed per ROI, but the
+    // implementation must run inference once on the full frame and then attach per-ROI depth
+    // results to the matching ROIs in post-processing. In that case:
+    //   - inference_region remains ROI_LIST to preserve the user-visible configuration,
+    //   - effective_inference_region is switched to FULL_FRAME to drive the actual backend work.
+    //
+    // Execution-path code must use this field whenever it decides how images are submitted to
+    // inference, how model input sizes are derived, or how callbacks/bookkeeping interpret the
+    // completed work. Using 'inference_region' in those places would incorrectly re-enable
+    // per-ROI execution for modes that are internally rewritten to full-frame execution.
+    InferenceRegionType effective_inference_region;
+    gboolean depth_inference_to_roi_mode;
+
+    InferenceImpl *inference;
+
+    FilterROIFunction is_roi_inference_needed;
+    FilterROIFunction specific_roi_filter;
+
+    PreProcFunction pre_proc;
+    InputPreprocessorsFactory input_prerocessors_factory;
+    PostProcessor *post_proc;
+
+    gboolean initialized;
+    guint64 num_skipped_frames;
+    guint64 frame_num;
+
+    GMutex meta_mutex;
+} GvaBaseInference;
+
+typedef struct _GvaBaseInferenceClass {
+    GstBaseTransformClass base_transform_class;
+
+    OnBaseInferenceInitializedFunction on_initialized;
+} GvaBaseInferenceClass;
+
+GType gva_base_inference_get_type(void);
+GType gst_gva_base_inference_get_inf_region(void);
+gboolean check_gva_base_inference_stopped(GvaBaseInference *base_inference);
+/**
+ * Passes the threshold of a gvadetect to its post-processor, so that a new value takes effect from the next inference
+ * result that is converted. The caller holds the object lock and has stored the value. Nothing happens before the
+ * post-processor exists: it reads the threshold when it is created, and it is applied again when it is published.
+ */
+void gva_base_inference_apply_threshold_locked(GvaBaseInference *base_inference);
+
+/**
+ * Result of the "set-runtime-property" action signal, returned in the "status" field of the result structure.
+ */
+typedef enum {
+    GVA_PROPERTY_APPLIED = 0,       // set, and the read-back value matches
+    GVA_PROPERTY_NOT_FOUND = 1,     // no such property
+    GVA_PROPERTY_NOT_MUTABLE = 2,   // the property cannot be changed in the current state of the element
+    GVA_PROPERTY_INVALID_VALUE = 3, // the value has the wrong type or is out of range
+    GVA_PROPERTY_NOT_APPLIED = 4    // set was attempted, but the property did not take the value
+} GvaPropertyStatus;
+
+/**
+ * Tells whether the property may be written now. Above the READY state only the properties flagged
+ * GST_PARAM_MUTABLE_PLAYING (or GST_PARAM_MUTABLE_PAUSED, while PAUSED) may be written, as the others are read once,
+ * when the element starts. Returns NULL if the write is allowed, otherwise the reason, to be freed with g_free().
+ */
+gchar *gva_base_inference_get_write_denial(GstElement *element, GParamSpec *pspec);
+
+/**
+ * For the set_property functions of the inference elements: returns TRUE, after logging a warning, if the write is
+ * denied (see above). The property must then be left untouched.
+ */
+gboolean gva_base_inference_reject_write(GstElement *element, GParamSpec *pspec);
+
+G_END_DECLS
+
+#ifdef __cplusplus
+#include <memory>
+
+/**
+ * The post-processor of the element, to be used by the streaming threads and the inference callbacks. The caller keeps
+ * it alive while it uses it, even if it is replaced meanwhile (when caps are renegotiated). Null if there is none.
+ */
+std::shared_ptr<PostProcessor> gva_base_inference_get_post_processor(GvaBaseInference *base_inference);
+#endif

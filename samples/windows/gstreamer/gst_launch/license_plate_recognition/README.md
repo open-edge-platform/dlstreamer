@@ -99,11 +99,12 @@ Parameters:
 2. **Use `display-async` instead of `display`** - Async mode improves frame rate
 3. **Pre-process backend**:
    - CPU: Uses OpenCV (software)
-   - GPU/NPU: Uses D3D11 (hardware accelerated)
+   - GPU: Uses D3D12 surface sharing (`d3d12-surface-sharing`): the pre-processed frame stays in GPU memory
+   - NPU: Uses D3D12 (`d3d12`, hardware accelerated)
 
 ## Pipeline Architecture
 
-**Note**: Pipeline varies based on device type. GPU/NPU use D3D11 hardware acceleration (`d3d11convert`, `d3d11videosink`, `mfh264enc`), while CPU uses software path (`videoconvert`, `autovideosink`, `openh264enc`).
+**Note**: Pipeline varies based on device type. GPU/NPU keep frames in D3D12 memory from the decoder to the sink (`d3d12convert`, `d3d12videosink`, `d3d12h264enc rate-control=cqp`), while CPU uses software path (`videoconvert`, `autovideosink`, `openh264enc`).
 
 ```mermaid
 graph LR
@@ -116,10 +117,10 @@ graph LR
     G --> H[queue]
     H --> I{OUTPUT}
     
-    I -->|file<br/>GPU/NPU| J1[d3d11convert]
+    I -->|file<br/>GPU/NPU| J1[d3d12convert]
     J1 --> J2[gvawatermark]
     J2 --> J3[gvafpscounter]
-    J3 --> J4[mfh264enc]
+    J3 --> J4[d3d12h264enc]
     J4 --> J5[h264parse]
     J5 --> J6[mp4mux]
     J6 --> J7[filesink]
@@ -132,22 +133,20 @@ graph LR
     J5C --> J6C[mp4mux]
     J6C --> J7C[filesink]
     
-    I -->|display<br/>GPU/NPU| K1[d3d11convert]
+    I -->|display<br/>GPU/NPU| K1[d3d12convert]
     K1 --> K2[gvawatermark]
-    K2 --> K3[videoconvert]
-    K3 --> K4[gvafpscounter]
-    K4 --> K5[d3d11videosink]
+    K2 --> K4[gvafpscounter]
+    K4 --> K5[d3d12videosink]
     
     I -->|display<br/>CPU| K1C[gvawatermark]
     K1C --> K2C[videoconvert]
     K2C --> K3C[gvafpscounter]
     K3C --> K4C[autovideosink]
     
-    I -->|display-async<br/>GPU/NPU| L1[d3d11convert]
+    I -->|display-async<br/>GPU/NPU| L1[d3d12convert]
     L1 --> L2[gvawatermark]
-    L2 --> L3[videoconvert]
-    L3 --> L4[gvafpscounter]
-    L4 --> L5[d3d11videosink<br/>sync=false]
+    L2 --> L4[gvafpscounter]
+    L4 --> L5[d3d12videosink<br/>sync=false]
     
     I -->|display-async<br/>CPU| L1C[gvawatermark]
     L1C --> L2C[videoconvert]
@@ -161,13 +160,12 @@ graph LR
     N1 --> N2[gvametapublish]
     N2 --> N3[fakesink]
     
-    I -->|display-and-json<br/>GPU/NPU| O1[d3d11convert]
+    I -->|display-and-json<br/>GPU/NPU| O1[d3d12convert]
     O1 --> O2[gvawatermark]
     O2 --> O3[gvametaconvert]
     O3 --> O4[gvametapublish]
-    O4 --> O5[videoconvert]
-    O5 --> O6[gvafpscounter]
-    O6 --> O7[d3d11videosink<br/>sync=false]
+    O4 --> O6[gvafpscounter]
+    O6 --> O7[d3d12videosink<br/>sync=false]
     
     I -->|display-and-json<br/>CPU| O1C[gvawatermark]
     O1C --> O2C[gvametaconvert]

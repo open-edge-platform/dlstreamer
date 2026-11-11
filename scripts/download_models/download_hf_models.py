@@ -11,21 +11,23 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import site
 import shutil
 import subprocess
 import sys
 import tempfile
 import defusedxml.ElementTree as ET
 from pathlib import Path
+import huggingface_hub
 from huggingface_hub import snapshot_download
 import openvino as ov
 import transformers
 from hf_utils import custom_conversion
+from hf_utils import get_export_profile
 from hf_utils import get_hf_model_support_level
 from hf_utils import get_optimum_export_task
 from hf_utils import install_model_requirements
 from hf_utils import parse_model_ref
-from hf_utils import requires_transformers_downgrade
 from hf_utils import requires_trust_remote_code
 
 # Models that require trust_remote_code flag due to custom code in their repo
@@ -65,6 +67,7 @@ def parse_args() -> argparse.Namespace:
         "--token",
         "--export-variant",
         "--extra_args",
+        "--local-model-dir",
     }
     filtered_argv: list[str] = []
     extracted_extra_args: list[str] = []
@@ -112,6 +115,11 @@ def parse_args() -> argparse.Namespace:
         default=[],
         help="Additional arguments to pass to optimum-cli export",
     )
+    parser.add_argument(
+        "--local-model-dir",
+        default=None,
+        help=argparse.SUPPRESS,
+    )
 
     args = parser.parse_args(filtered_argv)
     if extracted_extra_args:
@@ -140,12 +148,70 @@ def validate_extra_args(extra_args: list[str]) -> None:
             )
 
 
-def resolve_optimum_cli() -> str:
-    """Prefer the optimum-cli next to the running interpreter over any on PATH."""
-    candidate = Path(sys.executable).with_name("optimum-cli")
-    if candidate.exists():
-        return str(candidate)
-    return "optimum-cli"
+def run_with_compatible_export_dependencies(
+    args: argparse.Namespace,
+    model_id: str,
+    local_model_dir: str,
+    transformers_version: str,
+    huggingface_hub_version: str,
+) -> int:
+    """Re-run this script with compatible versions shadowing the base environment."""
+    with tempfile.TemporaryDirectory(prefix="dlstreamer-hf-export-") as temp_dir:
+        venv_dir = Path(temp_dir) / "venv"
+        subprocess.run(
+            [sys.executable, "-m", "venv", str(venv_dir)],
+            check=True,
+        )
+        python = venv_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+        site_packages = (
+            venv_dir / "Lib/site-packages"
+            if os.name == "nt"
+            else venv_dir
+            / "lib"
+            / f"python{sys.version_info.major}.{sys.version_info.minor}"
+            / "site-packages"
+        )
+        shared_packages = site_packages / "dlstreamer-main-environment.pth"
+        # A child venv does not inherit packages from its parent venv automatically.
+        shared_packages.write_text(
+            "".join(
+                f"{package_dir}\n"
+                for package_dir in site.getsitepackages([sys.prefix])
+                if Path(package_dir).is_dir()
+            ),
+            encoding="utf-8",
+        )
+        subprocess.run(
+            [
+                str(python),
+                "-m",
+                "pip",
+                "install",
+                "--no-deps",
+                f"transformers=={transformers_version}",
+                f"huggingface_hub=={huggingface_hub_version}",
+            ],
+            check=True,
+        )
+
+        command = [
+            str(python),
+            str(Path(__file__).resolve()),
+            "--model",
+            model_id,
+            "--outdir",
+            args.outdir,
+            "--local-model-dir",
+            local_model_dir,
+        ]
+        if args.token:
+            command.extend(["--token", args.token])
+        if args.export_variant:
+            command.extend(["--export-variant", args.export_variant])
+        if args.extra_args:
+            command.extend(["--extra_args", *args.extra_args])
+        result = subprocess.run(command, check=False)
+        return result.returncode
 
 
 def install_model_dependencies(repo_id: str) -> None:
@@ -279,7 +345,7 @@ def main() -> int:
             f"Downloading model: {repo_id}"
             + (f" @ {revision}" if revision else " (latest)")
         )
-        local_model_dir = snapshot_download(
+        local_model_dir = args.local_model_dir or snapshot_download(
             repo_id=repo_id,
             revision=revision,
             token=token,
@@ -299,26 +365,40 @@ def main() -> int:
             )
             return 0
 
-        # Install model-specific dependencies
-        install_model_dependencies(repo_id)
-
-        # Install model requirements if they exist
-        install_model_requirements(local_model_dir)
-
         # Apply local config workarounds for known problematic models
         ensure_export_config_compat(local_model_dir, repo_id)
 
         # Determine support level by analyzing locally cached model
         support_level = get_hf_model_support_level(local_model_dir)
 
-        transformers_cap = requires_transformers_downgrade(local_model_dir)
-        if transformers_cap is not None:
-            print(
-                f"Model '{model_id}' requires transformers <= {transformers_cap} for its OpenVINO "
-                f"export, but transformers {transformers.__version__} is installed. Downgrade "
-                "transformers and install optimum-intel==1.27.0 to convert it."
-            )
-            return 1
+        export_profile = get_export_profile(local_model_dir)
+        if export_profile is not None:
+            transformers_version = export_profile.transformers_version
+            huggingface_hub_version = export_profile.huggingface_hub_version
+            if (
+                transformers.__version__ != transformers_version
+                or huggingface_hub.__version__ != huggingface_hub_version
+            ):
+                print(
+                    f"Model '{model_id}' requires transformers=={transformers_version} and "
+                    f"huggingface_hub=={huggingface_hub_version} for export. "
+                    f"Retrying in a temporary virtual environment (installed: "
+                    f"transformers=={transformers.__version__}, "
+                    f"huggingface_hub=={huggingface_hub.__version__}). optimum-intel and other "
+                    "export dependencies are reused from the main environment, which will not "
+                    "be modified."
+                )
+                return run_with_compatible_export_dependencies(
+                    args,
+                    model_id,
+                    local_model_dir,
+                    transformers_version,
+                    huggingface_hub_version,
+                )
+
+        # Install dependencies only after selecting the environment used for export.
+        install_model_dependencies(repo_id)
+        install_model_requirements(local_model_dir)
 
         with tempfile.TemporaryDirectory(
             prefix=f".{model_name}-", dir=output_root
@@ -331,9 +411,12 @@ def main() -> int:
                         raise ValueError(
                             f"Export variant '{args.export_variant}' is not supported for model '{model_id}'"
                         )
-                    # Standard export using optimum-cli
+                    # The console script's shebang can point to the parent environment.
                     command = [
-                        resolve_optimum_cli(),
+                        sys.executable,
+                        "-c",
+                        "from optimum.commands.optimum_cli import main; "
+                        "import sys; sys.exit(main())",
                         "export",
                         "openvino",
                         "--model",

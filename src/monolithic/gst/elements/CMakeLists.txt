@@ -151,6 +151,17 @@ if(NOT MSVC)
     )
 endif()
 
+if(MSVC OR WIN32)
+    target_link_libraries(${TARGET_NAME} PRIVATE
+        ${GSTD3D11_LIBRARIES}
+        ${GSTD3D12_LIBRARIES}
+        d3d11
+        dxgi
+        # gvamotiondetect reuses the D3D12Converter wrapper from the inference backend
+        image_inference_async_d3d12
+    )
+endif()
+
 if(ENABLE_GVAWATERMARK_GPU)
     target_include_directories(${TARGET_NAME}
     PUBLIC
@@ -167,6 +178,9 @@ if(${ENABLE_AUDIO_INFERENCE_ELEMENTS})
 endif()
 
 add_subdirectory(gvaattachroi)
+add_subdirectory(gvaeventrecorder)
+add_subdirectory(gvaframeselect)
+add_subdirectory(gvaroiscale)
 add_subdirectory(gvametapublish)
 add_subdirectory(gvapython)
 add_subdirectory(gvatrack)
@@ -175,7 +189,5 @@ if(ENABLE_REALSENSE)
 endif()
 add_subdirectory(gvastreammux)
 add_subdirectory(gvastreamdemux)
-if(ENABLE_GENAI)
-    add_subdirectory(gvagenai)
-endif()
 add_subdirectory(gvafpscounter)
+add_subdirectory(gvatagger)

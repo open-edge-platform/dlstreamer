@@ -62,7 +62,7 @@ jobs:
         run: |
           uv venv "$HF_VENV"
           source "$HF_VENV/bin/activate"
-          uv pip install -r scripts/download_models/requirements_download_hf_models.txt
+          uv pip install --index-strategy unsafe-best-match -r scripts/download_models/requirements_download_hf_models.txt
 
       - name: "README §1 - standard HF export"
         if: needs.setup.outputs.should_run == 'true'
@@ -182,6 +182,15 @@ jobs:
           cd scripts/download_models
           python download_ultralytics_models.py --model yolo11s.pt --outdir "$ULT_OUTDIR/int8" --int8
           find "$ULT_OUTDIR/int8" -name '*.xml' | grep -q .
+
+      - name: "README §2 - export in INT8 using coco128 calibration (--data)"
+        if: needs.setup.outputs.should_run == 'true'
+        run: |
+          source "$ULT_VENV/bin/activate"
+          mkdir -p "$ULT_OUTDIR/int8-coco128"
+          cd scripts/download_models
+          python download_ultralytics_models.py --model yolo11s.pt --outdir "$ULT_OUTDIR/int8-coco128" --int8 --data coco128.yaml
+          find "$ULT_OUTDIR/int8-coco128" -name '*.xml' | grep -q .
 
   test-readme-timm-examples:
     name: README examples - TIMM script

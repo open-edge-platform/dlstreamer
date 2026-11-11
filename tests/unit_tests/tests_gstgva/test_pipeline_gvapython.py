@@ -22,7 +22,7 @@ class TestGvaPythonParameters(unittest.TestCase):
             [""],
             ["class=MyClass"],
             ["class=MyClass", "function=\"my_function\""],
-            ["class=MyClassWithArgs", "arg=[]", "kwarg=[]"],
+            ["class=MyClassWithArgs", "arg=[\"foo\"]", "kwarg={\"bar\":1}"],
             ["class=MyClassWithArgs", "arg=[]"],
             ["class=MyClass", "function=\"my_functions\""],
             ["function=\"my_func\""],
@@ -40,10 +40,12 @@ class TestGvaPythonParameters(unittest.TestCase):
         expected_result = [True, True, True, True, False, False, False, False]
         actual_result = []
         for pipeline in pipelines:
+            # gvapython reports a failure as an error on the bus. set_state() may also raise
+            # when the failed Python call leaves an exception set, so handle both.
             try:
                 pipeline_runner.set_pipeline(pipeline)
                 pipeline_runner.run_pipeline()
-                actual_result.append(True)
+                actual_result.append(not pipeline_runner.exceptions)
             except Exception as e:
                 actual_result.append(False)
         pipeline_runner.assertEqual(expected_result, actual_result)
