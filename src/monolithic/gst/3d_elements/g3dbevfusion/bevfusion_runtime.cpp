@@ -8,6 +8,7 @@
 
 #include <nlohmann/json.hpp>
 #include <openvino/openvino.hpp>
+#include <openvino/runtime/intel_gpu/remote_properties.hpp>
 
 #include <algorithm>
 #include <cstdio>
@@ -133,13 +134,25 @@ struct Runtime::Impl {
     // BEVPoolConvert resets it after reading, so it stays zeroed between frames.
     std::vector<int32_t> bev_accumulator;
 
+    // With every model on OpenVINO's default GPU context, the tensors passed
+    // from one model to the next stay in device memory instead of making a
+    // round trip through the host (about 120 MB per frame).
+    bool device_resident = false;
+    ov::RemoteTensor dev_depth_logits, dev_context, dev_geometry, dev_accumulator, dev_camera_bev, dev_zero_camera_bev,
+        dev_lidar_bev;
+
     std::string dump_dir;
     bool dump_tensors = false;
     uint64_t frame = 0;
 
-    void dump(const char *tag, const ov::Tensor &t) {
+    void dump(const char *tag, const ov::Tensor &tensor) {
         if (dump_dir.empty() || !dump_tensors)
             return;
+        ov::Tensor t = tensor;
+        if (tensor.is<ov::RemoteTensor>()) {
+            t = ov::Tensor(tensor.get_element_type(), tensor.get_shape());
+            tensor.as<ov::RemoteTensor>().copy_to(t);
+        }
         const ov::Shape &s = t.get_shape();
         const std::vector<size_t> shape(s.begin(), s.end());
         const fs::path path = fs::path(dump_dir) / (std::string(tag) + "_" + std::to_string(frame) + ".npy");
@@ -173,15 +186,26 @@ struct Runtime::Impl {
         sparse_encoder.set_input_tensor(2, host_tensor(ov::element::i32, {1}, &num_voxels));
         sparse_encoder.infer();
         const ov::Tensor out = sparse_encoder.get_output_tensor(0);
-        std::copy_n(out.data<float>(), lidar_bev.size(), lidar_bev.data());
+        // Uploaded here, on the lidar thread, so the head does not wait for it.
+        if (device_resident)
+            dev_lidar_bev.copy_from(out);
+        else
+            std::copy_n(out.data<float>(), lidar_bev.size(), lidar_bev.data());
         dump("lidar_bev", out);
     }
 
     void run_camera(const FrameInput &frame_in) {
         std::array<Mat4, kNumCameras> aug{}, l2i{};
         const size_t image_size = static_cast<size_t>(3) * kImageH * kImageW;
+        // One thread per camera: about 5 ms of resizing and normalising on
+        // the camera branch's critical path otherwise.
+        std::array<std::future<Mat4>, kNumCameras> pending;
+        for (int c = 0; c < kNumCameras; c++)
+            pending[c] = std::async(std::launch::async, [&, c] {
+                return preprocess_image((*frame_in.cameras)[c], params, images.data() + c * image_size);
+            });
         for (int c = 0; c < kNumCameras; c++) {
-            aug[c] = preprocess_image((*frame_in.cameras)[c], params, images.data() + c * image_size);
+            aug[c] = pending[c].get();
             l2i[c] = lidar2image(cameras[c]);
         }
         depth_maps(frame_in.points, frame_in.num_points, frame_in.point_stride, l2i, aug, params, depth.data());
@@ -199,23 +223,71 @@ struct Runtime::Impl {
         camera_encoder.set_input_tensor(1, dep);
         camera_encoder.infer();
 
-        bev_pool.set_input_tensor(0, camera_encoder.get_output_tensor(0)); // depth logits
-        bev_pool.set_input_tensor(1, camera_encoder.get_output_tensor(1)); // context features
-        bev_pool.set_input_tensor(2, geometry.get_output_tensor(0));
+        if (!device_resident) {
+            bev_pool.set_input_tensor(0, camera_encoder.get_output_tensor(0)); // depth logits
+            bev_pool.set_input_tensor(1, camera_encoder.get_output_tensor(1)); // context features
+            bev_pool.set_input_tensor(2, geometry.get_output_tensor(0));
+        }
         bev_pool.infer();
         const ov::Tensor out = bev_pool.get_output_tensor(0);
-        std::copy_n(out.data<float>(), camera_bev.size(), camera_bev.data());
+        if (!device_resident)
+            std::copy_n(out.data<float>(), camera_bev.size(), camera_bev.data());
         dump("geometry", geometry.get_output_tensor(0));
         dump("depth_logits", camera_encoder.get_output_tensor(0));
         dump("context", camera_encoder.get_output_tensor(1));
         dump("camera_bev", out);
     }
 
-    HeadOutputs run_head() {
-        full_detection.set_input_tensor(
-            0, host_tensor(ov::element::f32, {1, kContextChannels, kCameraBevH, kCameraBevW}, camera_bev.data()));
-        full_detection.set_input_tensor(
-            1, host_tensor(ov::element::f32, {1, kLidarBevC, kLidarBevH, kLidarBevW}, lidar_bev.data()));
+    // Binds the camera branch and both inputs of the head to device tensors,
+    // once. Only valid when the dense models share the default GPU context
+    // with voxelize and bev_pool, i.e. device is "GPU".
+    void bind_device_tensors() {
+        ov::RemoteContext ctx = core.get_default_context("GPU");
+        const ov::AnyMap usm_device{ov::intel_gpu::shared_mem_type(ov::intel_gpu::SharedMemType::USM_DEVICE_BUFFER)};
+        auto make = [&](const ov::Output<const ov::Node> &port) {
+            return ctx.create_tensor(port.get_element_type(), port.get_shape(), usm_device);
+        };
+        const ov::CompiledModel encoder = camera_encoder.get_compiled_model();
+        const ov::CompiledModel pool = bev_pool.get_compiled_model();
+        dev_depth_logits = make(encoder.output(0));
+        dev_context = make(encoder.output(1));
+        dev_geometry = make(geometry.get_compiled_model().output(0));
+        dev_accumulator = make(pool.input("bev_accumulator"));
+        dev_camera_bev = make(pool.output(0));
+        dev_zero_camera_bev = make(full_detection.get_compiled_model().input(0));
+        dev_lidar_bev = make(full_detection.get_compiled_model().input(1));
+
+        // The accumulator must start zeroed; bevpool_convert keeps it zeroed.
+        dev_accumulator.copy_from(host_tensor(ov::element::i32, dev_accumulator.get_shape(), bev_accumulator.data()));
+        std::fill(camera_bev.begin(), camera_bev.end(), 0.0f);
+        dev_zero_camera_bev.copy_from(
+            host_tensor(ov::element::f32, dev_zero_camera_bev.get_shape(), camera_bev.data()));
+        // The host buffers they replace are not used on this path.
+        std::vector<int32_t>().swap(bev_accumulator);
+        std::vector<float>().swap(camera_bev);
+        std::vector<float>().swap(lidar_bev);
+
+        camera_encoder.set_output_tensor(0, dev_depth_logits);
+        camera_encoder.set_output_tensor(1, dev_context);
+        geometry.set_output_tensor(0, dev_geometry);
+        bev_pool.set_input_tensor(0, dev_depth_logits);
+        bev_pool.set_input_tensor(1, dev_context);
+        bev_pool.set_input_tensor(2, dev_geometry);
+        bev_pool.set_tensor("bev_accumulator", dev_accumulator);
+        bev_pool.set_output_tensor(0, dev_camera_bev);
+        full_detection.set_input_tensor(1, dev_lidar_bev);
+        device_resident = true;
+    }
+
+    HeadOutputs run_head(bool with_cameras) {
+        if (device_resident) {
+            full_detection.set_input_tensor(0, with_cameras ? dev_camera_bev : dev_zero_camera_bev);
+        } else {
+            full_detection.set_input_tensor(
+                0, host_tensor(ov::element::f32, {1, kContextChannels, kCameraBevH, kCameraBevW}, camera_bev.data()));
+            full_detection.set_input_tensor(
+                1, host_tensor(ov::element::f32, {1, kLidarBevC, kLidarBevH, kLidarBevW}, lidar_bev.data()));
+        }
         full_detection.infer();
 
         auto floats = [&](size_t i) {
@@ -299,6 +371,8 @@ Runtime::Runtime(const std::string &config_path, const std::string &device) : im
     impl_->geometry = compile("geometry", device, dense_cfg);
     impl_->camera_encoder = compile("camera_encoder_b6", device, dense_cfg);
     impl_->full_detection = compile("full_detection", device, dense_cfg);
+    if (device == "GPU")
+        impl_->bind_device_tensors();
 }
 
 Runtime::~Runtime() = default;
@@ -335,9 +409,10 @@ std::vector<Box3D> Runtime::infer(const FrameInput &frame, float score_threshold
     } else {
         impl_->run_lidar(frame);
         // Lidar-only: the fused head sees an empty camera BEV.
-        std::fill(impl_->camera_bev.begin(), impl_->camera_bev.end(), 0.0f);
+        if (!impl_->device_resident)
+            std::fill(impl_->camera_bev.begin(), impl_->camera_bev.end(), 0.0f);
     }
-    std::vector<Box3D> boxes = decode(impl_->run_head(), impl_->params, score_threshold);
+    std::vector<Box3D> boxes = decode(impl_->run_head(frame.cameras.has_value()), impl_->params, score_threshold);
     if (!impl_->dump_dir.empty()) {
         std::vector<float> rows;
         for (const Box3D &b : boxes)

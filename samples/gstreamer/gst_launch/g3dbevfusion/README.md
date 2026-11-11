@@ -70,6 +70,6 @@ gst-launch-1.0 -e \
   g3drender forward-axis=y point-stride=2 width=2400 height=900 ! videoconvert ! jpegenc ! multifilesink location=out/%06d.jpg
 ```
 
-On an Intel Arc Pro B60, inference takes about 100 ms per frame for fusion and about 60 ms for LiDAR-only. The pipeline runs at 2 fps because `g3dlidarparse frame-rate=2` plays the scene back at the nuScenes key-frame rate.
+On an Intel Arc Pro B60, inference takes about 80 ms per frame for fusion and about 55 ms for LiDAR-only in this pipeline, and about 65 ms and 37 ms when frames arrive back to back. The pipeline runs at 2 fps because `g3dlidarparse frame-rate=2` plays the scene back at the nuScenes key-frame rate.
 
 See [g3dbevfusion](../../../../docs/user-guide/elements/g3dbevfusion.md) for the element's modes, configuration and limitations.
