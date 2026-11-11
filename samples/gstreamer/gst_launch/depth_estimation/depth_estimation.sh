@@ -11,13 +11,14 @@
 set -euo pipefail
 
 if [ $# -gt 0 ] && ([ "$1" = "--help" ] || [ "$1" = "-h" ]); then
-  echo "Usage: $0 [INPUT] [DETECT_DEVICE] [DEPTH_DEVICE] [OUTPUT]"
+  echo "Usage: $0 [INPUT] [DETECT_DEVICE] [DEPTH_DEVICE] [OUTPUT] [EOS_FRAME]"
   echo ""
   echo "Arguments:"
   echo "  INPUT          - Input source (default: Pexels video URL)"
   echo "  DETECT_DEVICE  - Device for YOLO11n detection (default: GPU). Supported: CPU, GPU"
   echo "  DEPTH_DEVICE   - Device for Depth Anything inference (default: GPU). Supported: CPU, GPU"
   echo "  OUTPUT         - Output type (default: display). Supported: display, fps, json, display-and-json"
+  echo "  EOS_FRAME      - Stop after N decoded buffers (default: 0, disabled)"
   echo ""
   echo "Environment:"
   echo "  MODELS_PATH    - Base directory used to resolve default model locations"
@@ -52,6 +53,7 @@ INPUT=${1:-https://videos.pexels.com/video-files/18553046/18553046-hd_1280_720_3
 DETECT_DEVICE=${2:-GPU}
 DEPTH_DEVICE=${3:-GPU}
 OUTPUT=${4:-display}
+EOS_FRAME=${5:-0}
 
 validate_device "DETECT_DEVICE" "$DETECT_DEVICE"
 validate_device "DEPTH_DEVICE" "$DEPTH_DEVICE"
@@ -81,6 +83,11 @@ else
 fi
 
 CONVERSION_ELEMENT=""
+EOS_ELEMENT=""
+
+if [[ "$EOS_FRAME" != "0" ]]; then
+  EOS_ELEMENT="identity eos-after=${EOS_FRAME} ! "
+fi
 
 if [[ $DETECT_DEVICE == "CPU" ]]; then
   DECODE_ELEMENT="decodebin3"
@@ -113,7 +120,7 @@ else
 fi
 
 PIPELINE="gst-launch-1.0 ${SOURCE_ELEMENT} ! ${DECODE_ELEMENT} ! \
-gvadetect model=\"${DETECTION_MODEL}\" device=${DETECT_DEVICE} ${DETECT_PREPROC} ! queue ! \
+${EOS_ELEMENT}gvadetect model=\"${DETECTION_MODEL}\" device=${DETECT_DEVICE} ${DETECT_PREPROC} ! queue ! \
 ${CONVERSION_ELEMENT}queue ! \
 gvaclassify model=\"${DEPTH_MODEL}\" device=${DEPTH_DEVICE} pre-process-backend=opencv skip-raw-tensors=true ! queue ! \
 ${SINK_ELEMENT}"

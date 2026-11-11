@@ -20,7 +20,7 @@ from preprocess import preprocess_pipeline
 from processors.device import DeviceGenerator
 from processors.batch import BatchGenerator
 from processors.nireq import NireqGenerator
-from processors.utils import add_instance_ids, print_inference_parameters
+from processors.utils import add_instance_ids, print_inference_parameters, print_pipeline_metrics
 from optimization_targets import FpsTarget, PowerTarget
 
 import gi
@@ -247,7 +247,7 @@ class DLSOptimizer:
     def _establish_baseline(self, pipeline):
         # Measure the performance of the original pipeline
         try:
-            logger.debug("Measuring performance of the original pipeline...")
+            logger.info("Measuring performance of the original pipeline...")
             self._initial_pipeline = pipeline.copy()
             self._initial_result = self._sample_pipeline([pipeline], self._sample_duration)
             self._optimal_pipeline = self._initial_pipeline.copy()
@@ -300,6 +300,7 @@ class DLSOptimizer:
                     pipelines.append(pipeline)
 
                 result = self._sample_pipeline(pipelines, self._sample_duration)
+                print_pipeline_metrics(result, logger.info)
 
                 if self._initial_result["detections"] != 0 and result["detections"] / self._initial_result["detections"] < self._detections_error_threshold:
                     raise FaultyPipeline("Pipeline reporting detections under error margin")

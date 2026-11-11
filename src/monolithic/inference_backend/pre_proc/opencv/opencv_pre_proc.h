@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -39,7 +39,6 @@ class OpenCV_VPP : public ImagePreprocessor {
                                const InputImageLayerDesc::Ptr &pre_proc_info,
                                const ImageTransformationParams::Ptr &image_transform_info);
 
-    cv::Rect centralCropROI(const cv::Mat &image);
     void CopyImage(const Image &src, Image &dst);
 
     // Static utility function to load user library

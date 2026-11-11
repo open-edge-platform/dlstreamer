@@ -9,7 +9,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Callable
+from typing import Callable, NamedTuple
 import json
 import shutil
 import subprocess
@@ -80,22 +80,24 @@ OPTIMUM_TASK_BY_ARCH = {
 }
 
 
-# optimum-intel (pinned version) caps the transformers version accepted by these architectures'
-# OpenVINO export configs. With the shipped transformers (>= 5.5) the script reports this and the
-# user must downgrade transformers (see docs/user-guide/dev_guide/model_conversion_reference.md);
-# once downgraded, the same script converts them.
-ARCH_MAX_TRANSFORMERS_VERSION = {
-    "qwen2vlforconditionalgeneration": "5.0",
-    "qwen2_5_vlforconditionalgeneration": "5.0",
-    "qwen3vlforconditionalgeneration": "5.0",
-    "llavaqwen2forcausallm": "4.53.3",
-    "bunnyqwenforcausallm": "4.57.6",
-    "llavanextvideoforconditionalgeneration": "4.57.6",
-    "minicpmo": "4.51.3",
-    "minicpmv": "4.57.6",
-    "phi3vforcausallm": "4.53.3",
-    "phi4mmforcausallm": "4.53.3",
-    "internvlchatmodel": "4.57.6",
+class ExportProfile(NamedTuple):
+    transformers_version: str
+    huggingface_hub_version: str
+
+
+# Exact package versions used to export each architecture.
+ARCH_EXPORT_PROFILES = {
+    "qwen2vlforconditionalgeneration": ExportProfile("4.57.6", "0.36.0"),
+    "qwen2_5_vlforconditionalgeneration": ExportProfile("4.57.6", "0.36.0"),
+    "qwen3vlforconditionalgeneration": ExportProfile("4.57.6", "0.36.0"),
+    "llavaqwen2forcausallm": ExportProfile("4.53.3", "0.36.0"),
+    "bunnyqwenforcausallm": ExportProfile("4.57.6", "0.36.0"),
+    "llavanextvideoforconditionalgeneration": ExportProfile("4.57.6", "0.36.0"),
+    "minicpmo": ExportProfile("4.51.3", "0.36.0"),
+    "minicpmv": ExportProfile("4.57.6", "0.36.0"),
+    "phi3vforcausallm": ExportProfile("4.53.3", "0.36.0"),
+    "phi4mmforcausallm": ExportProfile("4.53.3", "0.36.0"),
+    "internvlchatmodel": ExportProfile("4.57.6", "0.36.0"),
 }
 
 
@@ -177,18 +179,14 @@ def get_optimum_export_task(local_model_dir: str | Path) -> str | None:
     return None
 
 
-def requires_transformers_downgrade(local_model_dir: str | Path) -> str | None:
-    """Return the max transformers version needed to convert this model when the installed
-    transformers is too new for its optimum-intel export config; otherwise None."""
-    try:
-        architectures = load_hf_architectures_from_repo_local(local_model_dir)
-    except Exception:
-        return None
-    installed = Version(transformers.__version__)
-    for arch in architectures:
-        cap = ARCH_MAX_TRANSFORMERS_VERSION.get(arch.lower())
-        if cap and installed > Version(cap):
-            return cap
+def get_export_profile(
+    local_model_dir: str | Path,
+) -> ExportProfile | None:
+    """Return the exact Hugging Face package versions used to export a model."""
+    for architecture in load_hf_architectures_from_repo_local(local_model_dir):
+        profile = ARCH_EXPORT_PROFILES.get(architecture.lower())
+        if profile is not None:
+            return profile
     return None
 
 

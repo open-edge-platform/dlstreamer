@@ -30,40 +30,45 @@ Detections are attached as `GstAnalytics3DODMtd` to the **LiDAR buffer** inside 
 
 ## Preparing the model
 
-`samples/gstreamer/gst_launch/g3dbevfusion/g3dbevfusion_prepare.sh` prepares everything the element needs from openvino_contrib's `openvino_bevfusion` module:
+`samples/gstreamer/gst_launch/g3dbevfusion/g3dbevfusion_prepare_model.sh <openvino-version>` prepares `bevfusion_ov_model_<openvino-version>/`, everything the element loads, from openvino_contrib's `openvino_bevfusion` module:
 
-1. builds the three custom-op extension libraries against DL Streamer's OpenVINO (`OpenVINO_DIR`);
-2. downloads the published mmdetection3d BEVFusion lidar-camera checkpoint and strips it to its weights;
-3. exports the OpenVINO IRs with `export.py` (needs a Python environment with `torch`, `numpy` and `openvino`);
-4. writes the runtime configuration `g3dbevfusion.json`;
-5. with `NUSCENES_ROOT` set, converts nuScenes scenes into per-sensor files that `multifilesrc` can read (see below).
+1. creates a temporary Python virtual environment with CPU PyTorch, NumPy and `openvino==<openvino-version>`;
+2. builds the three custom-op extension libraries against that `openvino` wheel;
+3. downloads the published mmdetection3d BEVFusion lidar-camera checkpoint and strips it to its weights;
+4. exports the OpenVINO IRs with `export.py`;
+5. copies the IRs, the extension libraries and the GPU kernels into the output directory and writes the runtime configuration `g3dbevfusion.json` there.
+
+The virtual environment, sources, checkpoint and build trees are removed at the end. `g3dbevfusion_prepare_data.sh` downloads nuScenes v1.0-mini and converts it into `nuscenes_mini_seq/` (see below).
 
 ```bash
-source /opt/intel/openvino_2026/setupvars.sh
-PYTHON=~/bevfusion_venv/bin/python NUSCENES_ROOT=/data/nuscenes ./g3dbevfusion_prepare.sh
+sudo apt-get install git curl g++ python3-venv opencl-c-headers ocl-icd-opencl-dev
+./g3dbevfusion_prepare_model.sh 2026.3.1
+./g3dbevfusion_prepare_data.sh
 ```
 
-Run `./g3dbevfusion_prepare.sh --help` for every option, including `BEVFUSION_ROOT` to use an existing openvino_contrib checkout.
+Pass the full OpenVINO version of the DL Streamer release that runs the pipeline. The extensions only load into the OpenVINO release they were built against. The export compiles the custom ops on the GPU, so in a container the GPU has to be available (`--device /dev/dri`).
 
-The script checks out a fixed commit of [openvinotoolkit/openvino_contrib](https://github.com/openvinotoolkit/openvino_contrib) and applies the patches in `samples/gstreamer/gst_launch/g3dbevfusion/patches/` on top of it. They carry the openvino_bevfusion fixes that g3dbevfusion relies on, from [openvino_contrib#1197](https://github.com/openvinotoolkit/openvino_contrib/pull/1197), until that PR is merged (override the source with `OPENVINO_CONTRIB_URL` and `OPENVINO_CONTRIB_REF`).
+Run either script with `--help` for every option, including `BEVFUSION_ROOT` to use an existing openvino_contrib checkout and `NUSCENES_ROOT` to convert an existing nuScenes copy.
+
+The model script checks out a fixed commit of [openvinotoolkit/openvino_contrib](https://github.com/openvinotoolkit/openvino_contrib) and applies the patches in `samples/gstreamer/gst_launch/g3dbevfusion/patches/` on top of it. They carry the openvino_bevfusion fixes that g3dbevfusion relies on, from [openvino_contrib#1197](https://github.com/openvinotoolkit/openvino_contrib/pull/1197), until that PR is merged (override the source with `OPENVINO_CONTRIB_URL` and `OPENVINO_CONTRIB_REF`).
 
 ### Runtime configuration
 
 ```json
 {
-  "model_dir": "/path/to/openvino_model",
+  "model_dir": ".",
   "extensions": [
-    "/path/to/libopenvino_bevpool_extension.so",
-    "/path/to/libopenvino_voxelize_extension.so",
-    "/path/to/libopenvino_sparse_encoder_extension.so"
+    "extensions/libopenvino_bevpool_extension.so",
+    "extensions/libopenvino_voxelize_extension.so",
+    "extensions/libopenvino_sparse_encoder_extension.so"
   ],
-  "gpu_custom_layers": "/path/to/openvino_bevfusion/openvino_extensions/gpu_custom_layers.xml"
+  "gpu_custom_layers": "gpu_kernels/gpu_custom_layers.xml"
 }
 ```
 
-Relative paths are resolved against the configuration file's directory. At startup the element checks `model_dir/config.json` (written by `export.py`) against the image size, feature size, camera count and class count it was built for, and fails if they differ.
+This is the file `g3dbevfusion_prepare_model.sh` writes. Relative paths are resolved against the configuration file's directory. The sparse encoder library reads its OpenCL kernel, `sparse_conv.cl`, from its own directory, and the kernels named in `gpu_custom_layers.xml` are resolved relative to that file. At startup the element checks `model_dir/config.json` (written by `export.py`) against the image size, feature size, camera count and class count it was built for, and fails if they differ.
 
-The extension libraries only load into the OpenVINO version they were built against. Rebuild them when DL Streamer moves to a new OpenVINO release.
+The extension libraries only load into the OpenVINO version they were built against. Prepare a new model directory when DL Streamer moves to a new OpenVINO release.
 
 ## Calibration JSON schema
 
@@ -98,7 +103,7 @@ The calibration is static. nuScenes compensates each camera for the ego motion b
 ### Camera + LiDAR fusion on a converted nuScenes scene
 
 ```bash
-./g3dbevfusion.sh .bevfusion/nuscenes/scene-0103 .bevfusion/g3dbevfusion.json fusion -1 out/
+./g3dbevfusion.sh nuscenes_mini_seq/scene-0103 bevfusion_ov_model_2026.3.1/g3dbevfusion.json fusion -1 out/
 ```
 
 which runs:
@@ -173,7 +178,6 @@ Before the first buffer, the element pushes a sticky `GST_EVENT_CUSTOM_DOWNSTREA
 - `G3DBEVFUSION_DUMP_DIR=<dir>` writes each frame's decoded boxes as `boxes_<frame>.npy`: float32 `[N, 11]` holding `x, y, z_bottom, dx, dy, dz, yaw, vx, vy, score, label`.
 - With `G3DBEVFUSION_DUMP_TENSORS=1`, every stage's input and output tensors are written too. That is about 90 MB per frame.
 - `BEVFUSION_VERBOSE=1` prints the sparse-encoder extension's timing and kernel selection.
-- `samples/gstreamer/gst_launch/g3dbevfusion/bevfusion_reference.py` runs openvino_contrib's Python runtime on the same inputs, for comparison. `--decoder gstreamer` decodes the JPEGs the way the pipeline does.
 
 ## Element Details (gst-inspect-1.0)
 

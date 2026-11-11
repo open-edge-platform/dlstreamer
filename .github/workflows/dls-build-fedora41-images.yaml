@@ -57,12 +57,7 @@ jobs:
         with:
           persist-credentials: false
           path: dlstreamer
-
-      - name: Init submodules
-        if: needs.setup.outputs.should_run == 'true'
-        run: |
-          cd dlstreamer
-          git submodule update --init thirdparty/spdlog
+          submodules: true
 
       - name: Pre-pull BuildKit image
         if: needs.setup.outputs.should_run == 'true'

@@ -18,7 +18,6 @@ Builds a pipeline that:
 import argparse
 import os
 import signal
-import subprocess
 import sys
 import time
 from pathlib import Path
@@ -31,7 +30,7 @@ gi.require_version("GObject", "2.0")
 from gi.repository import Gst, GLib, GObject, GstAnalytics  # pylint: disable=no-name-in-module, wrong-import-position
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-from shared_utils import download_https  # pylint: disable=wrong-import-position
+from shared_utils import resolve_local_path  # pylint: disable=wrong-import-position
 
 class GenaiSignalBridge(GObject.Object):
     """
@@ -41,28 +40,19 @@ class GenaiSignalBridge(GObject.Object):
 
     def __init__(self):
         super().__init__()
-        self._frame_selection_quark = None
-        self._frame_selection_confidence = 0.0
-        self._frame_selection_pts = 0
-        self._frame_selection_time = 0
-        self._vlm_quark = None
-        self._vlm_confidence = 0.0
-        self._vlm_pts = 0
-        self._vlm_time = 0
+        # Each result is kept as a single tuple (label_quark, confidence, pts, system_time_ns) so
+        # that the watermark branch, which runs in another thread, always reads a consistent
+        # snapshot instead of a mix of values from two different events.
+        self._frame_selection = None
+        self._vlm = None
 
     @GObject.Signal(arg_types=(GObject.TYPE_UINT, GObject.TYPE_DOUBLE, GObject.TYPE_UINT64, GObject.TYPE_UINT64))
     def vlm_result(self, label_quark: int, confidence: float, pts: int, system_time_ns: int):
-        self._vlm_quark = label_quark
-        self._vlm_confidence = confidence
-        self._vlm_pts = pts
-        self._vlm_time = system_time_ns
+        self._vlm = (label_quark, confidence, pts, system_time_ns)
 
     @GObject.Signal(arg_types=(GObject.TYPE_UINT, GObject.TYPE_DOUBLE, GObject.TYPE_UINT64, GObject.TYPE_UINT64))
     def frame_selection(self, objects_quark: int, confidence: float, pts: int, system_time_ns: int):
-        self._frame_selection_quark = objects_quark
-        self._frame_selection_confidence = confidence
-        self._frame_selection_pts = pts
-        self._frame_selection_time = system_time_ns
+        self._frame_selection = (objects_quark, confidence, pts, system_time_ns)
 
 def _post_selection_cb(pad, info, bridge):
     """
@@ -125,107 +115,52 @@ def _pre_watermark_cb(pad, info, bridge):
     if buf is None:
         return Gst.PadProbeReturn.OK
 
-    # get (or create) analytics metadata attached to a frame buffer
-    rmeta = GstAnalytics.buffer_get_analytics_relation_meta(buf)
-    if not rmeta:
-        if buf.make_writable():
-            rmeta = GstAnalytics.buffer_add_analytics_relation_meta(buf)
-        if not rmeta:
-            print("[probes] failed to add analytics metadata to buffer")
-            return Gst.PadProbeReturn.OK
+    selection = bridge._frame_selection
+    vlm = bridge._vlm
+    if selection is None:
+        return Gst.PadProbeReturn.OK
+    selection_quark, selection_confidence, selection_pts, selection_time = selection
 
     # display frame selection output for max 4 seconds
-    if bridge._frame_selection_quark is not None and (buf.pts - bridge._frame_selection_pts) < 4 * Gst.SECOND:
-        frame_time = bridge._frame_selection_pts / Gst.SECOND
-        text = f"[{frame_time:.2f} s] Frame selection, detected objects: {GLib.quark_to_string(bridge._frame_selection_quark)} "
-        rmeta.add_od_mtd(GLib.quark_from_string(text), 10, 50, 0, 0, bridge._frame_selection_confidence)
+    if (buf.pts - selection_pts) >= 4 * Gst.SECOND:
+        return Gst.PadProbeReturn.OK
 
-        # display VLM classification output for most recently selected frame
-        if (bridge._vlm_quark is not None) and (bridge._vlm_pts >= bridge._frame_selection_pts):
-            vlm_time = frame_time + (bridge._vlm_time - bridge._frame_selection_time) / 1e9
-            text = f"[{vlm_time:.2f} s] VLM classification: {GLib.quark_to_string(bridge._vlm_quark)}, confidence:"
-            rmeta.add_od_mtd(GLib.quark_from_string(text), 10, 100, 0, 0, bridge._vlm_confidence)
+    # Detection runs upstream of the tee, so analytics metadata is always present here. The buffer
+    # is shared with the analytics branch, so it is not writable and metadata cannot be added.
+    rmeta = GstAnalytics.buffer_get_analytics_relation_meta(buf)
+    if not rmeta:
+        return Gst.PadProbeReturn.OK
+
+    frame_time = selection_pts / Gst.SECOND
+    text = f"[{frame_time:.2f} s] Frame selection, detected objects: {GLib.quark_to_string(selection_quark)} "
+    rmeta.add_od_mtd(GLib.quark_from_string(text), 10, 50, 0, 0, selection_confidence)
+
+    # display VLM classification output for most recently selected frame
+    if vlm is not None:
+        vlm_quark, vlm_confidence, vlm_pts, vlm_time_ns = vlm
+        if vlm_pts >= selection_pts:
+            vlm_time = frame_time + (vlm_time_ns - selection_time) / 1e9
+            text = f"[{vlm_time:.2f} s] VLM classification: {GLib.quark_to_string(vlm_quark)}, confidence:"
+            rmeta.add_od_mtd(GLib.quark_from_string(text), 10, 100, 0, 0, vlm_confidence)
 
     return Gst.PadProbeReturn.OK
 
 
 BASE_DIR = Path(__file__).resolve().parent
 CONFIG_DIR = BASE_DIR / "config"
-VIDEOS_DIR = BASE_DIR / "videos"
-MODELS_DIR = BASE_DIR / "models"
 RESULTS_DIR = BASE_DIR / "results"
-DEFAULT_VIDEO_URL = (
-    "https://www.pexels.com/download/video/35256160"
-)
+# Model store shared with other DL Streamer samples and tests; a relative model path is
+# looked up there when it does not exist in the current directory.
+MODELS_PATH_ENV = os.environ.get("MODELS_PATH")
+
+# Default model locations relative to $MODELS_PATH (pre-exported with the download_models scripts).
+DEFAULT_DETECT_MODEL_REL = "public/yolo26s/INT8/yolo26s.xml"
+DEFAULT_VLM_MODEL_REL = "public/openbmb_MiniCPM-V-4_5"
 
 
-def download_video(video_url: str) -> Path:
-    """Return a local video path, downloading from URL if needed."""
-    VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
-    filename = video_url.rstrip("/").split("/")[-1]
-    if not Path(filename).suffix:
-        filename += ".mp4"
-
-    local_path = VIDEOS_DIR / filename
-    if not local_path.exists():
-        download_https(video_url, local_path, {"www.pexels.com"})
-
-    return local_path.resolve()
-
-
-DOWNLOAD_SCRIPT = Path(__file__).resolve().parents[4] / "scripts" / "download_models" / "download_ultralytics_models.py"
-
-def download_detection_model(model_id: str) -> Path:
-    """Return a path to the local file with YOLO OpenVINO IR model.
-    Spawn a separate process, as Ultralytics export will create a new instance of OpenVINO runtime
-    which may clash with OpenVINO runtime instance used by DLStreamer."""
-    MODELS_DIR.mkdir(parents=True, exist_ok=True)
-    model_path = MODELS_DIR / f"{model_id}_int8_openvino_model" / f"{model_id}.xml"
-
-    if not model_path.exists():
-        print(f"[detect] exporting {model_id} to OpenVINO format (subprocess)")
-        pt_file = BASE_DIR / f"{model_id}.pt"
-        result = subprocess.run(
-            [sys.executable, str(DOWNLOAD_SCRIPT),
-             "--model", str(pt_file),
-             "--outdir", str(MODELS_DIR),
-             "--int8"],
-            check=False
-        )
-        if result.returncode != 0:
-            raise RuntimeError(f"YOLO model export failed with exit code {result.returncode}")
-        if not model_path.exists():
-            raise RuntimeError(f"Expected model not found at {model_path} after export")
-
-    return model_path.resolve()
-
-
-def download_vlm_model(model_id: str) -> Path:
-    """Return a path to the VLM OpenVINO model, downloading/exporting via a optimum-cli (separate process."""
-    MODELS_DIR.mkdir(parents=True, exist_ok=True)
-    model_name = model_id.split("/")[-1]
-    model_path = MODELS_DIR / model_name
-
-    if not model_path.exists():
-        print(f"[vlm] downloading and exporting {model_id} to OpenVINO format")
-        command = [
-            "optimum-cli",
-            "export",
-            "openvino",
-            "--model",
-            model_id,
-            "--task",
-            "image-text-to-text",
-            "--trust-remote-code",
-            str(model_path),
-        ]
-        result = subprocess.run(command, check=False)
-        if result.returncode != 0:
-            raise RuntimeError(f"VLM model export failed with exit code {result.returncode}")
-        if not model_path.exists():
-            raise RuntimeError(f"Expected VLM model not found at {model_path} after export")
-
-    return model_path.resolve()
+def model_search_dirs() -> list[Path]:
+    """Return the directories a relative model path is looked up in."""
+    return [Path(MODELS_PATH_ENV)] if MODELS_PATH_ENV else []
 
 
 def construct_pipeline(
@@ -238,12 +173,17 @@ def construct_pipeline(
     genai_prompt: str,
     inventory_file: Path,
     excluded_objects_file: Path,
+    results_dir: Path = RESULTS_DIR,
+    output_json: Path | None = None,
 ) -> Gst.Pipeline:
     """Construct the GStreamer pipeline, attach probes, and return it."""
-    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    output_video = RESULTS_DIR / f"vlm_self_checkout-{video_file.stem}.mp4"
-    output_files = RESULTS_DIR / f"vlm_self_checkout-{video_file.stem}-%d.jpeg"
-    output_json = RESULTS_DIR / f"vlm_self_checkout-{video_file.stem}.jsonl"
+    results_dir.mkdir(parents=True, exist_ok=True)
+    output_video = results_dir / f"vlm_self_checkout-{video_file.stem}.mp4"
+    output_files = results_dir / f"vlm_self_checkout-{video_file.stem}-%d.jpeg"
+    if output_json:
+        output_json.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        output_json = results_dir / f"vlm_self_checkout-{video_file.stem}.jsonl"
 
     pipeline_str = (
         # Source → decode → detect
@@ -362,10 +302,13 @@ def run_pipeline(pipeline: Gst.Pipeline) -> None:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="DLStreamer VLM Self Checkout sample")
 
-    parser.add_argument("--video-url", default=DEFAULT_VIDEO_URL,
-                        help="URL to download a video from (used when --video-path is omitted)")
+    parser.add_argument("--video-path", required=True,
+                        help="Path to a local video file")
 
-    parser.add_argument("--detect-model-id", default="yolo26s", help="Ultralytics model id")
+    parser.add_argument("--detect-model-path", default=DEFAULT_DETECT_MODEL_REL,
+                        help="Path to a detection model .xml exported beforehand (see README.md). "
+                             "A relative path is looked up in the current directory and in $MODELS_PATH "
+                             "(default: $MODELS_PATH/" + DEFAULT_DETECT_MODEL_REL + ")")
     parser.add_argument("--detect-device", default="GPU", help="Device for YOLO detection")
     parser.add_argument("--threshold", type=float, default=0.4,
                         help="Detection confidence threshold")
@@ -373,28 +316,43 @@ def parse_args() -> argparse.Namespace:
                         help="Path to text file listing inventory items, one per line")
     parser.add_argument("--excluded-objects-file", default=str(CONFIG_DIR / "excluded_objects.txt"),
                         help="Path to text file listing excluded object types, one per line")
-    parser.add_argument("--vlm-model-id", default="openbmb/MiniCPM-V-4_5",
-                        help="Hugging Face model id for VLM (will be downloaded and exported to OpenVINO)")
+    parser.add_argument("--vlm-model-path", default=DEFAULT_VLM_MODEL_REL,
+                        help="Path to an OpenVINO VLM model directory exported beforehand (see README.md). "
+                             "A relative path is looked up in the current directory and in $MODELS_PATH "
+                             "(default: $MODELS_PATH/" + DEFAULT_VLM_MODEL_REL + ")")
     parser.add_argument("--genai-device", default="GPU", help="Device for gvagenai inference")
     parser.add_argument("--genai-prompt",
                         default="Describe the items visible on the self-checkout counter.",
                         help="Initial prompt for gvagenai VLM inference")
+    parser.add_argument("--results-dir", type=Path, default=RESULTS_DIR,
+                        help="Directory for output files")
+    parser.add_argument("--output-json", type=Path, default=None,
+                        help="Path of the JSON Lines output file, overriding the default "
+                             "<results-dir>/vlm_self_checkout-<video_stem>.jsonl")
 
     return parser.parse_args()
 
 def main() -> int:
     args = parse_args()
 
-    video_file = download_video(args.video_url)
-    detection_model = download_detection_model(args.detect_model_id)
-    genai_model = download_vlm_model(args.vlm_model_id)
+    try:
+        video_file = resolve_local_path(args.video_path, description="--video-path")
+        detection_model = resolve_local_path(
+            args.detect_model_path, model_search_dirs(), "--detect-model-path")
+        genai_model = resolve_local_path(
+            args.vlm_model_path, model_search_dirs(), "--vlm-model-path")
+    except FileNotFoundError as error:
+        print(f"[error] {error}", file=sys.stderr)
+        return 1
+
     inventory_file = Path(args.inventory_file).resolve()
     excluded_objects_file = Path(args.excluded_objects_file).resolve()
 
     setup_gst_plugins()
     pipeline = construct_pipeline(
         video_file, detection_model, args.detect_device, args.threshold,
-        genai_model, args.genai_device, args.genai_prompt, inventory_file, excluded_objects_file)
+        genai_model, args.genai_device, args.genai_prompt, inventory_file, excluded_objects_file,
+        args.results_dir, args.output_json)
     run_pipeline(pipeline)
 
     return 0
