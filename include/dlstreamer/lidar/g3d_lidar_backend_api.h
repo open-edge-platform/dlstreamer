@@ -63,7 +63,8 @@ typedef struct g3d_lidar_backend_handle g3d_lidar_backend_handle;
 typedef struct g3d_lidar_params {
     const char *model;        /* vendor model string, e.g. "RSE1" */
     const char *bind_address; /* local NIC IP to bind() the UDP socket to */
-    int use_lidar_clock;      /* timestamp source: device clock (1) vs host (0) */
+    int use_lidar_clock;      /* timestamp source for g3d_lidar_frame.timestamp:
+                               * 1 = device clock, 0 = host wall clock (Unix epoch) */
     const char *params_json;  /* raw config "params" object as a JSON string
                                * (may be NULL or "{}"); backend parses its own keys */
 } g3d_lidar_params;
@@ -75,7 +76,12 @@ typedef struct g3d_lidar_params {
 typedef struct g3d_lidar_frame {
     const float *xyzi;
     uint32_t point_count;
-    double timestamp; /* frame timestamp in seconds (device or host clock) */
+    double timestamp; /* frame capture time in seconds: on the device clock if
+                       * use_lidar_clock=1, else on the host wall clock
+                       * (CLOCK_REALTIME / Unix epoch, same as g_get_real_time()).
+                       * With use_lidar_clock=0 g3dlidarsrc converts it to the
+                       * pipeline running time for the buffer PTS, so it must be
+                       * the capture time, not the time the frame was assembled. */
 } g3d_lidar_frame;
 
 /* Callback invoked by the backend (from its receive thread) once per completed
