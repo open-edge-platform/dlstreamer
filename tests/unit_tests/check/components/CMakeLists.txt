@@ -30,3 +30,7 @@ endif()
 if(${ENABLE_VAAPI} AND NOT WIN32)
     add_subdirectory(va-api-pre-proc)
 endif()
+
+if(WIN32)
+    add_subdirectory(d3d-pre-proc)
+endif()

@@ -9,6 +9,7 @@
 #include <nlohmann/json.hpp>
 #include <openvino/openvino.hpp>
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -127,6 +128,9 @@ struct Runtime::Impl {
     std::vector<float> depth = std::vector<float>(static_cast<size_t>(kNumCameras) * kImageH * kImageW);
     std::vector<float> geometry_combined = std::vector<float>(kNumCameras * 14);
     std::vector<float> geometry_rotation = std::vector<float>(kNumCameras * 9);
+    // bev_pool's int32 accumulator: BEVPoolScatter adds into it and
+    // BEVPoolConvert resets it after reading, so it stays zeroed between frames.
+    std::vector<int32_t> bev_accumulator;
 
     std::string dump_dir;
     bool dump_tensors = false;
@@ -272,7 +276,24 @@ Runtime::Runtime(const std::string &config_path, const std::string &device) : im
             .create_infer_request();
     };
     impl_->voxelize = compile("voxelize", "GPU", custom_cfg);
-    impl_->bev_pool = compile("bev_pool", "GPU", custom_cfg);
+    // The scatter needs an accumulator that holds zeros on entry. As its own
+    // output it could get a reused GPU pool buffer holding another layer's
+    // data, so the model takes it as an input instead. Checked before
+    // compiling: an older export does not compile against these kernels.
+    const fs::path bev_pool_xml = model_dir / "bev_pool.xml";
+    const std::shared_ptr<ov::Model> bev_pool_model = core.read_model(bev_pool_xml.string());
+    const auto bev_pool_inputs = bev_pool_model->inputs();
+    const auto accumulator =
+        std::find_if(bev_pool_inputs.begin(), bev_pool_inputs.end(),
+                     [](const ov::Output<ov::Node> &port) { return port.get_names().count("bev_accumulator"); });
+    if (accumulator == bev_pool_inputs.end())
+        throw std::runtime_error(bev_pool_xml.string() + " has no bev_accumulator input; export the model again with "
+                                                         "g3dbevfusion_prepare_model.sh");
+    const ov::Shape accumulator_shape = accumulator->get_shape();
+    impl_->bev_pool = core.compile_model(bev_pool_model, "GPU", custom_cfg).create_infer_request();
+    impl_->bev_accumulator.assign(ov::shape_size(accumulator_shape), 0);
+    impl_->bev_pool.set_tensor("bev_accumulator",
+                               host_tensor(ov::element::i32, accumulator_shape, impl_->bev_accumulator.data()));
     impl_->sparse_encoder = compile("sparse_encoder", "CPU", {});
     impl_->geometry = compile("geometry", device, dense_cfg);
     impl_->camera_encoder = compile("camera_encoder_b6", device, dense_cfg);

@@ -151,6 +151,26 @@ class TestG3DBevFusion(unittest.TestCase):
         lidar = [load_boxes(os.path.join(self.dump_dir, name)) for name in self._dumped_frames()]
         self.assertNotEqual(fusion, lidar, "fusion produced exactly the lidar-only detections")
 
+    def test_fusion_repeats_a_frame(self):
+        # The same frame twice in one pipeline must give the same detections: the
+        # camera branch's BEV pool must not carry anything over from the frame before.
+        repeat = "start-index=0 stop-index=0 loop=true num-buffers=2"
+        cameras = " ".join(
+            f"multifilesrc location={SCENE}/{name}/%06d.jpg {repeat} "
+            "caps=image/jpeg,framerate=2/1 ! jpegparse ! jpegdec ! videoconvert ! "
+            f"video/x-raw,format=BGR ! queue ! mux.sink_{pad}" for pad, name in enumerate(CAMERAS))
+        lidar = (f"multifilesrc location={SCENE}/LIDAR_TOP/%06d.bin {repeat} "
+                 "caps=application/octet-stream ! g3dlidarparse frame-rate=2 ! queue ! mux.sink_6")
+        errors = self._run(f"{cameras} {lidar} {self._bevfusion(os.path.join(SCENE, 'calibration.json'))}")
+        self.assertEqual(errors, [])
+        dumped = self._dumped_frames()
+        self.assertEqual(len(dumped), 2)
+        first, second = (load_boxes(os.path.join(self.dump_dir, name)) for name in dumped)
+        self.assertGreater(len(first), 0, "no detections")
+        self.assertEqual(len(first), len(second), "the repeated frame gave a different number of boxes")
+        for a, b in zip(sorted(first), sorted(second)):
+            self.assertTrue(all(abs(x - y) < 1e-2 for x, y in zip(a, b)), f"repeated frame differs: {a} vs {b}")
+
     def test_too_few_cameras_is_an_error(self):
         with open(os.path.join(SCENE, "calibration.json")) as f:
             calibration = json.load(f)

@@ -176,11 +176,14 @@ class FrameSelection(GstBase.BaseTransform):
             tracked_obj.published = True
             obj_name = GLib.quark_to_string(tracked_obj.quark).lower()
             matched_items = [item for item in self._inventory if obj_name in item.lower() or item.lower() in obj_name]
-            if matched_items:
-                items_list = ", ".join(matched_items)
-                self._update_genai_prompt(
-                    f"Which of the following items is visible in this image: {items_list}? "
-                    f"Reply only with names of detected items. If no items from the list are visible, reply None.")
+            if not matched_items:
+                # Object is not in the inventory. Passing the frame on would run VLM inference
+                # with the prompt left over from a previous selection.
+                continue
+            items_list = ", ".join(matched_items)
+            self._update_genai_prompt(
+                f"Which of the following items is visible in this image: {items_list}? "
+                f"Reply only with names of detected items. If no items from the list are visible, reply None.")
             return Gst.FlowReturn.OK
 
         # cleanup list of tracked objects by removing ones not seen for > 10x threshold
