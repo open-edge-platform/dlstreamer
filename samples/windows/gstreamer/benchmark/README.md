@@ -24,12 +24,9 @@ set MODELS_PATH=C:\models
 ```
 
 ## Input video
+Use any local video file supported by the installed GStreamer plugins. For useful face detections, choose a clip containing people or faces. The example filename below is illustrative; download a suitable video from a source available to you and pass its local path.
 
-You can download video file example by opening this URL in your browser:
-```
-https://raw.githubusercontent.com/intel-iot-devkit/sample-videos/master/head-pose-face-detection-female-and-male.mp4
-```
-or use any other media/video file.
+`benchmark.bat` is currently configured to use the `centerface` model. A different compatible face-detection model can be used by updating the model name and path in the batch file.
 
 ## Running
 
@@ -46,7 +43,7 @@ The sample takes one to three command-line parameters:
 
 ### Example
 ```batch
-benchmark.bat C:\videos\head-pose-face-detection-female-and-male.mp4 CPU 4
+benchmark.bat C:\videos\faces.mp4 CPU 4
 ```
 
 ## Sample Output

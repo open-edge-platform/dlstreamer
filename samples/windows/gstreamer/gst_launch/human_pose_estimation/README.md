@@ -14,10 +14,7 @@ The sample builds a GStreamer pipeline using:
 
 ## Models
 
-The sample uses yolo26s-pose from Ultralytics:
-- **yolo26s-pose** - Single person pose estimation network
-
-> **NOTE**: Before running this sample, prepare required models using scripts in `scripts/download_models` (see `scripts/download_models/README.md`).
+The example uses the Ultralytics `yolo26s-pose` single-person pose model. Any compatible pose-estimation model can be used if its path and any required model-proc configuration are set accordingly. Prepare the example model with the general [`download_ultralytics_models.py`](../../../../../scripts/download_models/README.md#2-ultralytics-conversion) helper, selecting `yolo26s-pose.pt`.
 
 ## Environment Variables
 
@@ -27,6 +24,8 @@ $set MODELS_PATH = "C:\models"
 
 Model should be located at:
 - `%MODELS_PATH%\public\yolo26s-pose\FP16\yolo26s-pose.xml`
+
+Use any video supported by the installed GStreamer plugins; the walking clip paths in the examples are illustrative. A clip containing a visible person is useful for checking pose output.
 ## Running
 
 ```PowerShell
@@ -34,7 +33,7 @@ Model should be located at:
 ```
 
 Parameters:
-- **-InputSource** - Input source (default: `https://github.com/intel-iot-devkit/sample-videos/raw/master/face-demographics-walking.mp4`)
+- **-InputSource** - Required input video file path or URL
   - Local file path (e.g., `C:\videos\video.mp4`)
   - URL (e.g., `https://...`)
 - **-Device** - Device for inference (default: `CPU`)
@@ -53,9 +52,9 @@ Parameters:
 
 ## Examples
 
-### Use default settings (GitHub video, CPU, display)
+### Run with a local video (CPU, display)
 ```PowerShell
-.\human_pose_estimation.ps1
+.\human_pose_estimation.ps1 -InputSource "C:\videos\walking.mp4"
 ```
 
 ### Display with CPU inference

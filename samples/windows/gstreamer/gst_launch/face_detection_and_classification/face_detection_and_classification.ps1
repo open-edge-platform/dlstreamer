@@ -5,7 +5,7 @@
 # ==============================================================================
 
 param(
-    [string]$InputSource = "https://github.com/intel-iot-devkit/sample-videos/raw/master/head-pose-face-detection-female-and-male.mp4",
+    [string]$InputSource = "",
     [string]$Device = "CPU",
     [string]$OutputType = "display",
     [string]$JsonFile = "output.json",
@@ -17,7 +17,7 @@ if ($InputSource -eq "--help" -or $InputSource -eq "-h") {
     Write-Host "Usage: face_detection_and_classification.ps1 [-InputSource <path>] [-Device <device>] [-OutputType <type>] [-JsonFile <file>] [-FrameLimiter <element>]"
     Write-Host ""
     Write-Host "Parameters:"
-    Write-Host "  -InputSource  Input source (default: GitHub sample video URL)"
+    Write-Host "  -InputSource  Required local video path, URL, or USB camera path"
     Write-Host "                Local file path (e.g., C:\videos\video.mp4)"
     Write-Host "                URL (e.g., https://...)"
     Write-Host "                USB camera (e.g., \\?\usb#...)"
@@ -31,6 +31,11 @@ if ($InputSource -eq "--help" -or $InputSource -eq "-h") {
     Write-Host "  -FrameLimiter Optional GStreamer element to add after decode (e.g., ' ! identity eos-after=1000')"
     Write-Host ""
     exit 0
+}
+
+if ([string]::IsNullOrWhiteSpace($InputSource)) {
+    Write-Host "ERROR: Input source is required. Pass -InputSource with a local video path, URL, or USB camera path." -ForegroundColor Red
+    exit 1
 }
 
 # Check MODELS_PATH

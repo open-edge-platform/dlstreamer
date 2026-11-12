@@ -21,7 +21,12 @@ This sample builds a GStreamer pipeline of the following elements:
 **Sink**: `fakesink` (default) or `gvafpscounter` for performance measurement.
 
 ## Model
+Use any video supported by the installed GStreamer plugins. The examples use `C:\videos\sample.mp4`; it is not a required clip. The model can be any compatible CLIP image encoder in OpenVINO format; the models below are examples.
+
+Prepare the example Hugging Face models with the general [`download_hf_models.py`](../../../../../scripts/download_models/README.md#1-hugging-face-conversion) helper, selecting the matching model ID, for example `openai/clip-vit-large-patch14`.
+
 The sample uses the following models with OpenVINO™ format:
+\.\generate_frame_embedding.ps1 -InputSource "C:\videos\sample.mp4" -Device CPU -Precision FP32 -Model clip-vit-base-patch32 -PreprocessBackend opencv -OutputType fps
 - [`clip-vit-large-patch14`](https://huggingface.co/openai/clip-vit-large-patch14)
 - [`clip-vit-base-patch16`](https://huggingface.co/openai/clip-vit-base-patch16)
 - [`clip-vit-base-patch32`](https://huggingface.co/openai/clip-vit-base-patch32)
@@ -68,7 +73,7 @@ The sample takes the following *optional* parameters:
 
 | Parameter | Description | Default |
 | :--- | :--- | :--- |
-| -InputSource | Local file path or HTTPS URL | Pexels Video URL |
+| -InputSource | Local file path or HTTPS URL | required |
 | -Device | `CPU`, `GPU`, or `NPU` | `CPU` |
 | -Precision | `FP32`, `FP16`, or `INT8` | `FP32` |
 | -Model | CLIP model name (see above) | `clip-vit-large-patch14` |
@@ -90,9 +95,9 @@ The sample:
 
 ## Example Usage
 
-Default execution (CPU, FP32, JSON output):
+Run with a local video (CPU, FP32, JSON output):
 ```PowerShell
-.\generate_frame_embedding.ps1
+.\generate_frame_embedding.ps1 -InputSource "C:\videos\sample.mp4"
 ```
 
 High-performance GPU inference (Intel® Arc™ GPU, FP16):
@@ -102,7 +107,7 @@ High-performance GPU inference (Intel® Arc™ GPU, FP16):
 
 Benchmark throughput (FPS mode):
 ```PowerShell
-.\generate_frame_embedding.ps1 -InputSource https://example.com/stream.mp4 -Device CPU -Precision FP32 -Model clip-vit-base-patch32 -PreprocessBackend opencv -OutputType fps
+\.\generate_frame_embedding.ps1 -InputSource "C:\videos\sample.mp4" -Device CPU -Precision FP32 -Model clip-vit-base-patch32 -PreprocessBackend opencv -OutputType fps
 ```
 
 Process only first 1000 frames (for testing):

@@ -21,17 +21,17 @@ This sample builds a GStreamer pipeline of the following elements:
 
 ## Model Preparation
 
-Refer to [OpenVINO™ GenAI Model Preparation](https://openvinotoolkit.github.io/openvino.genai/docs/category/model-preparation) for more details on downloading pre-converted OpenVINO models or converting models to OpenVINO format.
+Use any model supported by `gvagenai` and the installed OpenVINO GenAI runtime; the models below are examples, not required choices. A pre-converted compatible model may be used, or a supported Hugging Face model can be prepared with the general [`download_hf_models.py`](../../../../../scripts/download_models/README.md#1-hugging-face-conversion) helper. For example, use `download_hf_models.py --model <HUGGING_FACE_MODEL_ID> --outdir <MODEL_DIR>` and add `--extra_args` when the model requires export options.
 
 > [!NOTE]
-> To install `optimum-cli` and other required dependencies for model export, refer to the respective OpenVINO™ notebook tutorials linked in the table below.
-> DL Streamer currently depends on OpenVINO™ GenAI 2026.3.1. For optimal compatibility, use the library versions specified in [export-requirements.txt](https://github.com/openvinotoolkit/openvino.genai/blob/releases/2026/3/samples/export-requirements.txt).
+> The helper only exports supported model architectures; check its supported-model notes and set up its dependencies as described in the linked guide. Gated Hugging Face models require access to the repository. DL Streamer currently depends on OpenVINO™ GenAI 2026.3.1.
 
-| Model | Export Command | Tutorial |
-|-------|----------------|----------|
-| **MiniCPM-V 2.6** | `optimum-cli export openvino --model openbmb/MiniCPM-V-2_6 --weight-format int4 MiniCPM-V-2_6` | [Visual-language assistant with MiniCPM-V2 and OpenVINO™](https://github.com/openvinotoolkit/openvino_notebooks/blob/latest/notebooks/minicpm-v-multimodal-chatbot/minicpm-v-multimodal-chatbot.ipynb) |
-| **Phi-4-multimodal-instruct** | `optimum-cli export openvino --model microsoft/Phi-4-multimodal-instruct Phi-4-multimodal` | [Visual-language assistant with Phi-4-multimodal-instruct and OpenVINO™](https://github.com/openvinotoolkit/openvino_notebooks/blob/latest/notebooks/phi-4-multimodal/phi-4-multimodal.ipynb) |
-| **Gemma 3** | `optimum-cli export openvino --model google/gemma-3-4b-it Gemma3` | [Visual-language assistant with Gemma 3 and OpenVINO™](https://github.com/openvinotoolkit/openvino_notebooks/blob/latest/notebooks/gemma3/gemma3.ipynb) |
+| Example model | Hugging Face model ID |
+|---------------|-----------------------|
+| MiniCPM-V 2.6 | `openbmb/MiniCPM-V-2_6` |
+| Phi-4-multimodal-instruct | `microsoft/Phi-4-multimodal-instruct` |
+| Gemma 3 | `google/gemma-3-4b-it` |
+Use any video or camera source supported by the installed GStreamer plugins. Examples use `C:\videos\video.mp4`; the input is independent of the selected VLM.
 
 After exporting the model, set the model path (PowerShell):
 ```powershell
@@ -49,7 +49,7 @@ The sample takes the following *optional* parameters:
 
 | Parameter | Description | Default |
 | :--- | :--- | :--- |
-| `-Source FILE/URL/CAMERA` | Input source: a file path, an HTTP(S) URL, `camera` for the default webcam, or a webcam device index (e.g. `0`) | Pexels video URL |
+| `-Source FILE/URL/CAMERA` | Required input source: a file path, an HTTP(S) URL, `camera` for the default webcam, or a webcam device index (e.g. `0`) | required |
 | `-Device DEVICE` | Inference device (`CPU`, `GPU`, `NPU`, or indexed GPU like GPU.0) | `CPU` |
 | `-Prompt TEXT` | Text prompt for the model | `Describe what you see in this video.` |
 | `-FrameRate RATE` | Frame sampling rate (fps) | `1` |
@@ -65,9 +65,9 @@ The sample takes the following *optional* parameters:
 
 **Examples:**
 
-1. **Basic usage with default settings**
+1. **Basic usage with a local video**
    ```powershell
-   .\sample_gvagenai.ps1
+   .\sample_gvagenai.ps1 -Source C:\videos\video.mp4
    ```
 
 2. **Custom settings example**
@@ -77,27 +77,27 @@ The sample takes the following *optional* parameters:
 
 3. **With performance metrics enabled**
    ```powershell
-   .\sample_gvagenai.ps1 -Metrics -MaxTokens 200
+   .\sample_gvagenai.ps1 -Source C:\videos\video.mp4 -Metrics -MaxTokens 200
    ```
 
 4. **Downscale frames for faster inference**
    ```powershell
-   .\sample_gvagenai.ps1 -Resolution 320x240
+   .\sample_gvagenai.ps1 -Source C:\videos\video.mp4 -Resolution 320x240
    ```
 
 5. **Video mode (video-capable models only, e.g. Qwen2.5-VL)**
    ```powershell
-   .\sample_gvagenai.ps1 -VisionMode video -ChunkSize 16 -FrameRate 2
+   .\sample_gvagenai.ps1 -Source C:\videos\video.mp4 -VisionMode video -ChunkSize 16 -FrameRate 2
    ```
 
 6. **NPU with required prompt/response sizing**
    ```powershell
-   .\sample_gvagenai.ps1 -Device NPU -PipelineConfig NPU.MAX_PROMPT_LEN=2048,NPU.MIN_RESPONSE_LEN=512
+   .\sample_gvagenai.ps1 -Source C:\videos\video.mp4 -Device NPU -PipelineConfig NPU.MAX_PROMPT_LEN=2048,NPU.MIN_RESPONSE_LEN=512
    ```
 
 7. **Continuous batching with a custom output file**
    ```powershell
-   .\sample_gvagenai.ps1 -SchedulerConfig enable_prefix_caching=true -Output results.json
+   .\sample_gvagenai.ps1 -Source C:\videos\video.mp4 -SchedulerConfig enable_prefix_caching=true -Output results.json
    ```
 
 **Output:**

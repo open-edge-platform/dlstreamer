@@ -90,31 +90,28 @@ The D3D backends require a GPU or NPU device.
 
 ## Models
 
-The sample uses YOLO models from different repositories. The model preparation and conversion method depends on the model source.
+Use any video that the installed GStreamer plugins can decode. Choose a clip containing the objects you want to detect; examples below use `C:\videos\test.mp4`. The model can be any compatible detector from the supported list, prepared in the expected OpenVINO format. The examples use `yolox_s` and `yolo11s`; these are examples, not required model choices.
 
-For yolov5nu, yolov8s (8n-obb, 8n-seg), yolov9c, yolov10s and yolo11s (yolo11s-seg, yolo11s-obb) models it is also necessary to install the ultralytics python package:
-
-```batch
-pip install ultralytics
-```
+Prepare models with the general helpers documented in [`scripts/download_models/README.md`](../../../../../scripts/download_models/README.md): use `download_ultralytics_models.py` for Ultralytics models such as `yolo11s.pt`, `download_other_models.py` for `yolox-tiny`, `yolox_s`, and `yolov7`, or `download_hf_models.py` for supported Hugging Face models.
 
 ### Supported Models
 
 | Model        | Model Preparation                | Model pipeline (model-proc)       |
-| ------------ | -------------------------------- | --------------------------------- |
-| yolox-tiny   | omz_downloader and omz_converter | gvadetect model-proc=yolo-x.json  |
-| yolox_s      | OpenVINO™ model                  | gvadetect model-proc=yolo-x.json  |
-| yolov5nu     | Ultralytics python exporter      | gvadetect (model-proc not needed) |
-| yolov7       | Pytorch -> ONNX -> OpenVINO™     | gvadetect model-proc=yolo-v7.json |
-| yolov8s      | Ultralytics python exporter      | gvadetect (model-proc not needed) |
-| yolov8n-obb  | Ultralytics python exporter      | gvadetect (model-proc not needed) |
-| yolov8n-seg  | Ultralytics python exporter      | gvadetect (model-proc not needed) |
-| yolov9c      | Ultralytics python exporter      | gvadetect (model-proc not needed) |
-| yolov10s     | Ultralytics python exporter      | gvadetect (model-proc not needed) |
-| yolo11s      | Ultralytics python exporter      | gvadetect (model-proc not needed) |
-| yolo11s-seg  | Ultralytics python exporter      | gvadetect (model-proc not needed) |
-| yolo11s-obb  | Ultralytics python exporter      | gvadetect (model-proc not needed) |
-| yolo11s-pose | Ultralytics python exporter      | gvadetect (model-proc not needed) |
+| Model        | General model helper                                      | Model pipeline (model-proc)       |
+| ------------ | --------------------------------------------------------- | --------------------------------- |
+| yolox-tiny   | `download_other_models.py yolox-tiny`                    | gvadetect model-proc=yolo-x.json  |
+| yolox_s      | `download_other_models.py yolox_s`                       | gvadetect model-proc=yolo-x.json  |
+| yolov5nu     | `download_ultralytics_models.py --model yolov5nu.pt`      | gvadetect (model-proc not needed) |
+| yolov7       | `download_other_models.py yolov7`                        | gvadetect model-proc=yolo-v7.json |
+| yolov8s      | `download_ultralytics_models.py --model yolov8s.pt`       | gvadetect (model-proc not needed) |
+| yolov8n-obb  | `download_ultralytics_models.py --model yolov8n-obb.pt`   | gvadetect (model-proc not needed) |
+| yolov8n-seg  | `download_ultralytics_models.py --model yolov8n-seg.pt`   | gvadetect (model-proc not needed) |
+| yolov9c      | `download_ultralytics_models.py --model yolov9c.pt`       | gvadetect (model-proc not needed) |
+| yolov10s     | `download_ultralytics_models.py --model yolov10s.pt`      | gvadetect (model-proc not needed) |
+| yolo11s      | `download_ultralytics_models.py --model yolo11s.pt`       | gvadetect (model-proc not needed) |
+| yolo11s-seg  | `download_ultralytics_models.py --model yolo11s-seg.pt`   | gvadetect (model-proc not needed) |
+| yolo11s-obb  | `download_ultralytics_models.py --model yolo11s-obb.pt`   | gvadetect (model-proc not needed) |
+| yolo11s-pose | `download_ultralytics_models.py --model yolo11s-pose.pt`  | gvadetect (model-proc not needed) |
 
 ## Environment Variables
 
@@ -140,7 +137,7 @@ $set MODELS_PATH = "C:\models"
 | ------------------ | ---------------- | --------------------------------------------------------------------------------------- |
 | -Model             | yolox_s          | Model name (see supported models above)                                                 |
 | -Device            | GPU              | Inference device: CPU, GPU, NPU                                                         |
-| -InputSource       | Pexels video URL | Input video file or URL                                                                 |
+| -InputSource       | (required)       | Input video file or URL                                                                 |
 | -OutputType        | display          | Output type: file, display, fps, json, display-and-json                                 |
 | -PreprocessBackend | per device       | Pre-processing backend: ie, opencv, d3d11, d3d11-surface-sharing, d3d12, d3d12-surface-sharing (see [Pre-processing Backend Selection](#pre-processing-backend-selection)) |
 | -Precision         | FP16             | Model precision: INT8, FP32, FP16                                                       |
@@ -148,16 +145,16 @@ $set MODELS_PATH = "C:\models"
 
 ### Examples
 
-Run with default settings (yolox_s model, GPU, display output):
+Run with yolox_s, GPU inference, and display output:
 
 ```PowerShell
-.\yolo_detect.ps1
+.\yolo_detect.ps1 -InputSource C:\videos\test.mp4
 ```
 
 Run yolo11s model with GPU inference:
 
 ```PowerShell
-.\yolo_detect.ps1 -Model yolo11s -Device GPU
+.\yolo_detect.ps1 -Model yolo11s -Device GPU -InputSource C:\videos\test.mp4
 ```
 
 Run with local video file:
@@ -213,22 +210,7 @@ Process only first 100 frames (for testing/benchmarking):
 
 ## Download Models
 
-If you have not already downloaded the required models, do so before running the sample. Use the Linux download script. On Windows, you can run this script using WSL (Windows Subsystem for Linux) or Git Bash:
-
-### Using WSL or Git Bash
-
-```bash
-# Set the models path (use a path accessible from Windows)
-export MODELS_PATH=/mnt/c/models  # WSL path to C:\models
-
-# Download a specific model in FP32
-python scripts/download_models/download_ultralytics_models.py --model yolo11s.pt --outdir "${MODELS_PATH}/public/yolo11s/FP32"
-
-# For INT8 export
-python scripts/download_models/download_ultralytics_models.py --model yolo11s.pt --outdir "${MODELS_PATH}/public/yolo11s/INT8" --int8
-```
-
-For detailed instructions on downloading models, including script-specific dependencies and supported model lists, see `scripts/download_models/README.md`.
+For example, the sample commands use `yolo11s`; prepare it with the general `download_ultralytics_models.py` helper. Run the helper in the environment and with the output path described in [`scripts/download_models/README.md`](../../../../../scripts/download_models/README.md). On Windows, use an environment that can access the same model directory as `MODELS_PATH`.
 
 > **Note**: Make sure to set your `MODELS_PATH` environment variable in Windows to point to the same location where models were downloaded (e.g., `set MODELS_PATH=C:\models`).
 

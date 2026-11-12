@@ -5,7 +5,7 @@
 # ==============================================================================
 
 param(
-    [string]$InputSource = "DEFAULT",
+    [string]$InputSource = "",
     [string]$DeviceStream12 = "",
     [string]$DeviceStream34 = "",
     [string]$Model1 = "",
@@ -24,8 +24,7 @@ if ($InputSource -eq "--help" -or $InputSource -eq "-h") {
     Write-Host "Usage: multi_stream.ps1 [-InputSource <path>] [-DeviceStream12 <device>] [-DeviceStream34 <device>] [-Model1 <model>] [-Model2 <model>] [-Precision <precision>] [-OutputType <type>] [-FrameLimiter <element>]"
     Write-Host ""
     Write-Host "Parameters:"
-    Write-Host "  -InputSource     Input source (default: Pexels video URL)"
-    Write-Host "                   Use 'DEFAULT' for default video"
+    Write-Host "  -InputSource     Required local video path or URI"
     Write-Host "  -DeviceStream12  Device for stream 1 & 2 (default: CPU). Supported: CPU, GPU, NPU"
     Write-Host "  -DeviceStream34  Device for stream 3 & 4 (default: GPU). Supported: CPU, GPU, NPU"
     Write-Host "  -Model1          Model for stream 1 & 2 (default: yolov8s)"
@@ -59,9 +58,9 @@ if (-not $env:MODELS_PATH) {
 }
 Write-Host "MODELS_PATH: $env:MODELS_PATH"
 
-# Handle default input source
-if ($InputSource -eq "DEFAULT" -or $InputSource -eq ".") {
-    $InputSource = "https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4"
+if ([string]::IsNullOrWhiteSpace($InputSource)) {
+    Write-Host "ERROR: Input source is required. Pass -InputSource with a local video path or URL." -ForegroundColor Red
+    exit 1
 }
 
 # Determine operation mode: new (dual-device) or legacy (single-device)

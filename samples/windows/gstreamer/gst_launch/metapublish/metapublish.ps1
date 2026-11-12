@@ -5,7 +5,7 @@
 # ==============================================================================
 
 param(
-    [string]$InputSource = "DEFAULT",
+    [string]$InputSource = "",
     [string]$Method = "file",
     [string]$Output = "",
     [string]$Format = "",
@@ -18,7 +18,7 @@ if ($InputSource -eq "--help" -or $InputSource -eq "-h") {
     Write-Host "Usage: metapublish.ps1 [-InputSource <path>] [-Method <method>] [-Output <output>] [-Format <format>] [-Topic <topic>] [-Device <device>] [-FrameLimiter <element>]"
     Write-Host ""
     Write-Host "Parameters:"
-    Write-Host "  -InputSource    Input source (default: sample video URL)"
+    Write-Host "  -InputSource    Required local video path or URL"
     Write-Host "  -Method         Metapublish method (default: file). Supported: file, kafka, mqtt"
     Write-Host "  -Output         Output destination (default: stdout for file, localhost:9092 for kafka, localhost:1883 for mqtt)"
     Write-Host "  -Format         Output format (default: json for file, json-lines for kafka/mqtt). Supported: json, json-lines"
@@ -35,8 +35,9 @@ if (-not $env:MODELS_PATH) {
 }
 Write-Host "MODELS_PATH: $env:MODELS_PATH"
 
-if ($InputSource -eq "DEFAULT" -or $InputSource -eq ".") {
-    $InputSource = "https://github.com/intel-iot-devkit/sample-videos/raw/master/head-pose-face-detection-female-and-male.mp4"
+if ([string]::IsNullOrWhiteSpace($InputSource)) {
+    Write-Host "ERROR: Input source is required. Pass -InputSource with a local video path or URL." -ForegroundColor Red
+    exit 1
 }
 
 if ($InputSource -match "://") {

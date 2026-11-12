@@ -53,7 +53,7 @@ graph LR
 
 ## Models
 
-The sample uses YOLOv8n (resolved via `MODELS_PATH`) or other supported object detection model with the OpenVINO™ format.
+Use any video supported by the installed GStreamer plugins; the examples use `C:\path\to\video.mp4`. The model can be any compatible OpenVINO object detector. The sample defaults to `yolov8n`; prepare it or another Ultralytics example model with the general [`download_ultralytics_models.py`](../../../../../scripts/download_models/README.md#2-ultralytics-conversion) helper, selecting `yolov8n.pt`. A custom compatible OpenVINO model path can also be passed with `-Model`.
 
 ## Usage
 
@@ -66,7 +66,7 @@ The sample uses YOLOv8n (resolved via `MODELS_PATH`) or other supported object d
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | -Device | CPU | Inference device: CPU, GPU, NPU |
-| -InputSource | DEFAULT | Local file path or URI. Use 'DEFAULT' for built-in sample video |
+| -InputSource | (required) | Local file path or URI |
 | -Model | (auto) | Optional OpenVINO XML model path. Leave empty to use yolov8n from MODELS_PATH |
 | -Precision | FP32 | Model precision: FP32, FP16, INT8 |
 | -PreprocessBackend | per device | Pre-process backend for gvadetect: ie, opencv, d3d11, d3d11-surface-sharing, d3d12, d3d12-surface-sharing. Defaults to opencv on CPU, d3d12-surface-sharing on GPU and d3d12 on NPU |
@@ -79,10 +79,10 @@ Notes:
 
 ## Examples
 
-- CPU path with default source and model:
+- CPU path with a local source and default model:
 ```PowerShell
 $env:MODELS_PATH = "C:\models"
-.\motion_detect.ps1 -Device CPU -InputSource DEFAULT -Precision FP32 -PreprocessBackend opencv -OutputType display
+.\motion_detect.ps1 -Device CPU -InputSource C:\path\to\video.mp4 -Precision FP32 -PreprocessBackend opencv -OutputType display
 ```
 - CPU path with local file, display output, and custom motion detector options:
 ```PowerShell

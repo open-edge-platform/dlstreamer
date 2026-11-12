@@ -5,7 +5,7 @@
 # ==============================================================================
 
 param(
-    [string]$InputSource = "https://github.com/intel-iot-devkit/sample-videos/raw/master/face-demographics-walking.mp4",
+    [string]$InputSource = "",
     [string]$Device = "CPU",
     [string]$OutputType = "display",
     [string]$JsonFile = "output.json",
@@ -17,13 +17,18 @@ if ($InputSource -eq "--help" -or $InputSource -eq "-h") {
     Write-Host "Usage: human_pose_estimation.ps1 [-InputSource <path>] [-Device <device>] [-OutputType <type>] [-JsonFile <file>] [-FrameLimiter <element>]"
     Write-Host ""
     Write-Host "Parameters:"
-    Write-Host "  -InputSource    Input source (default: GitHub sample video URL)"
+    Write-Host "  -InputSource    Required input video file path or URL"
     Write-Host "  -Device         Device (default: CPU). Supported: CPU, GPU, NPU"
     Write-Host "  -OutputType     Output type (default: display). Supported: file, display, fps, json, display-and-json"
     Write-Host "  -JsonFile       JSON output file name (default: output.json)"
     Write-Host "  -FrameLimiter   Optional GStreamer element to add after decode (e.g., ' ! identity eos-after=1000')"
     Write-Host ""
     exit 0
+}
+
+if ([string]::IsNullOrWhiteSpace($InputSource)) {
+    Write-Host "ERROR: Input source is required. Pass -InputSource with a local video path or URL." -ForegroundColor Red
+    exit 1
 }
 
 # Check MODELS_PATH

@@ -7,7 +7,7 @@
 param(
     [string]$Model = "yolo26s-seg",
     [string]$Device = "CPU",
-    [string]$InputSource = "https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4",
+    [string]$InputSource = "",
     [string]$OutputType = "file",
     [string]$JsonFile = "output.json",
     [string]$FrameLimiter = ""
@@ -21,12 +21,17 @@ if ($Model -eq "--help" -or $Model -eq "-h") {
     Write-Host "  -Model          Model to use (default: yolo26s-seg)"
     Write-Host "                  Supported: yolo26s-seg, yolo11s-seg"
     Write-Host "  -Device         Device (default: CPU). Supported: CPU, GPU, NPU"
-    Write-Host "  -InputSource    Input source (default: Pexels video URL)"
+    Write-Host "  -InputSource    Required input video file path or URL"
     Write-Host "  -OutputType     Output type (default: file). Supported: file, display, fps, json, display-and-json, jpeg"
     Write-Host "  -JsonFile       JSON output file name (default: output.json)"
     Write-Host "  -FrameLimiter   Optional GStreamer element to add after decode (e.g., ' ! identity eos-after=100')"
     Write-Host ""
     exit 0
+}
+
+if ([string]::IsNullOrWhiteSpace($InputSource)) {
+    Write-Host "ERROR: Input source is required. Pass -InputSource with a local video path or URL." -ForegroundColor Red
+    exit 1
 }
 
 # Check MODELS_PATH

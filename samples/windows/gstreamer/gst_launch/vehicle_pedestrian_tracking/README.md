@@ -17,11 +17,9 @@ The pre-processing backend is `d3d12-surface-sharing` on GPU and `d3d12` on NPU 
 
 ## Models
 
-The sample uses the following models:
-- **yolo26s** - Object detection
-- **dima806_vehicle_10_types_image_detection** - Vehicle-type classification
+The example uses `yolo26s` for object detection and `dima806/vehicle_10_types_image_detection` for vehicle-type classification. They are examples, not required choices; compatible detection and classification models can be substituted by updating their paths and matching model-proc configuration. Prepare the example models with the general helpers documented in [`scripts/download_models/README.md`](../../../../../scripts/download_models/README.md): `download_ultralytics_models.py` with `yolo26s.pt` and `download_hf_models.py` with `dima806/vehicle_10_types_image_detection`.
 
-> **NOTE**: Download models using `scripts/download_models` helpers.
+Use any video supported by the installed GStreamer plugins; the traffic-video paths in the examples are illustrative. A clip containing people and vehicles is useful for checking the output.
 
 ## Environment Variables
 
@@ -40,7 +38,7 @@ Models should be located at:
 ```
 
 Parameters:
-- **-InputSource** - Input source (default: `https://github.com/intel-iot-devkit/sample-videos/raw/master/person-bicycle-car-detection.mp4`)
+- **-InputSource** - Required input video file path or URL
   - Local file path (e.g., `C:\videos\traffic.mp4`)
   - URL (e.g., `https://...`)
 - **-DetectionInterval** - Detection frequency (default: `3`)
@@ -67,9 +65,9 @@ Parameters:
 
 ## Examples
 
-### Use default settings (GitHub video, detect every 3rd frame, AUTO device, display)
+### Run with a local video (detect every 3rd frame, AUTO device, display)
 ```PowerShell
-.\vehicle_pedestrian_tracking.ps1
+.\vehicle_pedestrian_tracking.ps1 -InputSource "C:\videos\traffic.mp4"
 ```
 
 ### Detect every 3rd frame with tracking on GPU

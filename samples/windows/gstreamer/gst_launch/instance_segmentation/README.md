@@ -13,11 +13,7 @@ The sample builds a GStreamer pipeline using:
 
 ## Models
 
-Supports two Ultralytics segmentation variants:
-- **yolo26s-seg** - default
-- **yolo11s-seg**
-
-> **NOTE**: Run `download_ultralytics_models.py` before using this sample.
+The sample examples use the Ultralytics segmentation models `yolo26s-seg` and `yolo11s-seg`; any compatible instance-segmentation model can be used by selecting it with `-Model` and providing its OpenVINO IR. Prepare the example models with the general [`download_ultralytics_models.py`](../../../../../scripts/download_models/README.md#2-ultralytics-conversion) helper, selecting `yolo26s-seg.pt` or `yolo11s-seg.pt`.
 
 ## Environment Variables
 
@@ -28,6 +24,8 @@ $set MODELS_PATH = "C:\models"
 Models should be located at:
 - `%MODELS_PATH%\public\yolo26s-seg\FP16\yolo26s-seg.xml`
 - `%MODELS_PATH%\public\yolo11s-seg\FP16\yolo11s-seg.xml`
+
+Use any video supported by the installed GStreamer plugins; the street-video paths below are examples. A clip with objects from the model's label set is useful for checking the output.
 
 ## Running
 
@@ -40,7 +38,7 @@ Parameters:
   - Supported: `yolo26s-seg`, `yolo11s-seg`
 - **-Device** - Inference device (default: `CPU`)
   - Supported: `CPU`, `GPU`, `NPU`
-- **-InputSource** - Input source (default: `https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4`)
+- **-InputSource** - Required input video file path or URL
   - Local file path (e.g., `C:\videos\street.mp4`)
   - URL (e.g., `https://...`)
 - **-OutputType** - Output type (default: `file`)
@@ -58,9 +56,9 @@ Parameters:
 
 ## Examples
 
-### Use default settings (YOLO26s-seg, CPU, Pexels video, save to file)
+### Run with a local video (YOLO26s-seg, CPU, save to file)
 ```PowerShell
-.\instance_segmentation.ps1
+.\instance_segmentation.ps1 -InputSource "C:\videos\street.mp4"
 ```
 
 ### YOLO11s-seg on GPU with display
