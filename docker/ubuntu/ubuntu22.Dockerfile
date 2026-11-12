@@ -585,6 +585,7 @@ RUN \
     uv pip install --python python3.11 --system --no-cache-dir --break-system-packages setuptools==84.1.0 wheel==0.46.2 packaging==24.2 && \
     uv pip install --python python3.11 --system --no-cache-dir --break-system-packages meson==1.6.1 && \
     uv pip install --python python3.11 --system --no-cache-dir --break-system-packages -r /opt/intel/dlstreamer/requirements.txt && \
+    uv pip uninstall --python python3.11 --system --break-system-packages pip && \
     apt-get remove -y gcc ninja-build libcairo2-dev libgirepository1.0-dev && \
     apt-get autoremove -y && \
     apt-get clean -y && \
