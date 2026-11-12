@@ -26,6 +26,7 @@ struct GstGvaRoiScale {
     guint out_width;
     guint out_height;
     gdouble confidence_threshold;
+    // Numbers exported crops; unrelated to the input buffer offset.
     guint64 output_frame_number;
     gchar *output_dir;
     gchar *target_classes_csv;
@@ -50,6 +51,7 @@ static GstStaticPadTemplate src_template = GST_STATIC_PAD_TEMPLATE(
     "src", GST_PAD_SRC, GST_PAD_ALWAYS,
     GST_STATIC_CAPS("video/x-raw, format=(string)RGB, width=(int)[1,8192], height=(int)[1,8192]"));
 
+// Output size is fixed by the properties; input size is unconstrained.
 static GstCaps *gst_gva_roi_scale_transform_caps(GstBaseTransform *transform, GstPadDirection direction, GstCaps *caps,
                                                  GstCaps *filter) {
     auto *self = reinterpret_cast<GstGvaRoiScale *>(transform);
@@ -101,6 +103,7 @@ static GArray *parse_target_classes(const gchar *csv) {
     return classes;
 }
 
+// Failures only warn; the buffer is still pushed downstream.
 static void save_jpeg(GstGvaRoiScale *self, GstBuffer *buffer, const gchar *output_dir, guint64 frame_number) {
     if (g_mkdir_with_parents(output_dir, 0755) != 0) {
         GST_ELEMENT_WARNING(self, RESOURCE, OPEN_WRITE, ("Could not create output directory '%s'", output_dir), (NULL));
@@ -154,7 +157,7 @@ static void clear_pending_input(GstGvaRoiScale *self) {
     self->next_roi_index = 0;
 }
 
-// The crop is a new buffer, so the source ODMtd is re-created on it in output-frame coordinates.
+// The crop is a new buffer, so its ODMtd is re-created in output coordinates, excluding padding.
 static void add_roi_metadata(GstGvaRoiScale *self, GstBuffer *buffer, const gvaroiscale::Roi &roi,
                              const GstVideoRectangle &content_rect) {
     GstAnalyticsRelationMeta *rmeta = gst_buffer_add_analytics_relation_meta(buffer);
@@ -164,11 +167,15 @@ static void add_roi_metadata(GstGvaRoiScale *self, GstBuffer *buffer, const gvar
         GST_WARNING_OBJECT(self, "Could not attach ROI detection metadata");
 }
 
+// Emits one crop per call. One input can have several ROIs, so pending_input, pending_rois and
+// next_roi_index carry the state: each further call produces the next crop, and the input is
+// released after the last one. Relies on being called again until no output buffer is produced.
 static GstFlowReturn gst_gva_roi_scale_generate_output(GstBaseTransform *transform, GstBuffer **outbuf) {
     GstGvaRoiScale *self = reinterpret_cast<GstGvaRoiScale *>(transform);
     *outbuf = nullptr;
 
     if (!self->pending_input) {
+        // Take ownership of the base class's queued buffer; ROIs are collected once per input.
         GstBuffer *input = transform->queued_buf;
         transform->queued_buf = nullptr;
         if (!input)
@@ -202,6 +209,7 @@ static GstFlowReturn gst_gva_roi_scale_generate_output(GstBaseTransform *transfo
         return result == gvaroiscale::RoiScaleResult::NoRoi ? GST_BASE_TRANSFORM_FLOW_DROPPED : GST_FLOW_ERROR;
     }
 
+    // Only the first crop of an input keeps DISCONT.
     GST_BUFFER_FLAGS(output) = GST_BUFFER_FLAGS(self->pending_input);
     if (roi_index > 0)
         GST_BUFFER_FLAG_UNSET(output, GST_BUFFER_FLAG_DISCONT);

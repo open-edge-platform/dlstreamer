@@ -85,6 +85,7 @@ G_DEFINE_TYPE(GstGvaEventRecorder, gst_gvaeventrecorder, GST_TYPE_BASE_TRANSFORM
 
 namespace {
 
+// Retained input frame; the tick lets overlapping sessions skip PRE frames already forwarded.
 struct CachedFrame {
     GstBuffer *buffer = nullptr;
     uint64_t tick = 0;
@@ -102,6 +103,7 @@ struct ActiveSession {
     std::vector<GstBuffer *> frames;
 };
 
+// Frame queued for downstream; first/last mark the boundaries of the merged event window.
 struct ForwardFrame {
     GstBuffer *buffer = nullptr;
     std::vector<GQuark> trigger_classes; // classes that started sessions on this frame
@@ -122,6 +124,7 @@ struct GvaEventRecorderRuntime {
     guint64 file_counter = 0;
     GstVideoInfo video_info;
     gboolean video_info_valid = FALSE;
+    // Newest tick sent downstream; keeps overlapping sessions from replaying frames.
     uint64_t last_forwarded_tick = 0;
     bool downstream_active = false;
     std::mutex config_mutex; // guards engine/ring reconfiguration vs. transform_ip
@@ -171,6 +174,7 @@ static std::string build_output_path(const std::string &dir, const std::string &
     return path;
 }
 
+// Only queues the clip; the writer thread creates its pipeline.
 static VideoClipWriter::ClipId open_clip(GstGvaEventRecorder *self, GvaEventRecorderRuntime *rt,
                                          const ActiveSession &s) {
     ClipConfig cfg;
@@ -181,7 +185,7 @@ static VideoClipWriter::ClipId open_clip(GstGvaEventRecorder *self, GvaEventReco
     return rt->writer.open(std::move(cfg));
 }
 
-// Takes ownership of the frame refs.
+// Takes ownership of the frame refs (sent to the writer now, or held until the session ends).
 static void add_session_frames(ActiveSession &s, GvaEventRecorderRuntime *rt, std::vector<GstBuffer *> frames,
                                bool start_new_fragment = false) {
     if (s.incremental)
@@ -190,6 +194,7 @@ static void add_session_frames(ActiveSession &s, GvaEventRecorderRuntime *rt, st
         s.frames.insert(s.frames.end(), frames.begin(), frames.end());
 }
 
+// Queues any buffered frames and the clip close; does not wait for encoding.
 static void finish_session(GstGvaEventRecorder *self, GvaEventRecorderRuntime *rt, ActiveSession &s) {
     if (s.incremental) {
         rt->writer.close(s.clip_id);
@@ -473,6 +478,7 @@ static gboolean gst_gvaeventrecorder_start(GstBaseTransform *base) {
     return TRUE;
 }
 
+// Unlike the streaming path, this blocks until queued clips are finalized.
 static gboolean gst_gvaeventrecorder_stop(GstBaseTransform *base) {
     GstGvaEventRecorder *self = GST_GVAEVENTRECORDER(base);
     auto *rt = static_cast<GvaEventRecorderRuntime *>(self->priv);
@@ -535,7 +541,7 @@ static std::vector<DetectionInput> collect_detections(GstBuffer *buf) {
     return detections;
 }
 
-// Takes ownership of frame.buffer.
+// Takes ownership of frame.buffer, tags it with the event state (start/continue/stop) and pushes it.
 static GstFlowReturn push_event_frame(GstGvaEventRecorder *self, ForwardFrame frame) {
     GstBuffer *buf = gst_buffer_make_writable(frame.buffer);
     const char *state = frame.last ? "stop" : (frame.first ? "start" : "continue");
@@ -567,6 +573,10 @@ static GstFlowReturn push_event_frame(GstGvaEventRecorder *self, ForwardFrame fr
     return gst_pad_push(GST_BASE_TRANSFORM_SRC_PAD(self), buf);
 }
 
+// Per input frame:
+//
+//   detections --> session controller --+--> per-session PRE/EVENT/POST clips --> writer (disk)
+//   PRE ring ---------------------------+--> merged window, each tick once -----> downstream
 static GstFlowReturn gst_gvaeventrecorder_transform_ip(GstBaseTransform *base, GstBuffer *buf) {
     GstGvaEventRecorder *self = GST_GVAEVENTRECORDER(base);
     auto *rt = static_cast<GvaEventRecorderRuntime *>(self->priv);
@@ -579,12 +589,14 @@ static GstFlowReturn gst_gvaeventrecorder_transform_ip(GstBaseTransform *base, G
                           ("set_caps was not called before the first buffer"));
     }
 
+    // Frame counter used as the clock: cooldown and PRE replay are measured in frames, not time.
     const uint64_t tick = ++self->frame_counter;
 
     std::vector<DetectionInput> detections = collect_detections(buf);
 
     std::unique_lock<std::mutex> lock(rt->config_mutex);
 
+    // Keep the old IDs: a session finishing on this frame must still receive its last frame.
     std::vector<uint64_t> active_ids_before = rt->engine->active_session_ids();
 
     EventSessionController::FrameOutcome outcome = rt->engine->process_frame(tick, detections);
@@ -615,6 +627,9 @@ static GstFlowReturn gst_gvaeventrecorder_transform_ip(GstBaseTransform *base, G
         rt->active_sessions.emplace(trig.session_id, std::move(session));
     }
 
+    // Downstream gets one chronological stream: PRE frames not yet sent (only on a new trigger), then
+    // the current frame if a session was active or just triggered. "first" marks the start of a new
+    // window (nothing was active before); "last" is set below once no session remains.
     std::vector<ForwardFrame> to_push;
     bool first = !rt->downstream_active;
     if (!outcome.new_triggers.empty()) {
@@ -640,10 +655,12 @@ static GstFlowReturn gst_gvaeventrecorder_transform_ip(GstBaseTransform *base, G
         to_push.push_back(std::move(forwarded));
         rt->last_forwarded_tick = tick;
     }
+    // The window stays open while any session is still active.
     rt->downstream_active = !rt->engine->active_session_ids().empty();
     if (!to_push.empty())
         to_push.back().last = !rt->downstream_active;
 
+    // Sessions that were already active append the current frame.
     for (uint64_t id : active_ids_before) {
         auto it = rt->active_sessions.find(id);
         if (it != rt->active_sessions.end())
@@ -672,6 +689,7 @@ static GstFlowReturn gst_gvaeventrecorder_transform_ip(GstBaseTransform *base, G
     if (guint32 n = rt->drop_throttle.maybe_flush(now_ms))
         GST_WARNING_OBJECT(self, "%u event(s) dropped due to max-concurrent-events limit since last log", n);
 
+    // Do not hold the config mutex across pad pushes; downstream may block.
     lock.unlock();
 
     GstFlowReturn ret = GST_FLOW_OK;
@@ -681,5 +699,6 @@ static GstFlowReturn gst_gvaeventrecorder_transform_ip(GstBaseTransform *base, G
         else
             gst_buffer_unref(frame.buffer);
     }
+    // Everything was pushed explicitly (including PRE replay), so drop the original buffer.
     return ret == GST_FLOW_OK ? GST_BASE_TRANSFORM_FLOW_DROPPED : ret;
 }
