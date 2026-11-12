@@ -38,6 +38,13 @@
 GST_DEBUG_CATEGORY_STATIC(gst_g3d_lidar_src_debug);
 #define GST_CAT_DEFAULT gst_g3d_lidar_src_debug
 
+/* With ntp-sync=false the backend reports each frame's capture time on the host
+ * wall clock. A value outside this window around "now" cannot be a capture time
+ * of a frame we just dequeued (e.g. a backend not following the ABI contract),
+ * so we fall back to the dequeue time instead of producing a bogus PTS. */
+#define HOST_TS_MAX_AGE_NS (10 * GST_SECOND)
+#define HOST_TS_MAX_FUTURE_NS (1 * GST_SECOND)
+
 /* Property IDs */
 enum { PROP_0, PROP_CONFIG, PROP_NTP_SYNC, PROP_TIMEOUT, PROP_STREAM_ID };
 
@@ -81,6 +88,9 @@ struct _GstG3DLidarSrcPrivate {
 
     gboolean flushing;
     std::chrono::steady_clock::time_point last_frame_time;
+
+    /* create()-thread only: warn once if backend host timestamps are unusable */
+    gboolean warned_host_ts;
 };
 
 /* Forward declarations */
@@ -121,7 +131,7 @@ static void gst_g3d_lidar_src_class_init(GstG3DLidarSrcClass *klass) {
         gobject_class, PROP_NTP_SYNC,
         g_param_spec_boolean("ntp-sync", "NTP Sync",
                              "Timestamp source for buffer PTS (TRUE = LiDAR clock from DIFOP, "
-                             "FALSE = pipeline running time, starts from 0 at PLAYING)",
+                             "FALSE = pipeline running time of the frame capture, starts from 0 at PLAYING)",
                              DEFAULT_NTP_SYNC, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     g_object_class_install_property(
@@ -513,6 +523,7 @@ static gboolean gst_g3d_lidar_src_start(GstBaseSrc *src) {
     }
 
     self->frame_seq = 0;
+    self->priv->warned_host_ts = FALSE;
 
     GST_INFO_OBJECT(self,
                     "g3dlidarsrc started successfully, waiting for data from device... "
@@ -657,21 +668,48 @@ static GstFlowReturn gst_g3d_lidar_src_create(GstPushSrc *src, GstBuffer **buf) 
         GST_DEBUG_OBJECT(self, "Using LiDAR timestamp (ntp-sync=true): %.6f seconds -> %" GST_TIME_FORMAT,
                          cloud->timestamp, GST_TIME_ARGS(frame_ts));
     } else {
-        /* Use GStreamer pipeline running time (starts from 0 at PLAYING).
-         * running_time = clock_time - base_time. Without subtracting base_time
-         * the PTS would be the absolute clock value (e.g. CLOCK_MONOTONIC since
-         * boot for the default GstSystemClock), which contradicts the
-         * "from 0" contract advertised on the ntp-sync property. */
+        /* Use the GStreamer pipeline running time of the frame *capture*
+         * (starts from 0 at PLAYING), not the time create() dequeued it: a frame
+         * is only complete after its whole scan period plus decode/queueing, so
+         * the dequeue time lags the capture by about one frame period.
+         *
+         * In this mode the backend runs with use_lidar_clock=0 and reports the
+         * capture time on the host wall clock (Unix epoch). Convert it by
+         * measuring its age against the wall clock now and subtracting that age
+         * from the current running time; sampling both clocks back-to-back keeps
+         * the conversion independent of the wall clock's absolute value.
+         * running_time = clock_time - base_time (without subtracting base_time
+         * the PTS would be e.g. CLOCK_MONOTONIC since boot). */
         GstClock *clock = gst_element_get_clock(GST_ELEMENT(self));
         if (clock) {
-            GstClockTime now = gst_clock_get_time(clock);
-            GstClockTime base = gst_element_get_base_time(GST_ELEMENT(self));
-            frame_ts = (now > base) ? (now - base) : 0;
+            const GstClockTime now = gst_clock_get_time(clock);
+            const gint64 wall_now_ns = g_get_real_time() * (gint64)GST_USECOND;
+            const GstClockTime base = gst_element_get_base_time(GST_ELEMENT(self));
             gst_object_unref(clock);
+            const GstClockTime running_now = (now > base) ? (now - base) : 0;
+            const gint64 age_ns = wall_now_ns - (gint64)(cloud->timestamp * GST_SECOND);
+
+            frame_ts = running_now;
+            if (cloud->timestamp > 0.0 && age_ns >= -(gint64)HOST_TS_MAX_FUTURE_NS &&
+                age_ns <= (gint64)HOST_TS_MAX_AGE_NS) {
+                /* Small negative ages (clock-offset estimation noise) map to "now";
+                 * captures that started before PLAYING clamp to 0. */
+                if (age_ns > 0)
+                    frame_ts = ((GstClockTime)age_ns < running_now) ? running_now - (GstClockTime)age_ns : 0;
+                GST_DEBUG_OBJECT(self,
+                                 "Using pipeline running time of frame capture (ntp-sync=false): capture %.3f ms "
+                                 "before dequeue",
+                                 (double)age_ns / GST_MSECOND);
+            } else if (!self->priv->warned_host_ts) {
+                self->priv->warned_host_ts = TRUE;
+                GST_WARNING_OBJECT(self,
+                                   "Backend frame timestamp %.6f s is not a recent host wall-clock time (age %.3f s); "
+                                   "falling back to the dequeue time as PTS (ntp-sync=false)",
+                                   cloud->timestamp, (double)age_ns / GST_SECOND);
+            }
         } else {
             frame_ts = 0;
         }
-        GST_DEBUG_OBJECT(self, "Using GStreamer pipeline running time (ntp-sync=false)");
     }
 
     GST_BUFFER_PTS(*buf) = frame_ts;

@@ -46,11 +46,11 @@ sudo apt-get install git curl g++ python3-venv opencl-c-headers ocl-icd-opencl-d
 ./g3dbevfusion_prepare_data.sh
 ```
 
-Pass the full OpenVINO version of the DL Streamer release that runs the pipeline. The extensions only load into the OpenVINO release they were built against. The export compiles the custom ops on the GPU, so in a container the GPU has to be available (`--device /dev/dri`).
+Pass the full OpenVINO version of the DL Streamer release that runs the pipeline. The extensions only load into the OpenVINO release they were built against. For a DL Streamer built on an OpenVINO nightly, pass the matching pre-release wheel version, for example `2026.5.0.dev20261030`, with `PIP_EXTRA_INDEX_URL=https://storage.openvinotoolkit.org/simple/wheels/nightly`. The export compiles the custom ops on the GPU, so in a container the GPU has to be available (`--device /dev/dri`).
 
 Run either script with `--help` for every option, including `BEVFUSION_ROOT` to use an existing openvino_contrib checkout and `NUSCENES_ROOT` to convert an existing nuScenes copy.
 
-The model script checks out a fixed commit of [openvinotoolkit/openvino_contrib](https://github.com/openvinotoolkit/openvino_contrib) and applies the patches in `samples/gstreamer/gst_launch/g3dbevfusion/patches/` on top of it. They carry the openvino_bevfusion fixes that g3dbevfusion relies on, from [openvino_contrib#1197](https://github.com/openvinotoolkit/openvino_contrib/pull/1197), until that PR is merged (override the source with `OPENVINO_CONTRIB_URL` and `OPENVINO_CONTRIB_REF`).
+The model script checks out a fixed commit of [openvinotoolkit/openvino_contrib](https://github.com/openvinotoolkit/openvino_contrib) and applies the patches in `samples/gstreamer/gst_launch/g3dbevfusion/patches/` on top of it. They carry the openvino_bevfusion fixes that g3dbevfusion relies on, from [openvino_contrib#1197](https://github.com/openvinotoolkit/openvino_contrib/pull/1197), until that PR is merged (override the source with `OPENVINO_CONTRIB_URL` and `OPENVINO_CONTRIB_REF`). They also include a fix that gives the BEV-pool op a zeroed accumulator: without it the camera branch pools into stale GPU memory and fusion detects nothing on OpenVINO 2026.5.
 
 ### Runtime configuration
 
@@ -69,6 +69,8 @@ The model script checks out a fixed commit of [openvinotoolkit/openvino_contrib]
 This is the file `g3dbevfusion_prepare_model.sh` writes. Relative paths are resolved against the configuration file's directory. The sparse encoder library reads its OpenCL kernel, `sparse_conv.cl`, from its own directory, and the kernels named in `gpu_custom_layers.xml` are resolved relative to that file. At startup the element checks `model_dir/config.json` (written by `export.py`) against the image size, feature size, camera count and class count it was built for, and fails if they differ.
 
 The extension libraries only load into the OpenVINO version they were built against. Prepare a new model directory when DL Streamer moves to a new OpenVINO release.
+
+`bev_pool.xml` must take the BEV-pool accumulator as an input (`bev_accumulator`), as `g3dbevfusion_prepare_model.sh` exports it; the element fails to start with a model exported without it.
 
 ## Calibration JSON schema
 

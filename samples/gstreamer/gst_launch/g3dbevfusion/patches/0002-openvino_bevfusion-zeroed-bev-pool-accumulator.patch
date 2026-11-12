@@ -1,0 +1,423 @@
+openvino_bevfusion: give the BEV-pool scatter a zeroed accumulator.
+
+BEVPoolScatter's GPU kernel only atomic_adds into its int32 output, and
+nothing cleared it, so the pooled camera BEV was only right on memory that
+happened to be zero. With OpenVINO 2026.3 the first inference was right and
+every later one added onto the previous frames. With OpenVINO 2026.5 the GPU
+plugin gives the scatter output a reused pool buffer that still holds the
+depth logits, so every frame came out as garbage (|BEV| ~2.6e5 instead of
+~140) and fusion detected nothing (the detection head's outputs were NaN).
+
+bev_pool.xml now takes the accumulator as a fourth input, bev_accumulator,
+that the caller binds once, zeroed. BEVPoolScatter adds into it and returns a
+one-element token that orders BEVPoolConvert after it; BEVPoolConvert reads
+the accumulator and resets it to zero for the next inference. A model input
+is never handed a pool buffer, so this holds whatever the plugin reuses. The
+3-input forms of both ops still validate, for IRs exported earlier.
+
+Remove this patch once openvino_contrib carries an equivalent fix.
+
+diff --git a/modules/openvino_bevfusion/bevfusion/bev_pool_extension.py b/modules/openvino_bevfusion/bevfusion/bev_pool_extension.py
+index ca7ecceb13238b773a24c9694a5869d65581285d..7986700f6e4527ad2527bb27f11d6c8ee1b76e45 100644
+--- a/modules/openvino_bevfusion/bevfusion/bev_pool_extension.py
++++ b/modules/openvino_bevfusion/bevfusion/bev_pool_extension.py
+@@ -48,9 +48,14 @@ def _make_bevpool_ir() -> str:
+       3. BEVPoolConvert (custom) — int32 fixed-point → float32
+ 
+     Inputs:
+-      0: depth_logits  [6, 118, 32, 88]  FP32 (pre-softmax)
+-      1: context_feats [6,  80, 32, 88]  FP32
+-      2: geom          [1993728, 3]       FP32
++      0: depth_logits    [6, 118, 32, 88]   FP32 (pre-softmax)
++      1: context_feats   [6,  80, 32, 88]   FP32
++      2: geom            [1993728, 3]        FP32
++      3: bev_accumulator [1, 80, 360, 360]  I32, zeros. BEVPoolScatter adds into
++         it and BEVPoolConvert resets it after reading, so bind one tensor
++         (zeroed once) and keep it for every inference. It is an input rather
++         than the scatter's output because the GPU plugin may give an output a
++         reused pool buffer that still holds another layer's data.
+ 
+     Output:
+       0: bev           [1, 80, 360, 360]  FP32
+@@ -86,6 +91,12 @@ def _make_bevpool_ir() -> str:
+         <dim>{total_pts}</dim><dim>3</dim>
+       </port></output>
+     </layer>
++    <layer id="7" name="bev_accumulator" type="Parameter" version="opset1">
++      <data shape="1,{out_c},{NX},{NY}" element_type="i32"/>
++      <output><port id="0" precision="I32" names="bev_accumulator">
++        <dim>1</dim><dim>{out_c}</dim><dim>{NX}</dim><dim>{NY}</dim>
++      </port></output>
++    </layer>
+ 
+     <!-- ─── Layer 1: Built-in Softmax on depth axis ─── -->
+     <layer id="3" name="depth_softmax" type="Softmax" version="opset8">
+@@ -98,7 +109,7 @@ def _make_bevpool_ir() -> str:
+       </port></output>
+     </layer>
+ 
+-    <!-- ─── Layer 2: Int32 atomic scatter ─── -->
++    <!-- ─── Layer 2: Int32 atomic scatter into bev_accumulator ─── -->
+     <layer id="4" name="bev_scatter" type="BEVPoolScatter" version="bevfusion"
+            nx="{NX}" ny="{NY}" nz="{NZ}"
+            num_cams="{num_cams}" depth_bins="{depth_bins}"
+@@ -109,19 +120,21 @@ def _make_bevpool_ir() -> str:
+         <port id="0"><dim>{num_cams}</dim><dim>{depth_bins}</dim><dim>{feat_h}</dim><dim>{feat_w}</dim></port>
+         <port id="1"><dim>{num_cams}</dim><dim>{channels}</dim><dim>{feat_h}</dim><dim>{feat_w}</dim></port>
+         <port id="2"><dim>{total_pts}</dim><dim>3</dim></port>
++        <port id="3"><dim>1</dim><dim>{out_c}</dim><dim>{NX}</dim><dim>{NY}</dim></port>
+       </input>
+-      <output><port id="3" precision="I32">
+-        <dim>1</dim><dim>{out_c}</dim><dim>{NX}</dim><dim>{NY}</dim>
++      <output><port id="4" precision="I32">
++        <dim>1</dim>
+       </port></output>
+     </layer>
+ 
+-    <!-- ─── Layer 3: Int32 → Float32 conversion ─── -->
++    <!-- ─── Layer 3: Int32 → Float32 conversion; resets bev_accumulator ─── -->
+     <layer id="5" name="bev_convert" type="BEVPoolConvert" version="bevfusion"
+            scale="8192">
+-      <input><port id="0">
+-        <dim>1</dim><dim>{out_c}</dim><dim>{NX}</dim><dim>{NY}</dim>
+-      </port></input>
+-      <output><port id="1" precision="FP32" names="bev_features">
++      <input>
++        <port id="0"><dim>1</dim></port>
++        <port id="1"><dim>1</dim><dim>{out_c}</dim><dim>{NX}</dim><dim>{NY}</dim></port>
++      </input>
++      <output><port id="2" precision="FP32" names="bev_features">
+         <dim>1</dim><dim>{out_c}</dim><dim>{NX}</dim><dim>{NY}</dim>
+       </port></output>
+     </layer>
+@@ -138,13 +151,27 @@ def _make_bevpool_ir() -> str:
+     <edge from-layer="3" from-port="1" to-layer="4" to-port="0"/>
+     <edge from-layer="1" from-port="0" to-layer="4" to-port="1"/>
+     <edge from-layer="2" from-port="0" to-layer="4" to-port="2"/>
+-    <edge from-layer="4" from-port="3" to-layer="5" to-port="0"/>
+-    <edge from-layer="5" from-port="1" to-layer="6" to-port="0"/>
++    <edge from-layer="7" from-port="0" to-layer="4" to-port="3"/>
++    <edge from-layer="4" from-port="4" to-layer="5" to-port="0"/>
++    <edge from-layer="7" from-port="0" to-layer="5" to-port="1"/>
++    <edge from-layer="5" from-port="2" to-layer="6" to-port="0"/>
+   </edges>
+ </net>
+ """
+ 
+ 
++def bind_bev_accumulator(request: ov.InferRequest) -> None:
++    """Bind a zeroed bev_accumulator to a bev_pool request, if its model has one.
++
++    BEVPoolScatter adds into this tensor and BEVPoolConvert resets it after
++    reading, so it is bound once and reused for every inference.
++    """
++    inputs = request.get_compiled_model().inputs
++    if any('bev_accumulator' in port.get_names() for port in inputs):
++        shape = request.get_compiled_model().input('bev_accumulator').get_shape()
++        request.set_tensor('bev_accumulator', ov.Tensor(np.zeros(shape, dtype=np.int32)))
++
++
+ class BEVPoolExtension:
+     """Compile-once wrapper around the BEVPool OpenVINO custom op."""
+ 
+@@ -193,6 +220,7 @@ class BEVPoolExtension:
+ 
+         self._compiled = self._core.compile_model(model, self._device, gpu_config)
+         self._request = self._compiled.create_infer_request()
++        bind_bev_accumulator(self._request)
+         print(f"[bev_pool_extension] Compiled BEVPool model on {self._device}")
+ 
+     def run(self,
+diff --git a/modules/openvino_bevfusion/openvino_extensions/bev_pool/bev_pool_convert.cl b/modules/openvino_bevfusion/openvino_extensions/bev_pool/bev_pool_convert.cl
+index 75a53bbad0211d8ce26d0e0d24d0b3569c9877da..8349411e3bf968a9d48016bd761d34e7a0f226bf 100644
+--- a/modules/openvino_bevfusion/openvino_extensions/bev_pool/bev_pool_convert.cl
++++ b/modules/openvino_bevfusion/openvino_extensions/bev_pool/bev_pool_convert.cl
+@@ -8,6 +8,8 @@
+  *
+  * Simple element-wise conversion: int32 fixed-point → float32
+  *   output[i] = (float)input[i] / FP_SCALE
++ * then input[i] = 0, so the accumulator holds zeros for the next
++ * bevpool_scatter, which only adds into it.
+  *
+  * Work sizing: one work-item per element
+  */
+@@ -15,9 +17,11 @@
+ #define FP_SCALE 8192  /* must match bevpool_scatter */
+ 
+ __kernel void bevpool_convert(
+-    __global const INPUT0_TYPE* input,   /* [1, C, NX, NY] int32 */
++    __global const INPUT0_TYPE* token,   /* [1] int32 from bevpool_scatter; only orders the kernels */
++    __global INPUT1_TYPE* input,         /* [1, C, NX, NY] int32 accumulator */
+     __global OUTPUT0_TYPE* output        /* [1, C, NX, NY] float32 */
+ ) {
+     const int idx = get_global_id(0);
+     output[idx] = (float)input[idx] / (float)FP_SCALE;
++    input[idx] = 0;
+ }
+diff --git a/modules/openvino_bevfusion/openvino_extensions/bev_pool/bev_pool_gpu.xml b/modules/openvino_bevfusion/openvino_extensions/bev_pool/bev_pool_gpu.xml
+index b8cb6a61516c60bf41bcd12d466125b88a12e81e..0442bfd2b600e8bb2bd4677f397cfde1d0a86db5 100644
+--- a/modules/openvino_bevfusion/openvino_extensions/bev_pool/bev_pool_gpu.xml
++++ b/modules/openvino_bevfusion/openvino_extensions/bev_pool/bev_pool_gpu.xml
+@@ -50,7 +50,9 @@ SPDX-License-Identifier: Apache-2.0 -->
+         <Tensor arg-index="0" type="input"  port-index="0" format="BFYX"/>
+         <Tensor arg-index="1" type="input"  port-index="1" format="BFYX"/>
+         <Tensor arg-index="2" type="input"  port-index="2" format="BFYX"/>
+-        <Tensor arg-index="3" type="output" port-index="0" format="BFYX"/>
++        <!-- The accumulator is input 3; the output is only an ordering token. -->
++        <Tensor arg-index="3" type="input"  port-index="3" format="BFYX"/>
++        <Tensor arg-index="4" type="output" port-index="0" format="BFYX"/>
+     </Buffers>
+     <CompilerOptions options="-cl-mad-enable -cl-fast-relaxed-math"/>
+     <!--
+@@ -68,8 +70,10 @@ SPDX-License-Identifier: Apache-2.0 -->
+         <Source filename="bev_pool_convert.cl"/>
+     </Kernel>
+     <Buffers>
++        <!-- Input 0 is the scatter's token, input 1 the accumulator it filled. -->
+         <Tensor arg-index="0" type="input"  port-index="0" format="BFYX"/>
+-        <Tensor arg-index="1" type="output" port-index="0" format="BFYX"/>
++        <Tensor arg-index="1" type="input"  port-index="1" format="BFYX"/>
++        <Tensor arg-index="2" type="output" port-index="0" format="BFYX"/>
+     </Buffers>
+     <CompilerOptions options="-cl-mad-enable"/>
+     <!--
+diff --git a/modules/openvino_bevfusion/openvino_extensions/bev_pool/bev_pool_op.cpp b/modules/openvino_bevfusion/openvino_extensions/bev_pool/bev_pool_op.cpp
+index 153dc84f74034e11c15570781ddd7777c1d2a2fe..471fb7d8f459d5bd34833c5f4f529510e6276129 100644
+--- a/modules/openvino_bevfusion/openvino_extensions/bev_pool/bev_pool_op.cpp
++++ b/modules/openvino_bevfusion/openvino_extensions/bev_pool/bev_pool_op.cpp
+@@ -157,15 +157,13 @@ bool BEVPool::has_evaluate() const { return true; }
+ // ═══════════════════════════════════════════════════════════════════════════
+ 
+ BEVPoolScatter::BEVPoolScatter(
+-    const ov::Output<ov::Node>& depth_probs,
+-    const ov::Output<ov::Node>& context_feats,
+-    const ov::Output<ov::Node>& geom,
++    const ov::OutputVector& inputs,
+     int64_t nx, int64_t ny, int64_t nz,
+     int64_t num_cams, int64_t depth_bins,
+     int64_t channels, int64_t feat_h, int64_t feat_w,
+     float x_min, float y_min, float z_min,
+     float x_step, float y_step, float z_step)
+-    : Op({depth_probs, context_feats, geom}),
++    : Op(inputs),
+       m_nx(nx), m_ny(ny), m_nz(nz),
+       m_num_cams(num_cams), m_depth_bins(depth_bins),
+       m_channels(channels), m_feat_h(feat_h), m_feat_w(feat_w),
+@@ -176,17 +174,25 @@ BEVPoolScatter::BEVPoolScatter(
+ }
+ 
+ void BEVPoolScatter::validate_and_infer_types() {
+-    // Output: int32 [1, C*NZ, NX, NY]
+-    set_output_type(0, ov::element::i32,
+-                    ov::PartialShape{1, m_channels * m_nz, m_nx, m_ny});
++    const ov::PartialShape accum_shape{1, m_channels * m_nz, m_nx, m_ny};
++    NODE_VALIDATION_CHECK(this, get_input_size() == 3 || get_input_size() == 4,
++                          "BEVPoolScatter takes 3 inputs, or 4 with the accumulator");
++    if (get_input_size() == 4) {
++        NODE_VALIDATION_CHECK(this, get_input_element_type(3) == ov::element::i32 &&
++                                        get_input_partial_shape(3).compatible(accum_shape),
++                              "BEVPoolScatter input 3 must be an i32 ", accum_shape, " accumulator");
++        set_output_type(0, ov::element::i32, ov::PartialShape{1});
++    } else {
++        set_output_type(0, ov::element::i32, accum_shape);
++    }
+ }
+ 
+ std::shared_ptr<ov::Node> BEVPoolScatter::clone_with_new_inputs(
+     const ov::OutputVector& new_args) const
+ {
+-    OPENVINO_ASSERT(new_args.size() == 3, "BEVPoolScatter requires 3 inputs");
++    OPENVINO_ASSERT(new_args.size() == 3 || new_args.size() == 4, "BEVPoolScatter requires 3 or 4 inputs");
+     return std::make_shared<BEVPoolScatter>(
+-        new_args[0], new_args[1], new_args[2],
++        new_args,
+         m_nx, m_ny, m_nz,
+         m_num_cams, m_depth_bins, m_channels, m_feat_h, m_feat_w,
+         m_x_min, m_y_min, m_z_min,
+@@ -229,9 +235,17 @@ bool BEVPoolScatter::evaluate(ov::TensorVector& outputs,
+ 
+     constexpr int FP_SCALE = 8192;
+ 
+-    ov::Shape out_shape{1, size_t(C * nz), size_t(nx), size_t(ny)};
+-    outputs[0].set_shape(out_shape);
+-    int32_t* out = outputs[0].data<int32_t>();
++    // With the 4-input form the sums go into the accumulator input, which
++    // BEVPoolConvert reads and resets; the output is just an ordering token.
++    int32_t* out;
++    if (inputs.size() == 4) {
++        out = static_cast<int32_t*>(const_cast<void*>(inputs[3].data()));
++        outputs[0].set_shape(ov::Shape{1});
++        outputs[0].data<int32_t>()[0] = 0;
++    } else {
++        outputs[0].set_shape(ov::Shape{1, size_t(C * nz), size_t(nx), size_t(ny)});
++        out = outputs[0].data<int32_t>();
++    }
+     std::fill(out, out + output_elems, 0);
+ 
+     for (int p = 0; p < total_pts; ++p) {
+@@ -267,21 +281,23 @@ bool BEVPoolScatter::has_evaluate() const { return true; }
+ // ═══════════════════════════════════════════════════════════════════════════
+ 
+ BEVPoolConvert::BEVPoolConvert(
+-    const ov::Output<ov::Node>& bev_accum, int64_t scale)
+-    : Op({bev_accum}), m_scale(scale)
++    const ov::OutputVector& inputs, int64_t scale)
++    : Op(inputs), m_scale(scale)
+ {
+     constructor_validate_and_infer_types();
+ }
+ 
+ void BEVPoolConvert::validate_and_infer_types() {
+-    set_output_type(0, ov::element::f32, get_input_partial_shape(0));
++    NODE_VALIDATION_CHECK(this, get_input_size() == 1 || get_input_size() == 2,
++                          "BEVPoolConvert takes the accumulator, or a scatter token and the accumulator");
++    set_output_type(0, ov::element::f32, get_input_partial_shape(get_input_size() - 1));
+ }
+ 
+ std::shared_ptr<ov::Node> BEVPoolConvert::clone_with_new_inputs(
+     const ov::OutputVector& new_args) const
+ {
+-    OPENVINO_ASSERT(new_args.size() == 1, "BEVPoolConvert requires 1 input");
+-    return std::make_shared<BEVPoolConvert>(new_args[0], m_scale);
++    OPENVINO_ASSERT(new_args.size() == 1 || new_args.size() == 2, "BEVPoolConvert requires 1 or 2 inputs");
++    return std::make_shared<BEVPoolConvert>(new_args, m_scale);
+ }
+ 
+ bool BEVPoolConvert::visit_attributes(ov::AttributeVisitor& visitor) {
+@@ -292,14 +308,17 @@ bool BEVPoolConvert::visit_attributes(ov::AttributeVisitor& visitor) {
+ bool BEVPoolConvert::evaluate(ov::TensorVector& outputs,
+                               const ov::TensorVector& inputs) const
+ {
+-    auto shape = inputs[0].get_shape();
+-    outputs[0].set_shape(shape);
+-    const int32_t* in = inputs[0].data<int32_t>();
++    const ov::Tensor& accum = inputs.back();
++    outputs[0].set_shape(accum.get_shape());
++    int32_t* in = static_cast<int32_t*>(const_cast<void*>(accum.data()));
+     float* out = outputs[0].data<float>();
+-    size_t n = inputs[0].get_size();
++    size_t n = accum.get_size();
+     float inv = 1.0f / float(m_scale);
+     for (size_t i = 0; i < n; ++i)
+         out[i] = float(in[i]) * inv;
++    // The 4-input scatter adds into this accumulator: leave it zeroed for the next inference.
++    if (inputs.size() == 2)
++        std::fill(in, in + n, 0);
+     return true;
+ }
+ 
+diff --git a/modules/openvino_bevfusion/openvino_extensions/bev_pool/bev_pool_op.hpp b/modules/openvino_bevfusion/openvino_extensions/bev_pool/bev_pool_op.hpp
+index 4887d7c5e951054887f171fd7a322b1360ecd6d4..c904147089a0deec114185b7a9a54f24f8e6b71f 100644
+--- a/modules/openvino_bevfusion/openvino_extensions/bev_pool/bev_pool_op.hpp
++++ b/modules/openvino_bevfusion/openvino_extensions/bev_pool/bev_pool_op.hpp
+@@ -66,9 +66,17 @@ private:
+  *   0: depth_probs   - [N, D, H, W]  softmax probabilities (FP32)
+  *   1: context_feats - [N, C, H, W]  context features      (FP32)
+  *   2: geom          - [N*D*H*W, 3]  world-space coords    (FP32)
++ *   3: bev_accum     - [1, C*NZ, NX, NY] int32 accumulator (optional)
+  *
+  * Outputs:
+- *   0: bev_accum     - [1, C*NZ, NX, NY] int32 fixed-point accumulator
++ *   with input 3: a [1] int32 token that orders BEVPoolConvert after the
++ *                 scatter. The scatter adds into input 3 in place, which
++ *                 must hold zeros; BEVPoolConvert resets it after reading.
++ *   without:      0: bev_accum - [1, C*NZ, NX, NY] int32 accumulator. The
++ *                 GPU kernel only adds into it and never zeroes it, so this
++ *                 form is only correct on memory that happens to be zero.
++ *                 The GPU plugin can hand the op a reused pool buffer, so
++ *                 prefer the 4-input form.
+  */
+ class BEVPoolScatter : public ov::op::Op {
+ public:
+@@ -76,9 +84,7 @@ public:
+ 
+     BEVPoolScatter() = default;
+ 
+-    BEVPoolScatter(const ov::Output<ov::Node>& depth_probs,
+-                   const ov::Output<ov::Node>& context_feats,
+-                   const ov::Output<ov::Node>& geom,
++    BEVPoolScatter(const ov::OutputVector& inputs,
+                    int64_t nx = 360, int64_t ny = 360, int64_t nz = 1,
+                    int64_t num_cams = 6, int64_t depth_bins = 118,
+                    int64_t channels = 80, int64_t feat_h = 32, int64_t feat_w = 88,
+@@ -109,8 +115,10 @@ private:
+  * Converts int32 fixed-point accumulator to float32.
+  * Simple element-wise: output[i] = (float)input[i] / SCALE
+  *
+- * Inputs:
++ * Inputs, one of:
+  *   0: bev_accum - [1, C, NX, NY] int32 fixed-point
++ *   0: token     - [1] int32 from the 4-input BEVPoolScatter (orders this op after it)
++ *   1: bev_accum - [1, C, NX, NY] int32 fixed-point; reset to zero once read
+  *
+  * Outputs:
+  *   0: bev_float - [1, C, NX, NY] float32
+@@ -121,7 +129,7 @@ public:
+ 
+     BEVPoolConvert() = default;
+ 
+-    BEVPoolConvert(const ov::Output<ov::Node>& bev_accum,
++    BEVPoolConvert(const ov::OutputVector& inputs,
+                    int64_t scale = 8192);
+ 
+     void validate_and_infer_types() override;
+diff --git a/modules/openvino_bevfusion/openvino_extensions/bev_pool/bev_pool_scatter.cl b/modules/openvino_bevfusion/openvino_extensions/bev_pool/bev_pool_scatter.cl
+index aa4396ccc3c03e3d6fa86cee2693acf76a9c88d8..c8b69107c05a7b40c0d07f0a9065a5e42f165059 100644
+--- a/modules/openvino_bevfusion/openvino_extensions/bev_pool/bev_pool_scatter.cl
++++ b/modules/openvino_bevfusion/openvino_extensions/bev_pool/bev_pool_scatter.cl
+@@ -65,7 +65,13 @@ __kernel void bevpool_scatter(
+     __global const INPUT0_TYPE* depth_probs,    /* [N, D, H, W] (softmax) */
+     __global const INPUT1_TYPE* context_feats,  /* [N, C, H, W] */
+     __global const INPUT2_TYPE* geom,           /* [N*D*H*W, 3] */
+-    __global OUTPUT0_TYPE* output               /* [1, C*NZ, NX, NY] int32 */
++    /* [1, C*NZ, NX, NY] int32 accumulator: a model input that holds zeros on
++     * entry (bevpool_convert resets it after reading). It is not this
++     * kernel's output because the GPU plugin may hand an output a reused
++     * pool buffer that still holds another layer's data, and this kernel only
++     * adds into it. */
++    __global INPUT3_TYPE* output,
++    __global OUTPUT0_TYPE* token                /* [1] int32, orders bevpool_convert after this kernel */
+ ) {
+     const int D  = DEPTH_BINS;   /* 118 */
+     const int H  = FEAT_H;      /* 32  */
+diff --git a/modules/openvino_bevfusion/openvino_extensions/gpu_custom_layers.xml b/modules/openvino_bevfusion/openvino_extensions/gpu_custom_layers.xml
+index 7cc18b7a3d6be9005922ce79300bf00479aee3b8..8c5b9503a3da205e19b753631b15647af2403c3a 100644
+--- a/modules/openvino_bevfusion/openvino_extensions/gpu_custom_layers.xml
++++ b/modules/openvino_bevfusion/openvino_extensions/gpu_custom_layers.xml
+@@ -46,7 +46,9 @@ SPDX-License-Identifier: Apache-2.0 -->
+         <Tensor arg-index="0" type="input"  port-index="0" format="BFYX"/>
+         <Tensor arg-index="1" type="input"  port-index="1" format="BFYX"/>
+         <Tensor arg-index="2" type="input"  port-index="2" format="BFYX"/>
+-        <Tensor arg-index="3" type="output" port-index="0" format="BFYX"/>
++        <!-- The accumulator is input 3; the output is only an ordering token. -->
++        <Tensor arg-index="3" type="input"  port-index="3" format="BFYX"/>
++        <Tensor arg-index="4" type="output" port-index="0" format="BFYX"/>
+     </Buffers>
+     <CompilerOptions options="-cl-mad-enable -cl-fast-relaxed-math"/>
+     <!--
+@@ -69,8 +71,10 @@ SPDX-License-Identifier: Apache-2.0 -->
+         <Source filename="bev_pool_convert.cl"/>
+     </Kernel>
+     <Buffers>
++        <!-- Input 0 is the scatter's token, input 1 the accumulator it filled. -->
+         <Tensor arg-index="0" type="input"  port-index="0" format="BFYX"/>
+-        <Tensor arg-index="1" type="output" port-index="0" format="BFYX"/>
++        <Tensor arg-index="1" type="input"  port-index="1" format="BFYX"/>
++        <Tensor arg-index="2" type="output" port-index="0" format="BFYX"/>
+     </Buffers>
+     <CompilerOptions options="-cl-mad-enable"/>
+     <WorkSizes dim="output" global="B*F*Y*X,1,1" local=""/>
+diff --git a/modules/openvino_bevfusion/run_inference_standalone.py b/modules/openvino_bevfusion/run_inference_standalone.py
+index 5eb1a9e1d22ee6e01b5e34542d279dff9a246840..668a32afb6263c902eaaac93a51200c73f1236c1 100644
+--- a/modules/openvino_bevfusion/run_inference_standalone.py
++++ b/modules/openvino_bevfusion/run_inference_standalone.py
+@@ -406,6 +406,9 @@ class BEVFusionInference:
+         self.requests = {
+             name: cm.create_infer_request() for name, cm in self.models.items()
+         }
++        if 'bev_pool' in self.requests:
++            from bevfusion.bev_pool_extension import bind_bev_accumulator
++            bind_bev_accumulator(self.requests['bev_pool'])
+ 
+         # Set up RemoteTensor GPU buffer sharing between models
+         self._setup_gpu_sharing()
