@@ -4,8 +4,9 @@
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
-// PrepareModel(): the steps depend on each other, see the order in PrepareModel(). The layout comments in
-// ConfigureImageInput explain how tensor and model layouts are reconciled.
+// PrepareModel() runs its steps in a fixed order, each relying on the previous one: record the original input size,
+// reshape, configure the input pre-processing and build, set the batch size, describe the final image input.
+// The layout comments in ConfigureImageInput explain how tensor and model layouts are reconciled.
 
 #include "openvino_prepared_model.h"
 
