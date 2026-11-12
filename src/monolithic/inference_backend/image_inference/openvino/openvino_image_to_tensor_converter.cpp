@@ -12,6 +12,8 @@
 
 #include "openvino_core.h"
 
+#include <dlstreamer/openvino/context.h>
+
 #include <openvino/runtime/intel_gpu/properties.hpp>
 
 #ifdef _WIN32
@@ -25,7 +27,7 @@
 namespace InferenceBackend {
 namespace OpenVino {
 
-ImageToTensorConverter::ImageToTensorConverter(dlstreamer::OpenVINOContextPtr gpu_context)
+ImageToTensorConverter::ImageToTensorConverter(std::shared_ptr<dlstreamer::OpenVINOContext> gpu_context)
     : _gpu_context(std::move(gpu_context)) {
 }
 

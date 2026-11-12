@@ -12,8 +12,6 @@
 
 #include "inference_backend/image.h"
 
-#include <dlstreamer/openvino/context.h>
-
 #include <openvino/openvino.hpp>
 #include <openvino/runtime/intel_npu/level_zero/level_zero.hpp>
 
@@ -22,13 +20,19 @@
 #include <unordered_map>
 #include <vector>
 
+// Only declared here: dlstreamer/openvino/context.h needs OpenCL headers, which the targets that include this header
+// do not have (Windows).
+namespace dlstreamer {
+class OpenVINOContext;
+}
+
 namespace InferenceBackend {
 namespace OpenVino {
 
 class ImageToTensorConverter {
   public:
     // gpu_context is only used for images that are GPU surfaces (VA surfaces, D3D textures); it may be null otherwise.
-    explicit ImageToTensorConverter(dlstreamer::OpenVINOContextPtr gpu_context);
+    explicit ImageToTensorConverter(std::shared_ptr<dlstreamer::OpenVINOContext> gpu_context);
 
     // One tensor per model input plane: 1 for packed and planar RGB, 2 for NV12 (Y, UV), 3 for I420 (Y, U, V).
     // The tensors reference the image memory, so the image must outlive them.
@@ -46,7 +50,7 @@ class ImageToTensorConverter {
     std::vector<ov::Tensor> image_d3d_bgrx_surface_to_tensor(const Image &image);
     std::vector<ov::Tensor> image_i420_to_tensor(const Image &image) const;
 
-    dlstreamer::OpenVINOContextPtr _gpu_context;
+    std::shared_ptr<dlstreamer::OpenVINOContext> _gpu_context;
 
     // Persistent NPU Level Zero context and per-DMA-BUF-fd remote tensor cache for the
     // VAAPI_SYSTEM zero-copy path (avoids re-creating a context and re-importing the fd
