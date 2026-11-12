@@ -15,7 +15,7 @@ namespace gvaeventrecorder {
 
 // Fixed-capacity sliding window, continuously fed and never reset by triggers (see
 // PreEventRing::snapshot). Generic over T so it can be unit tested with plain values;
-// the element uses T = GstBuffer* with an on_evict callback that unrefs evicted buffers.
+// the element stores CachedFrame entries with an on_evict callback that unrefs their buffers.
 template <typename T>
 class PreEventRing {
   public:
@@ -37,6 +37,7 @@ class PreEventRing {
     }
 
     // Oldest-first copy of the currently buffered items, e.g. to seed a new recording session.
+    // Copies entries without taking buffer refs; the caller must ref any buffer it keeps.
     std::vector<T> snapshot() const {
         return std::vector<T>(frames_.begin(), frames_.end());
     }

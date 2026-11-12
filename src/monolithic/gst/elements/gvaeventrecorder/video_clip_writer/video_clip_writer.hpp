@@ -22,6 +22,7 @@ namespace gvaeventrecorder {
 
 enum class EncoderMode { Software, VaApi, Auto };
 
+// Copied when the clip is opened; later recorder property changes do not affect it.
 struct ClipConfig {
     std::string output_path;
     GstVideoInfo video_info{};
@@ -34,7 +35,7 @@ struct ClipConfig {
 // Encodes and muxes event clips to disk off the streaming thread. Each open clip owns a
 // persistent appsrc ! videoconvert ! encoder ! h264parse ! mp4mux ! filesink pipeline that
 // is fed incrementally via append() and finalized by close(). All commands are executed in
-// order by a single background worker, so the caller never blocks on pipeline setup/teardown.
+// order by a single background worker; only stop() blocks, until all clips are finalized.
 class VideoClipWriter {
   public:
     using ClipId = uint64_t;
@@ -77,12 +78,13 @@ class VideoClipWriter {
     std::thread thread_;
     std::mutex mutex_;
     std::condition_variable cv_;
+    // Unbounded: a slow encoder or disk lets queued frames pile up.
     std::queue<Command> queue_;
     ClipId next_id_ = 0;
     bool running_ = false;
     bool stop_requested_ = false;
 
-    // Worker-thread only.
+    // Worker-thread only: active clips accept frames; closing clips wait for muxer EOS.
     std::map<ClipId, std::unique_ptr<Clip>> clips_;
     std::vector<std::unique_ptr<Clip>> closing_;
 };

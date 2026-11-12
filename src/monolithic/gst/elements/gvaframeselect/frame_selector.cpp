@@ -11,6 +11,8 @@
 
 namespace gvaframeselect {
 
+// Picks which frames of a block to keep: k indices spread evenly from the first (0) to the last
+// (N-1) frame. k = 1 keeps only the first; k >= N keeps all.
 std::vector<std::size_t> select_indices(std::size_t frame_count, std::size_t frame_budget) {
     if (frame_count == 0 || frame_budget == 0)
         return {};

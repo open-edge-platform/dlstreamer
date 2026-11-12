@@ -64,12 +64,14 @@ constexpr auto kClosingPollPeriod = std::chrono::milliseconds(20);
 
 } // namespace
 
+// Per-clip encoding pipeline; a failed clip stays in the map so its later frames are discarded.
 struct VideoClipWriter::Clip {
     std::string output_path;
     GstElement *pipeline = nullptr;
     GstElement *appsrc = nullptr;
     GstBus *bus = nullptr;
     guint64 frame_duration = 0;
+    // Synthetic clip timeline: starts at 0 and advances one frame duration per frame.
     guint64 next_pts = 0;
     guint64 flush_interval_ns = 0; // 0 = not fragmented
     guint64 fragment_start_pts = 0;
@@ -171,6 +173,12 @@ void VideoClipWriter::push_command(Command cmd) {
     cv_.notify_one();
 }
 
+// Executes queued open/append/close requests in order. Close only sends EOS; while clips are
+// closing, the loop keeps checking them, so a slow muxer does not delay other clips.
+//
+//   Open --> Append (repeated) --> Close --> [in background: wait for EOS] --> release
+//
+// On stop: drain the queue, close remaining clips, wait for all of them.
 void VideoClipWriter::worker_main() {
     for (;;) {
         Command cmd;
@@ -216,6 +224,7 @@ void VideoClipWriter::worker_main() {
     }
 }
 
+// One pipeline per clip; a flush interval selects fragmented MP4 (keyframes are forced in handle_append).
 void VideoClipWriter::handle_open(Command &cmd) {
     auto clip = std::make_unique<Clip>();
     Clip &c = *clip;
@@ -268,6 +277,7 @@ void VideoClipWriter::handle_open(Command &cmd) {
               cmd.config.flush_interval_ms);
 }
 
+// Polls the clip's bus; an error marks the clip failed and tears down its pipeline.
 void VideoClipWriter::check_bus_errors(Clip &clip) {
     if (!clip.bus)
         return;
@@ -278,6 +288,7 @@ void VideoClipWriter::check_bus_errors(Clip &clip) {
     }
 }
 
+// Pushes frames into the clip's appsrc (dropped if it failed); takes ownership of every ref.
 void VideoClipWriter::handle_append(Command &cmd) {
     auto it = clips_.find(cmd.id);
     if (it == clips_.end()) {
@@ -325,6 +336,7 @@ void VideoClipWriter::handle_append(Command &cmd) {
     }
 }
 
+// Sends EOS without waiting; reap_closing() cleans up once the muxer has finished.
 void VideoClipWriter::handle_close(ClipId id) {
     auto it = clips_.find(id);
     if (it == clips_.end())

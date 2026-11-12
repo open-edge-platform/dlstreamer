@@ -39,7 +39,13 @@ EventSessionController::FrameOutcome
 EventSessionController::process_frame(uint64_t tick, const std::vector<DetectionInput> &detections) {
     FrameOutcome outcome;
 
-    // Keep a session through the full event; start POST only after the class disappears.
+    // Per-class session lifecycle:
+    //
+    //   Trigger --> EVENT --> POST --> Finished
+    //
+    //   EVENT -> POST      : no detection for more than event-gap-frames frames
+    //   POST  -> Finished  : post-event-frames elapsed (POST is skipped if it is <= 1)
+    //   EVENT/POST -> EVENT: target detected again
     for (auto it = sessions_.begin(); it != sessions_.end();) {
         const bool detected = std::any_of(detections.begin(), detections.end(), [this, &it](const DetectionInput &d) {
             return d.label == it->class_label && d.confidence >= config_.confidence_threshold;
@@ -59,6 +65,7 @@ EventSessionController::process_frame(uint64_t tick, const std::vector<Detection
             if (it->missing_detection_frames > config_.event_gap_frames) {
                 it->event_active = false;
                 it->post_event_remaining = config_.post_event_frames;
+                // The first frame beyond the gap already counts toward POST.
                 if (it->post_event_remaining > 0)
                     --it->post_event_remaining;
                 finished = it->post_event_remaining == 0;
@@ -78,6 +85,7 @@ EventSessionController::process_frame(uint64_t tick, const std::vector<Detection
         }
     }
 
+    // Sessions are updated first, so a slot freed on this frame can be reused below.
     for (const auto &d : detections) {
         if (!is_target_class(d.label) || d.confidence < config_.confidence_threshold)
             continue;
@@ -92,6 +100,7 @@ EventSessionController::process_frame(uint64_t tick, const std::vector<Detection
         if (cooldown_active)
             continue; // suppressed repeat trigger, cooldown window not restarted
 
+        // Cooldown starts even if the trigger is dropped for capacity, so it is not retried every frame.
         cd.has_triggered = true;
         cd.first_trigger_tick = tick;
 
@@ -109,6 +118,7 @@ EventSessionController::process_frame(uint64_t tick, const std::vector<Detection
         sessions_.push_back(s);
     }
 
+    // True only during EVENT, not POST; the recorder decides forwarding from session IDs instead.
     outcome.forward = std::any_of(sessions_.begin(), sessions_.end(), [](const Session &s) { return s.event_active; });
 
     return outcome;
