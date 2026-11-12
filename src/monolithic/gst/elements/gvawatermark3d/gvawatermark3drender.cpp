@@ -17,7 +17,6 @@
 #include <gst/video/video.h>
 #include <nlohmann/json.hpp>
 #include <opencv2/core/quaternion.hpp>
-#include <opencv2/geometry/3d.hpp>
 #include <sstream>
 
 enum {

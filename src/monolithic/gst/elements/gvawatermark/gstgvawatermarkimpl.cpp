@@ -19,7 +19,6 @@
 #include <gst/video/video-info.h>
 
 #include <inference_backend/logger.h>
-#include <opencv2/geometry.hpp>
 #include <safe_arithmetic.hpp>
 
 #include "gva_caps.h"
