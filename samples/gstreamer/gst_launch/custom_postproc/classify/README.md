@@ -36,27 +36,12 @@ The pipeline uses the `gvaclassify` element with the `custom-postproc-lib` param
 
 ## Models
 
-The sample uses the following pre-trained models:
+The example pipeline uses these pre-trained models:
 
 * **centerface** - primary detection network for finding faces
 * **hsemotion** - emotion classification on detected faces with custom post-processing
 
-Use [`download_other_models.py`](../../../../../scripts/download_models/download_other_models.py) to download required models. To do this, please follow [`README`](../../../../../scripts/download_models/README.md). You can download both models by executing:
-
-```sh
-cd ../../../../../scripts/download_models
-python download_other_models.py centerface
-python download_other_models.py hsemotion
-```
-
-Or download all available models:
-
-```sh
-cd ../../../../../scripts/download_models
-python download_other_models.py all
-```
-
-> **NOTE**: Remember to set the `MODELS_PATH` environment variable, which is needed by both the script that downloads the models and the script that runs the sample.
+Prepare compatible models using the general [`download_other_models.py`](../../../../../scripts/download_models/README.md) helper; `centerface` and `hsemotion` are examples. The classification model must provide outputs compatible with this sample's custom post-processing library. Set `MODELS_PATH` to the prepared model directory.
 
 These instructions assume that the DLStreamer framework is installed on your local system, along with the OpenVINO™ model downloader and converter tools, as described in this [tutorial](../../../../../docs/user-guide/tutorial.md#setup).
 
@@ -78,7 +63,7 @@ The sample takes three command-line *optional* parameters:
    * `json` - writes metadata to JSON file
    * `display-and-json` - renders to screen and writes to JSON file
 
-3. **[INPUT_VIDEO]** to specify input video source (default: sample video from web)
+3. **[INPUT_VIDEO]** is required. Use any local video, supported stream URL, or camera device; a clip containing faces is useful for this example.
    * Local video file path
    * Web camera device (e.g., `/dev/video0`)
    * RTSP camera URL (starting with `rtsp://`)
@@ -87,11 +72,11 @@ The sample takes three command-line *optional* parameters:
 Examples:
 
 ```sh
-# Run with default parameters (GPU device, file output)
-./build_and_run.sh
+# Run with the example models, GPU device, and a local video
+./build_and_run.sh GPU file /path/to/video.mp4
 
 # Run on CPU with display output
-./build_and_run.sh CPU display
+./build_and_run.sh CPU display /path/to/video.mp4
 
 # Run with webcam input
 ./build_and_run.sh GPU display /dev/video0

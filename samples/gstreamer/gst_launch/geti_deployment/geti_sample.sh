@@ -25,7 +25,7 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
   echo "  MODEL_PATH       - Path to the model XML file relative to MODELS_PATH (default: /home/path/to/your/model.xml)"
   echo "  DEVICE           - Device (default: CPU). Supported: CPU, GPU, NPU"
   echo "  PREPROC_BACKEND  - Preprocessing backend (default: opencv for CPU, va-surface-sharing for GPU, va for NPU). Supported: ie, opencv, va, va-surface-sharing"
-  echo "  INPUT            - Input source (default: Pexels video URL)"
+  echo "  INPUT            - Required input source: video path, stream URL, or camera device"
   echo "  OUTPUT           - Output type (default: file). Supported: file, display, fps, json, display-and-json"
   echo ""
   exit 0
@@ -40,7 +40,11 @@ DEVICE=${3:-CPU}
 # PREPROC_BACKEND can be ie/opencv for CPU or va/va-surface-sharing GPU or va for NPU.
 PREPROC_BACKEND=${4:-"opencv"}
 # INPUT can be a file path, a URL, or a video device (e.g., /dev/video0)
-INPUT=${5:-https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4}
+INPUT=${5:-}
+if [[ -z "$INPUT" ]]; then
+  echo "Error: provide an input video path, stream URL, or camera device as the fifth argument." >&2
+  exit 2
+fi
 # OUTPUT can be file, display, fps, json, display-and-json
 OUTPUT=${6:-file}
 

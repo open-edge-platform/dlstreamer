@@ -14,7 +14,7 @@ if [ $# -gt 0 ] && ([ "$1" = "--help" ] || [ "$1" = "-h" ]); then
   echo "Usage: $0 [INPUT] [DETECT_DEVICE] [DEPTH_DEVICE] [OUTPUT] [EOS_FRAME]"
   echo ""
   echo "Arguments:"
-  echo "  INPUT          - Input source (default: Pexels video URL)"
+  echo "  INPUT          - Required input video path, stream URL, or camera device"
   echo "  DETECT_DEVICE  - Device for YOLO11n detection (default: GPU). Supported: CPU, GPU"
   echo "  DEPTH_DEVICE   - Device for Depth Anything inference (default: GPU). Supported: CPU, GPU"
   echo "  OUTPUT         - Output type (default: display). Supported: display, fps, json, display-and-json"
@@ -49,7 +49,11 @@ fallback_gpu_device() {
   echo "$value"
 }
 
-INPUT=${1:-https://videos.pexels.com/video-files/18553046/18553046-hd_1280_720_30fps.mp4}
+INPUT=${1:-}
+if [[ -z "$INPUT" ]]; then
+  echo "Error: provide an input video path, stream URL, or camera device as the first argument." >&2
+  exit 2
+fi
 DETECT_DEVICE=${2:-GPU}
 DEPTH_DEVICE=${3:-GPU}
 OUTPUT=${4:-display}

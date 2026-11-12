@@ -120,8 +120,7 @@ cd /opt/intel/dlstreamer/samples/gstreamer/gst_launch/python-elements/loitering_
 
 ### Prepare Model
 
-This sample expects `yolo11s` in FP16 precision from Ultralytics for object detection.
-Use the [Ultralytics model conversion](../../../../scripts/download_models/README.md#2-ultralytics-conversion) to prepare the model.
+The example uses `yolo11s` in FP16 precision; any compatible detector and matching loitering configuration can be used. Prepare the example model with the general [Ultralytics conversion helper](../../../../scripts/download_models/README.md#2-ultralytics-conversion), selecting `yolo11s.pt`.
 
 ### Execution
 
@@ -134,8 +133,7 @@ The script accepts positional parameters in this order:
 
 Parameter details:
 
-- `INPUT`: Input video file path or URL.
-  - Default: `https://github.com/open-edge-platform/edge-ai-resources/raw/refs/heads/main/videos/VIRAT_S_000101.mp4`
+- `INPUT`: Required input video file path or URL. Use a clip supported by GStreamer that contains people; the example path below is illustrative.
 - `CONFIG_FILE`: Zone configuration file for loitering detection.
   - Default: `<sample_dir>/virat_s_000101-config.json`
 - `MODEL`: Path to OpenVINO IR XML model used by `gvadetect`.
@@ -159,7 +157,8 @@ Example:
 
 ```sh
 # Use all defaults
-./loitering_detection.sh
+# Use the example config/model with a local video
+./loitering_detection.sh /path/to/video.mp4
 ```
 
 

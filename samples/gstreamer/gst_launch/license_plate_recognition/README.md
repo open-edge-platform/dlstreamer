@@ -23,30 +23,27 @@ This sample builds a GStreamer pipeline of the following elements:
 
 ## Models
 
-The sample uses the [`yolov8_license_plate_detector`](https://github.com/open-edge-platform/edge-ai-resources/blob/main/models/license-plate-reader.zip) model for license plate detection and the [`ch_PP-OCRv4_rec_infer`](https://github.com/PaddlePaddle/PaddleOCR) model for optical character recognition (OCR). The required model preparation is handled by [`download_other_models.py`](../../../../scripts/download_models/download_other_models.py).
+The example pipeline uses `yolov8_license_plate_detector` for plate detection and `ch_PP-OCRv4_rec_infer` for OCR. These models are examples; a replacement must be compatible with the pipeline's model paths and preprocessing/postprocessing configuration. Prepare supported models with the general [`download_other_models.py`](../../../../scripts/download_models/README.md) helper.
 
-The accuracy of license plate detection depends on whether the applied model has been trained using data representing license plates from a specific region. In addition to the default model used in this example, the same pipeline can be used with other license plate detectors, such as the one available [`here`](https://github.com/Muhammad-Zeerak-Khan/Automatic-License-Plate-Recognition-using-YOLOv8).
+The accuracy of license plate detection depends on whether the applied model has been trained using data representing license plates from a specific region. Choose a compatible detector trained for the relevant region; replacing the example model may require updating its pipeline configuration.
 
 ## Running
 
-Set up the `download_other_models.py` environment first as described in the [download_models README](../../../../scripts/download_models/README.md).
+Prepare compatible models before running the sample. See the [download_models README](../../../../scripts/download_models/README.md) for helper setup and supported models.
 
 ```sh
-    export MODELS_PATH="$HOME"/models
-    cd /opt/intel/dlstreamer/scripts/download_models/
-    python download_other_models.py yolov8_license_plate_detector,ch_PP-OCRv4_rec_infer
     cd /opt/intel/dlstreamer/samples/gstreamer/gst_launch/license_plate_recognition/
     ./license_plate_recognition.sh [INPUT] [DEVICE] [OUTPUT]
 ```
 
-The sample takes three command-line *optional* parameters:
+The sample requires an input source; device and output mode are optional:
 
 1. [INPUT] to specify the input source.  
 The input could be:
     * local video file
     * web camera device (e.g., `/dev/video0`)
     * RTSP camera (URL starting with `rtsp://`) or other streaming source (e.g., URL starting with `http://`)  
-If the parameter is not specified, the sample by default streams a video example from an HTTPS link (utilizing the `urisourcebin` element), so it requires an internet connection.
+Use any local video, supported stream URL, or camera source. A clip containing visible license plates is useful for checking the result.
 
 2. [DEVICE] to specify the device for inference.  
    You can choose either `CPU`, `GPU` or `AUTO`.

@@ -249,38 +249,22 @@ sequenceDiagram
 </br>
 
 ## Prerequisite
-This sample application requires video and model files. Those files can be downloaded in the following way:
+This sample application requires a video file and two models. Use any local video supported by GStreamer that contains vehicles. The source currently refers to YOLO11s and `dima806/vehicle_10_types_image_detection` as example models; compatible alternatives require updating the model paths in the sample.
 </br>
 
 #### Video sample
-Sample video file are available in the following repo: [edge-ai-resources](https://github.com/open-edge-platform/edge-ai-resources). But that particular one used in this sample can be downloaded by following command(s):
-```
-mkdir videos
-wget -P ./videos https://github.com/open-edge-platform/edge-ai-resources/raw/main/videos/cars_extended.mp4
-```
+Use any local video supported by GStreamer that contains vehicles; the path used by the sample is an example. Obtain a suitable clip from a source available to you and pass its local path.
 </br>
 
 #### Model files
-The sample requires two models and expects them under the directory pointed to by the
-`MODELS_PATH` environment variable (see [`scripts/download_models/README.md`](../../../../scripts/download_models/README.md)
-for setup notes - virtual environment, dependencies).
+Prepare compatible detector and classifier models with the general helpers described in
+[`scripts/download_models/README.md`](../../../../scripts/download_models/README.md): the Ultralytics
+helper for YOLO11s and the Hugging Face helper for the example vehicle classifier. The README
+documents their setup and supported models.
 
-__yolo11s__ (truck/vehicle detection) is prepared with [`download_ultralytics_models.py`](../../../../scripts/download_models/download_ultralytics_models.py):
-
-```
-python download_ultralytics_models.py --model yolo11s --outdir $MODELS_PATH/public
-```
-
-__dima806/vehicle_10_types_image_detection__ is a Hugging Face model and is prepared with [`download_hf_models.py`](../../../../scripts/download_models/download_hf_models.py):
-
-```
-python download_hf_models.py --model dima806/vehicle_10_types_image_detection --outdir $MODELS_PATH/public
-```
-
-This produces `$MODELS_PATH/public/yolo11s/FP16/yolo11s.xml` and
-`$MODELS_PATH/public/dima806_vehicle_10_types_image_detection/FP16/dima806_vehicle_10_types_image_detection.xml`
-(each with a matching `.bin`), the paths referenced by the sample's `gvadetect` and `gvaclassify` elements.
-No model-proc file is required for either model.
+The example model paths are `$MODELS_PATH/public/yolo11s/FP16/yolo11s.xml` and
+`$MODELS_PATH/public/dima806_vehicle_10_types_image_detection/FP16/dima806_vehicle_10_types_image_detection.xml`.
+No model-proc file is required for either example model.
 
 ## Sample execution
 

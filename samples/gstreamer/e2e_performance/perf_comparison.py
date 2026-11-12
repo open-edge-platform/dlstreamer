@@ -16,20 +16,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from shared_utils import download_https  # pylint: disable=wrong-import-position
-
 SCRIPT_DIR = Path(__file__).resolve().parent
-MODEL_NAME = "yolo26s"
-MODEL_DIR = SCRIPT_DIR / f"{MODEL_NAME}_int8_openvino_model"
-MODEL_XML = MODEL_DIR / f"{MODEL_NAME}.xml"
 OUTPUT_DIR = SCRIPT_DIR / "output"
-
-VIDEO_URL = ("https://storage.openvinotoolkit.org/repositories/"
-             "openvino_notebooks/data/data/video/people.mp4")
-VIDEO_PATH = SCRIPT_DIR / "data" / "people.mp4"
-
-# model config
-YOLO_INPUT_SIZE = 640                # used by prepare_model() for export
 CONFIDENCE_THRESHOLD = 0.35         # used by dlstreamer.py gvadetect threshold
 
 # iGPU inference config (shared by dlstreamer.py)
@@ -67,31 +55,6 @@ def compute_throughput(wall_times: list[float]) -> Result:
     return Result(fps=fps, inference_ms=mean_interval, frames=n)
 
 
-def prepare_model() -> Path:
-    """Export YOLO26s to OpenVINO INT8 if not cached."""
-    if MODEL_XML.exists():
-        return MODEL_DIR
-    from ultralytics import YOLO  # pylint: disable=import-outside-toplevel
-    print(f"Exporting {MODEL_NAME} to OpenVINO INT8 ...")
-    exported = Path(YOLO(MODEL_NAME).export(
-        format="openvino", int8=True, imgsz=YOLO_INPUT_SIZE, dynamic=False))
-    if exported.resolve() != MODEL_DIR.resolve():
-        MODEL_DIR.mkdir(parents=True, exist_ok=True)
-        for f in exported.iterdir():
-            f.rename(MODEL_DIR / f.name)
-    return MODEL_DIR
-
-
-def prepare_video() -> Path:
-    """Download test video if not cached."""
-    if VIDEO_PATH.exists():
-        return VIDEO_PATH
-    VIDEO_PATH.parent.mkdir(parents=True, exist_ok=True)
-    print("Downloading test video ...")
-    download_https(VIDEO_URL, VIDEO_PATH, {"storage.openvinotoolkit.org"})
-    return VIDEO_PATH
-
-
 def _benchmark(label: str, run_fn, model, video, frames, warmup, runs) -> list[Result]:
     """Run a pipeline multiple times and print per-run results."""
     print(label)
@@ -107,16 +70,16 @@ def _benchmark(label: str, run_fn, model, video, frames, warmup, runs) -> list[R
 def main() -> None:
     """Entry point."""
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--video", type=Path, default=None)
-    ap.add_argument("--model", type=Path, default=None)
+    ap.add_argument("--video", type=Path, required=True, help="Local H.264 video file")
+    ap.add_argument("--model", type=Path, required=True, help="Local OpenVINO IR model directory containing yolo26s.xml")
     ap.add_argument("--measure-frames", type=int, default=200)
     ap.add_argument("--warmup", type=int, default=50)
     ap.add_argument("--runs", type=int, default=3)
     args = ap.parse_args()
 
-    model_dir = args.model or prepare_model()
-    video = args.video or prepare_video()
-    model_xml = model_dir / f"{MODEL_NAME}.xml"
+    model_dir = args.model
+    model_xml = model_dir / "yolo26s.xml"
+    video = args.video
     if not model_xml.exists():
         raise FileNotFoundError(f"Model not found: {model_xml}")
     if not video.exists():

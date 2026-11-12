@@ -69,35 +69,13 @@ cd dlstreamer/samples/gstreamer/python/onvif_camera_analytics_validation
 source /opt/intel/dlstreamer/scripts/setup_dls_env.sh
 ```
 
-### 4. Download a VLM model (run once)
+### 4. Prepare a VLM model
 
-Use the model conversion scripts in [scripts/download_models/README.md](../../../../scripts/download_models/README.md).
-Before running them, create and activate the dedicated model-download virtual
-environment described there:
-
-```bash
-export MODELS_PATH="$HOME/models"
-cd /opt/intel/dlstreamer/scripts/download_models
-uv venv .model_download_venv
-source .model_download_venv/bin/activate
-curl -LO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/3/samples/export-requirements.txt
-uv pip install -r export-requirements.txt -r requirements.txt
-
-python download_hf_models.py \
-    --model OpenVINO/gemma-3-4b-it-int8-ov \
-    --outdir "${MODELS_PATH}"
-
-cd /opt/intel/dlstreamer/samples/gstreamer/python/onvif_camera_analytics_validation
-```
-
-This creates the model under `${MODELS_PATH}/gemma-3-4b-it-int8-ov`.
-Gemma 3 4B (~3.3 GB in int4) is recommended and fits well on
-**Intel Core Ultra** class systems.
-
-> **Note:** For gated/private Hugging Face models, pass a token:
-> ```bash
-> python download_hf_models.py --model <org/model> --token <HF_TOKEN> --outdir <path>
-> ```
+Prepare any VLM model supported by the installed OpenVINO GenAI runtime with the general
+[`download_hf_models.py`](../../../../scripts/download_models/README.md#1-hugging-face-conversion)
+helper. `OpenVINO/gemma-3-4b-it-int8-ov` is one example that fits well on Intel Core Ultra
+systems. Follow the helper README for setup, supported models, and gated-model access. Configure
+the resulting model directory in the sample's pipeline configuration.
 
 ### 5. Create virtual environment and install dependencies
 
@@ -338,4 +316,4 @@ sudo apt install gir1.2-gst-plugins-base-1.0
 
 ## Video Credits
 
-- [A Hunter Posing with His Dog and a Shotgun](https://www.pexels.com/video/a-hunter-posing-with-his-dog-and-a-shotgun-6200843/) — Pexels (free to use)
+The sample uses a camera stream supplied at runtime; it does not bundle or download a video.

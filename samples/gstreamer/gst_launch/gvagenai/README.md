@@ -21,22 +21,18 @@ This sample builds GStreamer pipeline of the following elements:
 
 ## Model Preparation
 
-Refer to [OpenVINO™ GenAI Model Preparation](https://openvinotoolkit.github.io/openvino.genai/docs/category/model-preparation) for more details on downloading pre-converted OpenVINO models or converting models to OpenVINO format.
+Use any model supported by `gvagenai` and the installed OpenVINO GenAI runtime; the models below are examples, not required choices. A pre-converted compatible model may be used, or a supported Hugging Face model can be prepared with the general [`download_hf_models.py`](../../../../scripts/download_models/README.md#1-hugging-face-conversion) helper. Follow its README for supported models, setup, and export options.
 
 > [!NOTE]
-> To install `optimum-cli` and other required dependencies for model export, refer to the respective OpenVINO™ notebook tutorials linked in the table below.
-> DL Streamer currently depends on OpenVINO™ GenAI 2026.3.1. For optimal compatibility, use the library versions specified in [export-requirements.txt](https://github.com/openvinotoolkit/openvino.genai/blob/releases/2026/3/samples/export-requirements.txt).
+> The helper only exports supported model architectures; check its limitations and set up its dependencies as described in the linked guide. Gated Hugging Face models require repository access. DL Streamer currently depends on OpenVINO™ GenAI 2026.3.1.
 
-| Model | Export Command | Tutorial |
-|-------|----------------|----------|
-| **MiniCPM-V 2.6** | `optimum-cli export openvino --model openbmb/MiniCPM-V-2_6 --weight-format int4 MiniCPM-V-2_6` | [Visual-language assistant with MiniCPM-V2 and OpenVINO™](https://github.com/openvinotoolkit/openvino_notebooks/blob/latest/notebooks/minicpm-v-multimodal-chatbot/minicpm-v-multimodal-chatbot.ipynb) |
-| **Phi-4-multimodal-instruct** | `optimum-cli export openvino --model microsoft/Phi-4-multimodal-instruct Phi-4-multimodal` | [Visual-language assistant with Phi-4-multimodal-instruct and OpenVINO™](https://github.com/openvinotoolkit/openvino_notebooks/blob/latest/notebooks/phi-4-multimodal/phi-4-multimodal.ipynb) |
-| **Gemma 3** | `optimum-cli export openvino --model google/gemma-3-4b-it Gemma3` | [Visual-language assistant with Gemma 3 and OpenVINO™](https://github.com/openvinotoolkit/openvino_notebooks/blob/latest/notebooks/gemma3/gemma3.ipynb) |
+| Example model | Hugging Face model ID |
+|---------------|-----------------------|
+| MiniCPM-V 2.6 | `openbmb/MiniCPM-V-2_6` |
+| Phi-4-multimodal-instruct | `microsoft/Phi-4-multimodal-instruct` |
+| Gemma 3 | `google/gemma-3-4b-it` |
 
-After exporting the model, set the model path:
-```bash
-export GENAI_MODEL_PATH=/path/to/your/model
-```
+After preparing the model, set `GENAI_MODEL_PATH` to its directory.
 
 ## Running the Sample
 
@@ -46,7 +42,7 @@ export GENAI_MODEL_PATH=/path/to/your/model
 ```
 
 **Options:**
-- `-S, --source FILE/URL/CAMERA`: Input source (file path, URL or web camera)
+- `-S, --source FILE/URL/CAMERA`: Required input source (file path, URL or web camera). Use any source supported by the installed GStreamer plugins.
 - `-D, --device DEVICE`: Inference device (CPU, GPU, NPU, or indexed GPU like GPU.0)
 - `-P, --prompt TEXT`: Text prompt for the model
 - `-F, --frame-rate RATE`: Frame sampling rate (fps)
@@ -74,9 +70,9 @@ export GENAI_MODEL_PATH=/path/to/your/model
 
 **Examples:**
 
-1. **Basic usage with default settings**
+1. **Basic usage with a local video**
    ```bash
-   ./sample_gvagenai.sh
+   ./sample_gvagenai.sh --source /path/to/video.mp4
    ```
 
 2. **Custom settings example**
@@ -86,27 +82,27 @@ export GENAI_MODEL_PATH=/path/to/your/model
 
 3. **With performance metrics enabled**
    ```bash
-   ./sample_gvagenai.sh --metrics --max-tokens 200
+   ./sample_gvagenai.sh --source /path/to/video.mp4 --metrics --max-tokens 200
    ```
 
 4. **Downscale frames for faster inference**
    ```bash
-   ./sample_gvagenai.sh --resolution 320x240
+   ./sample_gvagenai.sh --source /path/to/video.mp4 --resolution 320x240
    ```
 
 5. **Video mode (video-capable models only, e.g. Qwen2.5-VL)**
    ```bash
-   ./sample_gvagenai.sh --vision-mode video --chunk-size 16 --frame-rate 2
+   ./sample_gvagenai.sh --source /path/to/video.mp4 --vision-mode video --chunk-size 16 --frame-rate 2
    ```
 
 6. **NPU with required prompt/response sizing**
    ```bash
-   ./sample_gvagenai.sh --device NPU --pipeline-config NPU.MAX_PROMPT_LEN=2048,NPU.MIN_RESPONSE_LEN=512
+   ./sample_gvagenai.sh --source /path/to/video.mp4 --device NPU --pipeline-config NPU.MAX_PROMPT_LEN=2048,NPU.MIN_RESPONSE_LEN=512
    ```
 
 7. **Continuous batching with a custom output file**
    ```bash
-   ./sample_gvagenai.sh --scheduler-config enable_prefix_caching=true --output results.json
+   ./sample_gvagenai.sh --source /path/to/video.mp4 --scheduler-config enable_prefix_caching=true --output results.json
    ```
 
 **Output:**
@@ -160,13 +156,13 @@ The script itself builds a `gvadetect ! gvagenai` pipeline when `--trigger-obj-c
 # Pure event-driven: run the VLM only on frames where a person is detected
 export MODELS_PATH=/path/to/models
 export GENAI_MODEL_PATH=/path/to/vlm-model
-./sample_gvagenai.sh --trigger-obj-classes person --frame-rate 0
+./sample_gvagenai.sh --source /path/to/video.mp4 --trigger-obj-classes person --frame-rate 0
 
 # Hybrid: analyze every 2 fps AND additionally whenever a car appears
-./sample_gvagenai.sh --trigger-obj-classes car --frame-rate 2
+./sample_gvagenai.sh --source /path/to/video.mp4 --trigger-obj-classes car --frame-rate 2
 
 # Trigger only when a person AND a bicycle appear in the same frame
-./sample_gvagenai.sh --trigger-obj-classes person,bicycle --trigger-mode all
+./sample_gvagenai.sh --source /path/to/video.mp4 --trigger-obj-classes person,bicycle --trigger-mode all
 ```
 
 The detection model defaults to `$MODELS_PATH/public/yolov8s/FP16/yolov8s.xml` (COCO classes); override it with the `DETECTION_MODEL` environment variable. Run `./sample_gvagenai.sh --help` for the full option list.
@@ -183,7 +179,7 @@ The detection model defaults to `$MODELS_PATH/public/yolov8s/FP16/yolov8s.xml` (
 - Verify the directory exists and contains the required model files
 
 **Debug logging:**
-- Enable detailed logs: `GST_DEBUG=gvagenai:5 ./sample_gvagenai.sh`
+- Enable detailed logs: `GST_DEBUG=gvagenai:5 ./sample_gvagenai.sh --source /path/to/video.mp4`
 - When using `--metrics` flag, `GST_DEBUG=gvagenai:4` is automatically enabled (unless `GST_DEBUG` is already set)
 
 ### Common Error Messages

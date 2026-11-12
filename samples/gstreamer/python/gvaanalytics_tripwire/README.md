@@ -123,18 +123,7 @@ The property accepts a comma-separated list of object class names returned by th
 
 ### Setup
 
-The sample requires a video file and an object detection model. Download sample assets:
-
-```sh
-cd <python/gvaanalytics_tripwire directory>
-export MODELS_PATH=${PWD}
-wget https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4
-cd ../../../../scripts/download_models
-python3 download_ultralytics_models.py --model yolo11n.pt --outdir "${MODELS_PATH}/public/yolo11n/FP16" --half
-cd -
-```
-
-> **Note:** This may take several seconds depending on your network speed.
+The sample requires a video file and an object detection model. Use any local video supported by GStreamer with the relevant object classes. The shell script uses YOLO11n as its example default; it also accepts a compatible model XML path as its second argument. Prepare a model with the general [Ultralytics conversion helper](../../../../scripts/download_models/README.md#2-ultralytics-conversion); see the helper README for supported models and setup.
 
 ### Execution
 
@@ -142,10 +131,10 @@ You can run the sample using the provided shell script (easiest) or directly wit
 
 **Using the shell script**:
 ```sh
-./vehicle_counter.sh
+./vehicle_counter.sh /path/to/video.mp4
 ```
 
-This uses default settings: downloads the test video, uses YOLO11n model, and saves output to `/tmp/vehicle_counter_output.mp4`.
+This uses the example YOLO11n model and saves output to `/tmp/vehicle_counter_output.mp4`. The video path is user-provided; use any compatible local clip.
 
 You can also customize the input, model, and output:
 ```sh

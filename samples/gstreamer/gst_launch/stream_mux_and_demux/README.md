@@ -117,8 +117,8 @@ Provide an OpenVINO IR model (`.xml` + `.bin`).
 **Options:**
 - `-m, --model PATH`: Path to inference model XML file (required for video-only mode; ignored with `--lidar`)
 - `-s, --source TYPE`: Source type: `file` or `rtsp` (default: `rtsp`)
-- `-i, --input1 URI`: First input source URI
-- `-j, --input2 URI`: Second input source URI
+- `-i, --input1 URI`: First input source URI (required)
+- `-j, --input2 URI`: Second input source URI (required)
 - `--demux`: Enable `gvastreamdemux` for per-source output
 - `--max-fps FPS`: Output rate cap (only for `file` sources; default `0` = unlimited)
 - `--sync-mode MODE`: PTS normalization (`none|first-pts|segment|pipeline|ntp`, default `none`)
@@ -134,13 +134,16 @@ Heterogeneous (video + lidar) mode — sets the mux to CONTAINER output (`output
 
 **Examples:**
 
+Provide two accessible input URIs for each run. The RTSP examples below use shell variables;
+set them to the streams you want to process.
+
 1. **Two RTSP streams, shared inference**
    ```bash
    ./stream_mux_demux_sample.sh \
      --model /path/to/model.xml \
      --source rtsp \
-     --input1 rtsp://localhost:8554/stream \
-     --input2 rtsp://localhost:8555/stream
+    --input1 "$RTSP_INPUT_1" \
+    --input2 "$RTSP_INPUT_2"
    ```
 
 2. **Two RTSP streams with per-source demux output**
@@ -148,8 +151,8 @@ Heterogeneous (video + lidar) mode — sets the mux to CONTAINER output (`output
    ./stream_mux_demux_sample.sh \
      --model /path/to/model.xml \
      --source rtsp \
-     --input1 rtsp://localhost:8554/stream \
-     --input2 rtsp://localhost:8555/stream \
+    --input1 "$RTSP_INPUT_1" \
+    --input2 "$RTSP_INPUT_2" \
      --demux
    ```
 

@@ -1,3 +1,4 @@
+Prepare the example model with the general [`download_ultralytics_models.py`](../../../../scripts/download_models/README.md#2-ultralytics-conversion) helper. From the repository root:
 # Python Element Sample - Save Frames with ROI Only
 
 This sample demonstrates a custom GStreamer Python element (`gvaframesaver_py`) that saves video frames containing detected objects. It replaces the previous `gvapython`-based approach with a proper GStreamer element using GstAnalytics metadata API.
@@ -62,15 +63,11 @@ Configurable element properties (via gst-launch-1.0):
 
 ## Models
 
-The sample uses a pre-trained face detection model downloaded from [Hugging Face](https://huggingface.co/) and exported to OpenVINO™ IR format on first run:
-* __[arnabdhar/YOLOv8-Face-Detection](https://huggingface.co/arnabdhar/YOLOv8-Face-Detection)__ — face detection (used by `gvadetect`)
-
-Download and conversion are handled automatically by [`prepare_models.py`](prepare_models.py), which is invoked from the sample shell script. The model is cached after the first run, so subsequent runs reuse the existing files.
+The example uses `arnabdhar/YOLOv8-Face-Detection` for face detection; any compatible OpenVINO face detector can be used by setting `DETECT_MODEL_PATH`. Prepare a suitable model with the general [`download_ultralytics_models.py`](../../../../scripts/download_models/README.md#2-ultralytics-conversion) helper; see its README for supported models and setup.
 
 ### Model storage location
 
-* If the `MODELS_PATH` environment variable is set, the model is stored in `$MODELS_PATH/save_frames_with_ROI_only/`.
-* Otherwise the model is stored in a `models/` subdirectory inside the sample folder (next to `prepare_models.py`).
+By default, the sample looks for the model at `$MODELS_PATH/public/arnabdhar_YOLOv8-Face-Detection/FP16/arnabdhar_YOLOv8-Face-Detection.xml`. Set `DETECT_MODEL_PATH` to use another compatible model XML.
 
 
 ## Prerequisites
@@ -85,28 +82,14 @@ uv pip install opencv-python-headless numpy
 
 ## Running
 
-Before running, ensure the DL Streamer environment is properly configured. The model is downloaded automatically on first run (see [Models](#models)).
+Before running, ensure the DL Streamer environment is properly configured and the model has been prepared as described above. Use any local video, stream URL, or camera supported by GStreamer.
 
 ```sh
-./save_frames_with_roi.sh [INPUT_VIDEO] [DEVICE] [SINK_ELEMENT]
+./save_frames_with_roi.sh <INPUT_VIDEO> [DEVICE] [SINK_ELEMENT]
 ```
 
-The sample takes three command-line *optional* parameters:
-1. [INPUT_VIDEO] to specify input video file.
-   The input could be
-   * local video file
-   * web camera device (ex. `/dev/video0`)
-   * RTSP camera (URL starting with `rtsp://`) or other streaming source (ex URL starting with `http://`)
-
-   If parameter is not specified, the sample by default streams video example from HTTPS link (utilizing `urisourcebin` element) so requires internet connection.
-
-2. [DEVICE] to specify device for detection. Default GPU.
-   Please refer to OpenVINO™ toolkit documentation for supported devices.
-   https://docs.openvinotoolkit.org/latest/openvino_docs_IE_DG_supported_plugins_Supported_Devices.html
-
-3. [SINK_ELEMENT] to choose between render mode and fps throughput mode:
-   * fps - FPS only (default)
-   * display - render
+The sample requires `INPUT_VIDEO`. Use any local video supported by GStreamer, a camera device such as `/dev/video0`, or a stream URI.
+`DEVICE` is optional and defaults to `GPU`. `SINK_ELEMENT` is optional and defaults to `fps`; use `display` to render frames.
 
 Custom element properties can be set by modifying the pipeline in the shell script, e.g.:
 ```sh
@@ -115,8 +98,8 @@ gvaframesaver_py output-dir=/tmp/detections save-interval=1.0 min-confidence=0.7
 
 Examples:
 ```sh
-# Default: stream from HTTPS, GPU detection, FPS mode
-./save_frames_with_roi.sh
+# Use any local video supported by GStreamer, GPU detection, FPS mode
+./save_frames_with_roi.sh /path/to/video.mp4
 
 # Local video file, CPU detection, FPS mode
 ./save_frames_with_roi.sh /path/to/video.mp4 CPU fps

@@ -21,18 +21,18 @@ Overall this sample builds GStreamer pipeline of the following elements:
 
 ## Models
 
-The sample uses by default the following pre-trained models from OpenVINO™ Toolkit [Open Model Zoo](https://github.com/openvinotoolkit/open_model_zoo)
+The sample is configured with example models from different sources. `centerface` is converted from the upstream CenterFace project; the `dima806/*` models are from Hugging Face. The general model-preparation helpers convert them to OpenVINO IR; see [`scripts/download_models/README.md`](../../../../scripts/download_models/README.md).
 *   __centerface__ is primary detection network for detecting faces that appear within video frames.
 *   __dima806/facial_age_image_detection__ ageestimation on detected faces
 *   __dima806/fairface_gender_image_detection__ gender estimation on detected faces
 
-> **NOTE**: Before running samples (including this one), prepare required models using scripts in `scripts/download_models` (see `scripts/download_models/README.md` for per-model commands and per-script venv setup).
+The listed models are examples for the current pipeline configuration. Prepare compatible models before running; use the general helpers in [`scripts/download_models`](../../../../scripts/download_models/README.md) if conversion is needed. Substituting models may require updating their paths and model-proc configuration.
 
 The sample contains `model_proc` subfolder with .json files for each model with description of model input/output formats and post-processing rules for classification models.
 
 ## Running
 
-This sample takes up to four command-line parameters. If no parameters specified, the sample displays pretty printed JSON messages to console (METHOD=file, OUTPUT=stdout)
+The sample requires an input source; with `METHOD=file` and no `OUTPUT`, it prints pretty JSON messages to the console.
 
 > **NOTE**: Before running this sample with output to MQTT or Kafka, refer to [*this page*](./listener.md) how to set up a MQTT or Kafka listener to consume and review results in the console.
 
@@ -40,9 +40,9 @@ This sample takes up to four command-line parameters. If no parameters specified
     ./metapublish.sh [INPUT] [METHOD] [OUTPUT] [FORMAT] [TOPIC]
     ```
 
-1. [INPUT] is full path to the source video.
+1. [INPUT] is the required source. Use any local video, supported stream URL, or camera source; examples use a local path.
 The input could be
-    * URI to web based streaming source ([Default](https://github.com/intel-iot-devkit/sample-videos/raw/master/head-pose-face-detection-female-and-male.mp4))
+    * URI to a web-based streaming source
     * local video file path
     * path to RTSP camera (URL starts with `rtsp://`)
     * web camera device (ex. /dev/video0)
@@ -63,20 +63,20 @@ By default this is
     * dlstreamer (Default)
 
 ### Examples
-1. Launch sample with no parameters to see stdout with pretty json.
+1. Run with a local video and print pretty JSON to stdout.
    ```
-   ./metapublish.sh
+    ./metapublish.sh /path/to/video.mp4
    ```
 
 1. Override the file or absolute path of output file.
     ```
-    ./metapublish.sh https://github.com/intel-iot-devkit/sample-videos/raw/master/head-pose-face-detection-female-and-male.mp4 \
+    ./metapublish.sh /path/to/video.mp4 \
     file /tmp/output_inferences.json
     ```
 
 1. Output results to MQTT broker running at localhost:1883 with your listener subscribed to 'dlstreamer' topic.
     ```
-    ./metapublish.sh https://github.com/intel-iot-devkit/sample-videos/raw/master/head-pose-face-detection-female-and-male.mp4 mqtt
+    ./metapublish.sh /path/to/video.mp4 mqtt
     ```
 
 ## Sample Output

@@ -8,6 +8,7 @@ image embedding by cosine similarity against text-label embeddings supplied at r
 For images, CLIP classifies the full frame. For video, `gvadetect` first detects faces
 with [arnabdhar/YOLOv8-Face-Detection](https://huggingface.co/arnabdhar/YOLOv8-Face-Detection),
 and CLIP then classifies every detected face ROI.
+That detector is an example; a compatible face-detection OpenVINO model can be supplied through `DETECTION_MODEL`.
 
 The class list lives outside the model: to change the classes you edit `labels.txt` and
 regenerate the embeddings file, with no retraining and no change to the model.
@@ -31,37 +32,19 @@ regenerate the embeddings file, with no retraining and no change to the model.
 
 ## Prepare the models
 
-Use the helper scripts in `scripts/download_models` (see its README for the Python
-environment). Prepare both artifacts with the **same** CLIP model so the image and text
-embeddings share one space:
+Prepare a compatible CLIP image encoder and its text-label embeddings with the general
+[`download_hf_models.py`](../../../../scripts/download_models/README.md#1-hugging-face-conversion)
+helper and `clip_text_embeddings.py`. Use the same CLIP model for both artifacts; for example,
+`openai/clip-vit-base-patch32`. The helper documentation describes setup and supported models.
 
-```bash
-cd scripts/download_models
-CLIP=openai/clip-vit-base-patch32
-
-# 1) CLIP image encoder -> OpenVINO IR (projected image embedding, with model_info preprocessing)
-python3 download_hf_models.py --model "$CLIP" --export-variant clip-zeroshot --outdir .
-
-# 2) Text-label embeddings -> labels.safetensors (carries the CLIP logit_scale)
-python3 clip_text_embeddings.py --model "$CLIP" \
-        --labels <path-to>/labels.txt --output labels.safetensors
-```
-
-The downloader writes the model XML to
-`openai_clip-vit-base-patch32/FP16/openai_clip-vit-base-patch32.xml` under `--outdir`.
-
-Video input additionally requires the YOLOv8 face detector. Export it to the default model path:
-
-```bash
-export MODELS_PATH="$HOME/models"
-python3 download_ultralytics_models.py --model arnabdhar/YOLOv8-Face-Detection \
-   --outdir "${MODELS_PATH}/public/arnabdhar_YOLOv8-Face-Detection/FP16" --half
-```
+Video input additionally needs a compatible face detector. For example,
+`arnabdhar/YOLOv8-Face-Detection` can be prepared with the general Ultralytics conversion helper.
+Image input does not require this detector.
 
 Optionally add `--unknown-threshold 0.2` to `clip_text_embeddings.py` to label weak
 matches as `unknown` (the threshold is a top-1 cosine similarity; tune per model and label set).
 
-Copy `openai_clip-vit-base-patch32/` and `labels.safetensors` next to this sample, or set `MODEL`
+Place the prepared model and `labels.safetensors` next to this sample, or set `MODEL`
 to the exported `.xml` file and `EMBEDDINGS` to the generated `.safetensors` file:
 
 ```bash
@@ -69,9 +52,7 @@ export MODEL=/path/to/openai_clip-vit-base-patch32/FP16/openai_clip-vit-base-pat
 export EMBEDDINGS=/path/to/labels.safetensors
 ```
 
-For video, the detector defaults to
-`${MODELS_PATH}/public/arnabdhar_YOLOv8-Face-Detection/FP16/arnabdhar_YOLOv8-Face-Detection.xml`.
-Set `DETECTION_MODEL` to use another face detector XML location. The detector is not required
+For video, set `DETECTION_MODEL` to the prepared face-detector XML. The detector is not required
 for image input.
 
 ## Run
@@ -81,8 +62,7 @@ for image input.
 ```
 
 - `INPUT`: an image or video path or URI. It defaults to
-   [People Giving a Thumbs Up](https://www.pexels.com/video/people-giving-a-thumbs-up-7504884/),
-   a video by Moe Magners via Pexels.
+- `INPUT`: required image or video path/URI. Use any input supported by GStreamer; the sample has no bundled or default media.
 - `DEVICE`: device used for both YOLOv8-Face-Detection and CLIP: `CPU`, `GPU` (default), `NPU`, or
    e.g. `MULTI:GPU,CPU`.
 - `OUTPUT`: video output mode: `display` (default), `file`, `fps`, `json`, or `display-and-json`.

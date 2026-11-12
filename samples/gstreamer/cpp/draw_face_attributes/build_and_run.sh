@@ -8,7 +8,11 @@
 set -euo pipefail
 
 #If you want to use your own input file, provide an absolute path
-FILE=${1:-https://github.com/intel-iot-devkit/sample-videos/raw/master/head-pose-face-detection-female-and-male.mp4}
+FILE=${1:-}
+if [[ -z "$FILE" ]]; then
+  echo "Error: provide an input video path or URL as the first argument." >&2
+  exit 2
+fi
 OUTPUT=${2:-json} # Valid values: display, display-and-json, json, file
 DEVICE=${3:-CPU} # Valid devices: CPU, GPU,NPU?
 OUTPUT_DIRECTORY=${4:-/home/dlstreamer/} #Path where to copy output.json

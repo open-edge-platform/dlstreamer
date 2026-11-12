@@ -61,6 +61,7 @@ The samples demonstrate deployment and inference with GStreamer command line too
 ## Samples
 
 The sample `yolo_detect.sh` script can be used to build and run an object detection pipeline. For `yolo26s-cls`, it builds a composite pipeline with `yolo26s` detection followed by ROI classification with `yolo26s-cls`.
+Use any video supported by the installed GStreamer plugins and any compatible YOLO model from the supported list. The commands below use example model names and local paths; their values are not fixed requirements.
 
 ```sh
 ./yolo_detect.sh <MODEL> <DEVICE> <INPUT> <OUTPUT_TYPE> <PPBKEND> <PRECISION> <OUTPUT_DIRECTORY> <EOS_LIMIT_ELEMENT>
@@ -69,15 +70,17 @@ The sample `yolo_detect.sh` script can be used to build and run an object detect
 > **NOTE**: Prior to running `yolo_detect.sh`, export the required YOLO model with `scripts/download_models/download_ultralytics_models.py` (see `scripts/download_models/README.md` for commands and venv setup).
 
 Example run of `yolo11s` model with CPU device on sample video, saving results into local video file:
+Example run of the `yolo11s` model on a local video, saving results to a file:
 
 ```sh
-./yolo_detect.sh yolo11s CPU
+./yolo_detect.sh yolo11s CPU /path/to/video.mp4
+Example run of the `yolo11s` model on a local video with GPU device:
 ```
 
 Another example run of `yolo11s` model with GPU device on sample video, saving results into local video file:
 
 ```sh
-./yolo_detect.sh yolo11s GPU
+./yolo_detect.sh yolo11s GPU /path/to/video.mp4
 ```
 
 Yet another example run of `yolov9c` model on your own mp4 video, showing results on a display:
@@ -92,20 +95,20 @@ Example run of the composite `yolo26s-cls` mode with GPU device on a local video
 ./yolo_detect.sh yolo26s-cls GPU /path/to/your/video.mp4 display
 ```
 
-Example run of `yolo11s-obb` model with FP32 precision with GPU device on online video with VAAPI acceleration, saving results to file:
+Example run of `yolo11s-obb` with FP32 precision and VA-API acceleration:
 
 ```sh
-./yolo_detect.sh yolo11s-obb GPU https://videos.pexels.com/video-files/3150382/3150382-sd_640_338_25fps.mp4 file va FP32
+./yolo_detect.sh yolo11s-obb GPU /path/to/video.mp4 file va FP32
 ```
 
 Sample output for `yolo11s-obb` model:
 
 ![Sample Output](yolo11s-obb_sample_output.jpeg)
 
-Example run of `yolo11s-seg` model with FP32 precision with GPU device on online video with VAAPI acceleration, saving results to file:
+Example run of `yolo11s-seg` with FP32 precision and VA-API acceleration:
 
 ```sh
-./yolo_detect.sh yolo11s-seg GPU https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 file va FP32
+./yolo_detect.sh yolo11s-seg GPU /path/to/video.mp4 file va FP32
 ```
 
 Sample output for `yolo11s-seg` model:

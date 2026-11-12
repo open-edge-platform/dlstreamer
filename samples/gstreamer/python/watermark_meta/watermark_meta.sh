@@ -7,7 +7,11 @@
 
 set -e
 
-INPUT=${1:-https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4}
+INPUT=${1:-}
+if [[ -z "$INPUT" ]]; then
+	echo "Error: provide an input video path, stream URL, or camera device as the first argument." >&2
+	exit 2
+fi
 OUTPUT=${2:-/tmp/watermark_meta_output.mp4}
 
 echo "Running watermark_meta sample"

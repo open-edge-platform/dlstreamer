@@ -13,15 +13,11 @@ The `gvafpscounter` inserted at the end of each stream pipeline and measures FPS
 
 The command-line parameters allow to select decode and inference devices (ex, CPU, GPU).
 
-> **NOTE**: Before running samples (including this one), prepare required models using scripts in `scripts/download_models` (see `scripts/download_models/README.md` for per-model commands and per-script venv setup).
+The model paths in these examples refer to example configurations. Prepare a compatible OpenVINO IR model before running; use the general helpers in [`scripts/download_models`](../../../scripts/download_models/README.md) if you need to convert a model. Alternative models can be supplied through the `MODEL_PATH` arguments.
 
 ## Input video
 
-You can download video file example by command
-```sh
-curl https://raw.githubusercontent.com/intel-iot-devkit/sample-videos/master/head-pose-face-detection-female-and-male.mp4 --output /path/to/your/video/head-pose-face-detection-female-and-male.mp4
-```
-or use any other media/video file.
+Use any local video supported by the installed GStreamer plugins. For face-detection examples, choose a clip containing faces; the sample uses `centerface` as its example model. Prepare the video yourself and pass its local path.
 
 ## Running
 
@@ -37,7 +33,7 @@ Benchmark video decode and inference on two models (object detection and object 
 
 The sample `benchmark_one_model.sh` takes one to eight command-line parameters (last eight are optional):
 1. [VIDEO_FILE] to specify a path to input video file
-2. [MODEL_PATH] to specify a path to model in OpenVINO™ toolkit IR format. Default is `centerface` model in `FP16` precision.
+2. [MODEL_PATH] to specify a path to a compatible OpenVINO™ IR model. The example default is `centerface` in `FP16` precision.
 3. [DECODE_DEVICE] to specify device for video decode, could be
     * CPU (Default)
     * GPU

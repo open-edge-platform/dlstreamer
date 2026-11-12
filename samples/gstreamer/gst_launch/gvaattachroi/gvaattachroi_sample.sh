@@ -19,7 +19,7 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
   echo "Usage: $0 [INPUT] [DEVICE] [OUTPUT] [ROI_COORDS]"
   echo ""
   echo "Arguments:"
-  echo "  INPUT        - Input source (default: Pexels video URL)"
+  echo "  INPUT        - Required input video path, stream URL, or camera device"
   echo "  DEVICE       - Device (default: CPU). Supported: CPU, GPU, NPU"
   echo "  OUTPUT       - Output type (default: file). Supported: file, display, fps, json, display-and-json"
   echo "  ROI_COORDS   - Specifies pixel absolute coordinates of ROI in form: x_top_left,y_top_left,x_bottom_right,y_bottom_right"
@@ -28,7 +28,11 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
   exit 0
 fi
 
-INPUT=${1:-"https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4"}
+INPUT=${1:-}
+if [[ -z "$INPUT" ]]; then
+  echo "Error: provide an input video path, stream URL, or camera device as the first argument." >&2
+  exit 2
+fi
 DEVICE=${2:-"CPU"}  # Supported values: CPU, GPU, NPU
 OUTPUT=${3:-"file"} # Supported values: file, display, fps, json, display-and-json
 ROI_COORDS=${4:-""} # Specifies pixel absolute coordinates of ROI in form: x_top_left,y_top_left,x_bottom_right,y_bottom_right

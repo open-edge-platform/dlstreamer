@@ -16,7 +16,7 @@ ALLOWED_OUTPUTS=("file" "display" "fps" "json" "display-and-json" "jpeg")
 # Default values
 MODEL="yolo26s-seg"
 DEVICE="CPU"
-INPUT="https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4"
+INPUT=""
 OUTPUT="file"
 BENCHMARK_SINK=""
 OUTPUT_DIRECTORY=""
@@ -27,7 +27,7 @@ show_usage() {
     echo "Arguments:"
     echo "  --model MODEL                     - Model to use (default: yolo26s-seg). Allowed: ${ALLOWED_MODELS[*]}"
     echo "  --device DEVICE                   - Device to use (default: CPU). Allowed: ${ALLOWED_DEVICES[*]}"
-    echo "  --input INPUT                     - Input source (default: Pexels video URL)"
+    echo "  --input INPUT                     - Required input video path, stream URL, or camera device"
     echo "  --output OUTPUT                   - Output type (default: file). Allowed: ${ALLOWED_OUTPUTS[*]}"
     echo "  --benchmark_sink BENCHMARK_SINK   - Benchmark sink element (default: empty)"
     echo "  --output-directory OUTPUT_DIRECTORY - Directory to save output files (default: current directory)"
@@ -95,6 +95,11 @@ while [[ "$#" -gt 0 ]]; do
     esac
     shift
 done
+
+if [[ -z "$INPUT" ]]; then
+    echo "Error: provide an input video path, stream URL, or camera device with --input." >&2
+    exit 2
+fi
 
 # Check if MODELS_PATH is set
 if [ -z "$MODELS_PATH" ]; then

@@ -27,14 +27,7 @@ The pipeline created by the example script is displayed for inspection before th
 
 ## Models
 
-The sample uses the following pre-trained models from Ultralytics
-*   [__yolo26s-seg__]() (default)
-*   [__yolo11s-seg__]()
-
-
-> **NOTE**: Before running samples (including this one), run the script `download_ultralytics_models.py` to download required model.
-
-
+The examples use the Ultralytics segmentation models `yolo26s-seg` and `yolo11s-seg`; any compatible instance-segmentation model can be selected with `--model` when its OpenVINO IR is available. Prepare an example model with the general [`download_ultralytics_models.py`](../../../../scripts/download_models/README.md#2-ultralytics-conversion) helper, selecting `yolo26s-seg.pt` or `yolo11s-seg.pt`.
 
 ## Running
 
@@ -42,24 +35,17 @@ If Python requirements are not installed yet:
 
 ```sh
 uv pip install -r ../../../../requirements.txt
-cd -
 ```
-The sample script __instance_segmentation.sh__ accepts the following command line optional arguments:
-* --input - a web camera device (ex. `/dev/video0`), an url or a path to an MP4 video file (*a sample video from videos.pexels.com is used by default*)
-* --model - yolo26s-seg (*default*) or  yolo11s-seg
-* --output - file (*default*), display, fps, json, display-and-json, jpeg
-* --device - CPU (*default*), GPU, NPU
 
-The --output option is described below in __Sample Output__ section.
-
-For example:
+`instance_segmentation.sh` requires an explicit input video, URI, or camera device:
 
 ```sh
-./instance_segmentation.sh --input my_video.mp4 --output json --device GPU
+./instance_segmentation.sh --input /path/to/video.mp4 --output json --device GPU
 ```
 
-will run the default model (yolo26s-seg) on a GPU to detect object boundaries in my_video.mp4. The detection results will be stored in a file named DLS_my_video_GPU.json.
+Use any video supported by GStreamer with objects from the model's label set. This example uses `yolo26s-seg`; the video path and model are illustrative, not fixed requirements.
 
+The `--output` option is described below in the **Sample Output** section.
 
 ## Sample Output
 
