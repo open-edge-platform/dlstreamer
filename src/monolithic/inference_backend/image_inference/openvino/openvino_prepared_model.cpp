@@ -10,8 +10,8 @@
 
 #include "openvino_prepared_model.h"
 
+#include "openvino_core.h"
 #include "openvino_formatters.h"
-#include "openvino_image_inference.h"
 
 #include "inference_backend/logger.h"
 
@@ -466,7 +466,7 @@ BatchSettings ResolveBatchSettings(const ConfigHelper &config) {
     BatchSettings settings;
     settings.batch_size = config.BatchSize();
     if (settings.batch_size == 0)
-        settings.batch_size = OpenVinoImageInference::GetDeviceOptimalBatchSize(config.Device());
+        settings.batch_size = GetDeviceOptimalBatchSize(config.Device());
 
     if (config.BatchTimeout() > -1) {
         settings.auto_batch_num_requests = settings.batch_size;

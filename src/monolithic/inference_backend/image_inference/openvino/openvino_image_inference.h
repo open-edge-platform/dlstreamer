@@ -4,6 +4,34 @@
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
+// OpenVinoImageInference: the OpenVINO implementation of InferenceBackend::ImageInference, created by the factory in
+// image_inference.cpp. Start here.
+//
+// Set-up (the constructor, in openvino_image_inference.cpp), in this order:
+//   1. PrepareModel()           ov::Model and config -> PreparedModel: reshape, layouts, pre-processing, batch size.
+//   2. CreateRemoteContext()    GPU surface sharing only: OpenVINO context made from the pipeline's VA-API/D3D context.
+//   3. CompileModelForDevice()  PreparedModel -> ov::CompiledModel on the device.
+//   4. One InferSlot per request: an infer request plus the batch of frames being filled for it. A slot is empty (in
+//      the InferSlotPool), being filled (current_slot_) or running inference.
+//
+// Run time:
+//   SubmitImage()        (openvino_image_inference_submit.cpp) takes the current slot, or waits for an empty one;
+//                        puts the frame into the slot's input tensors, by software pre-processing or with
+//                        ImageToTensorConverter, which wraps the image memory without copying it; starts the request
+//                        when the batch is full.
+//   completion callback  (openvino_image_inference.cpp, on an OpenVINO thread) passes the outputs and the frames on to
+//                        the callback, then FreeSlot() returns the slot to the pool.
+//   Flush(), Close()     (openvino_image_inference.cpp) start the partly filled batch and wait until no frame is in
+//                        flight.
+//
+// Modules. An arrow means "uses"; none of them includes this header.
+//   openvino_config_helper.h              typed view of the string-keyed InferenceConfig
+//   openvino_core.h                       the shared ov::Core and device queries
+//   openvino_prepared_model.*             -> config_helper, core
+//   openvino_model_compilation.*          -> prepared_model, config_helper, core
+//   openvino_image_to_tensor_converter.*  -> core
+//   infer_slot_pool.h                     the pool of empty slots; depends on nothing here
+//   openvino_formatters.h, openvino_blob_wrapper.h   fmt formatters; ov::Tensor as InputBlob/OutputBlob
 #pragma once
 
 #include "inference_backend/image_inference.h"
@@ -54,9 +82,6 @@ class OpenVinoImageInference : public InferenceBackend::ImageInference {
 
     // True if the NPU plugin/driver can consume strided input tensors (NPU_ENABLE_STRIDES_FOR).
     static bool IsNpuStridedInputSupported();
-
-    // Batch size the backend uses when batch-size is 0 (auto): ov::optimal_batch_size, or 1 if not supported.
-    static int GetDeviceOptimalBatchSize(const std::string &device);
 
     bool IsQueueFull() override;
 

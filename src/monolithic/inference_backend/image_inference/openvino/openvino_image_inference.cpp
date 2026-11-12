@@ -240,14 +240,6 @@ bool OpenVinoImageInference::IsNpuStridedInputSupported() {
     }
 }
 
-int OpenVinoImageInference::GetDeviceOptimalBatchSize(const std::string &device) {
-    try {
-        return static_cast<int>(OpenVinoCore().get_property(device, ov::optimal_batch_size));
-    } catch (...) {
-        return 1; // Fallback if optimal batch size property is not supported
-    }
-}
-
 void OpenVinoImageInference::Flush() {
     ITT_TASK(__FUNCTION__);
 
