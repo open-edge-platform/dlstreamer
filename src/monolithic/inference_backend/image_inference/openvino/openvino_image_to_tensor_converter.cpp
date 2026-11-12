@@ -67,7 +67,7 @@ std::vector<ov::Tensor> ImageToTensorConverter::ImageToTensors(const Image &imag
 }
 
 ov::Tensor ImageToTensorConverter::ImageRgbpToTensor(const Image &image) {
-    // Input image has 3 planes, separately for RBG (or BGR)
+    // Input image has 3 planes, separately for RGB (or BGR)
     // This function converts 3 planes to ov::Tensor with NCHW layout
     // planes must be equally spaced in memory, and have same stride
     assert(image.planes[0] && image.planes[1] && image.planes[2]);
@@ -139,7 +139,7 @@ ov::Tensor ImageToTensorConverter::ImageBgrxToTensor(const Image &image) {
 }
 
 std::vector<ov::Tensor> ImageToTensorConverter::ImageNv12ToTensor(const Image &image) {
-    // NHWC, 1 for channes as two separate tensors are used
+    // NHWC, 1 for channels as two separate tensors are used
     size_t y_channels_num = 1;
     ov::Shape y_shape{1, size_t(image.height), size_t(image.width), y_channels_num};
     ov::Strides y_stride{size_t(image.height) * image.stride[0], image.stride[0], y_channels_num, 1};

@@ -57,7 +57,7 @@ void OpenVinoImageInference::SetCompletionCallback(InferSlot *slot) {
 
         try {
             if (ex) {
-                std::string ex_string = fmt::format("exception occured during inference: {}", ex);
+                std::string ex_string = fmt::format("exception occurred during inference: {}", ex);
                 GVA_ERROR("%s", ex_string.c_str());
                 this->handle_error_(slot->buffers);
             } else {
@@ -279,7 +279,7 @@ void OpenVinoImageInference::Flush() {
 
                 slot->StartAsync();
             } catch (const std::exception &e) {
-                GVA_ERROR("Couldn't start inferece on flush: %s", e.what());
+                GVA_ERROR("Couldn't start inference on flush: %s", e.what());
                 this->handle_error_(slot->buffers);
                 FreeSlot(slot);
             }

@@ -195,7 +195,6 @@ struct ConfigHelper {
                        item.first == ov::hint::performance_mode.name() ||
                        item.first == ov::hint::scheduling_core_type.name() ||
                        item.first == ov::hint::execution_mode.name() ||
-                       item.first == ov::hint::enable_cpu_pinning.name() ||
                        item.first == ov::hint::enable_hyper_threading.name() ||
                        item.first == ov::hint::allow_auto_batching.name() ||
                        item.first == ov::hint::inference_precision.name() ||

@@ -146,13 +146,14 @@ bool OpenVinoImageInference::DoNeedImagePreProcessing(const InferenceBackend::Im
     if (image == nullptr)
         return false;
 
-    // OV plugins exhibit low peformance (serialization) when VA pre-processor generates non-continous tensors
-    // Add OpenCV pre-rocessor to compress non-continous tensors on top of VA pre-processor which does resize/crop/etc.
+    // OV plugins exhibit low performance (serialization) when VA pre-processor generates non-contiguous tensors
+    // Add OpenCV pre-processor to compress non-contiguous tensors on top of VA pre-processor which does
+    // resize/crop/etc.
     if ((memory_type_ == MemoryType::SYSTEM) &&
         ((image->format == FourCC::FOURCC_RGBP) || (image->format == FourCC::FOURCC_BGRP))) {
 
         if (!isImageContiguous(*image)) {
-            GVA_WARNING("Force OPENCV preprocessor to convert non-contiguous tensors into contigous memory location");
+            GVA_WARNING("Force OPENCV preprocessor to convert non-contiguous tensors into contiguous memory location");
             pre_processor_.reset(
                 InferenceBackend::ImagePreprocessor::Create(InferenceBackend::ImagePreprocessorType::OPENCV, ""));
             return true;
@@ -179,18 +180,18 @@ void OpenVinoImageInference::ApplyInputPreprocessors(
         }
 
         const auto &model_inputs = prepared_model_.model->inputs();
-        std::shared_ptr<OpenvinoInputTensor> intput_tensor = nullptr;
+        std::shared_ptr<OpenvinoInputTensor> input_tensor = nullptr;
         if ((preprocessor.first == KEY_image) && (model_inputs.size() == 1) && !slot->in_tensors.empty() &&
             !slot->in_tensors.front().empty()) {
-            intput_tensor = std::make_shared<OpenvinoInputTensor>(slot->in_tensors.front().front(), batch_index);
+            input_tensor = std::make_shared<OpenvinoInputTensor>(slot->in_tensors.front().front(), batch_index);
         } else if (model_inputs.size() == 1) {
-            intput_tensor = std::make_shared<OpenvinoInputTensor>(slot->infer_request.get_input_tensor());
+            input_tensor = std::make_shared<OpenvinoInputTensor>(slot->infer_request.get_input_tensor());
         } else {
-            intput_tensor =
+            input_tensor =
                 std::make_shared<OpenvinoInputTensor>(slot->infer_request.get_tensor(preprocessor.second->name));
         }
 
-        preprocessor.second->preprocessor(intput_tensor);
+        preprocessor.second->preprocessor(input_tensor);
     }
 }
 
