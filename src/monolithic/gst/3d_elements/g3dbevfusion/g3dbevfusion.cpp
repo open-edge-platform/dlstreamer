@@ -20,6 +20,14 @@
  * attached to the lidar stream buffer as GstAnalytics3DODMtd, and a sticky
  * "g3d/calibration" event lets g3drender project them onto the camera images.
  *
+ * The calibration may also carry a per-frame table ("frames", as written by
+ * nuscenes_to_sequence.py), indexed by the LidarMeta frame_id of the lidar
+ * buffer. For each frame it can give: the lidar turns the point cloud is made
+ * of and their time lags (the 5th point column BEVFusion reads), each camera's
+ * camera2lidar at its exposure, and the capture time, which then becomes the
+ * PTS of the batch and of its lidar buffer, so a synchronised sink plays the
+ * sequence at the pace it was recorded.
+ *
  * |[
  * gst-launch-1.0 \
  *   multifilesrc location=CAM_FRONT/%06d.jpg caps=image/jpeg,framerate=2/1 ! jpegdec ! videoconvert ! \
@@ -56,13 +64,24 @@ namespace bev = g3d_bevfusion;
 
 enum { PROP_0, PROP_CONFIG, PROP_CALIBRATION, PROP_DEVICE, PROP_SCORE_THRESHOLD };
 
+/* One entry of the calibration's per-frame table. */
+struct FrameRecord {
+    GstClockTime pts = GST_CLOCK_TIME_NONE; // capture time; none: keep the batch's PTS
+    size_t points = 0;                      // point count of the lidar buffer; 0: not given
+    std::vector<g3d_bevfusion::LidarSweep> sweeps;
+    bool has_cameras = false;
+    std::array<g3d_bevfusion::Mat4, g3d_bevfusion::kNumCameras> camera2lidar{}; // by model slot
+};
+
 struct _GstG3DBevFusionPrivate {
     std::unique_ptr<bev::Runtime> runtime;
     // Which mux pad (GstAnalyticsBatchStream::index) carries which sensor.
     std::map<guint, int> camera_slot_by_pad;
     guint lidar_pad = 0;
     std::array<bev::CameraCalibration, bev::kNumCameras> cameras{};
+    std::vector<FrameRecord> frames; // per-frame table, empty without one
     bool calibration_event_sent = false;
+    bool warned_truncation = false;
     guint64 frames_fusion = 0;
     guint64 frames_lidar_only = 0;
     guint64 frames_without_lidar = 0;
@@ -80,9 +99,13 @@ namespace {
 /* Load the sensor topology and calibration:
  *   { "lidar":   { "pad": <int> },
  *     "cameras": { "<pad>": { "slot": 0..5, "name": str,
- *                             "camera2lidar": [16, row-major], "intrinsics": [9, row-major] }, ... } }
+ *                             "camera2lidar": [16, row-major], "intrinsics": [9, row-major] }, ... },
+ *     "frames":  [ { "timestamp_us": <int>,
+ *                    "lidar": { "points": <int>, "sweeps": [ { "points": <int>, "time_lag": <s> }, ... ] },
+ *                    "cameras": { "<pad>": { "camera2lidar": [16] }, ... } }, ... ] }
  * "cameras" either lists all six model camera slots exactly once, or is absent
- * or empty for a lidar-only rig. */
+ * or empty for a lidar-only rig. "frames" is optional, and so is every key of
+ * a frame; a frame's "cameras", when given, covers every declared camera. */
 void load_calibration(const std::string &path, GstG3DBevFusionPrivate *priv) {
     std::ifstream f(path);
     if (!f)
@@ -115,13 +138,54 @@ void load_calibration(const std::string &path, GstG3DBevFusionPrivate *priv) {
         for (int i = 0; i < 9; i++)
             c.intrinsics[i] = static_cast<float>(k[i]);
     }
-    if (priv->camera_slot_by_pad.empty())
-        return; // lidar-only rig
-    for (int s = 0; s < bev::kNumCameras; s++)
-        if (!seen[s])
-            throw std::runtime_error("calibration: BEVFusion's camera branch needs " +
-                                     std::to_string(bev::kNumCameras) + " cameras (slots 0-5), slot " +
-                                     std::to_string(s) + " is missing; declare no cameras for a lidar-only rig");
+    if (!priv->camera_slot_by_pad.empty())
+        for (int s = 0; s < bev::kNumCameras; s++)
+            if (!seen[s])
+                throw std::runtime_error("calibration: BEVFusion's camera branch needs " +
+                                         std::to_string(bev::kNumCameras) + " cameras (slots 0-5), slot " +
+                                         std::to_string(s) + " is missing; declare no cameras for a lidar-only rig");
+
+    priv->frames.clear();
+    const nlohmann::json frames = cfg.value("frames", nlohmann::json::array());
+    priv->frames.reserve(frames.size());
+    for (size_t i = 0; i < frames.size(); i++) {
+        const nlohmann::json &f = frames[i];
+        const std::string where = "calibration: frames[" + std::to_string(i) + "]";
+        FrameRecord r;
+        if (f.contains("timestamp_us")) {
+            const int64_t us = f.at("timestamp_us").get<int64_t>();
+            if (us < 0)
+                throw std::runtime_error(where + ".timestamp_us is negative");
+            r.pts = static_cast<GstClockTime>(us) * GST_USECOND;
+        }
+        if (f.contains("lidar")) {
+            const nlohmann::json &l = f.at("lidar");
+            r.points = l.value("points", size_t{0});
+            size_t total = 0;
+            for (const auto &s : l.value("sweeps", nlohmann::json::array())) {
+                r.sweeps.push_back({s.at("points").get<size_t>(), s.at("time_lag").get<float>()});
+                total += r.sweeps.back().points;
+            }
+            if (!r.sweeps.empty() && r.points && total != r.points)
+                throw std::runtime_error(where + ": its sweeps hold " + std::to_string(total) +
+                                         " points, not lidar.points = " + std::to_string(r.points));
+        }
+        if (f.contains("cameras") && !priv->camera_slot_by_pad.empty()) {
+            const nlohmann::json &cams = f.at("cameras");
+            for (const auto &[pad, slot] : priv->camera_slot_by_pad) {
+                const std::string key = std::to_string(pad);
+                if (!cams.contains(key))
+                    throw std::runtime_error(where + ".cameras has no entry for pad " + key);
+                const auto c2l = cams.at(key).at("camera2lidar").get<std::vector<double>>();
+                if (c2l.size() != 16)
+                    throw std::runtime_error(where + ".cameras." + key + " needs 16 camera2lidar values");
+                for (int k = 0; k < 16; k++)
+                    r.camera2lidar[slot][k] = static_cast<float>(c2l[k]);
+            }
+            r.has_cameras = true;
+        }
+        priv->frames.push_back(std::move(r));
+    }
 }
 
 template <std::size_t N>
@@ -284,6 +348,7 @@ static gboolean gst_g3d_bevfusion_start(GstBaseTransform *trans) {
         return FALSE;
     }
     priv->calibration_event_sent = false;
+    priv->warned_truncation = false;
     priv->frames_fusion = priv->frames_lidar_only = priv->frames_without_lidar = 0;
     GST_INFO_OBJECT(self, "BEVFusion ready on %s; lidar on pad %u, %zu cameras", device, priv->lidar_pad,
                     priv->camera_slot_by_pad.size());
@@ -383,6 +448,32 @@ static GstFlowReturn gst_g3d_bevfusion_transform_ip(GstBaseTransform *trans, Gst
     in.num_points = num_points;
     in.point_stride = 4;
 
+    // The calibration's per-frame table, when it has one, describes this
+    // lidar frame. The point count catches a lidar stream that is not the
+    // sequence the table was written for, or does not start at its frame 0.
+    const FrameRecord *record = nullptr;
+    if (!priv->frames.empty()) {
+        const size_t id = lidar_meta->frame_id;
+        if (id >= priv->frames.size() || (priv->frames[id].points && priv->frames[id].points != num_points)) {
+            gst_buffer_unmap(lidar_buf, &lidar_map);
+            const std::string expected =
+                id < priv->frames.size() ? ", " + std::to_string(priv->frames[id].points) + " points for this one" : "";
+            GST_ELEMENT_ERROR(self, STREAM, FORMAT, ("Lidar frame %zu does not match the calibration's frames table", id),
+                              ("it has %zu points; the table has %zu frames%s", num_points, priv->frames.size(),
+                               expected.c_str()));
+            return GST_FLOW_ERROR;
+        }
+        record = &priv->frames[id];
+        in.sweeps = record->sweeps;
+    }
+    if (num_points > priv->runtime->max_points() && !priv->warned_truncation) {
+        GST_WARNING_OBJECT(self,
+                           "Lidar frame has %zu points but the model takes %zu; the rest are dropped. "
+                           "Models prepared before patch 0005 take one lidar sweep only",
+                           num_points, priv->runtime->max_points());
+        priv->warned_truncation = true;
+    }
+
     CameraFrames frames;
     if (all_cameras) {
         std::array<bev::ImageView, bev::kNumCameras> views{};
@@ -411,6 +502,14 @@ static GstFlowReturn gst_g3d_bevfusion_transform_ip(GstBaseTransform *trans, Gst
                            static_cast<size_t>(GST_VIDEO_FRAME_PLANE_STRIDE(&frames.frames[slot], 0))};
         }
         in.cameras = views;
+        if (record) {
+            // Calibration at this frame's exposures, or the static one.
+            std::array<bev::CameraCalibration, bev::kNumCameras> cameras = priv->cameras;
+            if (record->has_cameras)
+                for (int slot = 0; slot < bev::kNumCameras; slot++)
+                    cameras[slot].camera2lidar = record->camera2lidar[slot];
+            priv->runtime->set_calibration(cameras);
+        }
         priv->frames_fusion++;
     } else {
         if (priv->frames_lidar_only++ == 0 && !priv->camera_slot_by_pad.empty())
@@ -429,6 +528,21 @@ static GstFlowReturn gst_g3d_bevfusion_transform_ip(GstBaseTransform *trans, Gst
         return GST_FLOW_ERROR;
     }
     gst_buffer_unmap(lidar_buf, &lidar_map);
+
+    // Recorded capture time: the batch and its lidar buffer (which g3drender
+    // takes its output PTS from) play back at the recorded pace.
+    if (record && GST_CLOCK_TIME_IS_VALID(record->pts)) {
+        const size_t id = lidar_meta->frame_id;
+        GstClockTime duration = GST_BUFFER_DURATION(buf);
+        if (id + 1 < priv->frames.size() && GST_CLOCK_TIME_IS_VALID(priv->frames[id + 1].pts) &&
+            priv->frames[id + 1].pts > record->pts)
+            duration = priv->frames[id + 1].pts - record->pts;
+        for (GstBuffer *b : {buf, lidar_buf}) {
+            GST_BUFFER_PTS(b) = record->pts;
+            GST_BUFFER_DTS(b) = GST_CLOCK_TIME_NONE;
+            GST_BUFFER_DURATION(b) = duration;
+        }
+    }
 
     GstAnalyticsRelationMeta *rmeta = gst_buffer_get_analytics_relation_meta(lidar_buf);
     if (!rmeta)
@@ -475,7 +589,9 @@ static void gst_g3d_bevfusion_class_init(GstG3DBevFusionClass *klass) {
     g_object_class_install_property(gobject_class, PROP_CALIBRATION,
                                     g_param_spec_string("calibration", "Calibration",
                                                         "JSON naming the lidar's and each camera's mux pad, with each "
-                                                        "camera's model slot, camera2lidar and intrinsics",
+                                                        "camera's model slot, camera2lidar and intrinsics, and "
+                                                        "optionally a per-frame table (lidar sweeps, camera2lidar, "
+                                                        "capture time)",
                                                         NULL, flags));
     g_object_class_install_property(gobject_class, PROP_DEVICE,
                                     g_param_spec_string("device", "Device",
@@ -508,6 +624,6 @@ static void gst_g3d_bevfusion_init(GstG3DBevFusion *self) {
     self->priv = static_cast<GstG3DBevFusionPrivate *>(gst_g3d_bevfusion_get_instance_private(self));
     new (self->priv) GstG3DBevFusionPrivate();
     // Detections are attached to the batch's inner lidar buffer; the container
-    // itself is not changed.
+    // only gets a new PTS when the calibration has per-frame timestamps.
     gst_base_transform_set_in_place(GST_BASE_TRANSFORM(self), TRUE);
 }

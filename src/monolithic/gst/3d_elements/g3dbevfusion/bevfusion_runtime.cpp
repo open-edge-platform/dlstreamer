@@ -119,10 +119,14 @@ struct Runtime::Impl {
 
     ov::InferRequest voxelize, sparse_encoder, geometry, camera_encoder, bev_pool, full_detection;
 
+    // Fixed by the voxelize and sparse encoder IRs.
+    int max_points = 0, max_voxels = 0;
+    // Rows the previous frame filled, which pack_points/unpack_voxels clear.
+    int points_used = 0, voxels_used = 0;
+
     // Host buffers, allocated once.
-    std::vector<float> points = std::vector<float>(static_cast<size_t>(kMaxPoints) * kPointDims);
-    std::vector<float> voxel_features = std::vector<float>(static_cast<size_t>(kMaxVoxels) * 5);
-    std::vector<int32_t> voxel_coords = std::vector<int32_t>(static_cast<size_t>(kMaxVoxels) * 4);
+    std::vector<float> points, voxel_features;
+    std::vector<int32_t> voxel_coords;
     std::vector<float> lidar_bev = std::vector<float>(static_cast<size_t>(kLidarBevC) * kLidarBevH * kLidarBevW);
     std::vector<float> camera_bev =
         std::vector<float>(static_cast<size_t>(kContextChannels) * kCameraBevH * kCameraBevW);
@@ -131,7 +135,8 @@ struct Runtime::Impl {
     std::vector<float> geometry_combined = std::vector<float>(kNumCameras * 14);
     std::vector<float> geometry_rotation = std::vector<float>(kNumCameras * 9);
     // The geometry model's inputs for the output it holds. They only change
-    // with the calibration or the image size, so it rarely needs to run again.
+    // with the calibration or the image size: with a static calibration it
+    // rarely runs again, with a per-frame one it runs every frame.
     std::vector<float> geometry_combined_done, geometry_rotation_done;
     // bev_pool's int32 accumulator: BEVPoolScatter adds into it and
     // BEVPoolConvert resets it after reading, so it stays zeroed between frames.
@@ -168,18 +173,22 @@ struct Runtime::Impl {
     }
 
     void run_lidar(const FrameInput &frame_in) {
-        const int n = pack_points(frame_in.points, frame_in.num_points, frame_in.point_stride, points.data());
+        const int n = pack_points(frame_in.points, frame_in.num_points, frame_in.point_stride, frame_in.sweeps,
+                                  max_points, points.data(), points_used);
+        points_used = n;
         int32_t num_points = n;
-        ov::Tensor pts = host_tensor(ov::element::f32, {kMaxPoints, kPointDims}, points.data());
+        ov::Tensor pts = host_tensor(ov::element::f32, {static_cast<size_t>(max_points), kPointDims}, points.data());
         voxelize.set_input_tensor(0, pts);
         voxelize.set_input_tensor(1, host_tensor(ov::element::i32, {1}, &num_points));
         voxelize.infer();
         dump("points", pts);
 
-        int32_t num_voxels =
-            unpack_voxels(voxelize.get_output_tensor(0).data<float>(), voxel_features.data(), voxel_coords.data());
-        ov::Tensor feat = host_tensor(ov::element::f32, {kMaxVoxels, 5}, voxel_features.data());
-        ov::Tensor coords = host_tensor(ov::element::i32, {kMaxVoxels, 4}, voxel_coords.data());
+        int32_t num_voxels = unpack_voxels(voxelize.get_output_tensor(0).data<float>(), max_voxels,
+                                           voxel_features.data(), voxel_coords.data(), voxels_used);
+        voxels_used = num_voxels;
+        const size_t v = static_cast<size_t>(max_voxels);
+        ov::Tensor feat = host_tensor(ov::element::f32, {v, 5}, voxel_features.data());
+        ov::Tensor coords = host_tensor(ov::element::i32, {v, 4}, voxel_coords.data());
         dump("voxel_features", feat);
         dump("voxel_coords", coords);
 
@@ -375,6 +384,20 @@ Runtime::Runtime(const std::string &config_path, const std::string &device) : im
     impl_->bev_pool.set_tensor("bev_accumulator",
                                host_tensor(ov::element::i32, accumulator_shape, impl_->bev_accumulator.data()));
     impl_->sparse_encoder = compile("sparse_encoder", "CPU", {});
+    // voxelize: points [max_points, 5] -> [max_voxels + 1, 9]; sparse encoder: features [max_voxels, 5].
+    const ov::CompiledModel vox = impl_->voxelize.get_compiled_model();
+    const ov::Shape points_shape = vox.input(0).get_shape(), voxels_shape = vox.output(0).get_shape();
+    const ov::Shape features_shape = impl_->sparse_encoder.get_compiled_model().input(0).get_shape();
+    if (points_shape.size() != 2 || points_shape[1] != kPointDims || voxels_shape.size() != 2 ||
+        voxels_shape[0] < 2 || voxels_shape[1] != kVoxelColumns || features_shape.size() != 2 ||
+        features_shape[0] != voxels_shape[0] - 1)
+        throw std::runtime_error("voxelize and sparse_encoder IRs in " + model_dir.string() +
+                                 " do not fit together; export the model again with g3dbevfusion_prepare_model.sh");
+    impl_->max_points = static_cast<int>(points_shape[0]);
+    impl_->max_voxels = static_cast<int>(features_shape[0]);
+    impl_->points.assign(static_cast<size_t>(impl_->max_points) * kPointDims, 0.0f);
+    impl_->voxel_features.assign(static_cast<size_t>(impl_->max_voxels) * 5, 0.0f);
+    impl_->voxel_coords.assign(static_cast<size_t>(impl_->max_voxels) * 4, 0);
     impl_->geometry = compile("geometry", device, dense_cfg);
     impl_->camera_encoder = compile("camera_encoder_b6", device, dense_cfg);
     impl_->full_detection = compile("full_detection", device, dense_cfg);
@@ -391,6 +414,10 @@ void Runtime::set_calibration(const std::array<CameraCalibration, kNumCameras> &
 
 const ModelParams &Runtime::params() const {
     return impl_->params;
+}
+
+size_t Runtime::max_points() const {
+    return static_cast<size_t>(impl_->max_points);
 }
 
 void Runtime::set_dump_dir(const std::string &dir, bool tensors) {

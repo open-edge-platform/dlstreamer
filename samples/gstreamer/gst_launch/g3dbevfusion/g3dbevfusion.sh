@@ -9,8 +9,14 @@
 # Usage: ./g3dbevfusion.sh <scene-dir> <runtime-config.json> [fusion|lidar] [frames] [output]
 #   fusion  six cameras + lidar (default)
 #   lidar   lidar only (no camera branches in the pipeline)
-#   output  directory for rendered JPEG frames; omit to discard (fakesink)
+#   output  where the rendered frames go; omit to discard them (fakesink):
+#             <dir>         numbered JPEG files
+#             <file>.mp4    H.264 video, timed as the sequence was recorded
+#             display       a window, played at the recorded pace
 #
+# FPS is the rate the sensors are read at (default 12, the rate of a sequence
+# written by nuscenes_to_sequence.py; 2 for one written with --frames keyframes).
+# Each frame's recorded capture time, from calibration.json, becomes its PTS.
 # RENDER_OPTS replaces the g3drender properties, for example
 #   RENDER_OPTS="view-mode=perspective forward-axis=y point-stride=2 width=2400 height=900"
 #   RENDER_OPTS="view-mode=cam-proj cam-proj-index=0 point-stride=2 width=1600 height=900"
@@ -19,7 +25,7 @@
 set -euo pipefail
 
 if [[ $# -lt 2 ]]; then
-  sed -n '7,16p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '7,22p' "$0" | sed 's/^# \{0,1\}//'
   exit 1
 fi
 
@@ -33,9 +39,9 @@ STOP=-1
 if [[ "$FRAMES" -gt 0 ]]; then
   STOP=$((FRAMES - 1))
 fi
-# Frames are paced by index (2 Hz nuScenes key frames); every branch must use
-# the same rate so gvastreammux pairs frame N of each sensor.
-FPS=2
+# Every branch is read at the same nominal rate, so gvastreammux pairs frame N
+# of each sensor; g3dbevfusion then restores the recorded timestamps.
+FPS=${FPS:-12}
 CAMERAS=(CAM_FRONT CAM_FRONT_RIGHT CAM_FRONT_LEFT CAM_BACK CAM_BACK_LEFT CAM_BACK_RIGHT)
 
 CAMERA_BRANCHES=""
@@ -54,11 +60,19 @@ else
 fi
 
 if [[ -n "$OUTPUT" ]]; then
-  mkdir -p "$OUTPUT"
-  # nuScenes lidar: +y is the vehicle's forward axis, and ~35k points a frame (a
-  # quarter of KITTI's), so draw every 2nd point instead of the default 16th.
-  RENDER_OPTS=${RENDER_OPTS:-"forward-axis=y point-stride=2 width=2400 height=900"}
-  SINK="g3drender ${RENDER_OPTS} ! videoconvert ! jpegenc quality=90 ! multifilesink location=${OUTPUT}/%06d.jpg"
+  # nuScenes lidar: +y is the vehicle's forward axis. A frame of ten sweeps has
+  # ~270k points; draw every 8th.
+  RENDER_OPTS=${RENDER_OPTS:-"forward-axis=y point-stride=8 width=2400 height=900"}
+  if [[ "$OUTPUT" == "display" ]]; then
+    SINK="g3drender ${RENDER_OPTS} ! videoconvert ! autovideosink sync=true"
+  elif [[ "$OUTPUT" == *.mp4 ]]; then
+    mkdir -p "$(dirname "$OUTPUT")"
+    SINK="g3drender ${RENDER_OPTS} ! videoconvert ! video/x-raw,format=NV12 ! vah264enc rate-control=cqp ! "
+    SINK+="h264parse ! mp4mux ! filesink location=${OUTPUT} sync=false"
+  else
+    mkdir -p "$OUTPUT"
+    SINK="g3drender ${RENDER_OPTS} ! videoconvert ! jpegenc quality=90 ! multifilesink location=${OUTPUT}/%06d.jpg sync=false"
+  fi
 else
   SINK="fakesink sync=false"
 fi

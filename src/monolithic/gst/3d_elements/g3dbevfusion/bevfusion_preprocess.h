@@ -25,9 +25,7 @@ constexpr int kDepthBins = 118;
 constexpr int kContextChannels = 80;
 constexpr int kNumClasses = 10;
 constexpr int kNumProposals = 200;
-constexpr int kPointDims = 5; // x, y, z, intensity, time offset
-constexpr int kMaxPoints = 70000;
-constexpr int kMaxVoxels = 60000;
+constexpr int kPointDims = 5; // x, y, z, intensity, time lag
 constexpr int kVoxelColumns = 9; // 5 mean features + batch, x, y, z
 constexpr int kLidarBevC = 256;
 constexpr int kLidarBevH = 180;
@@ -55,6 +53,13 @@ struct CameraCalibration {
     std::string name;
     Mat4 camera2lidar{};
     Mat3 intrinsics{};
+};
+
+// One lidar turn of a multi-sweep point cloud: the next `points` points came
+// from a turn `time_lag` seconds before the frame's lidar timestamp.
+struct LidarSweep {
+    size_t points = 0;
+    float time_lag = 0.0f;
 };
 
 // A packed BGR8 image as it arrives from the pipeline.
@@ -105,14 +110,20 @@ void depth_maps(const float *points, size_t num_points, size_t point_stride, con
 void pack_geometry(const std::array<Mat4, kNumCameras> &aug, const std::array<CameraCalibration, kNumCameras> &cams,
                    float *combined, float *rotation);
 
-// Copy (x, y, z, intensity) points into the voxelize input [kMaxPoints, 5]
-// with a zero time-offset column. Points beyond kMaxPoints are dropped.
+// Copy (x, y, z, intensity) points into the voxelize input [max_points, 5].
+// The 5th column is the time lag of the turn each point came from, with
+// `sweeps` listing the turns in point order; points past the listed turns, or
+// all of them without sweeps, get 0 (the current turn). Points beyond
+// max_points are dropped. Rows from the returned count up to `stale_rows`
+// (what an earlier call left there) are zeroed.
 // Returns the number of points used.
-int pack_points(const float *points, size_t num_points, size_t point_stride, float *out);
+int pack_points(const float *points, size_t num_points, size_t point_stride, const std::vector<LidarSweep> &sweeps,
+                int max_points, float *out, int stale_rows);
 
-// Turn the voxelize result [kMaxVoxels + 1, 9] into the sparse encoder inputs.
-// Returns the number of voxels.
-int unpack_voxels(const float *result, float *features, int32_t *coords);
+// Turn the voxelize result [max_voxels + 1, 9] into the sparse encoder inputs
+// [max_voxels, 5] and [max_voxels, 4]. Rows from the returned count up to
+// `stale_rows` are zeroed. Returns the number of voxels.
+int unpack_voxels(const float *result, int max_voxels, float *features, int32_t *coords, int stale_rows);
 
 std::vector<Box3D> decode(const HeadOutputs &head, const ModelParams &params, float score_threshold);
 

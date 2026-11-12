@@ -16,12 +16,15 @@
 namespace g3d_bevfusion {
 
 // One frame of sensor data. Points are (x, y, z, intensity, ...) floats in
-// the lidar frame; cameras are given in the model's slot order and are
-// optional -- without them the frame runs lidar-only.
+// the lidar frame; for a multi-sweep point cloud, `sweeps` lists the turns
+// they came from, in point order (empty: one turn). Cameras are given in the
+// model's slot order and are optional -- without them the frame runs
+// lidar-only.
 struct FrameInput {
     const float *points = nullptr;
     size_t num_points = 0;
     size_t point_stride = 4; // floats per point
+    std::vector<LidarSweep> sweeps;
     std::optional<std::array<ImageView, kNumCameras>> cameras;
 };
 
@@ -44,10 +47,13 @@ class Runtime {
     Runtime(Runtime &&) = delete;
     Runtime &operator=(Runtime &&) = delete;
 
+    // May be called again between frames, for a calibration that changes per frame.
     void set_calibration(const std::array<CameraCalibration, kNumCameras> &cameras);
     std::vector<Box3D> infer(const FrameInput &frame, float score_threshold);
 
     const ModelParams &params() const;
+    // Points per frame the exported model takes; points beyond it are dropped.
+    size_t max_points() const;
     // When set, each frame's decoded boxes are written there as
     // boxes_<frame>.npy (float32 [N, 11]: x, y, z_bottom, dx, dy, dz, yaw, vx,
     // vy, score, label) for comparison against the Python runtime; with
