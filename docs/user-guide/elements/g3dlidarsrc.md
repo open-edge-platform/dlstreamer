@@ -155,10 +155,12 @@ The `ntp-sync` property selects which clock the per-frame timestamp comes from:
 
 | `ntp-sync` | Source clock           | Characteristics                                                                                  |
 |------------|------------------------|--------------------------------------------------------------------------------------------------|
-| `false` (default) | GStreamer pipeline clock | Nanosecond precision, shared by all elements, starts from 0 in `PLAYING`. Best for single-sensor pipelines and time alignment. |
+| `false` (default) | GStreamer pipeline clock | Pipeline running time of the frame **capture** (starts from 0 in `PLAYING`), shared by all elements. Best for single-host pipelines and aligning with other live sources (e.g. cameras). |
 | `true`     | LiDAR hardware clock (from the per-MSOP-packet timestamp field) | Absolute device time. Useful for multi-LiDAR fusion where sensors share a synchronized hardware clock. |
 
 The chosen value is written to both `LidarMeta.exit_source_timestamp` and `GST_BUFFER_PTS` on every output buffer; `GST_BUFFER_DTS` is set to `GST_CLOCK_TIME_NONE`.
+
+With `ntp-sync=false` the PTS marks when the frame was **captured**, not when it left the element. A frame is only complete after its whole scan period (e.g. 100 ms at 10 Hz) plus decode and queueing, so using the dequeue time would place the LiDAR roughly one frame period later than a camera frame captured at the same instant. The backend reports the capture time on the host wall clock (see the `use_lidar_clock` contract in [g3d_lidar_backend_api.h](../../../include/dlstreamer/lidar/g3d_lidar_backend_api.h)) and the element converts it to running time. Which instant within the frame is reported depends on the backend (RoboSense: last point by default, first point with `params.ts_first_point=true`). If a backend reports a value that is not a recent host time, the element logs a warning once and falls back to the dequeue time.
 
 
 
@@ -303,7 +305,7 @@ Element Properties:
                         flags: readable, writable
                         String. Default: "g3dlidarsrc0"
 
-  ntp-sync            : Timestamp source for buffer PTS (TRUE = LiDAR clock from DIFOP, FALSE = pipeline running time, starts from 0 at PLAYING)
+  ntp-sync            : Timestamp source for buffer PTS (TRUE = LiDAR clock from DIFOP, FALSE = pipeline running time of the frame capture, starts from 0 at PLAYING)
                         flags: readable, writable
                         Boolean. Default: false
 
