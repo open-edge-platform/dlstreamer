@@ -1,0 +1,93 @@
+openvino_bevfusion: export the Swin backbone without 5-D tensors.
+
+The camera encoder spent more GPU time moving data than computing: of its
+25 ms on an Intel Arc Pro B60, about 11 ms were permute and reorder kernels.
+Each window attention split qkv with reshape(B, N, 3, heads, d) +
+permute(2, 0, 3, 1, 4) and three selects, and added the shifted-window mask
+through a 5-D view; the OpenVINO GPU plugin runs both through reference
+kernels. PatchMerging permuted to B, C, H, W and back.
+
+Compute q, k and v with three Linears over the row blocks of the qkv weight,
+keep the mask add 4-D by merging the head and query dimensions, and build
+PatchMerging's mmcv channel order channels-last. Every value is computed by
+the same operations as before: the exported camera encoder's outputs are
+bit-identical, on the CPU in PyTorch and on the GPU in f16, and it takes
+about 16 ms instead of 25 ms.
+
+Remove this patch once openvino_contrib carries an equivalent change.
+
+diff --git a/modules/openvino_bevfusion/export.py b/modules/openvino_bevfusion/export.py
+index d025ec295a715f730b4ace9cf7f872341842cd1c..e6e759bf65d99ed3a2534cc8ec12bb35a03c0853 100644
+--- a/modules/openvino_bevfusion/export.py
++++ b/modules/openvino_bevfusion/export.py
+@@ -118,9 +118,19 @@ class WindowAttention(nn.Module):
+         self.register_buffer("relative_position_index", relative_position_index)
+ 
+     def forward(self, x, mask=None):
++        # Written without 5-D tensors, which the OpenVINO GPU plugin runs
++        # through slow reference permute/reorder kernels, and without a
++        # strided split of the qkv output. The arithmetic is the reference's,
++        # so the outputs are bit-identical; this takes the camera encoder
++        # from about 25 ms to 17 ms on an Intel Arc Pro B60.
+         B_, N, C = x.shape
+-        qkv = self.qkv(x).reshape(B_, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
+-        q, k, v = qkv[0], qkv[1], qkv[2]
++        h, d = self.num_heads, C // self.num_heads
++        # q, k and v are row blocks of the qkv weight: the reference's
++        # reshape(B_, N, 3, h, d) reads the output channel as s * C + head * d + j.
++        w, b = self.qkv.weight, self.qkv.bias
++        q = F.linear(x, w[:C], b[:C]).reshape(B_, N, h, d).transpose(1, 2)
++        k = F.linear(x, w[C:2 * C], b[C:2 * C]).reshape(B_, N, h, d).transpose(1, 2)
++        v = F.linear(x, w[2 * C:], b[2 * C:]).reshape(B_, N, h, d).transpose(1, 2)
+         q = q * self.scale
+         attn = q @ k.transpose(-2, -1)
+         rpb = self.relative_position_bias_table[self.relative_position_index.view(-1)].view(
+@@ -128,9 +138,11 @@ class WindowAttention(nn.Module):
+         rpb = rpb.permute(2, 0, 1).contiguous()
+         attn = attn + rpb.unsqueeze(0)
+         if mask is not None:
++            # The reference's view(B_ // nW, nW, h, N, N) + mask[None, :, None],
++            # with the head and query dimensions merged to stay 4-D.
+             nW = mask.shape[0]
+-            attn = attn.view(B_ // nW, nW, self.num_heads, N, N) + mask.unsqueeze(1).unsqueeze(0)
+-            attn = attn.view(-1, self.num_heads, N, N)
++            m = mask.unsqueeze(1).expand(nW, h, N, N).reshape(nW, h * N, N)
++            attn = (attn.reshape(B_ // nW, nW, h * N, N) + m).reshape(B_, h, N, N)
+         attn = attn.softmax(dim=-1)
+         x = (attn @ v).transpose(1, 2).reshape(B_, N, C)
+         x = self.proj(x)
+@@ -228,22 +240,22 @@ class PatchMerging(nn.Module):
+         permutes every input to that layer.
+ 
+         Reproduced with slice+stack rather than nn.Unfold, which has poor
+-        ONNX/OpenVINO support.
++        ONNX/OpenVINO support, and channels-last, which needs no permute to
++        B, C, H, W and back.
+         """
+         B, L, C = x.shape
+-        x = x.view(B, H, W, C).permute(0, 3, 1, 2)      # B, C, H, W
++        x = x.view(B, H, W, C)
+         if H % 2 or W % 2:
+             # mmcv's AdaptivePadding uses padding='corner' (bottom/right).
+-            x = F.pad(x, (0, W % 2, 0, H % 2))
+-        new_H, new_W = x.shape[2] // 2, x.shape[3] // 2
+-
+-        x = torch.stack([x[:, :, 0::2, 0::2],           # ky=0, kx=0
+-                         x[:, :, 0::2, 1::2],           # ky=0, kx=1
+-                         x[:, :, 1::2, 0::2],           # ky=1, kx=0
+-                         x[:, :, 1::2, 1::2]],          # ky=1, kx=1
+-                        dim=2)                          # B, C, 4, new_H, new_W
+-        x = x.reshape(B, 4 * C, new_H, new_W)           # channel = c*4 + ky*2 + kx
+-        x = x.flatten(2).transpose(1, 2)                # B, new_H*new_W, 4C
++            x = F.pad(x, (0, 0, 0, W % 2, 0, H % 2))
++        new_H, new_W = x.shape[1] // 2, x.shape[2] // 2
++
++        x = torch.stack([x[:, 0::2, 0::2, :],           # ky=0, kx=0
++                         x[:, 0::2, 1::2, :],           # ky=0, kx=1
++                         x[:, 1::2, 0::2, :],           # ky=1, kx=0
++                         x[:, 1::2, 1::2, :]],          # ky=1, kx=1
++                        dim=-1)                         # B, new_H, new_W, C, 4
++        x = x.reshape(B, new_H * new_W, 4 * C)          # channel = c*4 + ky*2 + kx
+ 
+         x = self.norm(x)
+         x = self.reduction(x)
