@@ -56,11 +56,11 @@ struct BatchSettings {
 
 // batch-size 0 means the device's optimal batch size. With a batch-timeout (auto-batching) that size becomes the number
 // of grouped requests and the model itself stays at batch 1.
-BatchSettings resolve_batch_settings(const ConfigHelper &config);
+BatchSettings ResolveBatchSettings(const ConfigHelper &config);
 
 // Applies the settings of the config to the model, in this order: reshape, input layouts and pre-processing, batch
 // size.
-PreparedModel prepare_model(std::shared_ptr<ov::Model> model, const ConfigHelper &config, MemoryType memory_type);
+PreparedModel PrepareModel(std::shared_ptr<ov::Model> model, const ConfigHelper &config, MemoryType memory_type);
 
 } // namespace OpenVino
 } // namespace InferenceBackend

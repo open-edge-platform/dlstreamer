@@ -14,7 +14,7 @@ namespace InferenceBackend {
 namespace OpenVino {
 
 // One ov::Core per process, shared by every inference instance.
-inline ov::Core &openvino_core() {
+inline ov::Core &OpenVinoCore() {
     static ov::Core ovcore;
     return ovcore;
 }

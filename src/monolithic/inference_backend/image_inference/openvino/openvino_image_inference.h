@@ -23,13 +23,13 @@
 #include "openvino_image_to_tensor_converter.h"
 #include "openvino_prepared_model.h"
 
-class OpenVINOImageInference : public InferenceBackend::ImageInference {
+class OpenVinoImageInference : public InferenceBackend::ImageInference {
   public:
-    OpenVINOImageInference(const InferenceBackend::InferenceConfig &config, InferenceBackend::Allocator *allocator,
+    OpenVinoImageInference(const InferenceBackend::InferenceConfig &config, InferenceBackend::Allocator *allocator,
                            dlstreamer::ContextPtr context, CallbackFunc callback, ErrorHandlingFunc error_handler,
                            InferenceBackend::MemoryType memory_type);
 
-    ~OpenVINOImageInference();
+    ~OpenVinoImageInference();
 
     void SubmitImage(IFrameBase::Ptr frame,
                      const std::map<std::string, InferenceBackend::InputLayerDesc::Ptr> &input_preprocessors) override;
@@ -70,8 +70,8 @@ class OpenVINOImageInference : public InferenceBackend::ImageInference {
         std::vector<IFrameBase::Ptr> buffers;
         std::vector<ov::TensorVector> in_tensors;
 
-        void start_async() {
-            return this->infer_request.start_async();
+        void StartAsync() {
+            return infer_request.start_async();
         }
     };
 
@@ -79,36 +79,36 @@ class OpenVINOImageInference : public InferenceBackend::ImageInference {
     void WorkingFunction(InferSlot *slot);
 
     dlstreamer::ContextPtr context_;
-    InferenceBackend::MemoryType memory_type;
-    CallbackFunc callback;
-    ErrorHandlingFunc handleError;
+    InferenceBackend::MemoryType memory_type_;
+    CallbackFunc callback_;
+    ErrorHandlingFunc handle_error_;
 
-    std::string model_path;
-    InferenceBackend::OpenVino::PreparedModel prepared_model;
-    ov::CompiledModel compiled_model;
-    std::unique_ptr<InferenceBackend::OpenVino::ImageToTensorConverter> img_to_tensor;
+    std::string model_path_;
+    InferenceBackend::OpenVino::PreparedModel prepared_model_;
+    ov::CompiledModel compiled_model_;
+    std::unique_ptr<InferenceBackend::OpenVino::ImageToTensorConverter> img_to_tensor_;
 
-    std::string model_name;
-    std::string image_layer;
+    std::string model_name_;
+    std::string image_layer_;
 
-    int batch_size;
-    int batch_timeout;
-    int nireq;
+    int batch_size_;
+    int batch_timeout_;
+    int nireq_;
     // All slots live here for as long as the object does; everything else only points to them.
-    std::vector<std::unique_ptr<InferSlot>> slots;
+    std::vector<std::unique_ptr<InferSlot>> slots_;
     // Empty slots only. A slot being filled is current_slot_; a slot running inference is in neither.
-    InferSlotPool<InferSlot *> free_slots;
+    InferSlotPool<InferSlot *> free_slots_;
     // The slot that takes the next frame, null if none. Written under requests_mutex_; atomic so that IsQueueFull() can
     // read it without the lock.
     std::atomic<InferSlot *> current_slot_{nullptr};
 
-    std::unique_ptr<InferenceBackend::ImagePreprocessor> pre_processor;
+    std::unique_ptr<InferenceBackend::ImagePreprocessor> pre_processor_;
 
     // Threading
     std::mutex requests_mutex_;
     std::atomic<unsigned int> frames_in_flight_;
     std::condition_variable request_processed_;
-    std::mutex flush_mutex;
+    std::mutex flush_mutex_;
 
   private:
     void FreeSlot(InferSlot *slot);

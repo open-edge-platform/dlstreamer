@@ -59,12 +59,12 @@ struct fmt::formatter<InferenceBackend::ImagePreprocessorType> : formatter<strin
     }
 };
 
-// Prints the message of an exception including nested ones, up to max_level deep.
+// Prints the message of an exception including nested ones, up to MAX_LEVEL deep.
 // Used for the error that OpenVINO reports to the infer request completion callback.
 template <>
 struct fmt::formatter<std::exception_ptr> {
     // Max level of nesting printed (format parameter?)
-    static constexpr size_t max_level = 5;
+    static constexpr size_t MAX_LEVEL = 5;
     mutable size_t level = 0;
 
     // Fix for an AFL++ compilation issue
@@ -74,18 +74,18 @@ struct fmt::formatter<std::exception_ptr> {
         return ctx.begin();
     }
 
-    size_t current_indent() const {
+    size_t CurrentIndent() const {
         return level * 4;
     }
 
     template <typename T>
-    return_type format_nested(const T &ex, format_context &ctx) const {
+    return_type FormatNested(const T &ex, format_context &ctx) const {
         try {
             std::rethrow_if_nested(ex);
         } catch (...) {
-            if (level > max_level)
-                return fmt::format_to(ctx.out(), "\n{:.^{}}<...>", "", current_indent());
-            ctx.advance_to(fmt::format_to(ctx.out(), "\n{:.^{}}", "", current_indent()));
+            if (level > MAX_LEVEL)
+                return fmt::format_to(ctx.out(), "\n{:.^{}}<...>", "", CurrentIndent());
+            ctx.advance_to(fmt::format_to(ctx.out(), "\n{:.^{}}", "", CurrentIndent()));
             return format(std::current_exception(), ctx);
         }
         return ctx.out();
@@ -100,7 +100,7 @@ struct fmt::formatter<std::exception_ptr> {
         } catch (const std::exception &e) {
             ctx.advance_to(fmt::format_to(ctx.out(), "{}", e.what()));
             level++;
-            return format_nested(e, ctx);
+            return FormatNested(e, ctx);
         } catch (const std::string &e) {
             return fmt::format_to(ctx.out(), "{}", e);
         } catch (...) {

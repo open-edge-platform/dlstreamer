@@ -26,14 +26,14 @@ namespace OpenVino {
 
 // Creates the OpenVINO remote context for GPU surface sharing. Returns null for other devices and memory types.
 // app_context is the VA-API or D3D11/D3D12 context of the pipeline; it may be null when no GPU surface sharing is used.
-dlstreamer::OpenVINOContextPtr create_remote_context(const std::string &device, MemoryType memory_type,
-                                                     const dlstreamer::ContextPtr &app_context);
+dlstreamer::OpenVINOContextPtr CreateRemoteContext(const std::string &device, MemoryType memory_type,
+                                                   const dlstreamer::ContextPtr &app_context);
 
 // Compiles the model on the device, using OpenVINO auto-batching or NPU strided input when the model needs them.
-// remote_context is the result of create_remote_context() and may be null.
-ov::CompiledModel compile_model_for_device(const PreparedModel &prepared, const ConfigHelper &config,
-                                           const std::string &device, MemoryType memory_type,
-                                           const dlstreamer::OpenVINOContextPtr &remote_context);
+// remote_context is the result of CreateRemoteContext() and may be null.
+ov::CompiledModel CompileModelForDevice(const PreparedModel &prepared, const ConfigHelper &config,
+                                        const std::string &device, MemoryType memory_type,
+                                        const dlstreamer::OpenVINOContextPtr &remote_context);
 
 } // namespace OpenVino
 } // namespace InferenceBackend

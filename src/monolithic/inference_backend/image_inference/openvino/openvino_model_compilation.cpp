@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
-// Remote context creation differs per platform (VA-API on Linux, D3D11/D3D12 on Windows), see create_remote_context().
+// Remote context creation differs per platform (VA-API on Linux, D3D11/D3D12 on Windows), see CreateRemoteContext().
 
 #include "openvino_model_compilation.h"
 
@@ -37,18 +37,18 @@ namespace OpenVino {
 
 namespace {
 
-bool is_device_gpu(const std::string &device) {
+bool IsDeviceGpu(const std::string &device) {
     return device.find("GPU") != std::string::npos;
 }
 
-bool is_device_multi(const std::string &device) {
+bool IsDeviceMulti(const std::string &device) {
     return device.find("MULTI") != std::string::npos;
 }
 
 // NPU zero-copy DMA-BUFs use a padded row pitch when the model input width is not 64-byte aligned.
 // Let the NPU consume such strided input tensors directly instead of copying them on the CPU.
-void enable_npu_dmabuf_strides(ov::AnyMap &ov_params, const PreparedModel &prepared, const std::string &device,
-                               MemoryType memory_type) {
+void EnableNpuDmabufStrides(ov::AnyMap &ov_params, const PreparedModel &prepared, const std::string &device,
+                            MemoryType memory_type) {
     if (memory_type != MemoryType::DMA_BUFFER || device.find("NPU") == std::string::npos ||
         prepared.image_input_name.empty() || ov_params.count(ov::intel_npu::enable_strides_for.name()))
         return;
@@ -64,11 +64,11 @@ void enable_npu_dmabuf_strides(ov::AnyMap &ov_params, const PreparedModel &prepa
 
 } // namespace
 
-dlstreamer::OpenVINOContextPtr create_remote_context(const std::string &device, MemoryType memory_type,
-                                                     const dlstreamer::ContextPtr &app_context) {
+dlstreamer::OpenVINOContextPtr CreateRemoteContext(const std::string &device, MemoryType memory_type,
+                                                   const dlstreamer::ContextPtr &app_context) {
     dlstreamer::OpenVINOContextPtr openvino_context;
     // FIXME: invert to reduce nesting
-    if (is_device_gpu(device) && !is_device_multi(device)) {
+    if (IsDeviceGpu(device) && !IsDeviceMulti(device)) {
 #ifdef _WIN32
         if (memory_type == MemoryType::D3D11 || memory_type == MemoryType::D3D12 || memory_type == MemoryType::SYSTEM) {
             if (app_context) {
@@ -78,11 +78,11 @@ dlstreamer::OpenVINOContextPtr create_remote_context(const std::string &device, 
                         // matching GPU and bridge D3D12 resources through cl_khr_external_memory.
                         dlstreamer::D3D12ContextPtr d3d12_ctx = dlstreamer::D3D12Context::create(app_context);
                         openvino_context =
-                            std::make_shared<dlstreamer::OpenVINOContext>(openvino_core(), device, d3d12_ctx);
+                            std::make_shared<dlstreamer::OpenVINOContext>(OpenVinoCore(), device, d3d12_ctx);
                     } else {
                         dlstreamer::D3D11ContextPtr d3d11_ctx = dlstreamer::D3D11Context::create(app_context);
                         openvino_context =
-                            std::make_shared<dlstreamer::OpenVINOContext>(openvino_core(), device, d3d11_ctx);
+                            std::make_shared<dlstreamer::OpenVINOContext>(OpenVinoCore(), device, d3d11_ctx);
                     }
                 } catch (std::exception &e) {
                     GVA_ERROR("Exception occurred when creating OpenVINO™ toolkit remote context: %s", e.what());
@@ -98,8 +98,7 @@ dlstreamer::OpenVINOContextPtr create_remote_context(const std::string &device, 
             if (app_context) {
                 try {
                     dlstreamer::VAAPIContextPtr vaapi_ctx = dlstreamer::VAAPIContext::create(app_context);
-                    openvino_context =
-                        std::make_shared<dlstreamer::OpenVINOContext>(openvino_core(), device, vaapi_ctx);
+                    openvino_context = std::make_shared<dlstreamer::OpenVINOContext>(OpenVinoCore(), device, vaapi_ctx);
                 } catch (std::exception &e) {
                     GVA_ERROR("Exception occurred when creating OpenVINO™ toolkit remote context: %s", e.what());
                     std::throw_with_nested(std::runtime_error("couldn't create OV remote context"));
@@ -114,13 +113,13 @@ dlstreamer::OpenVINOContextPtr create_remote_context(const std::string &device, 
     return openvino_context;
 }
 
-ov::CompiledModel compile_model_for_device(const PreparedModel &prepared, const ConfigHelper &config,
-                                           const std::string &device, MemoryType memory_type,
-                                           const dlstreamer::OpenVINOContextPtr &remote_context) {
-    ov::AnyMap ov_params = config.inference_cfg();
+ov::CompiledModel CompileModelForDevice(const PreparedModel &prepared, const ConfigHelper &config,
+                                        const std::string &device, MemoryType memory_type,
+                                        const dlstreamer::OpenVINOContextPtr &remote_context) {
+    ov::AnyMap ov_params = config.InferenceCfg();
 
     // Check if enabling strided input for NPU zero-copy is applicable and required.
-    enable_npu_dmabuf_strides(ov_params, prepared, device, memory_type);
+    EnableNpuDmabufStrides(ov_params, prepared, device, memory_type);
 
     std::string params = fmt::format("Params for compile_model:\n  {}", fmt::join(ov_params, "\n  "));
     GVA_INFO("%s", params.c_str());
@@ -133,13 +132,13 @@ ov::CompiledModel compile_model_for_device(const PreparedModel &prepared, const 
     ov::CompiledModel compiled_model;
     try {
         if (remote_context) {
-            compiled_model = openvino_core().compile_model(prepared.model, remote_context->remote_context(), ov_params);
+            compiled_model = OpenVinoCore().compile_model(prepared.model, remote_context->remote_context(), ov_params);
         } else {
             std::string formatted_device = device;
             if (prepared.batch_timeout > -1) {
                 formatted_device = fmt::format("BATCH:{}({})", device, prepared.auto_batch_num_requests);
             }
-            compiled_model = openvino_core().compile_model(prepared.model, formatted_device, ov_params);
+            compiled_model = OpenVinoCore().compile_model(prepared.model, formatted_device, ov_params);
         }
     } catch (const std::exception &e) {
         GVA_ERROR("Failed to compile model for device %s: %s", device.c_str(), e.what());

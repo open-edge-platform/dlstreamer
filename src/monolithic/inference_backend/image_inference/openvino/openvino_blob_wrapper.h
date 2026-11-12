@@ -21,7 +21,7 @@ namespace InferenceBackend {
 namespace OpenVino {
 
 // Throws for element types that have no Blob::Precision.
-inline Blob::Precision to_blob_precision(const ov::element::Type &type) {
+inline Blob::Precision ToBlobPrecision(const ov::element::Type &type) {
     switch (type) {
     case ov::element::u8:
         return Blob::Precision::U8;
@@ -98,7 +98,7 @@ class OpenvinoInputTensor : public OpenvinoInputBlob {
     }
 
     InferenceBackend::Blob::Precision GetPrecision() const override {
-        return InferenceBackend::OpenVino::to_blob_precision(_tensor.get_element_type());
+        return InferenceBackend::OpenVino::ToBlobPrecision(_tensor.get_element_type());
     }
 
     void *GetData() {
@@ -126,7 +126,7 @@ class OpenvinoOutputTensor : public InferenceBackend::OutputBlob {
     }
 
     InferenceBackend::Blob::Precision GetPrecision() const override {
-        return InferenceBackend::OpenVino::to_blob_precision(_tensor.get_element_type());
+        return InferenceBackend::OpenVino::ToBlobPrecision(_tensor.get_element_type());
     }
 
     const void *GetData() const override {

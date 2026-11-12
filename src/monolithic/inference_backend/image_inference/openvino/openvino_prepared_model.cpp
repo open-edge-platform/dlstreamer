@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
-// prepare_model(): the steps depend on each other, see the order in prepare_model(). The layout comments in
-// configure_image_input explain how tensor and model layouts are reconciled.
+// PrepareModel(): the steps depend on each other, see the order in PrepareModel(). The layout comments in
+// ConfigureImageInput explain how tensor and model layouts are reconciled.
 
 #include "openvino_prepared_model.h"
 
@@ -47,7 +47,7 @@ struct Preparation {
     bool resize_applied = false;
 };
 
-void print_input_and_outputs_info(const ov::Model &network) {
+void PrintInputAndOutputsInfo(const ov::Model &network) {
     GVA_INFO("model name: %s", network.get_friendly_name().c_str());
 
     size_t index = 0;
@@ -89,7 +89,7 @@ void print_input_and_outputs_info(const ov::Model &network) {
     }
 }
 
-ov::Layout get_image_layout_from_shape(const ov::PartialShape &shape) {
+ov::Layout GetImageLayoutFromShape(const ov::PartialShape &shape) {
     // Check for layout type based on shape size and max number channels
     switch (shape.size()) {
     case 3:
@@ -113,7 +113,7 @@ ov::Layout get_image_layout_from_shape(const ov::PartialShape &shape) {
 /// @param from_shape_fallback if the node has no layout information, try determining the layout from the node
 /// shape
 /// @return layout of node or empty layout
-ov::Layout get_ov_node_layout(const ov::Output<ov::Node> &node, bool from_shape_fallback = false) {
+ov::Layout GetOvNodeLayout(const ov::Output<ov::Node> &node, bool from_shape_fallback = false) {
     ov::Layout result;
     if (auto ptr = dynamic_cast<const ov::op::v0::Parameter *>(node.get_node()))
         result = ptr->get_layout();
@@ -126,7 +126,7 @@ ov::Layout get_ov_node_layout(const ov::Output<ov::Node> &node, bool from_shape_
     // Try determining from shape
     const auto node_name = node.get_any_name();
     const auto &pshape = node.get_partial_shape();
-    result = get_image_layout_from_shape(pshape);
+    result = GetImageLayoutFromShape(pshape);
     if (result.empty())
         GVA_WARNING("Node '%s': couldn't determine layout for shape %s", node_name.c_str(), pshape.to_string().c_str());
     else
@@ -135,9 +135,9 @@ ov::Layout get_ov_node_layout(const ov::Output<ov::Node> &node, bool from_shape_
     return result;
 }
 
-std::pair<ov::preprocess::ColorFormat, std::vector<std::string>> get_ov_color_format(const std::string &img_format) {
+std::pair<ov::preprocess::ColorFormat, std::vector<std::string>> GetOvColorFormat(const std::string &img_format) {
     using namespace ov::preprocess;
-    static const std::map<std::string, std::pair<ov::preprocess::ColorFormat, std::vector<std::string>>> format_map{
+    static const std::map<std::string, std::pair<ov::preprocess::ColorFormat, std::vector<std::string>>> FORMAT_MAP{
         {"NV12", {ColorFormat::NV12_TWO_PLANES, {"y", "uv"}}},
         {"I420", {ColorFormat::I420_THREE_PLANES, {"y", "u", "v"}}},
         {"RGB", {ColorFormat::RGB, {}}},
@@ -146,8 +146,8 @@ std::pair<ov::preprocess::ColorFormat, std::vector<std::string>> get_ov_color_fo
         {"BGRX", {ColorFormat::BGRX, {}}},
         {"RGBA", {ColorFormat::RGBX, {}}},
         {"BGRA", {ColorFormat::BGRX, {}}}};
-    auto iter = format_map.find(img_format);
-    if (iter != format_map.end()) {
+    auto iter = FORMAT_MAP.find(img_format);
+    if (iter != FORMAT_MAP.end()) {
         return iter->second;
     }
 
@@ -156,15 +156,15 @@ std::pair<ov::preprocess::ColorFormat, std::vector<std::string>> get_ov_color_fo
     return {ov::preprocess::ColorFormat::UNDEFINED, {}};
 }
 
-size_t get_model_channels_num(const ConfigHelper &config) {
-    const auto &model_format = config.model_format();
+size_t GetModelChannelsNum(const ConfigHelper &config) {
+    const auto &model_format = config.ModelFormat();
     if (model_format == "GRAYSCALE")
         return 1;
     return 3;
 }
 
-bool is_image_input(const Preparation &p, const ConfigHelper &config, const ov::Output<ov::Node> &input) {
-    const auto inputs_cfg = config.inputs_cfg();
+bool IsImageInput(const Preparation &p, const ConfigHelper &config, const ov::Output<ov::Node> &input) {
+    const auto inputs_cfg = config.InputsCfg();
     const auto cmp_pred = [&](const auto &pair) { return input.get_names().count(pair.first) != 0; };
     auto it = std::find_if(inputs_cfg.begin(), inputs_cfg.end(), cmp_pred);
     if (it != inputs_cfg.end())
@@ -174,7 +174,7 @@ bool is_image_input(const Preparation &p, const ConfigHelper &config, const ov::
 }
 
 // Size, batch, pixel format and memory type of the image input, from the state the preparation has reached.
-ImageInputInfo describe_image_input(const Preparation &p) {
+ImageInputInfo DescribeImageInput(const Preparation &p) {
     ImageInputInfo info;
 
     for (auto input : p.model->inputs()) {
@@ -184,8 +184,8 @@ ImageInputInfo describe_image_input(const Preparation &p) {
 
         const auto &partial_shape = input.get_partial_shape();
         const auto &shape = partial_shape.is_dynamic() ? partial_shape.get_min_shape() : partial_shape.get_shape();
-        const auto layout = get_ov_node_layout(input, true);
-        GVA_DEBUG("describe_image_input(): input: %s, shape: %s, partial shape: %s, layout: %s",
+        const auto layout = GetOvNodeLayout(input, true);
+        GVA_DEBUG("DescribeImageInput(): input: %s, shape: %s, partial shape: %s, layout: %s",
                   input.get_any_name().c_str(), shape.to_string().c_str(), partial_shape.to_string().c_str(),
                   layout.to_string().c_str());
 
@@ -210,7 +210,7 @@ ImageInputInfo describe_image_input(const Preparation &p) {
     if (info.width == 0 && info.height == 0) {
         info.width = p.origin_model_in_w;
         info.height = p.origin_model_in_h;
-        GVA_DEBUG("describe_image_input(): using wa, w=%zu, h=%zu", info.width, info.height);
+        GVA_DEBUG("DescribeImageInput(): using wa, w=%zu, h=%zu", info.width, info.height);
     }
 
     if (info.batch_size == 0) {
@@ -255,14 +255,14 @@ ImageInputInfo describe_image_input(const Preparation &p) {
     return info;
 }
 
-void reshape_model(Preparation &p, const ConfigHelper &config, size_t image_height, size_t image_width,
-                   bool reshape_static) {
+void ReshapeModel(Preparation &p, const ConfigHelper &config, size_t image_height, size_t image_width,
+                  bool reshape_static) {
     std::map<ov::Output<ov::Node>, ov::PartialShape> port_to_shape;
 
     for (const ov::Output<ov::Node> &input : p.model->inputs()) {
         ov::PartialShape shape = input.get_partial_shape();
 
-        const ov::Layout layout = get_ov_node_layout(input, true);
+        const ov::Layout layout = GetOvNodeLayout(input, true);
         if (layout.empty())
             throw std::runtime_error(fmt::format("Reshape: couldn't determine input layout"));
 
@@ -276,10 +276,10 @@ void reshape_model(Preparation &p, const ConfigHelper &config, size_t image_heig
             shape[ov::layout::width_idx(layout)] = ov::Dimension(1, image_width);
         }
 
-        if (is_image_input(p, config, input)) {
+        if (IsImageInput(p, config, input)) {
             const auto channels_idx = ov::layout::channels_idx(layout);
             if (channels_idx >= 0 && shape[channels_idx].is_dynamic())
-                shape[channels_idx] = get_model_channels_num(config);
+                shape[channels_idx] = GetModelChannelsNum(config);
         }
 
         GVA_INFO("Reshaping model input %s from %s to %s", input.get_any_name().c_str(),
@@ -287,13 +287,13 @@ void reshape_model(Preparation &p, const ConfigHelper &config, size_t image_heig
         port_to_shape[input] = shape;
     }
     p.model->reshape(port_to_shape);
-    print_input_and_outputs_info(*p.model);
+    PrintInputAndOutputsInfo(*p.model);
 }
 
-void configure_image_input(Preparation &p, const ConfigHelper &config, ov::preprocess::InputInfo &input,
-                           const ConfigHelper::InputConfig &input_config, const ov::Output<ov::Node> &node) {
+void ConfigureImageInput(Preparation &p, const ConfigHelper &config, ov::preprocess::InputInfo &input,
+                         const ConfigHelper::InputConfig &input_config, const ov::Output<ov::Node> &node) {
     using InferenceBackend::ImagePreprocessorType;
-    const auto pp_type = config.pp_type();
+    const auto pp_type = config.PpType();
     std::string pp_type_string = fmt::format("Pre-processing: {}", pp_type);
     GVA_DEBUG("%s", pp_type_string.c_str());
 
@@ -309,7 +309,7 @@ void configure_image_input(Preparation &p, const ConfigHelper &config, ov::prepr
         pp_type == ImagePreprocessorType::D3D12_SURFACE_SHARING || pp_type == ImagePreprocessorType::IE) {
 
         // Surface sharing and IE assume input tensors in NHWC format
-        const auto color_format_pair = get_ov_color_format(config.image_format());
+        const auto color_format_pair = GetOvColorFormat(config.ImageFormat());
         input.tensor().set_color_format(color_format_pair.first, color_format_pair.second);
         input.tensor().set_layout("NHWC");
 
@@ -333,7 +333,7 @@ void configure_image_input(Preparation &p, const ConfigHelper &config, ov::prepr
         }
 
         // Convert input tensor color space into model color space if necessary
-        const auto model_format_pair = get_ov_color_format(config.model_format());
+        const auto model_format_pair = GetOvColorFormat(config.ModelFormat());
         if (color_format_pair.first != model_format_pair.first)
             input.preprocess().convert_color(model_format_pair.first);
 
@@ -344,7 +344,7 @@ void configure_image_input(Preparation &p, const ConfigHelper &config, ov::prepr
             // Validate resize_applied flag. We should not resize a model twice.
             assert(p.resize_applied == false);
 
-            auto [img_width, img_height] = config.image_size();
+            auto [img_width, img_height] = config.ImageSize();
             bool apply_resize = img_width != p.origin_model_in_w || img_height != p.origin_model_in_h;
 
             if (img_width && img_height) {
@@ -367,8 +367,8 @@ void configure_image_input(Preparation &p, const ConfigHelper &config, ov::prepr
         input.preprocess().convert_element_type(node_element_type);
 
     // If defined, scale the image by the defined value
-    auto mean = config.pixel_value_mean();
-    auto scale = config.pixel_value_scale();
+    auto mean = config.PixelValueMean();
+    auto scale = config.PixelValueScale();
 
     if (mean.size() == 1) {
         input.preprocess().mean(mean[0]);
@@ -388,15 +388,15 @@ void configure_image_input(Preparation &p, const ConfigHelper &config, ov::prepr
     //     depending on pp_type.
     //   - input.model().set_layout(...)   = a HINT about the original network body's layout,
     //     used by ppp.build() only to decide whether to insert a transpose.
-    // ppp.build() (in prepare_model) reconciles the two: the resulting Parameter ends up
+    // ppp.build() (in PrepareModel) reconciles the two: the resulting Parameter ends up
     // carrying the TENSOR layout, and that is what ov::set_batch later reads. Since both NCHW
     // and NHWC put 'N' at axis 0, set_batch always finds the batch on the image input.
     // The "??HW" hint below is transient: only H/W placement matters for the model side, so we
     // leave N/C unspecified. It does not become the Parameter's final layout.
     // NOTE: this whole function only runs for the image input (data_format == KEY_image); aux
-    // inputs (e.g. calib/img_sizes) get their batch ('N') layout tagged in configure_model_inputs
+    // inputs (e.g. calib/img_sizes) get their batch ('N') layout tagged in ConfigureModelInputs
     // instead, so ov::set_batch can pin their batch axis too.
-    ov::Layout model_layout = get_ov_node_layout(node);
+    ov::Layout model_layout = GetOvNodeLayout(node);
     if (model_layout.empty()) {
         // Need to specify H and W dimensions in model, others are not important
         model_layout = "??HW";
@@ -406,11 +406,11 @@ void configure_image_input(Preparation &p, const ConfigHelper &config, ov::prepr
     }
 }
 
-void configure_model_inputs(Preparation &p, const ConfigHelper &config, ov::preprocess::PrePostProcessor &preproc) {
+void ConfigureModelInputs(Preparation &p, const ConfigHelper &config, ov::preprocess::PrePostProcessor &preproc) {
     const auto &inputs = p.model->inputs();
 
-    const ConfigHelper::InputsConfig inputs_cfg = config.inputs_cfg();
-    print_inputs_config(inputs_cfg);
+    const ConfigHelper::InputsConfig inputs_cfg = config.InputsCfg();
+    PrintInputsConfig(inputs_cfg);
 
     if (inputs.size() == 1 && inputs_cfg.size() > 1)
         throw std::runtime_error(
@@ -441,14 +441,14 @@ void configure_model_inputs(Preparation &p, const ConfigHelper &config, ov::prep
         if (in_cfg.data_format == InferenceBackend::KEY_image) {
             p.image_input_name = item.get_any_name();
             GVA_DEBUG("Found image input: %s, layout: %s", p.image_input_name.c_str(),
-                      get_ov_node_layout(item).to_string().c_str());
-            configure_image_input(p, config, in, in_cfg, item);
+                      GetOvNodeLayout(item).to_string().c_str());
+            ConfigureImageInput(p, config, in, in_cfg, item);
         } else {
             // Auxiliary (non-image) input (e.g. MonoDETR's calib/img_sizes): tag a batch ('N')
             // layout so the later ov::set_batch can pin its batch axis. Only when axis 0 is dynamic
             // and no layout is set, to avoid rewriting a legitimately fixed leading dimension.
             const auto &pshape = item.get_partial_shape();
-            if (get_ov_node_layout(item).empty() && pshape.rank().is_static() && pshape.size() > 0 &&
+            if (GetOvNodeLayout(item).empty() && pshape.rank().is_static() && pshape.size() > 0 &&
                 pshape[0].is_dynamic())
                 in.model().set_layout(ov::Layout("N" + std::string(pshape.size() - 1, '?')));
         }
@@ -461,55 +461,55 @@ void configure_model_inputs(Preparation &p, const ConfigHelper &config, ov::prep
 
 } // namespace
 
-BatchSettings resolve_batch_settings(const ConfigHelper &config) {
+BatchSettings ResolveBatchSettings(const ConfigHelper &config) {
     BatchSettings settings;
-    settings.batch_size = config.batch_size();
+    settings.batch_size = config.BatchSize();
     if (settings.batch_size == 0)
-        settings.batch_size = OpenVINOImageInference::GetDeviceOptimalBatchSize(config.device());
+        settings.batch_size = OpenVinoImageInference::GetDeviceOptimalBatchSize(config.Device());
 
-    if (config.batch_timeout() > -1) {
+    if (config.BatchTimeout() > -1) {
         settings.auto_batch_num_requests = settings.batch_size;
         settings.batch_size = 1;
     }
     return settings;
 }
 
-PreparedModel prepare_model(std::shared_ptr<ov::Model> model, const ConfigHelper &config, MemoryType memory_type) {
+PreparedModel PrepareModel(std::shared_ptr<ov::Model> model, const ConfigHelper &config, MemoryType memory_type) {
     Preparation p;
     p.model = std::move(model);
     p.memory_type = memory_type;
-    p.pp_type = config.pp_type();
-    p.model_format = config.model_format();
+    p.pp_type = config.PpType();
+    p.model_format = config.ModelFormat();
 
     // The pre-processing configured below compares the frame size with the size the model was read with.
-    const ImageInputInfo original_input = describe_image_input(p);
+    const ImageInputInfo original_input = DescribeImageInput(p);
     p.origin_model_in_w = original_input.width;
     p.origin_model_in_h = original_input.height;
 
-    auto [reshape_width, reshape_height] = config.reshape_size();
-    if (config.need_reshape() && (reshape_width || reshape_height))
-        reshape_model(p, config, reshape_height, reshape_width, config.reshape_static());
+    auto [reshape_width, reshape_height] = config.ReshapeSize();
+    if (config.NeedReshape() && (reshape_width || reshape_height))
+        ReshapeModel(p, config, reshape_height, reshape_width, config.ReshapeStatic());
 
     auto ppp = ov::preprocess::PrePostProcessor(p.model);
-    configure_model_inputs(p, config, ppp);
+    ConfigureModelInputs(p, config, ppp);
     p.model = ppp.build();
 
     // dynamic shapes may have height=0 and width=0 after IE preprocessing
     // set lower and upper bound of dynamic shapes to match original frame dimensions
-    auto [img_width, img_height] = config.image_size();
-    if (img_width == 0 && img_height == 0 && config.pp_type() == ImagePreprocessorType::IE) {
-        auto [frame_width, frame_height] = config.frame_size();
-        reshape_model(p, config, frame_height, frame_width, false);
+    auto [img_width, img_height] = config.ImageSize();
+    if (img_width == 0 && img_height == 0 && config.PpType() == ImagePreprocessorType::IE) {
+        auto [frame_width, frame_height] = config.FrameSize();
+        ReshapeModel(p, config, frame_height, frame_width, false);
     }
 
-    const BatchSettings batch = resolve_batch_settings(config);
+    const BatchSettings batch = ResolveBatchSettings(config);
     p.batch_size = batch.batch_size;
     p.auto_batch_num_requests = batch.auto_batch_num_requests;
-    p.batch_timeout = config.batch_timeout();
+    p.batch_timeout = config.BatchTimeout();
 
     GVA_DEBUG("Setting batch size of %d to model", p.batch_size);
-    // Every input carries an 'N' layout by now (image via configure_image_input, aux inputs tagged
-    // in configure_model_inputs), so set_batch pins the batch axis on all of them.
+    // Every input carries an 'N' layout by now (image via ConfigureImageInput, aux inputs tagged
+    // in ConfigureModelInputs), so set_batch pins the batch axis on all of them.
     ov::set_batch(p.model, p.batch_size);
 
     GVA_DEBUG("Model inputs after configuration:");
@@ -530,7 +530,7 @@ PreparedModel prepare_model(std::shared_ptr<ov::Model> model, const ConfigHelper
     prepared.batch_size = p.batch_size;
     prepared.batch_timeout = p.batch_timeout;
     prepared.auto_batch_num_requests = p.auto_batch_num_requests;
-    prepared.image_input = describe_image_input(p);
+    prepared.image_input = DescribeImageInput(p);
     return prepared;
 }
 

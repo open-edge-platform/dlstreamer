@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
-// OpenVINOImageInference::SubmitImage and what it needs: taking a free infer request, putting the frame into its input
+// OpenVinoImageInference::SubmitImage and what it needs: taking a free infer request, putting the frame into its input
 // tensor (software pre-processing, or bypass when the frame already fits the model), and starting the request once
 // the batch is full. See Flush() in openvino_image_inference.cpp for how a partly filled batch is started.
 
@@ -24,7 +24,7 @@ using namespace InferenceBackend::OpenVino;
 namespace {
 
 const InputImageLayerDesc::Ptr
-getImagePreProcInfo(const std::map<std::string, InferenceBackend::InputLayerDesc::Ptr> &input_preprocessors) {
+GetImagePreProcInfo(const std::map<std::string, InferenceBackend::InputLayerDesc::Ptr> &input_preprocessors) {
     const auto image_it = input_preprocessors.find("image");
     if (image_it != input_preprocessors.cend()) {
         const auto description = image_it->second;
@@ -36,7 +36,7 @@ getImagePreProcInfo(const std::map<std::string, InferenceBackend::InputLayerDesc
     return nullptr;
 }
 
-Image fill_image(ov::Tensor &tensor, size_t bindex) {
+Image FillImage(ov::Tensor &tensor, size_t bindex) {
     Image image = Image();
     const auto &dims = tensor.get_shape();
     if (dims.size() < 4)
@@ -64,11 +64,11 @@ Image fill_image(ov::Tensor &tensor, size_t bindex) {
     return image;
 }
 
-Image map_ov_tensor_to_img(ov::Tensor &tensor, size_t batch_index) {
+Image MapOvTensorToImg(ov::Tensor &tensor, size_t batch_index) {
     ITT_TASK(__FUNCTION__);
     assert(tensor);
 
-    Image image = fill_image(tensor, batch_index);
+    Image image = FillImage(tensor, batch_index);
     switch (tensor.get_element_type()) {
     case ov::element::f32:
         image.format = FourCC::FOURCC_RGBP_F32;
@@ -84,7 +84,7 @@ Image map_ov_tensor_to_img(ov::Tensor &tensor, size_t batch_index) {
 
 } // namespace
 
-void OpenVINOImageInference::SubmitImageProcessing(const std::string &input_name, InferSlot *slot, const Image &src_img,
+void OpenVinoImageInference::SubmitImageProcessing(const std::string &input_name, InferSlot *slot, const Image &src_img,
                                                    const InputImageLayerDesc::Ptr &pre_proc_info,
                                                    const ImageTransformationParams::Ptr image_transform_info) {
     ITT_TASK(__FUNCTION__);
@@ -95,21 +95,21 @@ void OpenVINOImageInference::SubmitImageProcessing(const std::string &input_name
         slot->in_tensors.front().push_back(slot->infer_request.get_tensor(input_name));
     }
     const size_t batch_index = slot->buffers.size();
-    Image dst_img = map_ov_tensor_to_img(slot->in_tensors.front().front(), batch_index);
+    Image dst_img = MapOvTensorToImg(slot->in_tensors.front().front(), batch_index);
     if (src_img.planes[0] != dst_img.planes[0]) { // only convert if different buffers
         try {
-            pre_processor->Convert(src_img, dst_img, pre_proc_info, image_transform_info);
+            pre_processor_->Convert(src_img, dst_img, pre_proc_info, image_transform_info);
         } catch (const std::exception &e) {
             std::throw_with_nested(std::runtime_error("Failed while software frame preprocessing"));
         }
     }
 }
 
-void OpenVINOImageInference::BypassImageProcessing(const std::string &input_name, InferSlot *slot, const Image &src_img,
+void OpenVinoImageInference::BypassImageProcessing(const std::string &input_name, InferSlot *slot, const Image &src_img,
                                                    size_t batch_size) {
     ITT_TASK(__FUNCTION__);
 
-    auto ov_tensor = img_to_tensor->image_to_tensors(src_img);
+    auto ov_tensor = img_to_tensor_->ImageToTensors(src_img);
 
     if (batch_size > 1) {
         if (ov_tensor.size() != slot->in_tensors.size())
@@ -139,8 +139,8 @@ void OpenVINOImageInference::BypassImageProcessing(const std::string &input_name
     }
 }
 
-bool OpenVINOImageInference::DoNeedImagePreProcessing(const InferenceBackend::ImagePtr image) {
-    if (pre_processor.get() != nullptr)
+bool OpenVinoImageInference::DoNeedImagePreProcessing(const InferenceBackend::ImagePtr image) {
+    if (pre_processor_.get() != nullptr)
         return true;
 
     if (image == nullptr)
@@ -148,12 +148,12 @@ bool OpenVINOImageInference::DoNeedImagePreProcessing(const InferenceBackend::Im
 
     // OV plugins exhibit low peformance (serialization) when VA pre-processor generates non-continous tensors
     // Add OpenCV pre-rocessor to compress non-continous tensors on top of VA pre-processor which does resize/crop/etc.
-    if ((memory_type == MemoryType::SYSTEM) &&
+    if ((memory_type_ == MemoryType::SYSTEM) &&
         ((image->format == FourCC::FOURCC_RGBP) || (image->format == FourCC::FOURCC_BGRP))) {
 
         if (!isImageContiguous(*image)) {
             GVA_WARNING("Force OPENCV preprocessor to convert non-contiguous tensors into contigous memory location");
-            pre_processor.reset(
+            pre_processor_.reset(
                 InferenceBackend::ImagePreprocessor::Create(InferenceBackend::ImagePreprocessorType::OPENCV, ""));
             return true;
         }
@@ -162,7 +162,7 @@ bool OpenVINOImageInference::DoNeedImagePreProcessing(const InferenceBackend::Im
     return false;
 }
 
-void OpenVINOImageInference::ApplyInputPreprocessors(
+void OpenVinoImageInference::ApplyInputPreprocessors(
     InferSlot *slot, const std::map<std::string, InputLayerDesc::Ptr> &input_preprocessors) {
     ITT_TASK(__FUNCTION__);
     assert(slot && "Infer slot is null");
@@ -178,7 +178,7 @@ void OpenVINOImageInference::ApplyInputPreprocessors(
                 continue;
         }
 
-        const auto &model_inputs = prepared_model.model->inputs();
+        const auto &model_inputs = prepared_model_.model->inputs();
         std::shared_ptr<OpenvinoInputTensor> intput_tensor = nullptr;
         if ((preprocessor.first == KEY_image) && (model_inputs.size() == 1) && !slot->in_tensors.empty() &&
             !slot->in_tensors.front().empty()) {
@@ -194,7 +194,7 @@ void OpenVINOImageInference::ApplyInputPreprocessors(
     }
 }
 
-void OpenVINOImageInference::SubmitImage(
+void OpenVinoImageInference::SubmitImage(
     IFrameBase::Ptr frame, const std::map<std::string, InferenceBackend::InputLayerDesc::Ptr> &input_preprocessors) {
     ITT_TASK(__FUNCTION__);
 
@@ -205,7 +205,7 @@ void OpenVINOImageInference::SubmitImage(
     ++frames_in_flight_;
     InferSlot *slot = current_slot_;
     if (!slot) {
-        auto acquired = free_slots.acquire();
+        auto acquired = free_slots_.Acquire();
         if (!acquired) {
             --frames_in_flight_;
             throw std::runtime_error("Inference is closed, cannot submit an image");
@@ -224,13 +224,13 @@ void OpenVINOImageInference::SubmitImage(
     try {
         if (DoNeedImagePreProcessing(frame->GetImage())) {
             SubmitImageProcessing(
-                image_layer, slot, *frame->GetImage(),
-                getImagePreProcInfo(input_preprocessors), // contain operations order for Custom Image PreProcessing
+                image_layer_, slot, *frame->GetImage(),
+                GetImagePreProcInfo(input_preprocessors), // contain operations order for Custom Image PreProcessing
                 frame->GetImageTransformationParams()     // during CIPP will be filling of crop and aspect-ratio
                                                           // parameters
             );
         } else {
-            BypassImageProcessing(image_layer, slot, *frame->GetImage(), safe_convert<size_t>(batch_size));
+            BypassImageProcessing(image_layer_, slot, *frame->GetImage(), safe_convert<size_t>(batch_size_));
         }
 
         ApplyInputPreprocessors(slot, input_preprocessors);
@@ -250,18 +250,18 @@ void OpenVINOImageInference::SubmitImage(
 
     try {
         // start inference asynchronously if enough buffers for batching
-        if (slot->buffers.size() >= safe_convert<size_t>(batch_size)) {
+        if (slot->buffers.size() >= safe_convert<size_t>(batch_size_)) {
             current_slot_ = nullptr;
-            slot->start_async();
+            slot->StartAsync();
         }
     } catch (const std::exception &e) {
         // The slot holds the whole batch now: fail all of its frames, as Flush() and the completion callback do.
         // Not rethrown, so the caller does not report this frame twice.
         GVA_ERROR("Inference async start has failed: %s", e.what());
-        // handleError pushes the frames downstream, which can block: don't hold requests_mutex_ over it, as the
+        // handle_error_ pushes the frames downstream, which can block: don't hold requests_mutex_ over it, as the
         // completion callback doesn't. The slot is ours until FreeSlot.
         lk.unlock();
-        handleError(slot->buffers);
+        handle_error_(slot->buffers);
         FreeSlot(slot);
     }
 }

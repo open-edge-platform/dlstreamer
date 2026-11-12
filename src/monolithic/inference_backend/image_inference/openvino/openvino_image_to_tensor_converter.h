@@ -36,28 +36,28 @@ class ImageToTensorConverter {
 
     // One tensor per model input plane: 1 for packed and planar RGB, 2 for NV12 (Y, UV), 3 for I420 (Y, U, V).
     // The tensors reference the image memory, so the image must outlive them.
-    std::vector<ov::Tensor> image_to_tensors(const Image &image);
+    std::vector<ov::Tensor> ImageToTensors(const Image &image);
 
   private:
-    static bool image_has_roi(const Image &image);
-    static size_t get_channels_num(int format);
+    static bool ImageHasRoi(const Image &image);
+    static size_t GetChannelsNum(int format);
 
-    ov::Tensor image_rgbp_to_tensor(const Image &image);
-    ov::Tensor image_rgbp_dmabuf_to_npu_tensor(const Image &image);
-    ov::Tensor image_bgrx_to_tensor(const Image &image);
-    std::vector<ov::Tensor> image_nv12_to_tensor(const Image &image);
-    std::vector<ov::Tensor> image_nv12_surface_to_tensor(const Image &image);
-    std::vector<ov::Tensor> image_d3d_bgrx_surface_to_tensor(const Image &image);
-    std::vector<ov::Tensor> image_i420_to_tensor(const Image &image) const;
+    ov::Tensor ImageRgbpToTensor(const Image &image);
+    ov::Tensor ImageRgbpDmabufToNpuTensor(const Image &image);
+    ov::Tensor ImageBgrxToTensor(const Image &image);
+    std::vector<ov::Tensor> ImageNv12ToTensor(const Image &image);
+    std::vector<ov::Tensor> ImageNv12SurfaceToTensor(const Image &image);
+    std::vector<ov::Tensor> ImageD3dBgrxSurfaceToTensor(const Image &image);
+    std::vector<ov::Tensor> ImageI420ToTensor(const Image &image) const;
 
-    std::shared_ptr<dlstreamer::OpenVINOContext> _gpu_context;
+    std::shared_ptr<dlstreamer::OpenVINOContext> gpu_context_;
 
     // Persistent NPU Level Zero context and per-DMA-BUF-fd remote tensor cache for the
     // VAAPI_SYSTEM zero-copy path (avoids re-creating a context and re-importing the fd
     // on every inference, which leaks NPU imports and stalls inference over time).
-    std::unique_ptr<ov::intel_npu::level_zero::ZeroContext> _npu_context;
-    std::unordered_map<int, ov::Tensor> _npu_dmabuf_tensor_cache;
-    std::mutex _npu_dmabuf_cache_mutex;
+    std::unique_ptr<ov::intel_npu::level_zero::ZeroContext> npu_context_;
+    std::unordered_map<int, ov::Tensor> npu_dmabuf_tensor_cache_;
+    std::mutex npu_dmabuf_cache_mutex_;
 };
 
 } // namespace OpenVino

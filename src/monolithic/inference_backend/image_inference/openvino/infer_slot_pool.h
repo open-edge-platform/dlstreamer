@@ -4,10 +4,10 @@
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
-// InferSlotPool is the pool of empty slots of OpenVINOImageInference. A slot is one infer request together with the
-// batch of frames being filled for it. The submitting thread takes a slot with acquire() and blocks while none is
-// free, which limits the number of requests in flight. A slot returns to the pool with release() when its inference is
-// done. close() ends the waiting at shutdown. Slot is a cheap-to-copy handle, such as a pointer; the pool does not own
+// InferSlotPool is the pool of empty slots of OpenVinoImageInference. A slot is one infer request together with the
+// batch of frames being filled for it. The submitting thread takes a slot with Acquire() and blocks while none is
+// free, which limits the number of requests in flight. A slot returns to the pool with Release() when its inference is
+// done. Close() ends the waiting at shutdown. Slot is a cheap-to-copy handle, such as a pointer; the pool does not own
 // the slots.
 
 #pragma once
@@ -23,9 +23,9 @@ template <class Slot>
 class InferSlotPool {
   public:
     // Makes a slot available: a new slot, or one whose inference is done. Wakes one waiting thread. Also allowed after
-    // close().
-    void release(Slot slot) {
-        ITT_TASK("InferSlotPool::release");
+    // Close().
+    void Release(Slot slot) {
+        ITT_TASK("InferSlotPool::Release");
         {
             std::lock_guard lock(mutex_);
             free_.push_back(slot);
@@ -34,8 +34,8 @@ class InferSlotPool {
     }
 
     // Blocks until a slot is free and returns it. Returns nothing once the pool is closed.
-    std::optional<Slot> acquire() {
-        ITT_TASK("InferSlotPool::acquire");
+    std::optional<Slot> Acquire() {
+        ITT_TASK("InferSlotPool::Acquire");
         std::unique_lock lock(mutex_);
         condition_.wait(lock, [this] { return !free_.empty() || closed_; });
         if (closed_)
@@ -46,13 +46,13 @@ class InferSlotPool {
     }
 
     // Does not block. Another thread may change the pool right after the call returns.
-    bool has_free() const {
+    bool HasFree() const {
         std::lock_guard lock(mutex_);
         return !free_.empty();
     }
 
-    // Wakes every thread blocked in acquire(); from now on acquire() returns nothing.
-    void close() {
+    // Wakes every thread blocked in Acquire(); from now on Acquire() returns nothing.
+    void Close() {
         {
             std::lock_guard lock(mutex_);
             closed_ = true;
