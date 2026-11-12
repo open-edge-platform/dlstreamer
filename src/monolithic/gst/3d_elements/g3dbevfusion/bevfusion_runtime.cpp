@@ -130,6 +130,9 @@ struct Runtime::Impl {
     std::vector<float> depth = std::vector<float>(static_cast<size_t>(kNumCameras) * kImageH * kImageW);
     std::vector<float> geometry_combined = std::vector<float>(kNumCameras * 14);
     std::vector<float> geometry_rotation = std::vector<float>(kNumCameras * 9);
+    // The geometry model's inputs for the output it holds. They only change
+    // with the calibration or the image size, so it rarely needs to run again.
+    std::vector<float> geometry_combined_done, geometry_rotation_done;
     // bev_pool's int32 accumulator: BEVPoolScatter adds into it and
     // BEVPoolConvert resets it after reading, so it stays zeroed between frames.
     std::vector<int32_t> bev_accumulator;
@@ -216,9 +219,13 @@ struct Runtime::Impl {
         dump("images", img);
         dump("depth_maps", dep);
 
-        geometry.set_input_tensor(0, host_tensor(ov::element::f32, {kNumCameras, 14}, geometry_combined.data()));
-        geometry.set_input_tensor(1, host_tensor(ov::element::f32, {kNumCameras, 3, 3}, geometry_rotation.data()));
-        geometry.infer();
+        if (geometry_combined != geometry_combined_done || geometry_rotation != geometry_rotation_done) {
+            geometry.set_input_tensor(0, host_tensor(ov::element::f32, {kNumCameras, 14}, geometry_combined.data()));
+            geometry.set_input_tensor(1, host_tensor(ov::element::f32, {kNumCameras, 3, 3}, geometry_rotation.data()));
+            geometry.infer();
+            geometry_combined_done = geometry_combined;
+            geometry_rotation_done = geometry_rotation;
+        }
         camera_encoder.set_input_tensor(0, img);
         camera_encoder.set_input_tensor(1, dep);
         camera_encoder.infer();
