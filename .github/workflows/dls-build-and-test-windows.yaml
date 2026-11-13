@@ -243,7 +243,7 @@ jobs:
 
       - name: "Install Python v${{ env.PYTHON_VERSION }}"
         if: needs.setup.outputs.should_run == 'true'
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         id: cp312
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -579,7 +579,7 @@ jobs:
 
       - name: Upload tests results to Artifacts
         if: always() && needs.setup.outputs.should_run == 'true'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: test_results_on_host_Windows_ARL_tests_results
           path: ${{ env.TESTS_RESULTS_DIRECTORY }}
@@ -668,7 +668,7 @@ jobs:
 
       - name: Upload unit tests results to Artifacts
         if: always() && steps.run-unit-tests.outcome != 'skipped'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: DLS_unit_tests_Windows_${{ matrix.runner_print_label }}
           path: ${{ env.UNIT_TESTS_RESULTS_DIRECTORY }}
