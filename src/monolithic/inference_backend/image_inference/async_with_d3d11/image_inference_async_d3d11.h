@@ -127,7 +127,7 @@ class ImageInferenceAsyncD3D11 : public ImageInference {
     D3D11SurfaceSharing *GetOrCreateSurfaceSharing(void *cl_ctx);
 
     // Persistent worker thread + bounded queue for OV SubmitImage.
-    // OV::SubmitImage can block on InferSlotPool::acquire(), the single worker thread absorbs
+    // OV::SubmitImage can block on InferSlotPool::Acquire(), the single worker thread absorbs
     // that blocking so streaming threads aren't stalled.
     struct SubmitTask {
         IFrameBase::Ptr frame;
