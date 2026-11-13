@@ -1,12 +1,11 @@
 /*******************************************************************************
- * Copyright (C) 2018-2024 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
 #include "ov_inference.h"
 #include "audio_defs.h"
-#include "core_singleton.h"
 #include "dlstreamer/openvino/utils.h"
 #include "dlstreamer/tensor_info.h"
 #include "dlstreamer/utils.h"

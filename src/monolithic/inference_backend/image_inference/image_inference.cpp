@@ -37,16 +37,7 @@ bool isNpuZeroCopyInputSupported(const InferenceConfig &config) {
     try {
         const auto &base_config = config.at(KEY_BASE);
 
-        // Resolve the effective model batch size the same way as the OpenVINO backend: 0 means auto
-        // (device optimal batch size), and auto-batching (batch timeout set) keeps the model at batch 1.
-        int batch_size = std::stoi(base_config.at(KEY_BATCH_SIZE));
-        const auto inf_it = config.find(KEY_INFERENCE);
-        const bool auto_batching = inf_it != config.end() && inf_it->second.count(ov::auto_batch_timeout.name()) &&
-                                   std::stoi(inf_it->second.at(ov::auto_batch_timeout.name())) > -1;
-        if (auto_batching)
-            batch_size = 1;
-        else if (batch_size == 0)
-            batch_size = OpenVINOImageInference::GetDeviceOptimalBatchSize(base_config.at(KEY_DEVICE));
+        const int batch_size = OpenVino::ResolveBatchSettings(OpenVino::ConfigHelper(config)).batch_size;
         if (batch_size > 1) {
             GVA_WARNING("NPU zero-copy: batch-size %d is not supported, only batch-size 1 is", batch_size);
             return false;
@@ -75,11 +66,11 @@ bool isNpuZeroCopyInputSupported(const InferenceConfig &config) {
                 ov_extension_lib = ext_it->second;
 
             for (const auto &input :
-                 OpenVINOImageInference::GetModelInputShapes(model_file, ov_extension_lib.c_str())) {
+                 OpenVinoImageInference::GetModelInputShapes(model_file, ov_extension_lib.c_str())) {
                 const auto &shape = input.second;
                 // Image input is the 4D tensor: the VA pre-processing path builds [1, C, H, W] tensors and
                 // ov::set_batch needs an 'N' axis. Other ranks leave width/height at 0, i.e. no zero-copy.
-                // Use the same heuristic as the OpenVINO backend (get_image_layout_from_shape): NHWC if the
+                // Use the same heuristic as the OpenVINO backend (GetImageLayoutFromShape): NHWC if the
                 // last dim looks like channels, otherwise NCHW.
                 if (shape.size() != 4)
                     continue;
@@ -103,7 +94,7 @@ bool isNpuZeroCopyInputSupported(const InferenceConfig &config) {
             return true;
 
         // Unaligned width: rows are padded to an aligned pitch, so the NPU must accept a strided ROI tensor.
-        if (OpenVINOImageInference::IsNpuStridedInputSupported()) {
+        if (OpenVinoImageInference::IsNpuStridedInputSupported()) {
             GVA_INFO("NPU zero-copy: model input width %u is not %u-byte aligned, using padded rows with strided "
                      "NPU input",
                      width, DMA_BUF_PITCH_ALIGNMENT);
@@ -125,12 +116,12 @@ bool isNpuZeroCopyInputSupported(const InferenceConfig &config) {
 std::map<std::string, GstStructure *> ImageInference::GetModelInfoPreproc(const std::string model_file,
                                                                           const gchar *preproc_config,
                                                                           const gchar *ov_extension_lib) {
-    return OpenVINOImageInference::GetModelInfoPreproc(model_file, preproc_config, ov_extension_lib);
+    return OpenVinoImageInference::GetModelInfoPreproc(model_file, preproc_config, ov_extension_lib);
 }
 
 std::map<std::string, std::vector<size_t>> ImageInference::GetModelInputShapes(const std::string model_file,
                                                                                const gchar *ov_extension_lib) {
-    return OpenVINOImageInference::GetModelInputShapes(model_file, ov_extension_lib);
+    return OpenVinoImageInference::GetModelInputShapes(model_file, ov_extension_lib);
 }
 
 ImageInference::Ptr ImageInference::createImageInferenceInstance(MemoryType input_image_memory_type,
@@ -247,8 +238,8 @@ ImageInference::Ptr ImageInference::createImageInferenceInstance(MemoryType inpu
         throw std::invalid_argument("Unsupported memory type");
     }
 
-    // Create an OpenVINOImageInference instance with the determined memory type
-    auto ov_inference = std::make_shared<OpenVINOImageInference>(config, allocator, context, callback, error_handler,
+    // Create an OpenVinoImageInference instance with the determined memory type
+    auto ov_inference = std::make_shared<OpenVinoImageInference>(config, allocator, context, callback, error_handler,
                                                                  memory_type_to_use);
 
     ImageInference::Ptr result_inference;
