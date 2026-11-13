@@ -7,7 +7,9 @@
 import unittest
 from unittest import mock
 
-from optimizer import _collect_power_info # pylint: disable=no-name-in-module
+import requests
+
+from optimizer import DLSOptimizer, _collect_power_info # pylint: disable=no-name-in-module
 
 # Power metrics captured from the Metrics Manager 2026.3.0 Prometheus endpoint (port 9273).
 METRICS_MANAGER = """\
@@ -56,6 +58,38 @@ class TestCollectPowerInfo(unittest.TestCase):
 
     def test_no_power_metrics_reports_zero(self):
         self.assertEqual(_collect_power_info(_response(NO_POWER_METRICS)), 0.0)
+
+
+class TestSetMetricsUrl(unittest.TestCase):
+
+    def setUp(self):
+        self.optimizer = DLSOptimizer()
+
+    def _set_metrics_url(self, text):
+        with mock.patch("optimizer.requests.get", return_value=_response(text)) as get:
+            self.optimizer.set_metrics_url("http://metrics-manager:9273/")
+        get.assert_called_once_with("http://metrics-manager:9273/metrics", timeout=1)
+
+    def test_accepts_metrics_manager_endpoint(self):
+        self._set_metrics_url(METRICS_MANAGER)
+        self.assertEqual(self.optimizer._metrics_url, "http://metrics-manager:9273/metrics") # pylint: disable=protected-access
+
+    def test_rejects_endpoint_without_power_metrics(self):
+        with self.assertRaisesRegex(RuntimeError, "doesn't expose"):
+            self._set_metrics_url(NO_POWER_METRICS)
+
+    def test_rejects_empty_response(self):
+        with self.assertRaisesRegex(RuntimeError, "doesn't expose"):
+            self._set_metrics_url("\n")
+
+    def test_rejects_invalid_prometheus_text(self):
+        with self.assertRaisesRegex(RuntimeError, "invalid Prometheus metrics"):
+            self._set_metrics_url("<html><body>Not Found</body></html>\n")
+
+    def test_rejects_unreachable_endpoint(self):
+        with mock.patch("optimizer.requests.get", side_effect=requests.ConnectionError("refused")):
+            with self.assertRaisesRegex(RuntimeError, "Couldn't establish connection"):
+                self.optimizer.set_metrics_url("http://metrics-manager:9273/")
 
 
 if __name__ == "__main__":

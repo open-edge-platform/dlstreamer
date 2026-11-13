@@ -92,7 +92,8 @@ Maximum power consumption (watts) that every valid pipeline cannot cross.
 **`power-metrics-endpoint`** \
 URL leading to the Prometheus endpoint of a Metrics Manager instance (port `9273` by default, for example
 `http://localhost:9273/`). Required when using the `power` optimization mode. The optimizer sums the NPU power
-(`npu_power_w`) and the `pkg_cur_power` sample of every GPU (`gpu_power_power_w`).
+(`npu_power_w`) and the `pkg_cur_power` sample of every GPU (`gpu_power_power_w`). An endpoint that exposes
+neither metric is rejected.
 
 **`enable-cross-stream-batching`** \
 Levy the inference instance feature of DL Streamer to batch work across multiple streams in fps mode.
