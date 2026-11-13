@@ -196,7 +196,8 @@ void OpenVinoImageInference::ApplyInputPreprocessors(
 }
 
 // Holds requests_mutex_ for the whole call, including the wait in Acquire() and the pre-processing. FreeSlot() and the
-// completion callback never take it, so a waiting submitter cannot block them; Close() closes the pool first to wake it.
+// completion callback never take it, so a waiting submitter cannot block them. Close() closes the pool before it takes
+// the mutex, which wakes a waiting submitter.
 void OpenVinoImageInference::SubmitImage(
     IFrameBase::Ptr frame, const std::map<std::string, InferenceBackend::InputLayerDesc::Ptr> &input_preprocessors) {
     ITT_TASK(__FUNCTION__);
