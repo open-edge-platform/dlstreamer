@@ -23,7 +23,7 @@ The use case is **License Plate Recognition (LPR)**:
 - **DL Streamer pipeline**: YOLOv8 license plate detector → PP-OCRv4 text recognizer
 - **DeepStream pipeline**: TrafficCamNet (vehicle detection) → LPDNet (plate detection) → LPRNet (plate recognition)
 
-Both pipelines run inside Docker containers.
+These are example model pairs for the benchmark. The pipeline uses these model paths/configurations; changing models also requires updating the corresponding pipeline configuration. Both pipelines run inside Docker containers.
 
 ## Requirements
 
@@ -35,7 +35,7 @@ Both pipelines run inside Docker containers.
   - NVIDIA GPU with CUDA support
 - `lspci`, `lscpu` available on the host
 - `DISPLAY` environment variable set (X11 forwarding for Docker)
-- Internet access for first-run model download
+- Prepare models compatible with the selected platform before running the benchmark. The LPR model paths below are examples for the current pipelines; substituting models requires updating their pipeline paths/configuration. Remote input streams and pulling container images may also require internet access.
 
 ## Files
 
@@ -120,7 +120,7 @@ To save everything displayed on screen to a log file while still seeing it in th
 ### Running without arguments
 
 Running the script with no arguments skips the benchmark and instead reports whether
-the DL Streamer and DeepStream models are already downloaded, then prints usage and exits:
+the DL Streamer and DeepStream model files are present, then prints usage and exits:
 ```bash
 ./coexistance_benchmark.sh
 ```
@@ -137,34 +137,35 @@ choice (defaults to the discrete GPU, if any, when run non-interactively or with
 selection). Set the `INTEL_GPU_RENDER_DEVICE` environment variable (e.g.
 `/dev/dri/renderD129`) to pick a device without the interactive prompt.
 
-## First-run Setup (Automatic)
+## Model Preparation
 
-On first run the script automatically downloads all required models inside Docker containers. This requires an internet connection and may take several minutes. A download interrupted mid-way (e.g. network error) is automatically retried from scratch on the next run.
+The benchmark does not download models or clone model repositories. Prepare the models for each platform you plan to benchmark before launching it.
 
-Download containers use dedicated names (`benchmark_dls_download`, `benchmark_ds_download`) separate from benchmark containers.
+### DL Streamer models
 
-### DL Streamer models (downloaded when Intel hardware detected)
+The example DL Streamer pipeline uses `yolov8_license_plate_detector` and `ch_PP-OCRv4_rec_infer`. Prepare compatible models with the general [`download_other_models.py`](../../../../scripts/download_models/README.md) helper; its README describes setup and supported models. Replacing these models may require updating the pipeline paths and configuration.
 
 | Model | Purpose | Saved to |
 |---|---|---|
-| `yolov8_license_plate_detector` | Detects license plates in the frame | `./public/` |
-| `ch_PP-OCRv4_rec_infer` | Recognizes text on detected plates | `./public/` |
+| `yolov8_license_plate_detector` | Detects license plates in the frame | `./public/yolov8_license_plate_detector/FP32/` |
+| `ch_PP-OCRv4_rec_infer` | Recognizes text on detected plates | `./public/ch_PP-OCRv4_rec_infer/FP32/` |
 
-Downloaded via `intel/dlstreamer:latest` container.
+### DeepStream / TAO models
 
-### DeepStream / TAO models (downloaded when NVIDIA GPU detected)
-
-Clones [deepstream_tao_apps](https://github.com/NVIDIA-AI-IOT/deepstream_tao_apps) into `./deepstream_tao_apps/` and downloads:
+Clone [deepstream_tao_apps](https://github.com/NVIDIA-AI-IOT/deepstream_tao_apps) into `./deepstream_tao_apps/` and prepare these model files using NVIDIA's TAO model setup instructions:
 
 | Model | Purpose | Saved to |
 |---|---|---|
 | `resnet18_trafficcamnet_pruned.onnx` | Vehicle detection (primary detector) | `./deepstream_tao_apps/models/trafficcamnet/` |
+| `resnet18_trafficcamnet_pruned_int8.txt` | TrafficCamNet calibration data | `./deepstream_tao_apps/models/trafficcamnet/` |
 | `LPDNet_usa_pruned_tao5.onnx` | License plate detection (secondary) | `./deepstream_tao_apps/models/LPD_us/` |
+| `usa_cal_10.1.0.bin`, `usa_lpd_label.txt` | LPDNet calibration and labels | `./deepstream_tao_apps/models/LPD_us/` |
 | `us_lprnet_baseline18_deployable.onnx` | License plate recognition | `./deepstream_tao_apps/models/LPR_us/` |
+| `labels_us.txt` | LPRNet labels file | `./deepstream_tao_apps/models/LPR_us/` |
 
-Also compiles the custom LPR parser plugin (`nvinfer_custom_lpr_parser`) inside the container using `make`.
+The checked-out repository must also include `apps/tao_others/deepstream_lpr_app/dict_us.txt` and the sample configuration files.
 
-Downloaded via `nvcr.io/nvidia/deepstream:8.0-samples-multiarch` container.
+The sample checks for these files before starting. When the DeepStream branch is enabled, it builds the custom LPR parser from the checked-out source and copies `dict_us.txt` to `./dict.txt`; it does not download model files.
 
 ## Output
 

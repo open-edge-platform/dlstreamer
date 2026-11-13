@@ -22,7 +22,7 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
   echo "Usage: $0 [INPUT] [DEVICE_STREAM_12] [DEVICE_STREAM_34] [MODEL_1] [MODEL_2] [OUTPUT]"
   echo ""
   echo "Arguments:"
-  echo "  INPUT             - Input source (default: Pexels video URL)"
+  echo "  INPUT             - Required input video path or URI"
   echo "  DEVICE_STREAM_12  - Device for stream 1 & 2 (default: NPU). Supported: CPU, GPU, NPU"
   echo "  DEVICE_STREAM_34  - Device for stream 3 & 4 (default: GPU). Supported: CPU, GPU, NPU"
   echo "  MODEL_1          - Model for stream 1 & 2 (default: yolov8s). Supported: yolox-tiny, yolox_s, yolov7, yolov8s, yolov9c, yolo11s, yolo26s"
@@ -32,7 +32,11 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
   exit 0
 fi
 
-INPUT=${1:-"https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4"}
+INPUT=${1:-}
+if [[ -z "$INPUT" ]]; then
+  echo "Error: provide an input video path or URI as the first argument." >&2
+  exit 2
+fi
 DEVICE_STREAM_12=${2:-"NPU"}    # Supported values: CPU, GPU, NPU
 DEVICE_STREAM_34=${3:-"GPU"}    # Supported values: CPU, GPU, NPU
 MODEL_1=${4:-"yolov8s"}         # Supported values: yolox-tiny, yolox_s, yolov7, yolov8s, yolov9c, yolo11s, yolo26s

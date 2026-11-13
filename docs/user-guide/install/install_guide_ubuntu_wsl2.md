@@ -144,21 +144,13 @@ sudo apt update
 sudo apt install intel-dlstreamer
 ```
 
-### Step 7: Download the yolo11s model
+### Step 7: Prepare a detection model
 
-If you want to execute sample pipelines, download the yolo11s model as the sample one for these pipelines:
-
-```bash
-sudo apt install -y python3-venv
-mkdir -p "$HOME/.virtualenvs/download-models" "$HOME/models"
-python3 -m venv "$HOME/.virtualenvs/download-models"
-"$HOME/.virtualenvs/download-models/bin/pip" install --no-cache-dir --upgrade pip \
-	-r /opt/intel/dlstreamer/scripts/download_models/requirements_download_ultralytics_models.txt
-source "$HOME/.virtualenvs/download-models/bin/activate"
-export MODELS_PATH="$HOME/models"
-python3 /opt/intel/dlstreamer/scripts/download_models/download_ultralytics_models.py \
-	--model yolo11s --int8 --outdir "$MODELS_PATH/public/yolo11s/INT8"
-```
+To run `hello_dlstreamer.sh`, set `MODELS_PATH` to the root containing an OpenVINO IR model
+supported by `detection_with_yolo/yolo_detect.sh`. The default `yolo11s` INT8 model is an example;
+other supported models and precisions may be used. Follow the general model-helper setup guidance
+in `/opt/intel/dlstreamer/scripts/download_models/README.md`. The expected layout is
+`$MODELS_PATH/public/<MODEL>/<PRECISION>/<MODEL>.xml`.
 
 ### Step 8: Execute sample pipelines
 
@@ -171,7 +163,7 @@ source /opt/intel/dlstreamer/scripts/setup_dls_env.sh
 and execute a sample pipeline with inference on the CPU:
 
 ```bash
-/opt/intel/dlstreamer/scripts/hello_dlstreamer.sh --device=CPU
+/opt/intel/dlstreamer/scripts/hello_dlstreamer.sh --input=/path/to/video.mp4 --device=CPU
 ```
 
 > **NOTE:** There is no current support for Video Acceleration API (VA-API) within WSL.

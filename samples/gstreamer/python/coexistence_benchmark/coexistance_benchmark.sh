@@ -116,8 +116,13 @@ nvcr.io/nvidia/deepstream:8.0-samples-multiarch /bin/bash -c"
 
 print_configured_parameters "$1" "$2" "$3"
 detect_available_hardware "$#"
-dls_download_lpr_models
-ds_download_lpr_models
+if ! validate_lpr_models; then
+    exit 1
+fi
+if ! prepare_ds_lpr_parser; then
+    printf 'Error: Failed to prepare the DeepStream LPR parser.\n' >&2
+    exit 1
+fi
 
 
 # Usage: run_one_round <platform> <streams> <logfile>

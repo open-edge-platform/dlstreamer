@@ -10,6 +10,10 @@ change being `device='intel:gpu'` to run inference on iGPU (the notebook
 defaults to CPU). The DL Streamer pipeline runs decode, preprocessing, and
 inference entirely on the iGPU with zero-copy pipelining.
 
+Use any local H.264 video supported by the installed decoder and any compatible
+Ultralytics/OpenVINO object-detection IR. The examples use a people video and
+YOLO26s INT8; neither is downloaded or required by the sample.
+
 ## What DL Streamer does differently
 
 ### 1. Pipelining
@@ -83,16 +87,17 @@ flowchart LR
 ```
 
 ## Example run
-```
-$ python3 perf_comparison.py
 
-Running OpenCV + OpenVINO pipeline (notebook approach, iGPU inference) ...
+The example uses a YOLO26s INT8 model. Prepare any compatible OpenVINO model using the general
+Ultralytics conversion helper described in [`scripts/download_models/README.md`](../../../scripts/download_models/README.md#2-ultralytics-conversion).
+The benchmark expects the model directory passed to `--model` to follow the sample's documented layout.
 
-Running DL Streamer pipeline (iGPU decode, zero-copy, async nireq=4) ...
+Run the benchmark with any compatible local H.264 video:
 
-----------------------------------------------------------------
-  DL Streamer advantage: higher throughput
-----------------------------------------------------------------
+```bash
+python3 perf_comparison.py \
+  --video /path/to/people.mp4 \
+  --model "$MODELS_PATH/public/yolo26s/INT8"
 ```
 The exact numbers depend on your hardware and setup, so run the sample to see
 the throughput on your own machine. The takeaway running the full decode-to-inference pipeline through DL Streamer alone delivers higher throughput than the traditional two-tool flow (OpenCV for preprocessing, OpenVINO for inference).
@@ -130,7 +135,7 @@ If any Python packages are missing:
 uv pip install openvino opencv-python numpy ultralytics
 ```
 
-`ultralytics` is only needed for the one-time model export on first run.
+`ultralytics` is used by the OpenCV baseline to load the prepared YOLO OpenVINO model; prepare the model separately with the helper above.
 
 ## File structure
 
@@ -143,13 +148,13 @@ uv pip install openvino opencv-python numpy ultralytics
 ## Usage
 
 ```
-python3 perf_comparison.py
+python3 perf_comparison.py --video <local-h264-video> --model <openvino-model-directory>
 ```
 
 | Argument           | Default                  | Description                                   |
 | ------------------ | ------------------------ | --------------------------------------------- |
-| `--video`          | auto-download people.mp4 | path to H.264 input video                     |
-| `--model`          | auto-export YOLO26s INT8 | path to OpenVINO IR directory                 |
+| `--video`          | required                 | path to a local H.264 input video             |
+| `--model`          | required                 | path to a compatible OpenVINO IR model directory containing `yolo26s.xml` |
 | `--measure-frames` | 200                      | frames included in the benchmark after warmup |
 | `--warmup`         | 50                       | warmup frames                                 |
 | `--runs`           | 3                        | repeated runs                                 |

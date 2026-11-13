@@ -71,25 +71,14 @@ pipeline.set_state(Gst.State.NULL)
 
 ## Running the Sample
 
-The sample requires a video file and an object detection model. Download sample assets:
-
-```sh
-cd <python/hello_dlstreamer directory>
-export MODELS_PATH=${PWD}
-wget https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4
-cd ../../../../scripts/download_models
-python3 download_ultralytics_models.py --model yolo11n.pt --outdir "${MODELS_PATH}/public/yolo11n/INT8" --int8
-cd -
-```
-
-> **Note:** This may take several seconds depending on your network speed.
+The sample requires a video file and an object detection model. Use any local video supported by GStreamer and pass its path to the sample. YOLO11n INT8 is the example model; the application accepts a compatible OpenVINO XML path. Prepare models with the general [Ultralytics conversion helper](../../../../scripts/download_models/README.md#2-ultralytics-conversion); see the helper README for supported models and setup.
 
 The sample displays output on a local desktop by default. Run it on the host or use X11 forwarding.
 
 Launch the application:
 
 ```sh
-python3 ./hello_dlstreamer.py 1192116-sd_640_360_30fps.mp4 public/yolo11n/INT8/yolo11n.xml
+python3 ./hello_dlstreamer.py /path/to/video.mp4 public/yolo11n/INT8/yolo11n.xml
 ```
 
 The video stream displays with object detection annotations, including bounding boxes and class labels.

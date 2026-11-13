@@ -8,13 +8,10 @@
 #
 #   ./zero_shot_classification.sh [INPUT] [DEVICE] [OUTPUT]
 #
-# INPUT  : path or URI to an image or video file (default: Pexels video).
+# INPUT  : required path or URI to an image or video file.
 # DEVICE : device used for all inference: CPU, GPU (default), NPU, or MULTI:GPU,CPU.
 # OUTPUT : video output: display (default), file, fps, json, or display-and-json.
 #          Images always output JSON.
-#
-# The default video is by Moe Magners via Pexels:
-# https://www.pexels.com/video/people-giving-a-thumbs-up-7504884/
 #
 # Prerequisites (one-time). In the scripts/download_models Python environment
 # (see scripts/download_models/README.md), prepare the two artifacts with the
@@ -40,14 +37,18 @@ set -euo pipefail
 OUTPUT_DIR=$PWD
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-DEFAULT_INPUT=https://videos.pexels.com/video-files/7504884/7504884-hd_1280_720_25fps.mp4
-INPUT=${1:-"$DEFAULT_INPUT"}
+INPUT=${1:-}
 DEVICE=${2:-GPU}
 OUTPUT=${3:-display}
 MODEL=${MODEL:-openai_clip-vit-base-patch32/FP16/openai_clip-vit-base-patch32.xml}
 LABELS=labels.txt
 EMBEDDINGS=${EMBEDDINGS:-labels.safetensors}
 DETECTION_MODEL=${DETECTION_MODEL:-}
+
+if [[ -z "$INPUT" ]]; then
+  echo "Error: provide an input image/video path or URI as the first argument." >&2
+  exit 2
+fi
 
 if [ -z "$DETECTION_MODEL" ] && [ -n "${MODELS_PATH:-}" ]; then
   DETECTION_MODEL="${MODELS_PATH%/}/public/arnabdhar_YOLOv8-Face-Detection/FP16/arnabdhar_YOLOv8-Face-Detection.xml"

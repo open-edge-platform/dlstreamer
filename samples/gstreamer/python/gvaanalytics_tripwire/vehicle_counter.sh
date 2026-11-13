@@ -9,7 +9,11 @@ set -e
 
 # Configuration parameters
 MODELS_PATH=${MODELS_PATH:-.}  # Path to models directory (e.g., /path/to/omz_models)
-INPUT=${1:-https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4}  # Video file or URL
+INPUT=${1:-}  # Video file or URL
+if [[ -z "$INPUT" ]]; then
+    echo "Error: provide an input video path or URL as the first argument." >&2
+    exit 2
+fi
 # NOTE: To use a local video file, provide the path in following format: file:///path/to/video.mp4
 MODEL=${2:-${MODELS_PATH}/public/yolo11n/FP16/yolo11n.xml}  # Detection model (YOLO, SSD, etc.)
 OUTPUT=${3:-/tmp/vehicle_counter_output.mp4}  # Output video file (H.264 MP4)

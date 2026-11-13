@@ -16,8 +16,7 @@ Description:
   loitering zones based on the configuration file.
 
 Parameters:
-  INPUT       - Input video (file path or URL)
-                Default: https://github.com/open-edge-platform/edge-ai-resources/raw/refs/heads/main/videos/VIRAT_S_000101.mp4
+    INPUT       - Required input video file path or URL
   
   CONFIG_FILE - Zone configuration file for loitering detection
                 Default: <script_dir>/virat_s_000101-config.json
@@ -40,8 +39,8 @@ Parameters:
   EOS_FRAME   - Stop after N decoded buffers (default: 0, disabled)
 
 Examples:
-  # Run with defaults
-  $(basename "$0")
+    # Run with a local video
+    $(basename "$0") video.mp4
   
   # Use CPU device with custom config and model
   $(basename "$0") input.mp4 config.json ./models/yolo11s.xml CPU output.mp4
@@ -73,13 +72,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Configuration parameters
 MODELS_PATH=${MODELS_PATH:-./models}  # Path to models directory (e.g., /path/to/omz_models)
-INPUT=${1:-https://github.com/open-edge-platform/edge-ai-resources/raw/refs/heads/main/videos/VIRAT_S_000101.mp4}
+INPUT=${1:-}
 CONFIG_FILE=${2:-${SCRIPT_DIR}/virat_s_000101-config.json}
 MODEL=${3:-${MODELS_PATH}/public/yolo11s/FP16/yolo11s.xml} # Detection model (YOLO, SSD, etc.)
 DEVICE=${4:-"GPU"}
 OUTPUT=${5:-loitering_detection_output.mp4}  # Output video file (H.264 MP4)
 JSON_METADATA=${6:-loitering_detection_output.json}  # Output file for analytics metadata (JSON Lines format)
 EOS_FRAME=${7:-0}
+
+if [[ -z "$INPUT" ]]; then
+    echo "Error: provide an input video path or URL as the first argument." >&2
+    exit 2
+fi
 
 export GST_PLUGIN_PATH="${SCRIPT_DIR}/plugins:${GST_PLUGIN_PATH}"
 export GI_TYPELIB_PATH=/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/opt/intel/dlstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0

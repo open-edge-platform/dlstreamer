@@ -35,22 +35,9 @@ The pipeline uses the `gvadetect` element with the `custom-postproc-lib` paramet
 
 ## Model
 
-The sample uses the **YOLOv11s** model from Ultralytics, which should be available in the `$MODELS_PATH/public/yolo11s/FP32/` directory. These instructions assume that the DL Streamer framework is installed on your local system, along with the OpenVINO™ model downloader and converter tools, as described in this [tutorial](../../../../../docs/user-guide/tutorial.md#setup).
+The example pipeline is configured for the **YOLOv11s** detector at `$MODELS_PATH/public/yolo11s/FP32/`. A compatible OpenVINO detector can be used after updating the model path in the sample script.
 
-For the YOLOv11s model, it is also necessary to install the Ultralytics Python package:
-
-```sh
-uv pip install ultralytics
-```
-
-Use [`download_ultralytics_models.py`](../../../../../scripts/download_models/download_ultralytics_models.py) to export YOLO models. To do this, please follow [`README`](../../../../../scripts/download_models/README.md). To prepare YOLOv11s in FP32, execute:
-
-```sh
-cd ../../../../../scripts/download_models
-python3 download_ultralytics_models.py --model yolo11s.pt --outdir "${MODELS_PATH}/public/yolo11s/FP32"
-```
-
-> **NOTE**: Remember to set the `MODELS_PATH` environment variable, which is required by both the model download script and the script that runs the sample.
+Prepare a compatible detector with the general [`download_ultralytics_models.py`](../../../../../scripts/download_models/README.md#2-ultralytics-conversion) helper; YOLOv11s is the example model. Follow the helper README for dependencies and setup. Set `MODELS_PATH` to the model store used by the sample.
 
 ## Running
 
@@ -70,7 +57,7 @@ The script takes three optional parameters:
    * `json` - Save metadata to JSON file
    * `display-and-json` - Show on screen and save to JSON
 
-3. **[INPUT]** - Input source (default: sample video from URL)
+3. **[INPUT]** - Required local video path, stream URL, or camera device.
    * Local video file path
    * Web camera device (e.g., `/dev/video0`)
    * RTSP stream URL
@@ -78,16 +65,16 @@ The script takes three optional parameters:
 
 ## Examples
 
-Run with default parameters (GPU device, file output, sample video):
+Run with the example model on a local video (GPU device, file output):
 
 ```sh
-./build_and_run.sh
+./build_and_run.sh GPU file /path/to/video.mp4
 ```
 
 Run with CPU device and display output:
 
 ```sh
-./build_and_run.sh CPU display
+./build_and_run.sh CPU display /path/to/video.mp4
 ```
 
 Run with GPU device, JSON output, and local video file:

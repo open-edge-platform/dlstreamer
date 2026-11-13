@@ -44,15 +44,15 @@ cd /opt/intel/dlstreamer/samples/gstreamer/gst_launch/depth_estimation/
 ```
 
 The sample takes four optional parameters:
+The sample takes four parameters; `INPUT` is required:
 
-1. `[INPUT]` specifies the input source.
+1. `[INPUT]` specifies the required input source.
    The input can be:
    * a local video file
    * a webcam device such as `/dev/video0`
    * a streaming URL such as `rtsp://`, `http://`, or `https://`
 
-   If omitted, the sample uses this default video:
-   `https://videos.pexels.com/video-files/18553046/18553046-hd_1280_720_30fps.mp4`
+   Use any video supported by the installed GStreamer plugins. A clip with detectable objects is useful for checking the output.
 
 2. `[DETECT_DEVICE]` selects the device used by `gvadetect`.
    Supported values: `CPU`, `GPU`
@@ -71,7 +71,7 @@ Example runs:
 
 ```sh
 # GPU detection + GPU depth estimation
-./depth_estimation.sh
+./depth_estimation.sh /path/to/video.mp4
 
 # GPU detection + CPU depth estimation with JSON output
 ./depth_estimation.sh sample.mp4 GPU CPU json

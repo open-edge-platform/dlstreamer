@@ -47,17 +47,9 @@ graph LR
 
 ## Models
 
-The sample uses the following pre-trained models by default:
-*   __centerface__ is the primary detection network for finding faces
-*   __dima806_facial_age_image_detection__ age estimation on detected faces
-*   __dima806_face_emotions_image_detection__ emotion estimation on detected faces
-*   __dima806_fairface_gender_image_detection__ gender estimation on detected faces
+The example pipeline uses `centerface` for detection, `dima806/facial_age_image_detection` for age, `dima806/face_emotions_image_detection` for emotion, and `dima806/fairface_gender_image_detection` for gender. These are example models, not mandatory choices. Any compatible face detector and classifiers can be used if their OpenVINO models, paths, and matching model-proc configuration are supplied.
 
-These models are not from Open Model Zoo:
-*   `centerface` is prepared by [`download_other_models.py`](../../../../scripts/download_models/download_other_models.py)
-*   `dima806_*` models are prepared from Hugging Face models via [`download_hf_models.py`](../../../../scripts/download_models/download_hf_models.py)
-
-> **NOTE**: Before running samples (including this one), prepare required models using scripts in [`scripts/download_models`](../../../../scripts/download_models) and follow the per-script setup notes in [`README`](../../../../scripts/download_models/README.md).
+Prepare the example models with the general helpers documented in [`scripts/download_models/README.md`](../../../../../scripts/download_models/README.md): `download_other_models.py centerface` for CenterFace, and `download_hf_models.py` with the listed Hugging Face model IDs for the classifiers.
 
 ## Environment Variables
 
@@ -79,7 +71,7 @@ set MODELS_PATH=C:\models
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| -InputSource | GitHub video URL | Local video file, URL, or USB camera path |
+| -InputSource | (required) | Local video file, URL, or USB camera path |
 | -Device | CPU | Inference device: CPU, GPU, NPU |
 | -OutputType | display | Output type: display, fps, json |
 | -JsonFile | output.json | JSON output file name (for json output type) |
@@ -90,15 +82,17 @@ The input could be:
 * web camera device path (Windows USB camera path format like `\\?\usb#...`)
 * RTSP camera (URL starting with `rtsp://`) or other streaming source (ex URL starting with `http://`)
 
-If parameter is not specified, the sample by default streams video example from HTTPS link (utilizing `urisourcebin` element) so requires internet connection.
+Use any video or camera stream supported by the installed GStreamer plugins. Examples use `C:\videos\test.mp4`; a face-containing clip is useful for checking the output.
+
+Pass `-InputSource` explicitly. For a remote URL, `urisourcebin` streams the video and requires an internet connection.
 
 Please refer to OpenVINO™ toolkit documentation for supported devices:
 https://docs.openvinotoolkit.org/latest/openvino_docs_IE_DG_supported_plugins_Supported_Devices.html
 
 ### Examples
 ```PowerShell
-# Run with default settings (download video from internet, CPU inference, display output)
-.\face_detection_and_classification.ps1
+# Run with local video (CPU inference, display output)
+.\face_detection_and_classification.ps1 -InputSource C:\videos\test.mp4
 
 # Run with local video file
 .\face_detection_and_classification.ps1 -InputSource C:\videos\test.mp4

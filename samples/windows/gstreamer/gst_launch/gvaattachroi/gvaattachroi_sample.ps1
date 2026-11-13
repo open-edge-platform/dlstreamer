@@ -5,7 +5,7 @@
 # ==============================================================================
 
 param(
-    [string]$InputSource = "DEFAULT",
+    [string]$InputSource = "",
     [string]$Device = "CPU",
     [string]$OutputType = "display",
     [string]$RoiCoords = "",
@@ -19,8 +19,7 @@ if ($InputSource -eq "--help" -or $InputSource -eq "-h") {
     Write-Host "Usage: gvaattachroi_sample.ps1 [-InputSource <path>] [-Device <device>] [-OutputType <type>] [-RoiCoords <coords>] [-Model <model>] [-Precision <precision>] [-FrameLimiter <element>]"
     Write-Host ""
     Write-Host "Parameters:"
-    Write-Host "  -InputSource    Input source (default: Pexels video URL)"
-    Write-Host "                  Use 'DEFAULT' for default video"
+    Write-Host "  -InputSource    Required local file path or URI"
     Write-Host "  -Device         Device (default: CPU). Supported: CPU, GPU, NPU"
     Write-Host "  -OutputType     Output type (default: display). Supported: display, json, fps, display-and-json"
     Write-Host "  -RoiCoords      ROI coordinates in format: x_top_left,y_top_left,x_bottom_right,y_bottom_right"
@@ -40,9 +39,9 @@ if (-not $env:MODELS_PATH) {
 }
 Write-Host "MODELS_PATH: $env:MODELS_PATH"
 
-# Handle default input source
-if ($InputSource -eq "DEFAULT" -or $InputSource -eq ".") {
-    $InputSource = "https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4"
+if ([string]::IsNullOrWhiteSpace($InputSource)) {
+    Write-Host "ERROR: Input source is required. Pass -InputSource with a local video path or URL." -ForegroundColor Red
+    exit 1
 }
 
 # Set model path

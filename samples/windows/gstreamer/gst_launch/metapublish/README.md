@@ -37,7 +37,11 @@ graph LR
 
 ## Models
 
-The sample uses by default the following pre-trained models from OpenVINO™ Toolkit [Open Model Zoo](https://github.com/openvinotoolkit/open_model_zoo)
+The sample currently uses `centerface` for detection, `dima806/facial_age_image_detection` for age, and `dima806/fairface_gender_image_detection` for gender. These are examples: compatible face models can be substituted by updating the model paths and matching model-proc configuration. Prepare the example models with the general helpers documented in [`scripts/download_models/README.md`](../../../../../scripts/download_models/README.md): `download_other_models.py centerface` and `download_hf_models.py` with the listed Hugging Face IDs.
+
+Use any video or stream supported by the installed GStreamer plugins. The commands below use `C:\videos\test.mp4` as an example input.
+
+The sample uses pre-trained models from the OpenVINO™ Toolkit [Open Model Zoo](https://github.com/openvinotoolkit/open_model_zoo):
 *   __centerface__ is primary detection network for detecting faces that appear within video frames
 *   __dima806_facial_age_image_detection__ classifies age of detected face(s)
 *   __dima806_fairface_gender_image_detection__ classifies gender of detected face(s)
@@ -46,7 +50,7 @@ The sample contains `model_proc` subfolder with .json files for each model with 
 
 ## Running
 
-This sample takes up to five command-line parameters. If no parameters specified, the sample displays pretty printed JSON messages to console (METHOD=file, OUTPUT=stdout)
+This sample takes an input source and optional output parameters. With `-Method file` and no `-Output`, it displays pretty-printed JSON messages in the console.
 
 > **NOTE**: Before running this sample with output to MQTT or Kafka, refer to the [gvametapublish documentation](../../../../../docs/user-guide/elements/gvametapublish.md) for how to set up a MQTT or Kafka listener.
 
@@ -58,7 +62,7 @@ This sample takes up to five command-line parameters. If no parameters specified
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| -InputSource | DEFAULT | Input source (default: sample video URL) |
+| -InputSource | (required) | Local video path or URL |
 | -Method | file | Metapublish method: file, kafka, mqtt |
 | -Output | (auto) | Output destination (stdout for file, localhost:9092 for kafka, localhost:1883 for mqtt) |
 | -Format | (auto) | Output format: json, json-lines (auto: json for file, json-lines for kafka/mqtt) |
@@ -68,35 +72,35 @@ This sample takes up to five command-line parameters. If no parameters specified
 
 ### Examples
 
-1. Launch sample with no parameters to see stdout with pretty json
+1. Run with a local video and print pretty JSON to stdout
    ```PowerShell
    $env:MODELS_PATH = "C:\models"
-   .\metapublish.ps1
+   .\metapublish.ps1 -InputSource C:\videos\test.mp4
    ```
 
 2. Override the file or absolute path of output file
    ```PowerShell
-   .\metapublish.ps1 -Method file -Output "C:\output\inferences.json"
+   .\metapublish.ps1 -InputSource C:\videos\test.mp4 -Method file -Output "C:\output\inferences.json"
    ```
 
 3. Output results to MQTT broker running at localhost:1883 with your listener subscribed to 'dlstreamer' topic
    ```PowerShell
-   .\metapublish.ps1 -Method mqtt
+   .\metapublish.ps1 -InputSource C:\videos\test.mp4 -Method mqtt
    ```
 
 4. Output to Kafka broker running at localhost:9092
    ```PowerShell
-   .\metapublish.ps1 -Method kafka -Topic "video-analytics"
+   .\metapublish.ps1 -InputSource C:\videos\test.mp4 -Method kafka -Topic "video-analytics"
    ```
 
 5. Use GPU device for inference
    ```PowerShell
-   .\metapublish.ps1 -Device GPU -Method file -Output "gpu_results.json"
+   .\metapublish.ps1 -InputSource C:\videos\test.mp4 -Device GPU -Method file -Output "gpu_results.json"
    ```
 
 6. Use NPU device for inference
    ```PowerShell
-   .\metapublish.ps1 -Device NPU -Method file -Output "npu_results.json"
+   .\metapublish.ps1 -InputSource C:\videos\test.mp4 -Device NPU -Method file -Output "npu_results.json"
    ```
 
 ## Sample Output

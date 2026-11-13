@@ -18,14 +18,18 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
   echo "Usage: $0 [INPUT] [DEVICE] [OUTPUT]"
   echo ""
   echo "Arguments:"
-  echo "  INPUT     - Input source (default: Pexels video URL)"
+  echo "  INPUT     - Required input video path, stream URL, or camera device"
   echo "  DEVICE    - Device (default: CPU). Supported: CPU, GPU"
   echo "  OUTPUT    - Output type (default: display). Supported: file, display, fps, json, display-and-json"
   echo ""
   exit 0
 fi
 
-INPUT=${1:-https://github.com/intel-iot-devkit/sample-videos/raw/master/face-demographics-walking.mp4}
+INPUT=${1:-}
+if [[ -z "$INPUT" ]]; then
+  echo "Error: provide an input video path, stream URL, or camera device as the first argument." >&2
+  exit 2
+fi
 DEVICE=${2:-CPU}
 OUTPUT=${3:-display} # Supported values: display, fps, json, display-and-json
 

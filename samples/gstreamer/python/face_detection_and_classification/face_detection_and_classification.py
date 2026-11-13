@@ -21,14 +21,11 @@ sys.path.insert(
     ),
 )
 # pylint: disable-next=wrong-import-position
-from shared_utils import download_https
-
 gi.require_version("Gst", "1.0")
 gi.require_version("GstAnalytics", "1.0")
 # pylint: disable-next=no-name-in-module, wrong-import-position
 from gi.repository import Gst
 
-DEFAULT_VIDEO_URL = "https://videos.pexels.com/video-files/18553046/18553046-hd_1280_720_30fps.mp4"
 DEFAULT_DETECTION_MODEL_REL = (
     "public/arnabdhar_YOLOv8-Face-Detection/FP16/"
     "arnabdhar_YOLOv8-Face-Detection.xml"
@@ -58,7 +55,7 @@ def parse_args(args):
     parser = argparse.ArgumentParser(
         description="Run face detection + classification using pre-exported OpenVINO models."
     )
-    parser.add_argument("--input", default=None, help="Path to input video file")
+    parser.add_argument("--input", required=True, help="Path to input video file")
     parser.add_argument("--device", default="GPU", help="Inference device: CPU, GPU or NPU")
     parser.add_argument("--output", default="file", help="Output mode: file or json")
     parser.add_argument(
@@ -77,21 +74,11 @@ def parse_args(args):
 
 
 def prepare_input_video(input_arg):
-    """Prepare the input video, downloading the default clip if needed."""
-    runtime_dir = get_runtime_dir()
-
-    if input_arg:
-        if not os.path.isfile(input_arg):
-            sys.stderr.write("Input video file does not exist\n")
-            sys.exit(1)
-        return input_arg
-
-    input_video = os.path.join(runtime_dir, "default_video.mp4")
-    if not os.path.isfile(input_video):
-        print("\nNo input provided. Downloading default video...\n")
-        download_https(DEFAULT_VIDEO_URL, input_video, {"videos.pexels.com"})
-
-    return input_video
+    """Validate the required local input video file."""
+    if not input_arg or not os.path.isfile(input_arg):
+        sys.stderr.write(f"Input video file does not exist: {input_arg}\n")
+        sys.exit(1)
+    return input_arg
 
 
 def pipeline_loop(pipeline):

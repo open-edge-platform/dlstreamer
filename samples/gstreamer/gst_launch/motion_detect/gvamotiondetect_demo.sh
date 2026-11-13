@@ -11,7 +11,6 @@
 # Demonstration script for gvamotiondetect element with optional YOLOv8 detection.
 # Provides GPU (VA surface memory) and CPU (system memory) pipeline variants.
 #
-# Default source: https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4
 # Default model: yolov8n (precision FP32) resolved via MODELS_PATH:
 #   $MODELS_PATH/public/yolov8n/FP32/yolov8n.xml
 #
@@ -21,7 +20,7 @@
 # Usage:
 #   ./gvamotiondetect_demo.sh [--device GPU|CPU] [--source <video|uri>] [--model <xml>] [--precision FP32|FP16|INT8] [--output display|json] [--md-opts "prop1=val prop2=val"]
 # Examples:
-#   ./gvamotiondetect_demo.sh --device GPU
+#   ./gvamotiondetect_demo.sh --device GPU --source /path/to/video.mp4
 #   ./gvamotiondetect_demo.sh --device CPU --source /path/to/video.mp4 --md-opts "motion-threshold=0.07 min-persistence=2"
 #   ./gvamotiondetect_demo.sh --output json --md-opts "motion-threshold=0.05"  # writes output.json
 #
@@ -33,7 +32,7 @@
 set -euo pipefail
 
 DEVICE="GPU"
-SRC="https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4"
+SRC=""
 MODEL=""  # if empty we construct from MODELS_PATH
 MODEL_NAME="yolov8n"
 PRECISION="FP16"
@@ -64,6 +63,11 @@ while [[ $# -gt 0 ]]; do
     *) echo "Unknown arg: $1"; usage;;
   esac
 done
+
+if [[ -z "$SRC" ]]; then
+  echo "Error: --source is required; provide a video path or stream URL." >&2
+  exit 2
+fi
 
 # If source looks like a local path ensure it exists; skip existence check for URIs.
 if [[ "$SRC" != *"://"* ]] && [[ ! -f "$SRC" ]]; then

@@ -5,7 +5,7 @@
 # ==============================================================================
 
 param(
-    [string]$InputSource = "https://github.com/open-edge-platform/edge-ai-resources/raw/main/videos/ParkingVideo.mp4",
+    [string]$InputSource = "",
     [string]$Device = "GPU",
     [string]$OutputType = "fps",
     [string]$JsonFile = "output.json",
@@ -17,13 +17,18 @@ if ($InputSource -eq "--help" -or $InputSource -eq "-h") {
     Write-Host "Usage: license_plate_recognition.ps1 [-InputSource <path>] [-Device <device>] [-OutputType <type>] [-JsonFile <file>] [-FrameLimiter <element>]"
     Write-Host ""
     Write-Host "Parameters:"
-    Write-Host "  -InputSource    Input source (default: GitHub parking video URL)"
+    Write-Host "  -InputSource    Required input video file path or URL"
     Write-Host "  -Device         Device (default: GPU). Supported: CPU, GPU, NPU"
     Write-Host "  -OutputType     Output type (default: fps). Supported: display, display-async, fps, json, display-and-json, file"
     Write-Host "  -JsonFile       JSON output file name (default: output.json)"
     Write-Host "  -FrameLimiter   Optional GStreamer element to add after decode (e.g., ' ! identity eos-after=1000')"
     Write-Host ""
     exit 0
+}
+
+if ([string]::IsNullOrWhiteSpace($InputSource)) {
+    Write-Host "ERROR: Input source is required. Pass -InputSource with a local video path or URL." -ForegroundColor Red
+    exit 1
 }
 
 # Check MODELS_PATH

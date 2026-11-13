@@ -100,14 +100,14 @@ Before running, ensure the DL Streamer environment is properly configured and
 ./face_detection_and_classification.sh [INPUT_VIDEO] [DEVICE] [SINK_ELEMENT]
 ```
 
-The sample takes three command-line *optional* parameters:
+The sample requires `INPUT_VIDEO`; device and sink are optional:
 1. [INPUT_VIDEO] to specify input video file.
    The input could be
    * local video file
    * web camera device (ex. `/dev/video0`)
    * RTSP camera (URL starting with `rtsp://`) or other streaming source (ex URL starting with `http://`)
 
-   If parameter is not specified, the sample by default streams video example from HTTPS link (utilizing `urisourcebin` element) so requires internet connection.
+  Use any video supported by GStreamer; a clip containing faces is useful for this example.
 
 2. [DEVICE] to specify device for detection and classification (used for both age and gender models). Default CPU.
    Please refer to OpenVINO™ toolkit documentation for supported devices.
@@ -124,17 +124,17 @@ Age values are logged to `/tmp/age_log.txt` (configurable via `log-file-path` pr
 
 Examples:
 ```sh
-# Default: stream from HTTPS, CPU detection, display mode
-./face_detection_and_classification.sh
+# Use any local video or supported stream that contains faces.
+./face_detection_and_classification.sh /path/to/video.mp4 CPU display
 
-# Same source explicitly specified, CPU, FPS-only mode (no display required)
+# Use the same input with CPU, FPS-only mode (no display required)
 ./face_detection_and_classification.sh \
-    https://github.com/intel-iot-devkit/sample-videos/raw/master/head-pose-face-detection-female-and-male.mp4 \
+  /path/to/video.mp4 \
     CPU fps
 
-# Same source, CPU, write metadata to output.json
+# Use a local video and write metadata to output.json
 ./face_detection_and_classification.sh \
-    https://github.com/intel-iot-devkit/sample-videos/raw/master/head-pose-face-detection-female-and-male.mp4 \
+  /path/to/video.mp4 \
     CPU json
 
 # Local video file (replace with an existing path on your machine), CPU, file output

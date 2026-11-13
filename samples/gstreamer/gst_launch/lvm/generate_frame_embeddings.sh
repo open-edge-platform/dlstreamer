@@ -11,7 +11,6 @@
 set -euo pipefail
 
 # Default values
-DEFAULT_SOURCE="https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4"
 DEFAULT_DEVICE="CPU"
 DEFAULT_OUTPUT="json"
 DEFAULT_MODEL="openai_clip-vit-large-patch14"
@@ -34,21 +33,26 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
     echo "Usage: $0 [SOURCE_FILE] [DEVICE] [OUTPUT] [MODEL] [PREPROCESSING_BACKEND]"
     echo ""
     echo "Arguments:"
-    echo "  SOURCE_FILE            - Input source (default: Pexels video URL)"
+    echo "  SOURCE_FILE            - Required input source: video path, stream URL, or camera device"
     echo "  DEVICE                 - Device (default: CPU). Supported: CPU, GPU"
     echo "  OUTPUT                 - Output type (default: json). Supported: json, fps"
-    echo "  MODEL                  - Model name (default: clip-vit-large-patch14). Supported: ${SUPPORTED_MODELS[*]}"
+    echo "  MODEL                  - Model name (default: ${DEFAULT_MODEL}). Supported: ${SUPPORTED_MODELS[*]}"
     echo "  PREPROCESSING_BACKEND  - Preprocessing backend (default: opencv). Supported: ie, opencv, va, va-surface-sharing"
     echo ""
     exit 0
 fi
 
 # Arguments
-SOURCE_FILE=${1:-$DEFAULT_SOURCE}
+SOURCE_FILE=${1:-}
 DEVICE=${2:-$DEFAULT_DEVICE}
 OUTPUT=${3:-$DEFAULT_OUTPUT}
 MODEL=${4:-$DEFAULT_MODEL}
 PPBKEND=${5:-$DEFAULT_PPBKEND}
+
+if [[ -z "$SOURCE_FILE" ]]; then
+    echo "Error: provide an input video path, stream URL, or camera device as the first argument." >&2
+    exit 2
+fi
 
 if ! [[ " ${SUPPORTED_MODELS[*]} " =~ [[:space:]]${MODEL}[[:space:]] ]]; then
   echo "Unsupported model: $MODEL" >&2

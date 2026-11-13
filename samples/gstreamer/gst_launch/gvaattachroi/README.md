@@ -21,24 +21,7 @@ This sample builds GStreamer pipeline of the following elements
 
 ## Model
 
-The sample use YOLOv8s model from Ultralytics. The instructions assume DL Streamer framework is installed on the local system along with OpenVINO™ model downloader and converter tools,
-as described here: [Tutorial](../../../../docs/user-guide/tutorial.md#setup).
-
-For yolov8s model it is also necessary to install the ultralytics python package:
-
-```sh
-uv pip install ultralytics
-```
-
-Use [`download_ultralytics_models.py`](../../../../scripts/download_models/download_ultralytics_models.py) to export YOLO models. To do this, please follow [`README`](../../../../scripts/download_models/README.md).
-Select the yolov8s model by executing the command:
-
-```sh
-cd ../../../../scripts/download_models
-python3 download_ultralytics_models.py --model yolov8s.pt --outdir "${MODELS_PATH}/public/yolov8s/FP32"
-```
-
-> **NOTE**: Remember to set the `MODELS_PATH` environment variable, which is needed by both the script that downloads the model and the script that runs the sample.
+The example pipeline is configured for the YOLOv8s detector under `$MODELS_PATH/public/yolov8s/FP32/`. A compatible OpenVINO detector may be used by updating the model path in the sample script. Prepare it with the general [`download_ultralytics_models.py`](../../../../scripts/download_models/README.md#2-ultralytics-conversion) helper; see its README for supported models and setup. Set `MODELS_PATH` to the model store used by the sample.
 
 ## Running
 
@@ -48,14 +31,14 @@ Run sample:
 ./gvaattachroi_sample.sh [INPUT_VIDEO] [DEVICE] [SINK_ELEMENT] [ROI_COORDS]
 ```
 
-The sample takes three command-line *optional* parameters:
+The sample requires `INPUT_VIDEO`; device, sink, and ROI coordinates are optional:
 
 1. [INPUT_VIDEO] to specify input video file.
     The input could be
     * local video file
     * web camera device (ex. `/dev/video0`)
     * RTSP camera (URL starting with `rtsp://`) or other streaming source (ex URL starting with `http://`)
-    If parameter is not specified, the sample by default streams video example from HTTPS link (utilizing `urisourcebin` element) so requires internet connection.
+    Use any local video, supported stream URL, or camera source. A clip containing objects in the selected model's label set is useful for checking the ROI.
 2. [DEVICE] to specify device for detection and classification.
         Please refer to OpenVINO™ toolkit documentation for supported devices.
         <https://docs.openvinotoolkit.org/latest/openvino_docs_IE_DG_supported_plugins_Supported_Devices.html>
@@ -78,7 +61,7 @@ The sample takes three command-line *optional* parameters:
 Example:
 
 ```sh
-./gvaattachroi_sample.sh "https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4" GPU file 100,150,200,300
+./gvaattachroi_sample.sh /path/to/video.mp4 GPU file 100,150,200,300
 ```
 
 ## See also

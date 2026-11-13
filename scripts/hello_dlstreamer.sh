@@ -12,25 +12,26 @@ show_help() {
 Usage: $(basename "$0") [OPTIONS]
 
 This script provides a simple way to construct and execute
-a sample DL Streamer detection pipeline with YOLO model.
+a sample DL Streamer detection pipeline with a YOLO model.
 
 Options:
-  -h, --help                            Show this help message and exit
-  -m=MODEL, --model=MODEL               YOLO model name to be used for detection (default: yolo11s)
-                                        Available models: yolov5nu | yolov8s | yolo11s
-  -p=PRECISION, --precision=PRECISION   Selected precision of the model (default: INT8)
+ -h, --help                            Show this help message and exit
+ -i=INPUT, --input=INPUT               Required video file, stream URL, or camera device
+ -m=MODEL, --model=MODEL               Model supported by detection_with_yolo (default: yolo11s)
+                                        Prepare a compatible model under MODELS_PATH before running.
+ -p=PRECISION, --precision=PRECISION   Selected precision of the model (default: INT8)
                                         Available types: INT8 | FP32 | FP16
-  -o=OUTPUT, --output=OUTPUT            Type of output from a pipeline (default: display)
+ -o=OUTPUT, --output=OUTPUT            Type of output from a pipeline (default: display)
                                         Available types: display | file
-  -d=DEVICE, --device=DEVICE            Device to perform detection operations on (default: GPU)
+ -d=DEVICE, --device=DEVICE            Device to perform detection operations on (default: GPU)
                                         Available devices: CPU | GPU | NPU
                                         Note: GPU and NPU devices require drivers (DLS_install_prerequisites.sh)
 
 Examples:
-  $(basename "$0")
-  $(basename "$0") --model=yolov8s
-  $(basename "$0") --model=yolov8s --output=file --device=NPU
-  $(basename "$0") --help
+ $(basename "$0") --input=/path/to/video.mp4
+ $(basename "$0") --input=/path/to/video.mp4 --model=yolov8s
+ $(basename "$0") --input=/path/to/video.mp4 --model=yolov8s --output=file --device=NPU
+ $(basename "$0") --help
 
 EOF
 }
@@ -40,6 +41,7 @@ MODEL="yolo11s"
 PRECISION="INT8"
 OUTPUT="display"
 DEVICE="GPU"
+INPUT=""
 for arg in "$@"; do
     case $arg in
         -h|--help)
@@ -48,10 +50,9 @@ for arg in "$@"; do
             ;;
         -m=*|--model=*)
             MODEL="${arg#*=}"
-            if [[ "$MODEL" != "yolov5nu" ]] && [[ "$MODEL" != "yolov8s" ]] && [[ "$MODEL" != "yolo11s" ]]; then
-                echo "Error! Wrong MODEL parameter. Supported models: yolov5nu | yolov8s | yolo11s"
-                exit 1
-            fi
+        ;;
+        -i=*|--input=*)
+            INPUT="${arg#*=}"
         ;;
         -p=*|--precision=*)
             PRECISION="${arg#*=}"
@@ -82,8 +83,18 @@ for arg in "$@"; do
     esac
 done
 
-GPUS=$(find /dev/dri/ -name "render*")
-if [ -z $GPUS ]; then
+if [[ -z "$INPUT" ]]; then
+    echo "Error: provide an input video path, stream URL, or camera device with --input." >&2
+    exit 1
+fi
+
+if [[ -z "${MODELS_PATH:-}" ]]; then
+    echo "Error: MODELS_PATH is not set. Set it to the root containing public/<MODEL>/<PRECISION>/<MODEL>.xml." >&2
+    exit 1
+fi
+
+GPUS=$(find /dev/dri/ -name "render*" 2>/dev/null || true)
+if [[ -z "$GPUS" ]]; then
     echo "WARN: No GPU detected, switching to CPU"
     DEVICE=CPU
 fi
@@ -131,16 +142,14 @@ else
     echo "---------------------------------------------------------------------------------------"
 fi
 
-# check if the model exists
-if [ -d "$MODELS_PATH"/public/"$MODEL"/$PRECISION ]; then
+# Check for the prepared model file
+MODEL_PATH="${MODELS_PATH%/}/public/${MODEL}/${PRECISION}/${MODEL}.xml"
+if [[ -f "$MODEL_PATH" ]]; then
     echo "$MODEL model exists."
 else
-    echo "Model $MODEL which you want to use cannot be found at $MODELS_PATH!"
-
-    echo "Please follow the Ultralytics section in /opt/intel/dlstreamer/scripts/download_models/README.md to download the model."
-    echo "Make sure to set export MODELS_PATH before running the download script, and use --outdir \"\${MODELS_PATH}/public/${MODEL}/${PRECISION}\"."
-
-    echo "If the model has already been downloaded, specify the path to its location (for instance: export MODELS_PATH=/home/user/you_path)."
+    echo "Model IR not found: ${MODEL_PATH}" >&2
+    echo "Prepare a model supported by the detection_with_yolo sample; yolo11s is the example default." >&2
+    echo "See /opt/intel/dlstreamer/scripts/download_models/README.md for the general model helpers." >&2
     exit 1
 fi
 
@@ -152,4 +161,4 @@ export GST_PLUGIN_FEATURE_RANK=${GST_PLUGIN_FEATURE_RANK},ximagesink:MAX
 
 # print pipeline and run it
 execute() { echo "$*"$'\n' ; "$@" ; }
-execute /opt/intel/dlstreamer/samples/gstreamer/gst_launch/detection_with_yolo/yolo_detect.sh $MODEL "$DEVICE" '' "$OUTPUT" '' "$PRECISION"
+execute /opt/intel/dlstreamer/samples/gstreamer/gst_launch/detection_with_yolo/yolo_detect.sh "$MODEL" "$DEVICE" "$INPUT" "$OUTPUT" '' "$PRECISION"

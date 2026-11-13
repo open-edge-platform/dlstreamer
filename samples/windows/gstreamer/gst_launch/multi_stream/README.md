@@ -28,7 +28,9 @@ Key features:
 
 ## Models
 
-The sample supports YOLO detection models:
+Use any video supported by the installed GStreamer plugins; the examples use `C:\videos\test.mp4`. The sample supports compatible YOLO detection models; the names below are examples, not mandatory choices. Prepare Ultralytics models with the general [`download_ultralytics_models.py`](../../../../../scripts/download_models/README.md#2-ultralytics-conversion) helper (for example, `yolo11s.pt`), and prepare `yolox-tiny`, `yolox_s`, or `yolov7` with `download_other_models.py`.
+
+The sample supports these YOLO detection models:
 - **yolox-tiny** - Very fast, lower accuracy
 - **yolox_s** - Balanced speed/accuracy
 - **yolov7** - Accurate, moderate speed
@@ -57,7 +59,7 @@ The sample supports YOLO detection models:
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| -InputSource | DEFAULT | Input source (default: sample video URL) |
+| -InputSource | (required) | Input video file path or URI |
 | -DeviceStream12 | CPU | Device for stream 1 & 2: CPU, GPU, NPU |
 | -DeviceStream34 | GPU | Device for stream 3 & 4: CPU, GPU, NPU |
 | -Model1 | yolov8s | Model for stream 1 & 2 |
@@ -70,7 +72,7 @@ The sample supports YOLO detection models:
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| -InputSource | DEFAULT | Video file path or URI |
+| -InputSource | (required) | Video file path or URI |
 | -Device | CPU | Inference device: CPU, GPU, NPU |
 | -Model | yolov8s | YOLO model name |
 | -NumStreams | 4 | Number of parallel streams (1-8) |
@@ -87,7 +89,7 @@ The sample supports YOLO detection models:
 Process streams 1-2 on CPU with YOLOv8s, streams 3-4 on GPU with YOLOv9c:
 ```PowerShell
 $env:MODELS_PATH = "C:\models"
-.\multi_stream.ps1 -DeviceStream12 CPU -DeviceStream34 GPU -Model1 yolov8s -Model2 yolov9c
+.\multi_stream.ps1 -InputSource C:\videos\test.mp4 -DeviceStream12 CPU -DeviceStream34 GPU -Model1 yolov8s -Model2 yolov9c
 ```
 
 This creates 4 output MP4 files with detections overlaid.
@@ -96,7 +98,7 @@ This creates 4 output MP4 files with detections overlaid.
 
 Balance load between CPU and GPU for optimal throughput:
 ```PowerShell
-.\multi_stream.ps1 -DeviceStream12 CPU -DeviceStream34 GPU -Model1 yolov8s -Model2 yolov8s -OutputType json
+.\multi_stream.ps1 -InputSource C:\videos\test.mp4 -DeviceStream12 CPU -DeviceStream34 GPU -Model1 yolov8s -Model2 yolov8s -OutputType json
 ```
 
 All 4 streams use YOLOv8s, but streams 1-2 run on CPU and 3-4 on GPU. Detection results saved to JSON files.
@@ -105,10 +107,10 @@ All 4 streams use YOLOv8s, but streams 1-2 run on CPU and 3-4 on GPU. Detection 
 
 #### 1. Basic Multi-Stream (Default Settings)
 
-Process 4 streams with default settings:
+Process 4 streams with default settings and a local input video:
 ```PowerShell
 $env:MODELS_PATH = "C:\models"
-.\multi_stream.ps1 -Device CPU -Model yolov8s -NumStreams 4
+.\multi_stream.ps1 -InputSource C:\videos\test.mp4 -Device CPU -Model yolov8s -NumStreams 4
 ```
 
 Creates `multi_stream_1.mp4` through `multi_stream_4.mp4`.
@@ -117,7 +119,7 @@ Creates `multi_stream_1.mp4` through `multi_stream_4.mp4`.
 
 Test throughput with FPS counter only (no file output):
 ```PowerShell
-.\multi_stream.ps1 -Device GPU -NumStreams 4 -OutputType fps
+.\multi_stream.ps1 -InputSource C:\videos\test.mp4 -Device GPU -NumStreams 4 -OutputType fps
 ```
 
 Displays real-time FPS for each stream.
@@ -126,14 +128,14 @@ Displays real-time FPS for each stream.
 
 Run 2 streams on GPU:
 ```PowerShell
-.\multi_stream.ps1 -Device GPU -Model yolov8s -NumStreams 2 -OutputType file
+.\multi_stream.ps1 -InputSource C:\videos\test.mp4 -Device GPU -Model yolov8s -NumStreams 2 -OutputType file
 ```
 
 #### 4. JSON Metadata Output
 
 Process 4 streams and save detection results to JSON:
 ```PowerShell
-.\multi_stream.ps1 -Device CPU -NumStreams 4 -OutputType json
+.\multi_stream.ps1 -InputSource C:\videos\test.mp4 -Device CPU -NumStreams 4 -OutputType json
 ```
 
 This creates `multi_stream_1.json`, `multi_stream_2.json`, etc., and combines them into `output.json`.

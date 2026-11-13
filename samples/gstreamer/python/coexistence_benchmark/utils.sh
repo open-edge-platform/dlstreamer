@@ -554,74 +554,39 @@ dls_lpr_models_present() {
 # Return 0 (true) when all required DeepStream TAO LPR model files exist on disk.
 ds_lpr_models_present() {
     [[ -f "${PWD}/deepstream_tao_apps/models/trafficcamnet/resnet18_trafficcamnet_pruned.onnx" \
+    && -f "${PWD}/deepstream_tao_apps/models/trafficcamnet/resnet18_trafficcamnet_pruned_int8.txt" \
         && -f "${PWD}/deepstream_tao_apps/models/LPD_us/LPDNet_usa_pruned_tao5.onnx" \
+    && -f "${PWD}/deepstream_tao_apps/models/LPD_us/usa_cal_10.1.0.bin" \
+    && -f "${PWD}/deepstream_tao_apps/models/LPD_us/usa_lpd_label.txt" \
         && -f "${PWD}/deepstream_tao_apps/models/LPR_us/us_lprnet_baseline18_deployable.onnx" \
-        && -f "${PWD}/dict.txt" ]]
+    && -f "${PWD}/deepstream_tao_apps/models/LPR_us/labels_us.txt" \
+        && -f "${PWD}/deepstream_tao_apps/apps/tao_others/deepstream_lpr_app/dict_us.txt" ]]
 }
 
-# Dependencies expected in caller scope: RUN_DLS, INTEL_GPU, INTEL_CPU, DLSTREAMER_DOCKER, DLS_CONTAINER_NAME.
-dls_download_lpr_models() {
-    if [[ "$RUN_DLS" == true && ( -n "${INTEL_GPU}" || -e "/dev/accel" || -n "${INTEL_CPU}" ) ]]; then
-        if ! dls_lpr_models_present; then
-            printf 'Downloading DL Streamer models....\n'
-            eval "${DLSTREAMER_DOCKER/--name ${DLS_CONTAINER_NAME}/--name ${DLS_CONTAINER_NAME}_download} \"/opt/intel/dlstreamer/samples/download_public_models.sh yolov8_license_plate_detector,ch_PP-OCRv4_rec_infer\""
-        else
-            printf 'DL Streamer models already present, skipping download.\n'
-        fi
+validate_lpr_models() {
+    local missing=false
+
+    if [[ "$RUN_DLS" == true && ( -n "${INTEL_GPU}" || -e "/dev/accel" || -n "${INTEL_CPU}" ) ]] \
+        && ! dls_lpr_models_present; then
+        printf 'Error: DL Streamer LPR models are missing. Prepare them before running:\n' >&2
+        printf '  python3 ../../../../scripts/download_models/download_other_models.py yolov8_license_plate_detector,ch_PP-OCRv4_rec_infer --outdir public\n' >&2
+        printf 'See scripts/download_models/README.md for helper setup instructions.\n' >&2
+        missing=true
     fi
+
+    if [[ "$RUN_DS" == true && -n "${NVIDIA_GPU}" ]] && ! ds_lpr_models_present; then
+        printf 'Error: DeepStream TAO models are missing or incomplete. Prepare the required files under deepstream_tao_apps/ before running.\n' >&2
+        missing=true
+    fi
+
+    [[ "$missing" == false ]]
 }
 
-# Dependencies expected in caller scope: RUN_DS, NVIDIA_GPU, DEEPSTREAM_DOCKER, DS_CONTAINER_NAME.
-ds_download_lpr_models() {
-    local DEEPSTREAM_SETUP_LPR
-    DEEPSTREAM_SETUP_LPR=$(cat <<'SETUP_EOF'
-if [[ -f "/working_dir/deepstream_tao_apps/models/trafficcamnet/resnet18_trafficcamnet_pruned.onnx" \
-    && -f "/working_dir/deepstream_tao_apps/models/LPD_us/LPDNet_usa_pruned_tao5.onnx" \
-    && -f "/working_dir/deepstream_tao_apps/models/LPR_us/us_lprnet_baseline18_deployable.onnx" \
-    && -f "/working_dir/dict.txt" ]]; then
-    exit 0
-fi
-
-set -e
-
-# Remove any partial clone/download left by a previously interrupted run.
-rm -rf /working_dir/deepstream_tao_apps
-
-git clone https://github.com/NVIDIA-AI-IOT/deepstream_tao_apps.git
-
-cd /working_dir/deepstream_tao_apps
-mkdir -p ./models/trafficcamnet
-cd ./models/trafficcamnet
-wget --no-check-certificate --content-disposition 'https://api.ngc.nvidia.com/v2/models/org/nvidia/team/tao/trafficcamnet/pruned_onnx_v1.0.4/files?redirect=true&path=resnet18_trafficcamnet_pruned.onnx' -O resnet18_trafficcamnet_pruned.onnx
-wget --no-check-certificate --content-disposition 'https://api.ngc.nvidia.com/v2/models/org/nvidia/team/tao/trafficcamnet/pruned_onnx_v1.0.4/files?redirect=true&path=resnet18_trafficcamnet_pruned_int8.txt' -O resnet18_trafficcamnet_pruned_int8.txt
-
-cd /working_dir/deepstream_tao_apps
-mkdir -p ./models/LPD_us
-cd ./models/LPD_us
-wget --no-check-certificate --content-disposition 'https://api.ngc.nvidia.com/v2/models/org/nvidia/team/tao/lpdnet/pruned_v2.3.1/files?redirect=true&path=LPDNet_usa_pruned_tao5.onnx' -O LPDNet_usa_pruned_tao5.onnx
-wget --no-check-certificate --content-disposition 'https://api.ngc.nvidia.com/v2/models/org/nvidia/team/tao/lpdnet/pruned_v2.3.1/files?redirect=true&path=usa_cal_10.1.0.bin' -O usa_cal_10.1.0.bin
-wget --no-check-certificate https://api.ngc.nvidia.com/v2/models/nvidia/tao/lpdnet/versions/pruned_v1.0/files/usa_lpd_label.txt
-
-cd /working_dir/deepstream_tao_apps
-mkdir -p ./models/LPR_us
-cd ./models/LPR_us
-wget --no-check-certificate --content-disposition 'https://api.ngc.nvidia.com/v2/models/org/nvidia/team/tao/lprnet/deployable_onnx_v1.1/files?redirect=true&path=us_lprnet_baseline18_deployable.onnx' -O us_lprnet_baseline18_deployable.onnx
-touch labels_us.txt
-
-cd /working_dir/deepstream_tao_apps/apps/tao_others/deepstream_lpr_app/nvinfer_custom_lpr_parser/
-make
-
-cp /working_dir/deepstream_tao_apps/apps/tao_others/deepstream_lpr_app/dict_us.txt /working_dir/dict.txt
-SETUP_EOF
-)
-
+prepare_ds_lpr_parser() {
     if [[ "$RUN_DS" == true && -n "${NVIDIA_GPU}" ]]; then
-        if ! ds_lpr_models_present; then
-            printf 'Downloading DeepStream TAO models....\n'
-            eval "${DEEPSTREAM_DOCKER/--name ${DS_CONTAINER_NAME}/--name ${DS_CONTAINER_NAME}_download} \"${DEEPSTREAM_SETUP_LPR}\""
-        else
-            printf 'DeepStream TAO models already present, skipping download.\n'
-        fi
+        local setup_command
+        setup_command="cd /working_dir/deepstream_tao_apps/apps/tao_others/deepstream_lpr_app/nvinfer_custom_lpr_parser && make && cp /working_dir/deepstream_tao_apps/apps/tao_others/deepstream_lpr_app/dict_us.txt /working_dir/dict.txt"
+        eval "${DEEPSTREAM_DOCKER/--name ${DS_CONTAINER_NAME}/--name ${DS_CONTAINER_NAME}_prepare} \"${setup_command}\""
     fi
 }
 

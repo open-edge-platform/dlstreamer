@@ -26,10 +26,10 @@ Configuration options in the Python script:
 
 ## Models
 
-The sample uses by default the following pre-trained model from OpenVINO™ Toolkit [Open Model Zoo](https://github.com/openvinotoolkit/open_model_zoo)
+The sample is configured with `centerface`, converted from the upstream CenterFace project by the general `download_other_models.py` helper. A compatible OpenVINO IR detector can be used by changing the model path; see [`scripts/download_models/README.md`](../../../../scripts/download_models/README.md) for helper setup.
 *   __centerface__ is primary detection network for finding faces
 
-> **NOTE**: Before running samples (including this one), prepare required models using scripts in `scripts/download_models` (see `scripts/download_models/README.md` for per-model commands and per-script venv setup).
+The listed model is an example for the current pipeline configuration. Prepare a compatible detector before running; use the general helpers in [`scripts/download_models`](../../../../scripts/download_models/README.md) if conversion is needed. To use a different detector, update the model path in the sample script.
 
 You can modify the script to use other detection models (e.g., person detection, vehicle detection) by changing the model path in the shell script.
 
@@ -47,14 +47,14 @@ Run sample:
 ./save_frames_with_roi.sh [INPUT_VIDEO] [DEVICE] [SINK_ELEMENT]
 ```
 
-The sample takes three command-line *optional* parameters:
+The sample requires an input source; device and sink are optional:
 1. [INPUT_VIDEO] to specify input video file.
    The input could be
    * local video file
    * web camera device (ex. `/dev/video0`)
    * RTSP camera (URL starting with `rtsp://`) or other streaming source (ex URL starting with `http://`)
 
-   If parameter is not specified, the sample by default streams video example from HTTPS link (utilizing `urisourcebin` element) so requires internet connection.
+   Use any local video, supported stream URL, or camera source. A clip containing faces is useful for checking the output.
 
 2. [DEVICE] to specify device for detection. Default GPU.
    Please refer to OpenVINO™ toolkit documentation for supported devices.

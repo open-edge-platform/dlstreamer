@@ -11,13 +11,13 @@ Note that this sample doesn't contain .json files with post-processing rules as 
 
 ## Models
 
-The sample uses by default the following pre-trained models from OpenVINO™ Toolkit [Open Model Zoo](https://github.com/openvinotoolkit/open_model_zoo)
+The sample is configured with these example models from different sources. `centerface` is converted from the upstream CenterFace project; the `dima806/*` models are from Hugging Face. The general model-preparation helpers convert them to OpenVINO IR; see [`scripts/download_models/README.md`](../../../../scripts/download_models/README.md).
 *   __centerface__ is primary detection network for finding faces and generates facial landmark points
 *   __dima806/facial_age_image_detection__ age estimation on detected faces
 *   __dima806/fairface_gender_image_detection__ gender estimation on detected faces
 *   __dima806/face_emotions_image_detection__ emotions recognition
 
-> **NOTE**: Before running samples (including this one), prepare required models using scripts in `scripts/download_models` (see `scripts/download_models/README.md` for per-model commands and per-script venv setup).
+The listed models are examples used by this sample. Prepare compatible OpenVINO IR models before running; use the general helpers in [`scripts/download_models`](../../../../scripts/download_models/README.md) if conversion is needed. Changing models may require updating their paths and the C++ application configuration.
 
 ## Running
 
@@ -27,9 +27,9 @@ The sample uses by default the following pre-trained models from OpenVINO™ Too
 
 The script `build_and_run.sh` compiles the C++ sample into subfolder under `$HOME/intel/dl_streamer`, then runs the executable file.
 
-The script takes four command-line *optional* parameters:
+The script requires `INPUT_VIDEO`; output, device, and output directory are optional:
 1. [INPUT_VIDEO] input video file.
-If not specified, the sample by default streams video example from HTTPS link (utilizing `urisourcebin` element) so requires internet connection.
+Use any video supported by GStreamer; a clip containing faces is useful for this example. Pass its path as `INPUT_VIDEO`.
 The command-line parameter INPUT_VIDEO allows to change input video and supports
 * local video file
 * web camera device (ex. `/dev/video0`)

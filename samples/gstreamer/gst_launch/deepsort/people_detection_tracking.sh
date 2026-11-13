@@ -32,7 +32,7 @@ if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]]; then
   echo "Usage: $0 [INPUT] [DEVICE] [OUTPUT] [INTERVAL] [FRAMES_DIR]"
   echo ""
   echo "Arguments:"
-  echo "  INPUT      - Input video file path (default: videos/people.mp4)"
+  echo "  INPUT      - Required local input video file path"
   echo "  DEVICE     - Inference device (default: GPU). Supported: CPU, GPU"
   echo "  OUTPUT     - Output artifact to produce (default: mp4). One of: json, mp4, frames"
   echo "  INTERVAL   - Only used when OUTPUT=frames. Save roughly every Nth processed"
@@ -52,8 +52,7 @@ fi
 
 # ── Parameters ───────────────────────────────────────────────────────────────
 
-DEFAULT_INPUT="${SCRIPT_DIR}/videos/people.mp4"
-INPUT="${1:-${DEFAULT_INPUT}}"
+INPUT="${1:-}"
 DEVICE="${2:-GPU}"
 OUTPUT="${3:-mp4}"
 INTERVAL="${4:-1}"
@@ -71,18 +70,13 @@ fi
 
 # ── Validate input ───────────────────────────────────────────────────────────
 
+if [[ -z "${INPUT}" ]]; then
+  echo "Error: provide a local input video file path as the first argument." >&2
+  exit 2
+fi
 if [[ ! -f "${INPUT}" ]]; then
-  if [[ "${INPUT}" == "${DEFAULT_INPUT}" ]]; then
-    echo "No input given and default sample not found, downloading it..."
-    mkdir -p "$(dirname "${DEFAULT_INPUT}")"
-    curl -L -o "${DEFAULT_INPUT}" \
-      -H 'Referer: https://www.pexels.com/' \
-      -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36' \
-      'https://www.pexels.com/download/video/39182823/?fps=24.0&h=720&w=1280'
-  else
-    echo "Error: Input video not found: ${INPUT}" >&2
-    exit 1
-  fi
+  echo "Error: Input video not found: ${INPUT}" >&2
+  exit 1
 fi
 
 # ── Locate models ────────────────────────────────────────────────────────────

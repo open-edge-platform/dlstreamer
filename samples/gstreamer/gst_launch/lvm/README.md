@@ -22,26 +22,23 @@ This sample builds a GStreamer pipeline of the following elements:
 
 ## Model
 
-The sample uses the [`clip-vit-large-patch14`](https://huggingface.co/openai/clip-vit-large-patch14), [`clip-vit-base-patch16`](https://huggingface.co/openai/clip-vit-base-patch16) or [`clip-vit-base-patch32`](https://huggingface.co/openai/clip-vit-base-patch32) model. The necessary conversion to the OpenVINO™ format is performed by [`download_hf_models.py`](../../../../scripts/download_models/download_hf_models.py).
+The sample currently supports these CLIP image encoders: [`openai/clip-vit-large-patch14`](https://huggingface.co/openai/clip-vit-large-patch14), [`openai/clip-vit-base-patch16`](https://huggingface.co/openai/clip-vit-base-patch16), and [`openai/clip-vit-base-patch32`](https://huggingface.co/openai/clip-vit-base-patch32). Prepare one of these examples with the general [`download_hf_models.py`](../../../../scripts/download_models/README.md#1-hugging-face-conversion) helper; see its README for supported models and setup. The helper converts the Hugging Face ID to the model directory name used by this sample, such as `openai_clip-vit-large-patch14`.
 
 ## Running
 
 ```sh
     export MODELS_PATH="$HOME"/models
-    cd ../../../../scripts/download_models
-    python3 download_hf_models.py --model openai/clip-vit-large-patch14 --outdir "${MODELS_PATH}/public"
-    cd -
-    ./generate_frame_embeddings.sh [INPUT] [DEVICE] [OUTPUT] [MODEL]
+    ./generate_frame_embeddings.sh [INPUT] [DEVICE] [OUTPUT] [MODEL] [PREPROCESSING_BACKEND]
 ```
 
-The sample takes four command-line *optional* parameters:
+The sample requires a video source; device, output, model, and preprocessing backend are optional:
 
 1. [INPUT] to specify the input source.  
 The input could be:
     * local video file
     * web camera device (e.g., `/dev/video0`)
     * RTSP camera (URL starting with `rtsp://`) or other streaming source (e.g., URL starting with `http://`)  
-If the parameter is not specified, the sample by default streams a video example from an HTTPS link (utilizing the `urisourcebin` element), so it requires an internet connection.
+Use any local video or supported stream URL.
 
 2. [DEVICE] to specify the device for inference.  
    You can choose either `CPU` or `GPU`.
@@ -49,9 +46,15 @@ If the parameter is not specified, the sample by default streams a video example
     * json - output to a JSON file (default)
     * fps - FPS only
 4. [MODEL] to specify the model for inference:
-    * clip-vit-large-patch14 (default)
-    * clip-vit-base-patch16
-    * clip-vit-base-patch32
+    * `openai_clip-vit-large-patch14` (default)
+    * `openai_clip-vit-base-patch16`
+    * `openai_clip-vit-base-patch32`
+5. [PREPROCESSING_BACKEND] to specify the GPU preprocessing backend (default: `opencv`):
+    * `ie`
+    * `opencv`
+    * `va`
+    * `va-surface-sharing`
+   The CPU pipeline always uses `opencv`.
 
 ## Sample Output
 
@@ -68,15 +71,15 @@ The sample:
 
 To run the sample with default values:
 
-    ./generate_frame_embeddings.sh
+    ./generate_frame_embeddings.sh /path/to/video.mp4
 
 To specify a source file, device, and output:
 
     ./generate_frame_embeddings.sh /path/to/video.mp4 GPU fps
 
-To specify a URL, device, output and model:
+To specify a local video, device, output, and model:
 
-    ./generate_frame_embeddings.sh https://example.com/video.mp4 CPU json openai_clip-vit-large-patch14
+    ./generate_frame_embeddings.sh /path/to/video.mp4 CPU json openai_clip-vit-large-patch14
 
 To specify a video device, device, output and model:
 
