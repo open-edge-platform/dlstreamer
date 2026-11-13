@@ -17,6 +17,8 @@
 ; Define registry keys
 !define UNINSTALL_REGISTRY_KEY 'Software\Microsoft\Windows\CurrentVersion\Uninstall\dlstreamer'
 !define DLSTREAMER_REGISTRY_KEY 'Software\Intel\dlstreamer'
+; GStreamer 1.28+ Inno Setup uninstall entry
+!define GSTREAMER_UNINSTALL_REGISTRY_KEY 'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\c20a66dc-b249-4e6d-a68a-d0f836b2b3cf_is1'
 InstallDirRegKey HKLM '${DLSTREAMER_REGISTRY_KEY}' 'InstallDir'
 
 ; Remember installer language
@@ -297,7 +299,7 @@ FunctionEnd
 !macro UninstallGStreamerInnoFunc un
 Function ${un}UninstallGStreamerInno
   ; Check for Inno Setup uninstall registry entry (GStreamer 1.28+)
-  ReadRegStr $R0 HKLM 'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\c20a66dc-b249-4e6d-a68a-d0f836b2b3cf_is1' 'UninstallString'
+  ReadRegStr $R0 HKLM '${GSTREAMER_UNINSTALL_REGISTRY_KEY}' 'UninstallString'
   ${If} $R0 == ''
     DetailPrint 'GStreamer uninstall entry not found'
     Return
@@ -425,6 +427,14 @@ FunctionEnd
   ReadRegStr $R1 HKLM 'SOFTWARE\GStreamer1.0\x86_64' 'Version'
   ReadRegStr $R2 HKLM 'SOFTWARE\GStreamer1.0\x86_64' 'InstallDir'
 
+  ; Requested GStreamer setup type: also install development files when the
+  ; development component is selected.
+  ${If} ${SectionIsSelected} ${c05_development}
+    StrCpy $R8 'debug'
+  ${Else}
+    StrCpy $R8 'runtime'
+  ${EndIf}
+
   DetailPrint 'Installed GStreamer version: $R1'
   ; If no version found, proceed with installation
   ${IfThen} $R1 == '' ${|} Goto InvokeGStreamerInstaller ${|}
@@ -435,6 +445,18 @@ FunctionEnd
     ; Version matches, verify directory exists
     ${IfThen} $R2 == '' ${|} Goto InvokeGStreamerInstaller ${|}
     IfFileExists '$R2\*.*' 0 InvokeGStreamerInstaller
+
+    ; Reinstall if development files are requested but the installed setup type lacks them
+    ; ('debug' is a superset of 'runtime', so an existing 'debug' install is always kept)
+    ReadRegStr $R6 HKLM '${GSTREAMER_UNINSTALL_REGISTRY_KEY}' 'Inno Setup: Setup Type'
+    DetailPrint 'Installed GStreamer setup type: $R6'
+    ${If} $R8 == 'debug'
+    ${AndIf} $R6 != 'debug'
+      DetailPrint 'GStreamer development files requested, reinstall with type=debug'
+      Call UninstallGStreamerInno
+      RMDir /r '$R2'
+      Goto InvokeGStreamerInstaller
+    ${EndIf}
 
     ; Check gstanalytics patch status
     DetailPrint 'Check gstanalytics patch status'
@@ -474,8 +496,8 @@ FunctionEnd
     Goto SkipGStreamer
   ${EndIf}
 
-  DetailPrint 'Execute GStreamer ${GSTREAMER_VERSION} installer'
-  nsExec::ExecToLog '$INSTDIR\deps\gstreamer-1.0-msvc-x86_64-${GSTREAMER_VERSION}.exe /VERYSILENT /NORESTART /LOG /TYPE=runtime /ALLUSERS'
+  DetailPrint 'Execute GStreamer ${GSTREAMER_VERSION} installer (type=$R8)'
+  nsExec::ExecToLog '$INSTDIR\deps\gstreamer-1.0-msvc-x86_64-${GSTREAMER_VERSION}.exe /VERYSILENT /NORESTART /LOG /TYPE=$R8 /ALLUSERS'
   Pop $R3
   ${If} $R3 != 0
     DetailPrint 'GStreamer installation failed. Error code: $R3'
