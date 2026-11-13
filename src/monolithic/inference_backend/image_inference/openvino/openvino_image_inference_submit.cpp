@@ -84,18 +84,18 @@ Image MapOvTensorToImg(ov::Tensor &tensor, size_t batch_index) {
 
 } // namespace
 
-void OpenVinoImageInference::SubmitImageProcessing(const std::string &input_name, InferSlot *slot, const Image &src_img,
-                                                   const InputImageLayerDesc::Ptr &pre_proc_info,
+void OpenVinoImageInference::SubmitImageProcessing(const std::string &input_name, InferSlot *inference_slot,
+                                                   const Image &src_img, const InputImageLayerDesc::Ptr &pre_proc_info,
                                                    const ImageTransformationParams::Ptr image_transform_info) {
     ITT_TASK(__FUNCTION__);
-    assert(slot);
+    assert(inference_slot);
 
     // FIXME: single input
-    if (slot->in_tensors.front().empty()) {
-        slot->in_tensors.front().push_back(slot->infer_request.get_tensor(input_name));
+    if (inference_slot->in_tensors.front().empty()) {
+        inference_slot->in_tensors.front().push_back(inference_slot->infer_request.get_tensor(input_name));
     }
-    const size_t batch_index = slot->buffers.size();
-    Image dst_img = MapOvTensorToImg(slot->in_tensors.front().front(), batch_index);
+    const size_t batch_index = inference_slot->buffers.size();
+    Image dst_img = MapOvTensorToImg(inference_slot->in_tensors.front().front(), batch_index);
     if (src_img.planes[0] != dst_img.planes[0]) { // only convert if different buffers
         try {
             pre_processor_->Convert(src_img, dst_img, pre_proc_info, image_transform_info);
@@ -105,35 +105,35 @@ void OpenVinoImageInference::SubmitImageProcessing(const std::string &input_name
     }
 }
 
-void OpenVinoImageInference::BypassImageProcessing(const std::string &input_name, InferSlot *slot, const Image &src_img,
-                                                   size_t batch_size) {
+void OpenVinoImageInference::BypassImageProcessing(const std::string &input_name, InferSlot *inference_slot,
+                                                   const Image &src_img, size_t batch_size) {
     ITT_TASK(__FUNCTION__);
 
     auto ov_tensor = img_to_tensor_->ImageToTensors(src_img);
 
     if (batch_size > 1) {
-        if (ov_tensor.size() != slot->in_tensors.size())
+        if (ov_tensor.size() != inference_slot->in_tensors.size())
             throw std::runtime_error("BypassImageProcessing - unexpected number of tensors!");
         size_t input_idx = 0;
         for (auto &t : ov_tensor) {
-            slot->in_tensors[input_idx].emplace_back(std::move(t));
+            inference_slot->in_tensors[input_idx].emplace_back(std::move(t));
             input_idx++;
         }
 
-        if (slot->in_tensors.front().size() == batch_size) {
+        if (inference_slot->in_tensors.front().size() == batch_size) {
             // FIXME: input name ?
-            for (size_t i = 0; i < slot->in_tensors.size(); i++) {
+            for (size_t i = 0; i < inference_slot->in_tensors.size(); i++) {
                 // FIXME: move?
-                slot->infer_request.set_input_tensors(i, slot->in_tensors[i]);
+                inference_slot->infer_request.set_input_tensors(i, inference_slot->in_tensors[i]);
             }
         }
     } else {
         if (ov_tensor.size() == 1) {
-            slot->infer_request.set_tensor(input_name, ov_tensor.front());
+            inference_slot->infer_request.set_tensor(input_name, ov_tensor.front());
         } else {
             // FIXME
             for (size_t i = 0; i < ov_tensor.size(); i++) {
-                slot->infer_request.set_input_tensor(i, ov_tensor[i]);
+                inference_slot->infer_request.set_input_tensor(i, ov_tensor[i]);
             }
         }
     }
@@ -164,11 +164,11 @@ bool OpenVinoImageInference::DoNeedImagePreProcessing(const InferenceBackend::Im
 }
 
 void OpenVinoImageInference::ApplyInputPreprocessors(
-    InferSlot *slot, const std::map<std::string, InputLayerDesc::Ptr> &input_preprocessors) {
+    InferSlot *inference_slot, const std::map<std::string, InputLayerDesc::Ptr> &input_preprocessors) {
     ITT_TASK(__FUNCTION__);
-    assert(slot && "Infer slot is null");
+    assert(inference_slot && "Infer slot is null");
 
-    const size_t batch_index = slot->buffers.size();
+    const size_t batch_index = inference_slot->buffers.size();
 
     for (const auto &preprocessor : input_preprocessors) {
         if (preprocessor.second == nullptr)
@@ -181,14 +181,15 @@ void OpenVinoImageInference::ApplyInputPreprocessors(
 
         const auto &model_inputs = prepared_model_.model->inputs();
         std::shared_ptr<OpenvinoInputTensor> input_tensor = nullptr;
-        if ((preprocessor.first == KEY_image) && (model_inputs.size() == 1) && !slot->in_tensors.empty() &&
-            !slot->in_tensors.front().empty()) {
-            input_tensor = std::make_shared<OpenvinoInputTensor>(slot->in_tensors.front().front(), batch_index);
-        } else if (model_inputs.size() == 1) {
-            input_tensor = std::make_shared<OpenvinoInputTensor>(slot->infer_request.get_input_tensor());
-        } else {
+        if ((preprocessor.first == KEY_image) && (model_inputs.size() == 1) && !inference_slot->in_tensors.empty() &&
+            !inference_slot->in_tensors.front().empty()) {
             input_tensor =
-                std::make_shared<OpenvinoInputTensor>(slot->infer_request.get_tensor(preprocessor.second->name));
+                std::make_shared<OpenvinoInputTensor>(inference_slot->in_tensors.front().front(), batch_index);
+        } else if (model_inputs.size() == 1) {
+            input_tensor = std::make_shared<OpenvinoInputTensor>(inference_slot->infer_request.get_input_tensor());
+        } else {
+            input_tensor = std::make_shared<OpenvinoInputTensor>(
+                inference_slot->infer_request.get_tensor(preprocessor.second->name));
         }
 
         preprocessor.second->preprocessor(input_tensor);
@@ -207,46 +208,46 @@ void OpenVinoImageInference::SubmitImage(
 
     std::unique_lock<std::mutex> lk(requests_mutex_);
     ++frames_in_flight_;
-    InferSlot *slot = current_slot_;
-    if (!slot) {
+    InferSlot *inference_slot = current_slot_;
+    if (!inference_slot) {
         auto acquired = free_slots_.Acquire();
         if (!acquired) {
             --frames_in_flight_;
             throw std::runtime_error("Inference is closed, cannot submit an image");
         }
-        slot = *acquired;
-        current_slot_ = slot;
+        inference_slot = *acquired;
+        current_slot_ = inference_slot;
     }
 
     // A partial batch already holds earlier frames: remember the sizes so that a failure rolls back only what this
     // frame added.
-    const size_t prev_buffers = slot->buffers.size();
+    const size_t prev_buffers = inference_slot->buffers.size();
     std::vector<size_t> prev_tensors;
-    for (const auto &in_vec : slot->in_tensors)
+    for (const auto &in_vec : inference_slot->in_tensors)
         prev_tensors.push_back(in_vec.size());
 
     try {
         if (DoNeedImagePreProcessing(frame->GetImage())) {
             SubmitImageProcessing(
-                image_layer_, slot, *frame->GetImage(),
+                image_layer_, inference_slot, *frame->GetImage(),
                 GetImagePreProcInfo(input_preprocessors), // contain operations order for Custom Image PreProcessing
                 frame->GetImageTransformationParams()     // during CIPP will be filling of crop and aspect-ratio
                                                           // parameters
             );
         } else {
-            BypassImageProcessing(image_layer_, slot, *frame->GetImage(), safe_convert<size_t>(batch_size_));
+            BypassImageProcessing(image_layer_, inference_slot, *frame->GetImage(), safe_convert<size_t>(batch_size_));
         }
 
-        ApplyInputPreprocessors(slot, input_preprocessors);
+        ApplyInputPreprocessors(inference_slot, input_preprocessors);
 
-        slot->buffers.push_back(frame);
+        inference_slot->buffers.push_back(frame);
     } catch (const std::exception &e) {
         GVA_ERROR("Pre-processing has failed: %s", e.what());
         // The slot stays the current one, holding only the frames that were there before this one. Drop this frame
         // from the in-flight count, otherwise a later Flush() waits for it forever.
-        slot->buffers.resize(prev_buffers);
+        inference_slot->buffers.resize(prev_buffers);
         for (size_t i = 0; i < prev_tensors.size(); i++)
-            slot->in_tensors[i].resize(prev_tensors[i]);
+            inference_slot->in_tensors[i].resize(prev_tensors[i]);
         --frames_in_flight_;
         request_processed_.notify_all();
         std::throw_with_nested(std::runtime_error("Pre-processing was failed."));
@@ -254,9 +255,9 @@ void OpenVinoImageInference::SubmitImage(
 
     try {
         // start inference asynchronously if enough buffers for batching
-        if (slot->buffers.size() >= safe_convert<size_t>(batch_size_)) {
+        if (inference_slot->buffers.size() >= safe_convert<size_t>(batch_size_)) {
             current_slot_ = nullptr;
-            slot->StartAsync();
+            inference_slot->StartAsync();
         }
     } catch (const std::exception &e) {
         // The slot holds the whole batch now: fail all of its frames, as Flush() and the completion callback do.
@@ -265,7 +266,7 @@ void OpenVinoImageInference::SubmitImage(
         // handle_error_ pushes the frames downstream, which can block: don't hold requests_mutex_ over it, as the
         // completion callback doesn't. The slot is ours until FreeSlot.
         lk.unlock();
-        handle_error_(slot->buffers);
-        FreeSlot(slot);
+        handle_error_(inference_slot->buffers);
+        FreeSlot(inference_slot);
     }
 }

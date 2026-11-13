@@ -47,8 +47,8 @@ void LogOpenVinoVersion() {
 
 } // namespace
 
-void OpenVinoImageInference::SetCompletionCallback(InferSlot *slot) {
-    assert(slot && "Infer slot is null");
+void OpenVinoImageInference::SetCompletionCallback(InferSlot *inference_slot) {
+    assert(inference_slot && "Infer slot is null");
 
     // The callback may run on an OpenVINO thread until Close() has waited for every request, which happens before the
     // slots are destroyed.
@@ -59,18 +59,18 @@ void OpenVinoImageInference::SetCompletionCallback(InferSlot *slot) {
             if (ex) {
                 std::string ex_string = fmt::format("exception occurred during inference: {}", ex);
                 GVA_ERROR("%s", ex_string.c_str());
-                this->handle_error_(slot->buffers);
+                this->handle_error_(inference_slot->buffers);
             } else {
-                this->WorkingFunction(slot);
+                this->WorkingFunction(inference_slot);
             }
         } catch (const std::exception &e) {
             GVA_ERROR("An error occurred at inference request completion callback:\n%s",
                       Utils::createNestedErrorMsg(e).c_str());
         }
 
-        FreeSlot(slot);
+        FreeSlot(inference_slot);
     };
-    slot->infer_request.set_callback(cb);
+    inference_slot->infer_request.set_callback(cb);
 }
 
 OpenVinoImageInference::OpenVinoImageInference(const InferenceBackend::InferenceConfig &config, Allocator *,
@@ -109,11 +109,11 @@ OpenVinoImageInference::OpenVinoImageInference(const InferenceBackend::Inference
         image_layer_ = prepared_model_.image_input_name;
 
         for (int i = 0; i < nireq_; i++) {
-            auto &slot = slots_.emplace_back(std::make_unique<InferSlot>());
-            slot->infer_request = compiled_model_.create_infer_request();
-            slot->in_tensors.resize(prepared_model_.model->inputs().size());
-            SetCompletionCallback(slot.get());
-            free_slots_.Release(slot.get());
+            auto &inference_slot = slots_.emplace_back(std::make_unique<InferSlot>());
+            inference_slot->infer_request = compiled_model_.create_infer_request();
+            inference_slot->in_tensors.resize(prepared_model_.model->inputs().size());
+            SetCompletionCallback(inference_slot.get());
+            free_slots_.Release(inference_slot.get());
         }
 
         if (pp_type == InferenceBackend::ImagePreprocessorType::OPENCV ||
@@ -135,13 +135,13 @@ OpenVinoImageInference::~OpenVinoImageInference() {
     Close();
 }
 
-void OpenVinoImageInference::FreeSlot(InferSlot *slot) {
-    const size_t frame_count = slot->buffers.size();
-    slot->buffers.clear();
-    for (auto &in_vec : slot->in_tensors) {
+void OpenVinoImageInference::FreeSlot(InferSlot *inference_slot) {
+    const size_t frame_count = inference_slot->buffers.size();
+    inference_slot->buffers.clear();
+    for (auto &in_vec : inference_slot->in_tensors) {
         in_vec.clear();
     }
-    free_slots_.Release(slot);
+    free_slots_.Release(inference_slot);
     frames_in_flight_ -= frame_count;
     request_processed_.notify_all();
 }
@@ -249,9 +249,9 @@ void OpenVinoImageInference::Flush() {
 
     std::unique_lock<std::mutex> flush_lk(flush_mutex_);
 
-    if (InferSlot *slot = current_slot_.exchange(nullptr)) {
-        if (slot->buffers.empty()) {
-            free_slots_.Release(slot);
+    if (InferSlot *inference_slot = current_slot_.exchange(nullptr)) {
+        if (inference_slot->buffers.empty()) {
+            free_slots_.Release(inference_slot);
         } else {
             try {
                 // WA: Fill non-complete batch with last element for bypass preprocessing only.
@@ -260,20 +260,20 @@ void OpenVinoImageInference::Flush() {
                 // a previous request reuse.
                 if (batch_size_ > 1 && !DoNeedImagePreProcessing(nullptr)) {
                     size_t input_idx = 0;
-                    for (auto &input_vec : slot->in_tensors) {
+                    for (auto &input_vec : inference_slot->in_tensors) {
                         for (int i = input_vec.size(); i < batch_size_; i++)
                             input_vec.push_back(input_vec.back());
                         // FIXME: move?
-                        slot->infer_request.set_input_tensors(input_idx, input_vec);
+                        inference_slot->infer_request.set_input_tensors(input_idx, input_vec);
                         input_idx++;
                     }
                 }
 
-                slot->StartAsync();
+                inference_slot->StartAsync();
             } catch (const std::exception &e) {
                 GVA_ERROR("Couldn't start inference on flush: %s", e.what());
-                this->handle_error_(slot->buffers);
-                FreeSlot(slot);
+                this->handle_error_(inference_slot->buffers);
+                FreeSlot(inference_slot);
             }
         }
     }
@@ -289,19 +289,19 @@ void OpenVinoImageInference::Close() {
     // Wake a thread that waits in SubmitImage for a free request, so it does not block the Flush below.
     free_slots_.Close();
     Flush();
-    for (auto &slot : slots_) {
-        slot->infer_request.set_callback([](std::exception_ptr) {});
+    for (auto &inference_slot : slots_) {
+        inference_slot->infer_request.set_callback([](std::exception_ptr) {});
     }
 }
 
-void OpenVinoImageInference::WorkingFunction(InferSlot *slot) {
-    assert(slot);
+void OpenVinoImageInference::WorkingFunction(InferSlot *inference_slot) {
+    assert(inference_slot);
 
     std::map<std::string, OutputBlob::Ptr> output_blobs;
     const auto &outputs = compiled_model_.outputs();
     for (size_t i = 0; i < outputs.size(); i++) {
         auto name = outputs[i].get_names().size() > 0 ? outputs[i].get_any_name() : std::string("output");
-        output_blobs[name] = std::make_shared<OpenvinoOutputTensor>(slot->infer_request.get_output_tensor(i));
+        output_blobs[name] = std::make_shared<OpenvinoOutputTensor>(inference_slot->infer_request.get_output_tensor(i));
     }
-    callback_(output_blobs, slot->buffers);
+    callback_(output_blobs, inference_slot->buffers);
 }

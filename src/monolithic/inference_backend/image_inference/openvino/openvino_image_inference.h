@@ -100,8 +100,8 @@ class OpenVinoImageInference : public InferenceBackend::ImageInference {
         }
     };
 
-    void HandleError(InferSlot *slot);
-    void WorkingFunction(InferSlot *slot);
+    void HandleError(InferSlot *inference_slot);
+    void WorkingFunction(InferSlot *inference_slot);
 
     dlstreamer::ContextPtr context_;
     InferenceBackend::MemoryType memory_type_;
@@ -136,15 +136,16 @@ class OpenVinoImageInference : public InferenceBackend::ImageInference {
     std::mutex flush_mutex_;
 
   private:
-    void FreeSlot(InferSlot *slot);
+    void FreeSlot(InferSlot *inference_slot);
     bool DoNeedImagePreProcessing(const InferenceBackend::ImagePtr src_img);
-    void SubmitImageProcessing(const std::string &input_name, InferSlot *slot, const InferenceBackend::Image &src_img,
+    void SubmitImageProcessing(const std::string &input_name, InferSlot *inference_slot,
+                               const InferenceBackend::Image &src_img,
                                const InferenceBackend::InputImageLayerDesc::Ptr &pre_proc_info,
                                const InferenceBackend::ImageTransformationParams::Ptr image_transform_info);
-    void BypassImageProcessing(const std::string &input_name, InferSlot *slot, const InferenceBackend::Image &src_img,
-                               size_t batch_size);
-    void SetCompletionCallback(InferSlot *slot);
+    void BypassImageProcessing(const std::string &input_name, InferSlot *inference_slot,
+                               const InferenceBackend::Image &src_img, size_t batch_size);
+    void SetCompletionCallback(InferSlot *inference_slot);
     void
-    ApplyInputPreprocessors(InferSlot *slot,
+    ApplyInputPreprocessors(InferSlot *inference_slot,
                             const std::map<std::string, InferenceBackend::InputLayerDesc::Ptr> &input_preprocessors);
 };
