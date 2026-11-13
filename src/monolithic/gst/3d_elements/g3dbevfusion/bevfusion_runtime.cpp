@@ -252,7 +252,11 @@ struct Runtime::Impl {
     }
 };
 
-Runtime::Runtime(const std::string &config_path, const std::string &device) : impl_(std::make_unique<Impl>()) {
+void Runtime::ImplDeleter::operator()(Impl *impl) const {
+    delete impl;
+}
+
+Runtime::Runtime(const std::string &config_path, const std::string &device) : impl_(new Impl()) {
     const fs::path cfg_path = fs::absolute(config_path);
     const json cfg = read_json(cfg_path);
     const fs::path base = cfg_path.parent_path();
@@ -300,8 +304,6 @@ Runtime::Runtime(const std::string &config_path, const std::string &device) : im
     impl_->camera_encoder = compile("camera_encoder_b6", device, dense_cfg);
     impl_->full_detection = compile("full_detection", device, dense_cfg);
 }
-
-Runtime::~Runtime() = default;
 
 void Runtime::set_calibration(const std::array<CameraCalibration, kNumCameras> &cameras) {
     impl_->cameras = cameras;
