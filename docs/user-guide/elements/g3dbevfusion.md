@@ -26,7 +26,7 @@ Detections are attached as `GstAnalytics3DODMtd` to the **LiDAR buffer** inside 
 | `config` | String | NULL | Runtime JSON describing the model files (see [Runtime configuration](#runtime-configuration)). Required. |
 | `calibration` | String | NULL | JSON naming the mux pad of the LiDAR and of each camera, with each camera's calibration, and optionally a per-frame table (see [Calibration JSON schema](#calibration-json-schema)). Required. |
 | `device` | String | `GPU` | Device for the dense networks: camera encoder, geometry and detection head. The custom voxelize and BEV-pool ops always run on the GPU. |
-| `score-threshold` | Float [0, 1] | 0.3 | Minimum detection score to attach. The model proposes 200 boxes per frame; most score close to 0. |
+| `score-threshold` | Float [0, 1] | 0.3 | Minimum detection score to attach. The model proposes 200 boxes per frame; most score close to 0. Can be changed while playing; it applies from the next frame. |
 
 ## Preparing the model
 
@@ -251,7 +251,7 @@ Element Properties:
   qos                 : Handle Quality-of-Service events
                         flags: readable, writable
                         Boolean. Default: false
-  score-threshold     : Minimum detection score to attach
-                        flags: readable, writable
+  score-threshold     : Minimum detection score to attach. Setting it while playing applies from the next frame
+                        flags: readable, writable, changeable in PLAYING state
                         Float. Range:               0 -               1 Default:             0.3
 ```

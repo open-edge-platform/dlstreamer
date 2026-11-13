@@ -581,6 +581,61 @@ GST_START_TEST(test_cam_only_batch) {
 }
 GST_END_TEST;
 
+/* A batch that carries only the LiDAR (g3dbevfusion's LiDAR-only mode) on a wide canvas: the
+ * panel is centred, so the margins either side are equal and empty. */
+GST_START_TEST(test_lidar_only_batch_centred) {
+    const Scenario sc = {"lidar_only_batch",
+                         NULL,
+                         0,
+                         0,
+                         0,
+                         TRUE,
+                         FALSE,
+                         1600,
+                         800,
+                         -50,
+                         50,
+                         -50,
+                         50,
+                         2,
+                         1,
+                         1.0f,
+                         0,
+                         35,
+                         30,
+                         180,
+                         60,
+                         FALSE};
+    GstHarness *h = make_batch_harness(&sc);
+    gst_harness_push(h, build_batch_buf(h, &sc));
+    GstBuffer *out = gst_harness_pull(h);
+    ck_assert(out != NULL);
+    GstMapInfo m;
+    ck_assert(gst_buffer_map(out, &m, GST_MAP_READ));
+    const gsize stride = (gsize)sc.width * 3; /* 1600 BGR pixels: already 4-byte aligned */
+    const gint margin = (sc.width - sc.height) / 2;
+    gint lit_left = 0, lit_right = 0, lit_panel = 0;
+    for (gint y = 0; y < sc.height; y++) {
+        for (gint x = 0; x < sc.width; x++) {
+            const guint8 *px = m.data + y * stride + x * 3;
+            const gboolean lit = px[0] != 15 || px[1] != 15 || px[2] != 15;
+            if (x < margin)
+                lit_left += lit;
+            else if (x >= sc.width - margin)
+                lit_right += lit;
+            else
+                lit_panel += lit;
+        }
+    }
+    gst_buffer_unmap(out, &m);
+    gst_buffer_unref(out);
+    gst_harness_teardown(h);
+    ck_assert_msg(lit_left == 0 && lit_right == 0, "drawn outside the centred panel: %d left, %d right", lit_left,
+                  lit_right);
+    ck_assert_msg(lit_panel > 0, "nothing drawn in the centred panel");
+}
+GST_END_TEST;
+
 GST_START_TEST(test_cam_proj_bg_tuned_golden) {
     const Scenario *sc = &SC_CAM_PROJ_BG_TUNED;
     g_print("\n[%s]\n", sc->label);
@@ -904,6 +959,7 @@ static Suite *g3drender_suite(void) {
     tcase_add_test(tc_edge, test_empty_point_cloud);
     tcase_add_test(tc_edge, test_missing_lidar_meta);
     tcase_add_test(tc_edge, test_cam_only_batch);
+    tcase_add_test(tc_edge, test_lidar_only_batch_centred);
     suite_add_tcase(s, tc_edge);
 
     TCase *tc_proj_bg = tcase_create("cam-proj-bg");

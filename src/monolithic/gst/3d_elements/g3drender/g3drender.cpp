@@ -1469,10 +1469,12 @@ static GstFlowReturn gst_g3d_render_transform(GstBaseTransform *trans, GstBuffer
         cam_area_w = 0;
     } else {
         int lidar_size = self->height;
-        lidar_x = (n_cams > 0) ? std::max(0, self->width - lidar_size) : 0;
+        // Without cameras (LiDAR-only input, or a batch carrying only the LiDAR)
+        // the panel is centred, so a wide canvas leaves even margins.
+        lidar_x = (n_cams > 0) ? std::max(0, self->width - lidar_size) : std::max(0, (self->width - lidar_size) / 2);
         lidar_w = std::min(lidar_size, self->width - lidar_x);
         lidar_h = lidar_size;
-        cam_area_w = lidar_x;
+        cam_area_w = (n_cams > 0) ? lidar_x : 0;
     }
 
     const std::unordered_set<guint> assoc_ids = collect_associated_3d_ids(cams);

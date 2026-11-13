@@ -150,7 +150,7 @@ The element always allocates a new output buffer; the input buffer is not modifi
 └──────────────────────────────────────────────────────┘
 ```
 
-The LiDAR panel is always a `height × height` square anchored to the right edge. Each camera frame is letterboxed into its grid cell. The layout switches from 1 column to 2 columns when 4 or more camera streams are present.
+The LiDAR panel is always a `height × height` square, anchored to the right edge when there are cameras and centred when there are none (LiDAR-only input, or a batch that carries only the LiDAR, as `g3dbevfusion` does in LiDAR-only mode). Each camera frame is letterboxed into its grid cell. The layout switches from 1 column to 2 columns when 4 or more camera streams are present.
 
 ## Notes
 
