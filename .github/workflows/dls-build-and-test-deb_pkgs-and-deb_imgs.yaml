@@ -409,8 +409,13 @@ jobs:
           mkdir -p $DLS_REL_PATH/test_hello_dlstreamer
           cd $DLS_REL_PATH/test_hello_dlstreamer
           export MODELS_PATH=${{ env.MODELS_PATH }}
-          echo "Running hello_dlstreamer.sh on CPU with model yolo11s"
-          /opt/intel/dlstreamer/scripts/hello_dlstreamer.sh --output=file --device=CPU --model=yolo11s --precision=INT8
+          VIDEO_INPUT="${{ env.VIDEO_INPUTS_PATH }}/Pexels_Videos_1192116-sd_640_360_30fps.mp4"
+          if [[ ! -f "$VIDEO_INPUT" ]]; then
+              echo "::error::Hello DL Streamer input video not found: $VIDEO_INPUT"
+              exit 1
+          fi
+          echo "Running hello_dlstreamer.sh on CPU with model yolo11s and input $VIDEO_INPUT"
+          /opt/intel/dlstreamer/scripts/hello_dlstreamer.sh --input="$VIDEO_INPUT" --output=file --device=CPU --model=yolo11s --precision=INT8
           OUTPUT_FILE_FOUND=0
           echo "## 💻 ${runner_print_label} On host tests summary" >> $GITHUB_STEP_SUMMARY
           for file in *.mp4; do
