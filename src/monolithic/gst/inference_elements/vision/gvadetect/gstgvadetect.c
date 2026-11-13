@@ -41,8 +41,10 @@ G_DEFINE_TYPE_WITH_CODE(GstGvaDetect, gst_gva_detect, GST_TYPE_GVA_BASE_INFERENC
 gboolean gst_gva_detect_start(GstBaseTransform *trans) {
     GstGvaDetect *gvadetect = GST_GVA_DETECT(trans);
 
+    GST_OBJECT_LOCK(gvadetect);
     GST_INFO_OBJECT(gvadetect, "%s parameters:\n -- Threshold: %f\n", GST_ELEMENT_NAME(GST_ELEMENT_CAST(gvadetect)),
                     gvadetect->threshold);
+    GST_OBJECT_UNLOCK(gvadetect);
 
     return GST_BASE_TRANSFORM_CLASS(gst_gva_detect_parent_class)->start(trans);
 }
@@ -119,9 +121,11 @@ void gst_gva_detect_init(GstGvaDetect *gvadetect) {
     GST_DEBUG_OBJECT(gvadetect, "gst_gva_detect_init");
     GST_DEBUG_OBJECT(gvadetect, "%s", GST_ELEMENT_NAME(GST_ELEMENT(gvadetect)));
 
+    GST_OBJECT_LOCK(gvadetect);
     gvadetect->base_inference.type = GST_GVA_DETECT_TYPE;
     gvadetect->threshold = DEFAULT_THRESHOLD;
     gvadetect->threshold_explicitly_set = FALSE;
+    GST_OBJECT_UNLOCK(gvadetect);
 }
 
 static gboolean plugin_init(GstPlugin *plugin) {

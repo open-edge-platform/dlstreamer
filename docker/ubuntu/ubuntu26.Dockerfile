@@ -97,7 +97,7 @@ RUN \
     apt-get install -y -q --no-install-recommends xz-utils=\* python3-pip=\* python3-gi=\* gcc-multilib=\* libglib2.0-dev=\* \
     flex=\* bison=\* autoconf=\* automake=\* libtool=\* libogg-dev=\* make=\* g++=\* libva-dev=\* yasm=\* libglx-dev=\* libdrm-dev=\* \
     python-gi-dev=\* python3-dev=\* unzip=\* libgflags-dev=\* libcurl4-openssl-dev=\* \
-    gobject-introspection=\* libgirepository1.0-dev=\* libx265-dev=\* libx264-dev=\* libde265-dev=\* libusb-1.0=\* nasm=\* python3-venv=\* \
+    gobject-introspection=\* libgirepository1.0-dev=\* libgirepository-2.0-dev=\* libx265-dev=\* libx264-dev=\* libde265-dev=\* libusb-1.0=\* nasm=\* python3-venv=\* \
     libcairo2-dev=\* libxt-dev=\* libgirepository1.0-dev=\* libgles2-mesa-dev=\* wayland-protocols=\* \
     libssh2-1-dev=\* cmake=\* git=\* valgrind=\* numactl=\* libvpx-dev=\* libopus-dev=\* libsrtp2-dev=\* libxv-dev=\* \
     linux-libc-dev=\* libpmix2t64=\* libhwloc15=\* libhwloc-plugins=\* libxcb1-dev=\* libx11-xcb-dev=\* \
@@ -121,6 +121,10 @@ ENV UV_PYTHON_PREFERENCE=only-system
 
 USER dlstreamer
 
+# PyGObject is pinned to the version shipped by this distro (pkg-config pygobject-3.0 = 3.56.2),
+# so the gi module matches the headers libgstpython.so is built against. An older pin such as
+# 3.50.0 segfaults when the GStreamer 'python' plugin is loaded from a Python 3.14 process.
+# PyGObject >= 3.52 builds against girepository-2.0, hence libgirepository-2.0-dev above.
 RUN \
     uv venv --python python3 /python3venv && \
     VIRTUAL_ENV=/python3venv uv pip install --no-cache-dir --no-deps \
@@ -137,7 +141,7 @@ RUN \
     pyzbar==0.1.9 \
     six==1.16.0 \
     pycairo==1.26.0 \
-    PyGObject==3.50.0 \
+    PyGObject==3.56.2 \
     setuptools==84.1.0 \
     pytest==8.3.3 \
     pluggy==1.5.0 \
@@ -610,11 +614,11 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/b
 # Install onvif-zeep and remaining Python dependencies.
 RUN \
     apt-get update && \
-    apt-get install -y -q --no-install-recommends python3-pip=\* python3-dev=\* gcc=\* g++=\* libcairo2-dev=\* libgirepository1.0-dev=\* && \
+    apt-get install -y -q --no-install-recommends python3-pip=\* python3-dev=\* gcc=\* g++=\* libcairo2-dev=\* libgirepository1.0-dev=\* libgirepository-2.0-dev=\* && \
     uv pip install --system --no-cache-dir --break-system-packages onvif-zeep==0.2.12 && \
     uv pip install --system --no-cache-dir --break-system-packages -r /opt/intel/dlstreamer/requirements.txt && \
 
-    apt-get remove -y libcairo2-dev libgirepository1.0-dev && \
+    apt-get remove -y libcairo2-dev libgirepository1.0-dev libgirepository-2.0-dev && \
     apt-get autoremove -y && \
     PYTHON_SITE_PACKAGES=$(python3 -c "import site; print(site.getsitepackages()[0])") && \
     if [ -d "$PYTHON_SITE_PACKAGES/wsdl" ]; then cp -r "$PYTHON_SITE_PACKAGES/wsdl" /usr/local/lib/python3*/dist-packages/; fi && \

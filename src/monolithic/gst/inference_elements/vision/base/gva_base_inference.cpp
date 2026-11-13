@@ -1655,6 +1655,7 @@ gboolean gva_base_inference_start(GstBaseTransform *trans) {
 
     GST_DEBUG_OBJECT(base_inference, "start");
 
+    GST_OBJECT_LOCK(base_inference);
     GST_INFO_OBJECT(
         base_inference,
         "%s inference parameters:\n -- Model: %s\n -- Model proc: %s\n "
@@ -1670,6 +1671,7 @@ gboolean gva_base_inference_start(GstBaseTransform *trans) {
         base_inference->model_instance_id, base_inference->cpu_streams, base_inference->gpu_streams,
         base_inference->ie_config, base_inference->allocator_name, base_inference->pre_proc_type,
         base_inference->object_class, base_inference->labels);
+    GST_OBJECT_UNLOCK(base_inference);
 
     if (!gva_base_inference_check_properties_correctness(base_inference)) {
         return base_inference->initialized;

@@ -578,12 +578,15 @@ RUN uv python install 3.11 && \
     ln -s "$PYTHON_BIN" /usr/local/bin/python3.11
 
 # Install the .deb package plus the DL Streamer Python requirements.
+# uv bootstraps Python with pip, whose vendored packages trigger vulnerability scans.
+# Remove it after installing dependencies; the runtime does not need pip.
 RUN \
     apt-get update -y && \
     apt-get install -y -q --no-install-recommends /debs/*.deb gcc=\* ninja-build=\* libcairo2-dev=\* libgirepository1.0-dev=\* && \
-    uv pip install --python python3.11 --system --no-cache-dir --break-system-packages pip==26.2.0 setuptools==84.1.0 wheel==0.46.2 packaging==24.2 && \
+    uv pip install --python python3.11 --system --no-cache-dir --break-system-packages setuptools==84.1.0 wheel==0.46.2 packaging==24.2 && \
     uv pip install --python python3.11 --system --no-cache-dir --break-system-packages meson==1.6.1 && \
     uv pip install --python python3.11 --system --no-cache-dir --break-system-packages -r /opt/intel/dlstreamer/requirements.txt && \
+    uv pip uninstall --python python3.11 --system --break-system-packages pip && \
     apt-get remove -y gcc ninja-build libcairo2-dev libgirepository1.0-dev && \
     apt-get autoremove -y && \
     apt-get clean -y && \
