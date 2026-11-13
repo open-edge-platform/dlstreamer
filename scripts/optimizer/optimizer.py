@@ -429,10 +429,10 @@ class DLSOptimizer:
 def _collect_power_info(resp):
     power_total = 0.0
     for family in text_string_to_metric_families(resp.text):
-        if family.name == "npu_power":
+        if family.name == "npu_power_w":
             power_total += family.samples[0].value
 
-        if family.name == "gpu_power":
+        if family.name == "gpu_power_power_w":
             for sample in family.samples:
                 if sample.labels["type"] == "pkg_cur_power":
                     power_total += sample.value

@@ -90,7 +90,9 @@ less streams overall.
 Maximum power consumption (watts) that every valid pipeline cannot cross.
 
 **`power-metrics-endpoint`** \
-URL leading to the Prometheus endpoint of a Metrics Manager instance. Required when using the `power` optimization mode.
+URL leading to the Prometheus endpoint of a Metrics Manager instance (port `9273` by default, for example
+`http://localhost:9273/`). Required when using the `power` optimization mode. The optimizer sums the NPU power
+(`npu_power_w`) and the `pkg_cur_power` sample of every GPU (`gpu_power_power_w`).
 
 **`enable-cross-stream-batching`** \
 Levy the inference instance feature of DL Streamer to batch work across multiple streams in fps mode.
@@ -288,7 +290,7 @@ optimizer.set_power_limit(15.0)
 Configures the power metrics endpoint used for measuring power consumption. Required for power-based optimization.
 ```
 optimizer = DLSOptimizer()
-optimizer.set_metrics_url("http://localhost:9090/")
+optimizer.set_metrics_url("http://localhost:9273/")
 ```
 ---
 **`set_batch_sizes(sizes)`**
@@ -360,7 +362,7 @@ Runs a series of optimization steps on the pipeline searching for a version with
 ```
 pipeline = "urisourcebin buffer-size=4096 uri=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 ! decodebin ! gvadetect model=/home/optimizer/models/public/yolo11s/INT8/yolo11s.xml ! queue ! gvawatermark ! fakesink"
 optimizer = DLSOptimizer()
-optimizer.set_metrics_url("http://localhost:9090/")
+optimizer.set_metrics_url("http://localhost:9273/")
 optimized_pipeline, result = optimizer.optimize_for_power(pipeline)
 print(f"Best pipeline: {optimized_pipeline} @ {result['power']} watts")
 ```
@@ -374,7 +376,7 @@ Runs a series of optimization steps on the pipeline searching for a version with
 ```
 pipeline = "urisourcebin buffer-size=4096 uri=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 ! decodebin ! gvadetect model=/home/optimizer/models/public/yolo11s/INT8/yolo11s.xml ! queue ! gvawatermark ! fakesink"
 optimizer = DLSOptimizer()
-optimizer.set_metrics_url("http://localhost:9090/")
+optimizer.set_metrics_url("http://localhost:9273/")
 for (pipeline, result) in optimizer.iter_optimize_for_power(pipeline):
     if result:
         print(f"Tested: {pipeline} @ {result['power']} watts")
