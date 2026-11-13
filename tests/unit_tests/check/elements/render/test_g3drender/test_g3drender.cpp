@@ -4,9 +4,9 @@
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
+#include <glib/gstdio.h>
 #include <gst/check/gstcheck.h>
 #include <gst/check/gstharness.h>
-#include <glib/gstdio.h>
 
 #include "g3d_test_fixtures.h"
 #include "g3d_test_golden.h"
