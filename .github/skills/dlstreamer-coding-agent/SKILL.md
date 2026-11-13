@@ -314,6 +314,15 @@ docker run --init --rm \
     python3 <app_name>.py
 ```
 
+On Intel Core Ultra Series 3 (model 3xx), NPU DMA-BUF zero-copy also needs `/dev/dma_heap/system`. If the device exists on the host, add
+`--device /dev/dma_heap/system --group-add $(stat -c "%g" /dev/dma_heap/system)`. The device is root-only by default, so the host must first
+grant the `render` group access (valid until the next reboot):
+
+```bash
+sudo chgrp render /dev/dma_heap/system
+sudo chmod 0660 /dev/dma_heap/system
+```
+
 > **Autonomous execution — never wait for user confirmation.**
 > Launch in async mode, poll `get_terminal_output` every 15–30s until completion.
 > Only ask the user when a **decision** is needed (e.g. device change after OOM).

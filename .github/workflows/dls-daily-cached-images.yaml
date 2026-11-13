@@ -1,0 +1,325 @@
+name: "[DLS] [U22/24/26] Build daily cache imgs"
+run-name: "[DLS] [U22/24/26] Build daily cache imgs"
+on:
+  schedule:
+    - cron: '0 3 * * *' # 3:00 UTC every day
+  workflow_dispatch:
+permissions: {}
+env:
+  dlstreamer-version: "2026.3.0"
+  DLS_REL_PATH: "./dlstreamer-repo"
+
+jobs:
+  build-dls-deb-img:
+    name: Build DLS ${{ matrix.ubuntu_version }} .deb and deb img
+    runs-on: dlstreamer
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - path_dockerfile: ./dlstreamer-repo/docker/ubuntu/ubuntu22.Dockerfile
+            ubuntu_version: ubuntu22
+          - path_dockerfile: ./dlstreamer-repo/docker/ubuntu/ubuntu24.Dockerfile
+            ubuntu_version: ubuntu24
+          - path_dockerfile: ./dlstreamer-repo/docker/ubuntu/ubuntu26.Dockerfile
+            ubuntu_version: ubuntu26
+    steps:
+      - name: Check out dlstreamer repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #7.0.1
+        with:
+          persist-credentials: false
+          path: dlstreamer-repo
+          submodules: true
+
+      - name: Pre-pull BuildKit image
+        uses: ./dlstreamer-repo/.github/actions/common/pull-buildkit-image
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e #4.3.0
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f #4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build deb final img with cache from GHCR
+        env:
+          deb_final_img: dlstreamer-deb-final:daily-${{ matrix.ubuntu_version }}-${{ github.sha }}
+          deb_final_img_cached: ghcr.io/${{ github.repository }}/deb-final-img-${{ matrix.ubuntu_version }}:buildcache
+        run: |
+          docker buildx build \
+            --load \
+            --tag "${deb_final_img}" \
+            --target dlstreamer \
+            --cache-to=type=registry,ref=${deb_final_img_cached},mode=max \
+            --cache-from=type=registry,ref=${deb_final_img_cached} \
+            --build-arg DLSTREAMER_VERSION=${{ env.dlstreamer-version }} \
+            --build-arg DLSTREAMER_BUILD_NUMBER=deb-pkg-${{ matrix.ubuntu_version }} \
+            -f ${{ matrix.path_dockerfile }} \
+            ${{ env.DLS_REL_PATH }}
+
+      - name: Scan ${{ matrix.ubuntu_version }} DEB image with Trivy
+        id: trivy-scan
+        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@dca07fa1cdf8ed3eaf8f318f3d905fd12cef3b41 # v0.74.0
+        with:
+          scan_target: "dlstreamer-deb-final:daily-${{ matrix.ubuntu_version }}-${{ github.sha }}"
+          severity: "HIGH"
+          scan_type: image
+          format: table
+          report_suffix: "-${{ matrix.ubuntu_version }}-daily-deb-image"
+          scan-scope: all
+          timeout: 20m
+          ignore_unfixed: true
+
+      - name: Save table report and check Trivy results
+        if: always()
+        env:
+          TRIVY_EXIT_CODE: ${{ steps.trivy-scan.outputs.scan_result }}
+          TRIVY_REPORT_PATH: ${{ steps.trivy-scan.outputs.report_path }}
+          UBUNTU_VERSION: ${{ matrix.ubuntu_version }}
+        run: |
+          set -euo pipefail
+
+          report_dir="trivy-report-output/${UBUNTU_VERSION}"
+          mkdir -p "$report_dir"
+
+          if [[ -n "$TRIVY_REPORT_PATH" && -s "$TRIVY_REPORT_PATH" ]]; then
+            cp "$TRIVY_REPORT_PATH" "$report_dir/trivy-report.table"
+          else
+            echo "::error::Trivy did not produce a readable table report."
+            printf 'FAIL (Trivy report missing)\n' > "$report_dir/scan-result.txt"
+            exit 1
+          fi
+
+          high_critical_count=$(grep -Eoc '([│|])[[:space:]]*(HIGH|CRITICAL)[[:space:]]*([│|])' "$report_dir/trivy-report.table" || true)
+          if [[ "$TRIVY_EXIT_CODE" == "0" && "$high_critical_count" == "0" ]]; then
+            result="PASS (0 HIGH/CRITICAL)"
+          else
+            result="FAIL (${high_critical_count} HIGH/CRITICAL; exit code ${TRIVY_EXIT_CODE:-unknown})"
+          fi
+          printf '%s\n' "$result" > "$report_dir/scan-result.txt"
+          echo "## Trivy scan: ${UBUNTU_VERSION}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Result: ${result}" >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "$TRIVY_EXIT_CODE" != "0" || "$high_critical_count" != "0" ]]; then
+            echo "::error::Trivy scan failed or found HIGH/CRITICAL vulnerabilities."
+            exit 1
+          fi
+
+          echo "Trivy scan passed with no HIGH or CRITICAL vulnerabilities."
+
+      - name: Save ${{ matrix.ubuntu_version }} Trivy report for aggregation
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # 7.0.1
+        with:
+          name: trivy-report-${{ matrix.ubuntu_version }}
+          path: trivy-report-output/${{ matrix.ubuntu_version }}/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Clean up
+        if: always()
+        run: |
+          rm -rf dlstreamer-repo
+
+  aggregate-trivy-reports:
+    name: Create combined Trivy report
+    runs-on: dlstreamer
+    needs: build-dls-deb-img
+    if: always()
+    permissions:
+      contents: read
+    steps:
+      - name: Download image Trivy reports
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: trivy-report-*
+          path: trivy-reports
+          if-no-artifact-found: warn
+
+      - name: Add Trivy results to job summary
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          root = Path("trivy-reports")
+          platforms = ("ubuntu22", "ubuntu24", "ubuntu26")
+          lines = [
+              "## Daily DEB image Trivy scan",
+              "",
+              "| Image | Result |",
+              "|---|---|",
+          ]
+          table_reports = []
+          overall_failed = False
+
+          for platform in platforms:
+              table_path = root / f"trivy-report-{platform}" / "trivy-report.table"
+              status_path = root / f"trivy-report-{platform}" / "scan-result.txt"
+              if status_path.is_file():
+                  status = status_path.read_text().strip()
+              else:
+                  status = "FAIL (scan result missing)"
+              lines.append(f"| {platform} | {status} |")
+              overall_failed |= not status.startswith("PASS")
+
+              if table_path.is_file():
+                  table_reports.extend([
+                      "",
+                      f"### {platform} Trivy report",
+                      "",
+                      "```text",
+                      table_path.read_text().rstrip(),
+                      "```",
+                  ])
+              else:
+                  table_reports.extend(["", f"### {platform} Trivy report", "", "Report table is missing."])
+
+              if not table_path.is_file():
+                  overall_failed = True
+
+          lines.extend(["", f"**Overall result: {'FAIL' if overall_failed else 'PASS'}**"])
+          lines.extend(table_reports)
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+              summary.write("\n".join(lines) + "\n")
+          PY
+
+      - name: Create combined ZIP
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZIP_DEFLATED, ZipFile
+
+          root = Path("trivy-reports")
+          platforms = ("ubuntu22", "ubuntu24", "ubuntu26")
+          reports = []
+          for platform in platforms:
+              matches = list((root / f"trivy-report-{platform}").glob("*.table"))
+              if len(matches) != 1:
+                  raise SystemExit(f"Expected exactly one Trivy table report for {platform}, found {len(matches)}")
+              reports.append((platform, matches[0]))
+
+          with ZipFile("trivy-report-all-images.zip", "w", ZIP_DEFLATED) as archive:
+              for platform, report in reports:
+                  archive.write(report, arcname=f"{platform}/trivy-report.table")
+          PY
+
+      - name: Upload combined Trivy report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # 7.0.1
+        with:
+          name: trivy-report-all-images
+          path: trivy-report-all-images.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  build-dls-dev-img:
+    name: Build DLS ${{ matrix.ubuntu_version }} dev debug img
+    runs-on: dlstreamer
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - path_dockerfile: ./dlstreamer-repo/docker/ubuntu/ubuntu22.Dockerfile
+            ubuntu_version: ubuntu22
+            build_arg: Debug
+          - path_dockerfile: ./dlstreamer-repo/docker/ubuntu/ubuntu24.Dockerfile
+            ubuntu_version: ubuntu24
+            build_arg: Debug
+          - path_dockerfile: ./dlstreamer-repo/docker/ubuntu/ubuntu26.Dockerfile
+            ubuntu_version: ubuntu26
+            build_arg: Debug
+    steps:
+      - name: Check out dlstreamer repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #7.0.1
+        with:
+          persist-credentials: false
+          path: dlstreamer-repo
+          submodules: true
+
+      - name: Pre-pull BuildKit image
+        uses: ./dlstreamer-repo/.github/actions/common/pull-buildkit-image
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e #4.3.0
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f #4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build dev debug img with cache from GHCR
+        env:
+          dev_debug_img_cached: ghcr.io/${{ github.repository }}/dev-debug-img-${{ matrix.ubuntu_version }}:buildcache
+        run: |
+          docker buildx build \
+            --target dlstreamer-dev \
+            --cache-from=type=registry,ref=${dev_debug_img_cached} \
+            --cache-to=type=registry,ref=${dev_debug_img_cached},mode=max \
+            --build-arg BUILD_ARG=${{ matrix.build_arg }} \
+            -f ${{ matrix.path_dockerfile }} \
+            ${{ env.DLS_REL_PATH }}
+
+      - name: Clean up
+        if: always()
+        run: |
+          rm -rf dlstreamer-repo
+
+  build-dls-fedora41-img:
+    name: Build DLS Fedora 41 img
+    runs-on: dlstreamer
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Initial environment clean
+        run: |
+          sudo rm -rf dlstreamer-repo
+
+      - name: Check out dlstreamer repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #7.0.1
+        with:
+          persist-credentials: false
+          path: dlstreamer-repo
+          submodules: true
+
+      - name: Pre-pull BuildKit image
+        uses: ./dlstreamer-repo/.github/actions/common/pull-buildkit-image
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e #4.3.0
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f #4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build f41 img with cache from GHCR
+        env:
+          f41_img_cached: ghcr.io/${{ github.repository }}/f41-img:buildcache
+        run: |
+          docker buildx build \
+            --target dlstreamer \
+            --cache-from=type=registry,ref=${f41_img_cached} \
+            --cache-to=type=registry,ref=${f41_img_cached},mode=max \
+            --build-arg DLSTREAMER_BUILD_NUMBER=${{ github.run_number }} \
+            -f ./dlstreamer-repo/docker/fedora41/fedora41.Dockerfile \
+            ${{ env.DLS_REL_PATH }}
+
+      - name: Clean up
+        if: always()
+        run: |
+          rm -rf dlstreamer-repo

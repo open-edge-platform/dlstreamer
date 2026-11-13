@@ -47,6 +47,7 @@ def parse_args():
     p.add_argument("--max-time", type=int, default=10, help="Chunk duration in seconds for file mode (default: 10)")
     p.add_argument("--threshold", type=float, default=0.7, help="Detection confidence threshold (default: 0.7)")
     p.add_argument("--batch-size", type=int, default=4, help="Inference batch size (default: 4)")
+    p.add_argument("--eos-frame", type=int, default=0, help="Stop after N decoded buffers (default: disabled)")
     return p.parse_args()
 
 
@@ -134,9 +135,10 @@ def main():
         sink = "gvafpscounter ! gvawatermark ! videoconvert ! autovideosink sync=false"
 
     # Build pipeline
+    eos_element = f"identity eos-after={args.eos_frame} ! queue ! " if args.eos_frame > 0 else ""
     pipe = (
         f'filesrc location="{video_file}" ! decodebin3 ! '
-        f'gvadetect model="{detection_model}" device={args.device} '
+        f'{eos_element}gvadetect model="{detection_model}" device={args.device} '
         f"batch-size={args.batch_size} threshold={args.threshold} ! queue ! "
         f"gvaanalytics_py distance=500 angle=-135,-45 ! queue ! "
         f"{sink}"

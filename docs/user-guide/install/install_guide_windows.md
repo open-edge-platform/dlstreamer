@@ -40,12 +40,12 @@ The installer provides the following components:
 
 | Component | Description |
 |---|---|
-| **GStreamer** | GStreamer multimedia framework (system-wide installation). |
+| **GStreamer** | GStreamer multimedia framework (system-wide installation). Installed as the `runtime` setup type, or as `debug` (runtime plus development files) when **Development Files** is selected. |
 | **Runtime** | DL Streamer runtime libraries and plugins. |
 | **Python Bindings** | Python binding library and files. |
 | **Environment Variables** | Set up `DLSTREAMER_DIR`, `GST_PLUGIN_PATH`, and `PATH` environment variables for the current user. |
 | **Samples** | Sample applications and scripts. |
-| **Development Files** | Header files and import libraries for building C++ applications with DL Streamer. |
+| **Development Files** | Header files and import libraries for building C++ applications with DL Streamer, including the GStreamer development files. |
 
 Three installation types are available:
 **Typical** (default): All default components; **Full**: All components including Development Files; **Minimal**: Only required components.

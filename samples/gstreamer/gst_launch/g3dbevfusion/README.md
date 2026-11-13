@@ -25,9 +25,9 @@ The sample has four scripts:
 ./g3dbevfusion_prepare_data.sh
 ```
 
-Pass the full OpenVINO version of the DL Streamer release that will run the pipeline, on the host or in its container. The custom-op extensions only load into the OpenVINO release they were built against, so a model directory prepared for 2026.3.1 does not work with 2026.3.0 or 2026.4.0. The script needs no DL Streamer or OpenVINO environment: it builds the extensions against the `openvino` wheel of that version.
+Pass the full OpenVINO version of the DL Streamer release that will run the pipeline, on the host or in its container. The custom-op extensions only load into the OpenVINO release they were built against, so a model directory prepared for 2026.3.1 does not work with 2026.3.0 or 2026.4.0. The script needs no DL Streamer or OpenVINO environment: it builds the extensions against the `openvino` wheel of that version. For a DL Streamer built on an OpenVINO nightly, pass the matching pre-release wheel version, for example `2026.5.0.dev20261030`, with `PIP_EXTRA_INDEX_URL=https://storage.openvinotoolkit.org/simple/wheels/nightly`.
 
-The model script checks out a fixed commit of [openvinotoolkit/openvino_contrib](https://github.com/openvinotoolkit/openvino_contrib) and applies the patches in [`patches/`](patches/) on top of it. They carry the openvino_bevfusion fixes that g3dbevfusion relies on, from [openvino_contrib#1197](https://github.com/openvinotoolkit/openvino_contrib/pull/1197), until that PR is merged (override the source with `OPENVINO_CONTRIB_URL` and `OPENVINO_CONTRIB_REF`). The export takes several minutes.
+The model script checks out a fixed commit of [openvinotoolkit/openvino_contrib](https://github.com/openvinotoolkit/openvino_contrib) and applies the patches in [`patches/`](patches/) on top of it. They carry the openvino_bevfusion fixes that g3dbevfusion relies on, from [openvino_contrib#1197](https://github.com/openvinotoolkit/openvino_contrib/pull/1197), until that PR is merged (override the source with `OPENVINO_CONTRIB_URL` and `OPENVINO_CONTRIB_REF`). They also include a fix that gives the BEV-pool op a zeroed accumulator: without it the camera branch pools into stale GPU memory and fusion detects nothing on OpenVINO 2026.5. The export takes several minutes.
 
 The two scripts write only what the pipeline needs, next to themselves:
 
@@ -70,6 +70,6 @@ gst-launch-1.0 -e \
   g3drender forward-axis=y point-stride=2 width=2400 height=900 ! videoconvert ! jpegenc ! multifilesink location=out/%06d.jpg
 ```
 
-Fusion takes about 2.4 s per frame and LiDAR-only about 0.14 s, on an Intel Arc Pro B60.
+On an Intel Arc Pro B60, inference takes about 100 ms per frame for fusion and about 60 ms for LiDAR-only. The pipeline runs at 2 fps because `g3dlidarparse frame-rate=2` plays the scene back at the nuScenes key-frame rate.
 
 See [g3dbevfusion](../../../../docs/user-guide/elements/g3dbevfusion.md) for the element's modes, configuration and limitations.

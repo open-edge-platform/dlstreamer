@@ -34,6 +34,12 @@ GstVideoFormat DXGIFormatToGst(DXGI_FORMAT format) {
     }
 }
 
+// GstD3D11Converter "border-color" is ARGB with 16 bits per channel.
+uint64_t MakeBorderColor(uint8_t r, uint8_t g, uint8_t b) {
+    auto expand = [](uint8_t v) { return static_cast<uint64_t>(v) * 257u; };
+    return (0xffffULL << 48) | (expand(r) << 32) | (expand(g) << 16) | expand(b);
+}
+
 } // namespace
 
 D3D11Converter::D3D11Converter(GstD3D11Device *device, uint32_t src_width, uint32_t src_height, DXGI_FORMAT src_format,
@@ -93,14 +99,15 @@ void D3D11Converter::SetupPreprocessing(const InputImageLayerDesc::Ptr &pre_proc
     // Padding preparations
     uint16_t padding_x = 0;
     uint16_t padding_y = 0;
-    uint64_t background_color = 0xff000000ULL;
+    uint64_t background_color = MakeBorderColor(0, 0, 0);
     if (pre_proc_info->doNeedPadding() && (!image_transform_info || !image_transform_info->WasPadding())) {
         const auto &padding = pre_proc_info->getPadding();
         padding_x = safe_convert<uint16_t>(padding.stride_x);
         padding_y = safe_convert<uint16_t>(padding.stride_y);
         const auto &fill_value = padding.fill_value;
-        background_color |= (static_cast<uint64_t>(fill_value.at(0)) << 16) |
-                            (static_cast<uint64_t>(fill_value.at(1)) << 8) | static_cast<uint64_t>(fill_value.at(2));
+        background_color =
+            MakeBorderColor(static_cast<uint8_t>(fill_value.at(0)), static_cast<uint8_t>(fill_value.at(1)),
+                            static_cast<uint8_t>(fill_value.at(2)));
     }
 
     if (padding_x * 2 > _dst_width || padding_y * 2 > _dst_height)

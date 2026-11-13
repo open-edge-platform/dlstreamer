@@ -18,6 +18,7 @@
 #include <climits>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <map>
 #include <mutex>
@@ -218,6 +219,15 @@ struct PciBusInfo {
 constexpr cl_device_info DEVICE_PCI_BUS_INFO = 0x410F;
 #endif
 
+/* cl_intel_device_attribute_query, likewise. */
+#ifdef CL_DEVICE_IP_VERSION_INTEL
+constexpr cl_device_info DEVICE_IP_VERSION = CL_DEVICE_IP_VERSION_INTEL;
+constexpr cl_device_info DEVICE_ID = CL_DEVICE_ID_INTEL;
+#else
+constexpr cl_device_info DEVICE_IP_VERSION = 0x4250;
+constexpr cl_device_info DEVICE_ID = 0x4251;
+#endif
+
 /* Kernel driver bound to the device behind `dev` ("i915", "xe", ...), found
  * through cl_khr_pci_bus_info and sysfs; empty if either is unavailable. */
 std::string kernel_driver(cl_device_id dev) {
@@ -235,6 +245,68 @@ std::string kernel_driver(cl_device_id dev) {
     target[len] = '\0';
     const char *name = std::strrchr(target, '/');
     return name ? name + 1 : target;
+}
+
+/* An Xe-LPG integrated GPU (Meteor Lake, Arrow Lake): the GPUs on which the
+ * compute runtime uses "ULLS light" direct submission over i915, as soon as
+ * OpenVINO's GPU plugin is loaded, which it is next to any GPU inference.
+ * Under it the renderer is slower than the CPU one: releasing a surface import
+ * stops the ring the process shares with OpenVINO and waits for the GPU to
+ * drain, and a surface the ring knows stays busy for VA until the ring stops,
+ * so drawing and inference end up taking turns (61 fps against 81 without the
+ * watermark on Arrow Lake with YOLO11s). See compute-runtime's
+ * OsContextLinux::isDirectSubmissionSupported; i915 has no VM_BIND, and among
+ * the GPUs it drives only Xe-LPG supports the light variant.
+ *
+ * Fills the IP version and the PCI device ID, which tell the two apart: Arrow
+ * Lake S and U report the IP version of Meteor Lake U. */
+struct XeLpg {
+    cl_version ip = 0;
+    cl_uint device_id = 0;
+
+    /* The compute runtime's own layout, not CL_MAKE_VERSION's:
+     * architecture << 22 | release << 14 | revision. */
+    cl_uint architecture() const {
+        return ip >> 22;
+    }
+    cl_uint release() const {
+        return (ip >> 14) & 0xff;
+    }
+    cl_uint revision() const {
+        return ip & 0x3f;
+    }
+
+    const char *platform() const {
+        switch (device_id) {
+        case 0x7D40:
+        case 0x7D45:
+        case 0x7D55:
+        case 0x7DD5:
+            return "Meteor Lake";
+        case 0x7D41:
+        case 0x7D51:
+        case 0x7D67:
+        case 0x7DD1:
+            return "Arrow Lake";
+        default:
+            return release() == 74 ? "Arrow Lake" : "Meteor Lake or Arrow Lake";
+        }
+    }
+};
+
+bool xe_lpg(cl_device_id dev, XeLpg *info) {
+    if (clGetDeviceInfo(dev, DEVICE_IP_VERSION, sizeof(info->ip), &info->ip, nullptr) != CL_SUCCESS)
+        return false;
+    clGetDeviceInfo(dev, DEVICE_ID, sizeof(info->device_id), &info->device_id, nullptr);
+    return info->architecture() == 12 && (info->release() == 70 || info->release() == 71 || info->release() == 74);
+}
+
+/* Whether the compute runtime's EnableDirectSubmission debug key turns direct
+ * submission off. */
+bool direct_submission_disabled() {
+    const char *read_keys = std::getenv("NEOReadDebugKeys");
+    const char *enable = std::getenv("EnableDirectSubmission");
+    return read_keys && std::atoi(read_keys) == 1 && enable && std::atoi(enable) == 0;
 }
 
 } // namespace
@@ -441,6 +513,16 @@ bool RendererGPU::SharedContext::build(renderer_gpu::Device display) {
         if (err != CL_SUCCESS || num_devices == 0 || !dev)
             continue;
 
+        const std::string driver = kernel_driver(dev);
+        XeLpg igpu;
+        if (driver == "i915" && xe_lpg(dev, &igpu) && !direct_submission_disabled()) {
+            GST_WARNING("gvawatermark GPU renderer: %s iGPU (device 0x%04x, IP version %u.%u.%u) on i915 runs with "
+                        "direct submission, under which the CPU renderer is faster; using it. "
+                        "NEOReadDebugKeys=1 EnableDirectSubmission=0 turns direct submission off",
+                        igpu.platform(), igpu.device_id, igpu.architecture(), igpu.release(), igpu.revision());
+            return false;
+        }
+
         /* CL_CONTEXT_INTEROP_USER_SYNC = CL_FALSE puts VA<->CL synchronization
          * on the driver, so the acquire/release pair around the kernels is all
          * the sync we need; no explicit vaSyncSurface. */
@@ -471,7 +553,6 @@ bool RendererGPU::SharedContext::build(renderer_gpu::Device display) {
             continue;
         }
 
-        const std::string driver = kernel_driver(dev);
         this->cache_imports = driver != "i915";
 
         char name[256] = {};
