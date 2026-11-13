@@ -109,7 +109,7 @@ OpenVinoImageInference::OpenVinoImageInference(const InferenceBackend::Inference
         image_layer_ = prepared_model_.image_input_name;
 
         for (int i = 0; i < nireq_; i++) {
-            auto &inference_slot = slots_.emplace_back(std::make_unique<InferSlot>());
+            auto &inference_slot = inference_slots_.emplace_back(std::make_unique<InferSlot>());
             inference_slot->infer_request = compiled_model_.create_infer_request();
             inference_slot->in_tensors.resize(prepared_model_.model->inputs().size());
             SetCompletionCallback(inference_slot.get());
@@ -289,7 +289,7 @@ void OpenVinoImageInference::Close() {
     // Wake a thread that waits in SubmitImage for a free request, so it does not block the Flush below.
     free_slots_.Close();
     Flush();
-    for (auto &inference_slot : slots_) {
+    for (auto &inference_slot : inference_slots_) {
         inference_slot->infer_request.set_callback([](std::exception_ptr) {});
     }
 }

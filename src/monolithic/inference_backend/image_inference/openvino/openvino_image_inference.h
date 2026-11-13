@@ -120,7 +120,7 @@ class OpenVinoImageInference : public InferenceBackend::ImageInference {
     int batch_timeout_;
     int nireq_;
     // All slots live here for as long as the object does; everything else only points to them.
-    std::vector<std::unique_ptr<InferSlot>> slots_;
+    std::vector<std::unique_ptr<InferSlot>> inference_slots_;
     // Empty slots only. A slot being filled is current_slot_; a slot running inference is in neither.
     InferSlotPool<InferSlot *> free_slots_;
     // The slot that takes the next frame, null if none. Written under requests_mutex_; atomic so that IsQueueFull() can
