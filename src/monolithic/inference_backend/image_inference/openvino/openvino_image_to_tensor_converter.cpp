@@ -167,6 +167,8 @@ std::vector<ov::Tensor> ImageToTensorConverter::ImageNv12ToTensor(const Image &i
 }
 
 std::vector<ov::Tensor> ImageToTensorConverter::ImageNv12SurfaceToTensor(const Image &image) {
+    if (!gpu_context_)
+        throw std::runtime_error("VA surface sharing requires a GPU device with an OpenVINO™ remote context");
     auto rmt_ctx = gpu_context_->remote_context();
     auto va_surface = image.va_surface_id;
     auto width = image.width;
