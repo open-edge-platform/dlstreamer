@@ -366,7 +366,7 @@ necessary dependencies using the following commands:
   sudo apt-get update
   sudo apt-get install -y -q --no-install-recommends gcc cmake python-gi-dev python3-dev \
       libglib2.0-dev libcairo2-dev libopencv-objdetect-dev libopencv-photo-dev libopencv-stitching-dev libopencv-video-dev \
-      libopencv-calib3d-dev libopencv-core-dev libopencv-dnn-dev libgirepository1.0-dev
+      libopencv-calib3d-dev libopencv-core-dev libopencv-dnn-dev libgirepository1.0-dev libgirepository-2.0-dev
 
   source ~/python3venv/bin/activate
   cd ~/dlstreamer

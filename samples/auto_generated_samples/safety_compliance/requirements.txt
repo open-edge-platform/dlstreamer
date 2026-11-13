@@ -1,3 +1,5 @@
 # Runtime dependencies for safety_compliance app (lightweight)
 numpy
-PyGObject==3.50.0
+# PyGObject must match the version libgstpython.so was built against; Python 3.14 (Ubuntu 26) needs 3.56.x.
+PyGObject==3.50.0; python_version < "3.14"
+PyGObject==3.56.2; python_version >= "3.14"
