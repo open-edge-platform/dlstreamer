@@ -29,16 +29,16 @@ Build a Docker image from a Dockerfile, using the template command-line, as foll
 docker build -f <Dockerfile name> -t <name for Docker image> .
 ```
 
-For example, you can build a Docker debian image from the **ubuntu22.Dockerfile**, naming it
-**dlstreamer-ubuntu22**, and using the current directory as the build context.
+For example, you can build a Docker debian image from the **ubuntu24.Dockerfile**, naming it
+**dlstreamer-ubuntu24**, and using the current directory as the build context.
 
 ```bash
-docker build -f docker/ubuntu/ubuntu22.Dockerfile -t dlstreamer-ubuntu22 .
+docker build -f docker/ubuntu/ubuntu24.Dockerfile -t dlstreamer-ubuntu24 .
 ```
 
-You can build a Docker development image from the **ubuntu22.Dockerfile**, naming it
-**dlstreamer-dev-ubuntu22**, and using the current directory as the build context:
+You can build a Docker development image from the **ubuntu24.Dockerfile**, naming it
+**dlstreamer-dev-ubuntu24**, and using the current directory as the build context:
 
 ```bash
-docker build --target dlstreamer-dev -f docker/ubuntu/ubuntu22.Dockerfile -t dlstreamer-dev-ubuntu22 .
+docker build --target dlstreamer-dev -f docker/ubuntu/ubuntu24.Dockerfile -t dlstreamer-dev-ubuntu24 .
 ```
