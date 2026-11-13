@@ -17,8 +17,7 @@ enum {
     PROP_INTRINSICS_FILE,
 };
 
-static const cv::Mat DEFAULT_INTRINSICS =
-    (cv::Mat_<double>(3, 3) << 1000.0, 0.0, 960.0, 0.0, 1000.0, 540.0, 0.0, 0.0, 1.0);
+static const cv::Mat DEFAULT_INTRINSICS(cv::Matx<double, 3, 3>(1000.0, 0.0, 960.0, 0.0, 1000.0, 540.0, 0.0, 0.0, 1.0));
 
 static void gst_gvadeskew_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec);
 static void gst_gvadeskew_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec);
@@ -162,10 +161,11 @@ static bool get_closest_face_points(const std::vector<float> &translation, const
 // Convert quaternion to rotation matrix
 cv::Mat quaternionToRotationMatrix(const std::vector<float> &q) {
     float qx = q[0], qy = q[1], qz = q[2], qw = q[3];
-    cv::Mat R =
-        (cv::Mat_<double>(3, 3) << 1 - 2 * qy * qy - 2 * qz * qz, 2 * qx * qy - 2 * qz * qw, 2 * qx * qz + 2 * qy * qw,
-         2 * qx * qy + 2 * qz * qw, 1 - 2 * qx * qx - 2 * qz * qz, 2 * qy * qz - 2 * qx * qw, 2 * qx * qz - 2 * qy * qw,
-         2 * qy * qz + 2 * qx * qw, 1 - 2 * qx * qx - 2 * qy * qy);
+    cv::Mat R(
+        cv::Matx<double, 3, 3>(1 - 2 * qy * qy - 2 * qz * qz, 2 * qx * qy - 2 * qz * qw, 2 * qx * qz + 2 * qy * qw,
+                               2 * qx * qy + 2 * qz * qw, 1 - 2 * qx * qx - 2 * qz * qz, 2 * qy * qz - 2 * qx * qw,
+                               2 * qx * qz - 2 * qy * qw, 2 * qy * qz + 2 * qx * qw, 1 - 2 * qx * qx - 2 * qy * qy));
+
     return R;
 }
 
@@ -174,7 +174,7 @@ void deskewAndPasteFace(cv::Mat &image, const std::vector<float> &translation, c
                         const std::vector<cv::Point2f> &facePoints, const cv::Rect &destinationRect) {
     // Convert quaternion to rotation matrix
     cv::Mat R_obj_to_cam = quaternionToRotationMatrix(rotation);
-    cv::Mat t_obj_to_cam = (cv::Mat_<double>(3, 1) << translation[0], translation[1], translation[2]);
+    cv::Mat t_obj_to_cam(cv::Matx<double, 3, 1>(translation[0], translation[1], translation[2]));
 
     float length = dimension[0], width = dimension[1], height = dimension[2];
 
@@ -184,14 +184,14 @@ void deskewAndPasteFace(cv::Mat &image, const std::vector<float> &translation, c
                                            {-length / 2, height / 2, -width / 2}};
 
     // Compute face center in camera coordinates
-    cv::Mat faceCenterCam = R_obj_to_cam * (cv::Mat_<double>(3, 1) << 0, 0, -width / 2) + t_obj_to_cam;
+    cv::Mat faceCenterCam = R_obj_to_cam * cv::Mat(cv::Matx<double, 3, 1>(0, 0, -width / 2)) + t_obj_to_cam;
 
     // Face normal in camera coordinates
-    cv::Mat faceNormalCam = R_obj_to_cam * (cv::Mat_<double>(3, 1) << 0, 0, -1);
+    cv::Mat faceNormalCam = R_obj_to_cam * cv::Mat(cv::Matx<double, 3, 1>(0, 0, -1));
     faceNormalCam /= cv::norm(faceNormalCam);
 
     // Define virtual camera axes
-    cv::Mat up = (cv::Mat_<double>(3, 1) << 0, -1, 0);
+    cv::Mat up(cv::Matx<double, 3, 1>(0, -1, 0));
     cv::Mat x_axis = up.cross(faceNormalCam);
     x_axis /= cv::norm(x_axis);
     cv::Mat y_axis = faceNormalCam.cross(x_axis);

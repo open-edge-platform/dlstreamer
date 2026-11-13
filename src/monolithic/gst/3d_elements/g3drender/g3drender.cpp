@@ -14,7 +14,7 @@
 #include <gst/gst.h>
 #include <gst/video/video.h>
 
-#include <opencv2/calib3d.hpp>
+#include <opencv2/geometry/3d.hpp>
 #include <opencv2/imgproc.hpp>
 
 #include <algorithm>
@@ -754,14 +754,14 @@ void draw_perspective(cv::Mat &canvas, const float *points, guint count, GstBuff
     float el = self->cam_elevation * DEG2RAD;
     float dist = self->cam_distance;
 
-    cv::Mat cam_pos = (cv::Mat_<double>(3, 1) << dist * std::cos(el) * std::cos(az), dist * std::cos(el) * std::sin(az),
-                       dist * std::sin(el));
+    cv::Mat cam_pos(cv::Matx<double, 3, 1>(dist * std::cos(el) * std::cos(az), dist * std::cos(el) * std::sin(az),
+                                           dist * std::sin(el)));
 
     cv::Mat zaxis = -cam_pos / cv::norm(cam_pos);
-    cv::Mat world_up = (cv::Mat_<double>(3, 1) << 0, 0, 1);
+    cv::Mat world_up(cv::Matx<double, 3, 1>(0, 0, 1));
     cv::Mat xaxis = zaxis.cross(world_up);
     if (cv::norm(xaxis) < 1e-6)
-        xaxis = (cv::Mat_<double>(3, 1) << 1, 0, 0);
+        xaxis = cv::Mat(cv::Matx<double, 3, 1>(1, 0, 0));
     else
         xaxis = xaxis / cv::norm(xaxis);
     cv::Mat yaxis = zaxis.cross(xaxis);
@@ -783,7 +783,7 @@ void draw_perspective(cv::Mat &canvas, const float *points, guint count, GstBuff
 
     double fx = (roi_w / 2.0) / std::tan(self->cam_fov * DEG2RAD / 2.0);
     double fy = fx;
-    cv::Mat K = (cv::Mat_<double>(3, 3) << fx, 0, roi_w / 2.0, 0, fy, roi_h / 2.0, 0, 0, 1);
+    cv::Mat K(cv::Matx<double, 3, 3>(fx, 0, roi_w / 2.0, 0, fy, roi_h / 2.0, 0, 0, 1));
     cv::Mat dist_coeffs = cv::Mat::zeros(4, 1, CV_64F);
 
     std::vector<cv::Point3f> obj_pts;

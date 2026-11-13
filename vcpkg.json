@@ -1,12 +1,12 @@
 {
   "dependencies": [
     {
-      "name": "opencv4",
+      "name": "opencv5",
       "default-features": false,
       "features": [
         "world",
         "opencl",
-        "calib3d",
+        "geometry",
         "fs",
         "intrinsics",
         "thread",
