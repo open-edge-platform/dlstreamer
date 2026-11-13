@@ -35,7 +35,6 @@
 # DLSTREAMER_VERSION      # DL Streamer
 # DLSTREAMER_BUILD_NUMBER # Build ID
 # GST_VERSION             # GStreamer
-# FFMPEG_VERSION          # FFmpeg
 # OPENCV_VERSION          # OpenCV
 # REALSENSE_VERSION       # RealSense
 # KAFKA_VERSION           # librdkafka
@@ -102,7 +101,7 @@ RUN \
     libcairo2-dev=\* libxt-dev=\* libgirepository1.0-dev=\* libgles2-mesa-dev=\* wayland-protocols=\* \
     libssh2-1-dev=\* cmake=\* git=\* valgrind=\* numactl=\* libvpx-dev=\* libopus-dev=\* libsrtp2-dev=\* libxv-dev=\* \
     linux-libc-dev=\* libpmix2t64=\* libhwloc15=\* libhwloc-plugins=\* libxcb1-dev=\* libx11-xcb-dev=\* \
-    ffmpeg=\* libpaho-mqtt-dev=\* libavfilter-dev=\* libavdevice-dev=\* libgudev-1.0-dev=\* \
+    libpaho-mqtt-dev=\* libavfilter-dev=\* libavdevice-dev=\* libgudev-1.0-dev=\* \
     libswscale-dev=\* libswresample-dev=\* libavutil-dev=\* libavformat-dev=\* libavcodec-dev=\* libxml2-dev=\* libsoup-3.0-0=\* \
     ocl-icd-opencl-dev=\* &&  \
     apt-get clean && \
