@@ -60,6 +60,10 @@ constexpr float kFloatTolerance = 1e-6f;
 constexpr const char *kTestDwellZoneId = "test-zone";
 constexpr double kTestDwellTimeSec = 1.5;
 constexpr double kTestDwellFirstSeenSec = 0.25;
+constexpr const char *kTestOdLabel = "person";
+constexpr const char *kTestClsLabel = "hat";
+constexpr float kTestClsConfidence = 0.9f;
+constexpr const char *kTestClsModel = "hat-classifier";
 
 const std::vector<float> kPointPillarsDetections = {10.5f, -4.25f, -1.75f, 1.6f, 4.2f, 1.4f, 0.25f, 0.95f, 2.0f};
 
@@ -162,32 +166,46 @@ void check_pointpillars_outbuffer(GstBuffer *outbuffer, gpointer user_data) {
     assert_json_float(bbox["roll"], 0.0, "Unexpected bbox_3d.roll");
 }
 
-void assert_legacy_detection_object(const json &object, const TestData *test_data, const char *message) {
+struct PixelBox {
+    gint x, y, w, h;
+};
+
+PixelBox to_pixel_box(const TestData *test_data) {
+    return {static_cast<gint>(test_data->box.x_min * test_data->resolution.width),
+            static_cast<gint>(test_data->box.y_min * test_data->resolution.height),
+            static_cast<gint>((test_data->box.x_max - test_data->box.x_min) * test_data->resolution.width),
+            static_cast<gint>((test_data->box.y_max - test_data->box.y_min) * test_data->resolution.height)};
+}
+
+void assert_detection_object(const json &object, const TestData *test_data, const char *message) {
     ck_assert_msg(object.contains("detection"), "%s", message);
     ck_assert_msg(object.contains("tensors"), "%s", message);
     ck_assert_msg(!object.contains("bbox_3d"), "%s", message);
 
+    const PixelBox box = to_pixel_box(test_data);
+    const double width = test_data->resolution.width;
+    const double height = test_data->resolution.height;
     const json &detection = object["detection"];
     ck_assert_msg(detection.contains("bounding_box"), "%s", message);
     ck_assert_msg(!detection.contains("bbox_3d"), "%s", message);
-    assert_json_float(detection["bounding_box"]["x_min"], test_data->box.x_min, "Unexpected legacy x_min");
-    assert_json_float(detection["bounding_box"]["x_max"], test_data->box.x_max, "Unexpected legacy x_max");
-    assert_json_float(detection["bounding_box"]["y_min"], test_data->box.y_min, "Unexpected legacy y_min");
-    assert_json_float(detection["bounding_box"]["y_max"], test_data->box.y_max, "Unexpected legacy y_max");
-    assert_json_float(detection["confidence"], test_data->box.confidence, "Unexpected legacy confidence");
+    assert_json_float(detection["bounding_box"]["x_min"], box.x / width, "Unexpected x_min");
+    assert_json_float(detection["bounding_box"]["x_max"], (box.x + box.w) / width, "Unexpected x_max");
+    assert_json_float(detection["bounding_box"]["y_min"], box.y / height, "Unexpected y_min");
+    assert_json_float(detection["bounding_box"]["y_max"], (box.y + box.h) / height, "Unexpected y_max");
+    assert_json_float(detection["confidence"], test_data->box.confidence, "Unexpected confidence");
     ck_assert_msg(detection["label_id"] == test_data->box.label_id, "%s", message);
+    ck_assert_msg(detection["label"] == kTestOdLabel, "%s", message);
 
+    const std::string cls_key = std::string("classification/") + kTestClsModel;
+    ck_assert_msg(object.contains(cls_key), "%s", message);
+    ck_assert_msg(object[cls_key]["label"] == kTestClsLabel, "%s", message);
+    assert_json_float(object[cls_key]["confidence"], kTestClsConfidence, "Unexpected classification confidence");
+
+    // The legacy "detection" structure must not leak into tensors; only the analytics ClsMtd is expected.
     const json &tensors = object["tensors"];
     ck_assert_msg(tensors.is_array() && tensors.size() == 1, "%s", message);
-    const json &tensor = tensors[0];
-    ck_assert_msg(tensor["name"] == "detection", "%s", message);
-    ck_assert_msg(tensor["model_name"] == "model_name", "%s", message);
-    ck_assert_msg(tensor["layer_name"] == "layer_name", "%s", message);
-    ck_assert_msg(tensor["precision"] == "FP32", "%s", message);
-    assert_json_float(tensor["confidence"], test_data->box.confidence, "Unexpected legacy tensor confidence");
-    ck_assert_msg(tensor["label_id"] == test_data->box.label_id, "%s", message);
-    ck_assert_msg(tensor.contains("data") && tensor["data"].is_array() && tensor["data"].size() == 2, "%s", message);
-    ck_assert_msg(!tensor.contains("format"), "%s", message);
+    ck_assert_msg(tensors[0]["type"] == "classification_result", "%s", message);
+    ck_assert_msg(tensors[0]["label"] == kTestClsLabel, "%s", message);
 }
 
 } // namespace
@@ -319,23 +337,44 @@ void setup_inbuffer(GstBuffer *inbuffer, gpointer user_data) {
     gst_structure_set(s, "data_buffer", G_TYPE_VARIANT, v, "data", G_TYPE_POINTER,
                       g_variant_get_fixed_array(v, &n_elem, 1), NULL);
 
-    gint x = test_data->box.x_min * test_data->resolution.width;
-    gint y = test_data->box.y_min * test_data->resolution.height;
-    gint w = (test_data->box.x_max - test_data->box.x_min) * test_data->resolution.width;
-    gint h = (test_data->box.y_max - test_data->box.y_min) * test_data->resolution.height;
+    const PixelBox box = to_pixel_box(test_data);
 
-    GstVideoRegionOfInterestMeta *meta = gst_buffer_add_video_region_of_interest_meta(inbuffer, NULL, x, y, w, h);
+    GstVideoRegionOfInterestMeta *meta =
+        gst_buffer_add_video_region_of_interest_meta(inbuffer, kTestOdLabel, box.x, box.y, box.w, box.h);
     gst_video_region_of_interest_meta_add_param(meta, s);
 
     GstAnalyticsRelationMeta *relation_meta = gst_buffer_add_analytics_relation_meta(inbuffer);
     ck_assert_msg(relation_meta != NULL, "Failed to add relation meta to buffer");
 
     GstAnalyticsODMtd od_mtd;
-    gboolean ret = gst_analytics_relation_meta_add_oriented_od_mtd(relation_meta, 0, x, y, w, h, 0.0,
-                                                                   test_data->box.confidence, &od_mtd);
+    gboolean ret =
+        gst_analytics_relation_meta_add_oriented_od_mtd(relation_meta, g_quark_from_string(kTestOdLabel), box.x, box.y,
+                                                        box.w, box.h, 0.0, test_data->box.confidence, &od_mtd);
     ck_assert_msg(ret == TRUE, "Failed to add oriented od mtd to relation meta");
 
     meta->id = od_mtd.id;
+
+    // Class descriptor: label_id of the OD label is its index here.
+    gfloat descriptor_levels[] = {0.0f};
+    GQuark descriptor_quarks[] = {g_quark_from_string(kTestOdLabel)};
+    ck_assert_msg(test_data->box.label_id == 0, "Class descriptor below assumes label_id 0");
+    GstAnalyticsClsMtd descriptor_mtd;
+    ret = gst_analytics_relation_meta_add_cls_mtd(relation_meta, 1, descriptor_levels, descriptor_quarks,
+                                                  &descriptor_mtd);
+    ck_assert_msg(ret == TRUE, "Failed to add class descriptor mtd");
+    gst_analytics_mtd_set_semantic_tag(&descriptor_mtd, "class_descriptor");
+    ret = gst_analytics_relation_meta_set_relation(relation_meta, GST_ANALYTICS_REL_TYPE_RELATE_TO, od_mtd.id,
+                                                   descriptor_mtd.id);
+    ck_assert_msg(ret == TRUE, "Failed to relate od mtd and class descriptor");
+
+    GstAnalyticsClsMtd cls_mtd;
+    ret = gst_analytics_relation_meta_add_one_cls_mtd(relation_meta, kTestClsConfidence,
+                                                      g_quark_from_string(kTestClsLabel), &cls_mtd);
+    ck_assert_msg(ret == TRUE, "Failed to add cls mtd");
+    gst_analytics_mtd_set_semantic_tag(&cls_mtd, kTestClsModel);
+    ret =
+        gst_analytics_relation_meta_set_relation(relation_meta, GST_ANALYTICS_REL_TYPE_CONTAIN, od_mtd.id, cls_mtd.id);
+    ck_assert_msg(ret == TRUE, "Failed to relate od mtd and cls mtd");
 
     GstAnalyticsDwellTimeMtd dwell_mtd;
     ret = gst_analytics_relation_meta_add_dwelltime_mtd(relation_meta, kTestDwellZoneId, kTestDwellTimeSec,
@@ -388,8 +427,8 @@ void check_outbuffer(GstBuffer *outbuffer, gpointer user_data) {
         ck_assert_msg(json_message.contains("objects"), "Legacy JSON must contain objects. Message: %s", meta->message);
         ck_assert_msg(json_message["objects"].is_array() && json_message["objects"].size() == 1,
                       "Legacy JSON must contain exactly one object. Message: %s", meta->message);
-        assert_legacy_detection_object(json_message["objects"][0], test_data,
-                                       "Legacy metaconvert output format changed unexpectedly");
+        assert_detection_object(json_message["objects"][0], test_data,
+                                "Metaconvert output format changed unexpectedly");
         const json &dwell_times = json_message["objects"][0]["dwell_times"];
         ck_assert_msg(dwell_times.is_array() && dwell_times.size() == 1,
                       "Expected one dwell_times entry in object. Message: %s", meta->message);
