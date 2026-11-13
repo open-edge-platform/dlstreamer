@@ -76,6 +76,10 @@ struct VideoClipWriter::Clip {
     guint64 frames_written = 0;
     bool failed = false;
 
+    Clip() = default;
+    Clip(const Clip &) = delete;
+    Clip &operator=(const Clip &) = delete;
+
     ~Clip() {
         teardown();
     }
