@@ -143,7 +143,7 @@ void OpenVinoImageInference::FreeSlot(InferSlot *inference_slot) {
     }
     free_slots_.Release(inference_slot);
     frames_in_flight_ -= frame_count;
-    request_processed_.notify_all();
+    frames_done_.notify_all();
 }
 
 bool OpenVinoImageInference::IsQueueFull() {
@@ -281,7 +281,7 @@ void OpenVinoImageInference::Flush() {
     while (frames_in_flight_ != 0) {
         // wait_for unlocks flush_mutex_ until we get notify
         // waiting will be continued if frames_in_flight_ != 0
-        request_processed_.wait_for(flush_lk, std::chrono::seconds(1), [this] { return frames_in_flight_ == 0; });
+        frames_done_.wait_for(flush_lk, std::chrono::seconds(1), [this] { return frames_in_flight_ == 0; });
     }
 }
 

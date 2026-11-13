@@ -132,7 +132,7 @@ class OpenVinoImageInference : public InferenceBackend::ImageInference {
     // Threading
     std::mutex requests_mutex_;
     std::atomic<unsigned int> frames_in_flight_;
-    std::condition_variable request_processed_;
+    std::condition_variable frames_done_;
     std::mutex flush_mutex_;
 
   private:

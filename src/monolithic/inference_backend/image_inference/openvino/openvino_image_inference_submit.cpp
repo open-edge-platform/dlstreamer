@@ -249,7 +249,7 @@ void OpenVinoImageInference::SubmitImage(
         for (size_t i = 0; i < prev_tensors.size(); i++)
             inference_slot->in_tensors[i].resize(prev_tensors[i]);
         --frames_in_flight_;
-        request_processed_.notify_all();
+        frames_done_.notify_all();
         std::throw_with_nested(std::runtime_error("Pre-processing was failed."));
     }
 
