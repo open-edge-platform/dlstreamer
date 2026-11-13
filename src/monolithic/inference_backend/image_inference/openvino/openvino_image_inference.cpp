@@ -737,6 +737,19 @@ class OpenVinoNewApiImpl {
     }
 
     std::vector<ov::Tensor> image_nv12_surface_to_tensor(const Image &image) {
+        // The surfaces that reach the surface-sharing path are the long-lived VaApiImagePool surfaces, so the
+        // remote tensors wrapping them are kept for the lifetime of this instance. Since OpenVINO 2026.4 the GPU
+        // plugin drops its import of a VA surface as soon as the last tensor wrapping it is released (see
+        // openvinotoolkit/openvino#37379, #38686); creating fresh wrappers per frame therefore re-imported (and
+        // VM_BIND/UNBIND-ed) every surface on every inference, which costs performance and was observed to
+        // trigger GPU page faults under multi-stream load (issue #1240).
+        const VaSurfaceKey key{image.va_display, image.va_surface_id, image.width, image.height};
+
+        std::lock_guard<std::mutex> lock(_va_surface_tensor_cache_mutex);
+        const auto cached = _va_surface_tensor_cache.find(key);
+        if (cached != _va_surface_tensor_cache.end())
+            return cached->second;
+
         auto rmt_ctx = _openvino_context->remote_context();
         auto va_surface = image.va_surface_id;
         auto width = image.width;
@@ -749,7 +762,7 @@ class OpenVinoNewApiImpl {
         tensor_params[ov::intel_gpu::va_plane.name()] = uint32_t(1);
         auto uv_tensor = rmt_ctx.create_tensor(ov::element::u8, {1, height / 2, width / 2, 2}, tensor_params);
 
-        return {y_tensor, uv_tensor};
+        return _va_surface_tensor_cache.emplace(key, std::vector<ov::Tensor>{y_tensor, uv_tensor}).first->second;
     }
 
     // D3D11/D3D12 BGRA/RGBA texture wrapped via OpenCL interop by the producer.
@@ -835,6 +848,29 @@ class OpenVinoNewApiImpl {
     std::unique_ptr<ov::intel_npu::level_zero::ZeroContext> _npu_context;
     std::unordered_map<int, ov::Tensor> _npu_dmabuf_tensor_cache;
     std::mutex _npu_dmabuf_cache_mutex;
+
+    // Remote tensors of the imported VA surfaces (VAAPI_SURFACE_SHARING path), keyed by surface identity.
+    // Entries live as long as this instance, i.e. not longer than the VaApiImagePool that owns the surfaces.
+    struct VaSurfaceKey {
+        void *va_display;
+        uint32_t va_surface_id;
+        uint32_t width;
+        uint32_t height;
+        bool operator==(const VaSurfaceKey &o) const {
+            return va_display == o.va_display && va_surface_id == o.va_surface_id && width == o.width &&
+                   height == o.height;
+        }
+    };
+    struct VaSurfaceKeyHash {
+        size_t operator()(const VaSurfaceKey &k) const {
+            size_t h = std::hash<void *>{}(k.va_display);
+            h ^= std::hash<uint64_t>{}((uint64_t(k.va_surface_id) << 32) ^ (uint64_t(k.width) << 16) ^ k.height) +
+                 0x9e3779b9 + (h << 6) + (h >> 2);
+            return h;
+        }
+    };
+    std::unordered_map<VaSurfaceKey, std::vector<ov::Tensor>, VaSurfaceKeyHash> _va_surface_tensor_cache;
+    std::mutex _va_surface_tensor_cache_mutex;
 
     int _nireq = 0;
     int _auto_batch_num_requests = 0;
