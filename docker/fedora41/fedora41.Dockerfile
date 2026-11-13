@@ -497,7 +497,7 @@ RUN \
 
 ENV LIBVA_DRIVER_NAME=iHD
 ENV GST_PLUGIN_PATH=/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0:/opt/intel/dlstreamer/gstreamer/lib/
-ENV LD_LIBRARY_PATH=/opt/intel/dlstreamer/gstreamer/lib:/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/lib/gstreamer-1.0:/usr/lib:/opt/intel/dlstreamer/lib:/opt/opencv:/opt/rdkafka:opt/librealsense:/usr/local/lib
+ENV LD_LIBRARY_PATH=/opt/intel/dlstreamer/gstreamer/lib:/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/lib/gstreamer-1.0:/usr/lib:/opt/intel/dlstreamer/lib:/opt/opencv:/opt/rdkafka:/opt/librealsense:/usr/local/lib
 ENV LIBVA_DRIVERS_PATH=/usr/lib64/dri-nonfree
 ENV GST_VA_ALL_DRIVERS=1
 ENV MODEL_PROC_PATH=/opt/intel/dlstreamer/samples/gstreamer/model_proc
