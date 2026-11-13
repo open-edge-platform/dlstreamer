@@ -28,7 +28,6 @@ if(DLSTREAMER_BASE_DIR)
     else()
         find_package(OpenCV CONFIG REQUIRED COMPONENTS core imgproc
             PATHS "${CMAKE_BINARY_DIR}/deps/opencv-bin/lib/cmake/opencv5"
-            NO_DEFAULT_PATH
         )
     endif()
 else()
@@ -39,7 +38,6 @@ else()
     set(DLSTREAMER_INCLUDE_DIRS ${DLSTREAMER_INSTALL_DIR}/include)
     find_package(OpenCV CONFIG REQUIRED COMPONENTS core imgproc
         PATHS "${DLSTREAMER_INSTALL_DIR}/opencv/lib/cmake/opencv5"
-        NO_DEFAULT_PATH
     )
 endif()
 
