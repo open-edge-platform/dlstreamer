@@ -17,6 +17,11 @@ on:
         value: ${{ jobs.build.outputs.current-image-size-ubuntu26 }}
   workflow_dispatch:
     inputs:
+      run-unit-tests:
+        description: "Whether to run unit tests (skipped when PR changes only touch the samples/ folder)"
+        required: false
+        type: string
+        default: "true"
       platform:
         description: "Platform to build and test on"
         required: false
