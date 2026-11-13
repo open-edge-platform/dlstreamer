@@ -189,8 +189,12 @@ prepare_checkpoint() {
 export_models() {
   EXPORT_DIR="${WORK_DIR}/export"
   log "Exporting OpenVINO IRs (takes several minutes)"
+  # --no-optimize keeps the reference's global top-200 query selection. The
+  # optimization replaces it with a top-20 per class, which caps every class at
+  # 20 objects. On the 10 nuScenes mini scenes this cost 7.7 points of fusion
+  # recall (0.693 -> 0.616), and it saves only about 0.2 ms on an Arc Pro B60.
   (cd "${BEVFUSION_ROOT}" &&
-    "${VENV_PYTHON}" export.py --checkpoint "${CHECKPOINT}" --output-dir "${EXPORT_DIR}" --no-quantize)
+    "${VENV_PYTHON}" export.py --checkpoint "${CHECKPOINT}" --output-dir "${EXPORT_DIR}" --no-quantize --no-optimize)
   for model in "${MODELS[@]}"; do
     [[ -f "${EXPORT_DIR}/${model}.xml" ]] || fail "Export did not produce ${model}.xml"
   done
