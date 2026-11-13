@@ -54,7 +54,6 @@ try {
     $env:PATH = "$binDir;$env:OPENVINO_LIB_PATHS;$env:PATH"
     $env:GST_PLUGIN_PATH = $binDir
     $env:GST_REGISTRY = Join-Path ([System.IO.Path]::GetTempPath()) "gst_registry_dlstreamer_unit_tests.bin"
-    $env:G3DRENDER_OUTPUT_DIR = Join-Path $ResultsDir "g3drender"
     Remove-Item $env:GST_REGISTRY -Force -ErrorAction SilentlyContinue
     $env:GST_DEBUG = "3"
     $env:GST_DEBUG_NO_COLOR = "1"

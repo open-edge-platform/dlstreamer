@@ -29,9 +29,6 @@ fi
 if [ ! -d "$result_path" ]; then
   mkdir -p "$result_path"
 fi
-result_path="$(realpath "$result_path")"
-export G3DRENDER_OUTPUT_DIR="$result_path/g3drender"
-mkdir -p "$G3DRENDER_OUTPUT_DIR"
 
 [ -z "$MODELS_PATH" ] && echo "MODELS_PATH env is not set. Some tests may fail."
 [ -z "$MODELS_PROC_PATH" ] && echo "MODELS_PROC_PATH env is not set. Some tests may fail."
