@@ -536,8 +536,8 @@ void RendererBGR::draw_text(std::vector<cv::Mat> &mats, render::Text text) {
     int baseline = 0;
     const cv::Size text_size = render::get_text_size_compat(text, &baseline);
     const int margin = text.thick + text_size.height / 2;
-    cv::Rect bounds(text.org.x - margin, text.org.y - text_size.height - margin,
-                    text_size.width + 2 * margin, text_size.height + baseline + 2 * margin);
+    cv::Rect bounds(text.org.x - margin, text.org.y - text_size.height - margin, text_size.width + 2 * margin,
+                    text_size.height + baseline + 2 * margin);
     bounds &= cv::Rect(cv::Point(), mats[0].size());
     if (bounds.empty())
         return;
