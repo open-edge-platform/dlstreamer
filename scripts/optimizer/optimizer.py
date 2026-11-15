@@ -116,12 +116,17 @@ class DLSOptimizer:
         try:
             resp = requests.get(metrics_url, timeout=1)
             resp.raise_for_status()
-            text_string_to_metric_families(resp.text)
-            self._metrics_url = metrics_url
+            family_names = {family.name for family in text_string_to_metric_families(resp.text)}
         except RequestException as e:
             raise RuntimeError("Couldn't establish connection with power metrics endpoint!") from e
         except ValueError as e:
             raise RuntimeError("Endpoint returned invalid Prometheus metrics!") from e
+
+        # Without any power metric every sample would silently measure 0 W.
+        if not family_names & {"npu_power_w", "gpu_power_power_w"}:
+            raise RuntimeError(f"Endpoint {metrics_url} doesn't expose npu_power_w or gpu_power_power_w metrics!")
+
+        self._metrics_url = metrics_url
 
 
     # deprecated
@@ -429,10 +434,10 @@ class DLSOptimizer:
 def _collect_power_info(resp):
     power_total = 0.0
     for family in text_string_to_metric_families(resp.text):
-        if family.name == "npu_power":
+        if family.name == "npu_power_w":
             power_total += family.samples[0].value
 
-        if family.name == "gpu_power":
+        if family.name == "gpu_power_power_w":
             for sample in family.samples:
                 if sample.labels["type"] == "pkg_cur_power":
                     power_total += sample.value
