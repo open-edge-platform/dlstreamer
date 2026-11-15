@@ -7,6 +7,7 @@
 #ifdef ENABLE_GVAWATERMARK_GPU
 
 #include "renderer_gpu.h"
+#include "../text_rasterizer.h"
 #include "renderer_gpu_kernels.h"
 
 #include <gst/gst.h>
@@ -1459,7 +1460,7 @@ bool RendererGPU::flatten_text(const render::Text &text) {
      * writes the label in the contrasting colour. */
     if (text.draw_bg) {
         int baseline = 0;
-        const cv::Size size = cv::getTextSize(text.text, text.fonttype, text.fontscale, text.thick, &baseline);
+        const cv::Size size = render::get_text_size_compat(text, &baseline);
         cv::Point bg_tl(text.org.x, text.org.y - size.height);
         cv::Point bg_br(text.org.x + size.width, text.org.y + baseline);
         bg_tl.x -= bg_tl.x & 1;
@@ -1752,7 +1753,7 @@ const RendererGPU::AtlasEntry *RendererGPU::rasterize_text(const render::Text &t
     int baseline = 0;
     cv::Size size;
     try {
-        size = cv::getTextSize(text.text, text.fonttype, text.fontscale, text.thick, &baseline);
+        size = render::get_text_size_compat(text, &baseline);
     } catch (const cv::Exception &e) {
         GST_WARNING("gvawatermark GPU renderer: getTextSize failed: %s", e.what());
         return nullptr;
@@ -1784,8 +1785,7 @@ const RendererGPU::AtlasEntry *RendererGPU::rasterize_text(const render::Text &t
 
     cv::Mat mask = cv::Mat::zeros(height, width, CV_8UC1);
     try {
-        cv::putText(mask, text.text, text.org - tl, text.fonttype, text.fontscale, cv::Scalar(255), text.thick,
-                    cv::LINE_8);
+        render::put_text_compat(mask, text, text.org - tl, cv::Scalar(255));
     } catch (const cv::Exception &e) {
         GST_WARNING("gvawatermark GPU renderer: putText failed: %s", e.what());
         return nullptr;

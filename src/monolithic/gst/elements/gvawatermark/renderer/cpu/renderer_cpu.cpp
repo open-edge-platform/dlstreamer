@@ -7,6 +7,7 @@
 #include "renderer_cpu.h"
 
 #include "render_prim.h"
+#include "text_rasterizer.h"
 #include <inference_backend/buffer_mapper.h>
 #include <opencv2/opencv.hpp>
 
@@ -71,7 +72,7 @@ TextMasks rasterize_text(const render::Text &text, const cv::Size &y_size, const
     TextMasks masks;
 
     int baseline = 0;
-    cv::Size text_size = cv::getTextSize(text.text, text.fonttype, text.fontscale, text.thick, &baseline);
+    cv::Size text_size = render::get_text_size_compat(text, &baseline);
     // Some glyphs and the stroke thickness reach slightly beyond the size reported by getTextSize
     int margin = text.thick + text_size.height / 2;
     cv::Rect bounds_y(text.org.x - margin, text.org.y - text_size.height - margin, text_size.width + 2 * margin,
@@ -87,7 +88,7 @@ TextMasks rasterize_text(const render::Text &text, const cv::Size &y_size, const
         return masks;
 
     cv::Mat mask(masks.roi_u_v.size() * 2, CV_8UC1, cv::Scalar(0));
-    cv::putText(mask, text.text, text.org - masks.roi_u_v.tl() * 2, text.fonttype, text.fontscale, 255, text.thick);
+    render::put_text_compat(mask, text, text.org - masks.roi_u_v.tl() * 2, cv::Scalar(255));
     masks.roi_y = cv::Rect(masks.roi_u_v.tl() * 2, mask.size()) & cv::Rect(cv::Point(), y_size);
     masks.mask_y = mask(cv::Rect(cv::Point(), masks.roi_y.size()));
 
@@ -271,7 +272,7 @@ void RendererI420::draw_text_bg(std::vector<cv::Mat> &mats, render::Text text) {
 
     // Get text size to calculate background rectangle
     int baseline = 0;
-    cv::Size textSize = cv::getTextSize(text.text, text.fonttype, text.fontscale, text.thick, &baseline);
+    cv::Size textSize = render::get_text_size_compat(text, &baseline);
 
     // Define background rectangle on Y plane
     cv::Point bg_tl(text.org.x, text.org.y - textSize.height);
@@ -400,7 +401,7 @@ void RendererNV12::draw_text_bg(std::vector<cv::Mat> &mats, render::Text text) {
 
     // Get text size to calculate background rectangle
     int baseline = 0;
-    cv::Size textSize = cv::getTextSize(text.text, text.fonttype, text.fontscale, text.thick, &baseline);
+    cv::Size textSize = render::get_text_size_compat(text, &baseline);
 
     // Define background rectangle on Y plane
     cv::Point bg_tl(text.org.x, text.org.y - textSize.height);
@@ -532,13 +533,24 @@ void RendererBGR::draw_circle(std::vector<cv::Mat> &mats, render::Circle circle)
 void RendererBGR::draw_text(std::vector<cv::Mat> &mats, render::Text text) {
     // On a text background, draw the glyphs in the color that contrasts with it
     const cv::Scalar color = text.draw_bg ? text.contrast_color : text.color;
-    cv::putText(mats[0], text.text, text.org, text.fonttype, text.fontscale, color, text.thick);
+    int baseline = 0;
+    const cv::Size text_size = render::get_text_size_compat(text, &baseline);
+    const int margin = text.thick + text_size.height / 2;
+    cv::Rect bounds(text.org.x - margin, text.org.y - text_size.height - margin,
+                    text_size.width + 2 * margin, text_size.height + baseline + 2 * margin);
+    bounds &= cv::Rect(cv::Point(), mats[0].size());
+    if (bounds.empty())
+        return;
+
+    cv::Mat mask = cv::Mat::zeros(bounds.size(), CV_8UC1);
+    render::put_text_compat(mask, text, text.org - bounds.tl(), cv::Scalar(255));
+    mats[0](bounds).setTo(color, mask);
 }
 
 void RendererBGR::draw_text_bg(std::vector<cv::Mat> &mats, render::Text text) {
     // Get text size to calculate background rectangle
     int baseline = 0;
-    cv::Size textSize = cv::getTextSize(text.text, text.fonttype, text.fontscale, text.thick, &baseline);
+    cv::Size textSize = render::get_text_size_compat(text, &baseline);
 
     // Define background rectangle
     cv::Point bg_tl(text.org.x, text.org.y - textSize.height);
