@@ -46,7 +46,7 @@ inline cv::Size get_text_size_compat(const Text &text, int *baseline) {
 }
 
 inline void put_text_compat(cv::Mat &image, const Text &text, cv::Point org, const cv::Scalar &color) {
-#if CV_VERSION_MAJOR >= 5
+#if CV_VERSION_MAJOR >= 6
     if (uses_native_triplex(text)) {
         cv::FontFace face("serif");
         cv::Mat mask = cv::Mat::zeros(image.size(), CV_8UC1);
