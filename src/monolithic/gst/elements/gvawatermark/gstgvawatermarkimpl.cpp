@@ -75,7 +75,7 @@ GST_DEBUG_CATEGORY_STATIC(gst_gva_watermark_impl_debug_category);
 #define GST_CAT_DEFAULT gst_gva_watermark_impl_debug_category
 
 #define DEFAULT_DEVICE nullptr
-#define DEFAULT_THICKNESS (2)
+#define DEFAULT_THICKNESS (1)
 #define DEFAULT_TEXT_SCALE (0.5)
 #define DEFAULT_COLOR_IDX (-1)
 

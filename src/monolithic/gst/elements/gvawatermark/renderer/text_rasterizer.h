@@ -17,7 +17,7 @@ inline bool uses_native_triplex(const Text &text) {
     return text.fonttype == cv::FONT_HERSHEY_TRIPLEX;
 }
 
-#if CV_VERSION_MAJOR >= 5
+#if CV_VERSION_MAJOR >= 6
 inline constexpr int TRIPLEX_FONT_WEIGHT = 400;
 inline constexpr double HERSHEY_SCALE_FACTOR = 3.7;
 
@@ -31,7 +31,7 @@ inline int triplex_font_size(const Text &text) {
 #endif
 
 inline cv::Size get_text_size_compat(const Text &text, int *baseline) {
-#if CV_VERSION_MAJOR >= 5
+#if CV_VERSION_MAJOR >= 6
     if (uses_native_triplex(text)) {
         cv::FontFace face("serif");
         const cv::Rect bounds = cv::getTextSize(cv::Size(), text.text, cv::Point(), face, triplex_font_size(text),
