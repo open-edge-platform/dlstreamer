@@ -12,14 +12,6 @@ from pathlib import Path
 
 import gi
 
-sys.path.insert(
-    0,
-    os.path.dirname(
-        os.path.dirname(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        )
-    ),
-)
 # pylint: disable-next=wrong-import-position
 gi.require_version("Gst", "1.0")
 gi.require_version("GstAnalytics", "1.0")

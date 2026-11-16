@@ -26,12 +26,7 @@ Configuration options in the Python script:
 
 ## Models
 
-The sample is configured with `centerface`, converted from the upstream CenterFace project by the general `download_other_models.py` helper. A compatible OpenVINO IR detector can be used by changing the model path; see [`scripts/download_models/README.md`](../../../../scripts/download_models/README.md) for helper setup.
-*   __centerface__ is primary detection network for finding faces
-
-The listed model is an example for the current pipeline configuration. Prepare a compatible detector before running; use the general helpers in [`scripts/download_models`](../../../../scripts/download_models/README.md) if conversion is needed. To use a different detector, update the model path in the sample script.
-
-You can modify the script to use other detection models (e.g., person detection, vehicle detection) by changing the model path in the shell script.
+The sample is configured with `centerface`, converted from the upstream CenterFace project by the general `download_other_models.py` helper. It is an example, not a required model: any compatible OpenVINO IR face detector can be used by changing the model path in the sample script. See the general [`scripts/download_models/README.md`](../../../../../scripts/download_models/README.md) for helper setup.
 
 ## Running
 

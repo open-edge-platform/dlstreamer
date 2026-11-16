@@ -28,9 +28,9 @@ Key features:
 
 ## Models
 
-Use any video supported by the installed GStreamer plugins; the examples use `C:\videos\test.mp4`. The sample supports compatible YOLO detection models; the names below are examples, not mandatory choices. Prepare Ultralytics models with the general [`download_ultralytics_models.py`](../../../../../scripts/download_models/README.md#2-ultralytics-conversion) helper (for example, `yolo11s.pt`), and prepare `yolox-tiny`, `yolox_s`, or `yolov7` with `download_other_models.py`.
+Use any video supported by the installed GStreamer plugins; the examples use `C:\videos\test.mp4`. The YOLO models listed below are supported examples, not mandatory choices. Prepare Ultralytics models with the general [`download_ultralytics_models.py`](../../../../../scripts/download_models/README.md#2-ultralytics-conversion) helper (for example, `yolo11s.pt`), and prepare `yolox-tiny`, `yolox_s`, or `yolov7` with `download_other_models.py`.
 
-The sample supports these YOLO detection models:
+Supported example models:
 - **yolox-tiny** - Very fast, lower accuracy
 - **yolox_s** - Balanced speed/accuracy
 - **yolov7** - Accurate, moderate speed

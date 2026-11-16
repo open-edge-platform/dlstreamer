@@ -120,7 +120,7 @@ cd /opt/intel/dlstreamer/samples/gstreamer/gst_launch/python-elements/loitering_
 
 ### Prepare Model
 
-The example uses `yolo11s` in FP16 precision; any compatible detector and matching loitering configuration can be used. Prepare the example model with the general [Ultralytics conversion helper](../../../../scripts/download_models/README.md#2-ultralytics-conversion), selecting `yolo11s.pt`.
+The example uses `yolo11s` in FP16 precision; any compatible detector and matching loitering configuration can be used. Prepare the example model with the general [Ultralytics conversion helper](../../../../../scripts/download_models/README.md#2-ultralytics-conversion), selecting `yolo11s.pt`.
 
 ### Execution
 

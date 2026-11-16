@@ -62,7 +62,7 @@ Configurable element properties (via gst-launch-1.0):
 
 ## Models
 
-The example uses `arnabdhar/YOLOv8-Face-Detection` for face detection; any compatible OpenVINO face detector can be used by setting `DETECT_MODEL_PATH`. Prepare a suitable model with the general [`download_ultralytics_models.py`](../../../../scripts/download_models/README.md#2-ultralytics-conversion) helper; see its README for supported models and setup.
+The example uses `arnabdhar/YOLOv8-Face-Detection` for face detection; any compatible OpenVINO face detector can be used by setting `DETECT_MODEL_PATH`. Prepare a suitable model with the general [`download_ultralytics_models.py`](../../../../../scripts/download_models/README.md#2-ultralytics-conversion) helper; see its README for supported models and setup.
 
 ### Model storage location
 
