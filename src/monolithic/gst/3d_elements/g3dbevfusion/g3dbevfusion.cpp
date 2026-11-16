@@ -26,7 +26,10 @@
  * of and their time lags (the 5th point column BEVFusion reads), each camera's
  * camera2lidar at its exposure, and the capture time, which then becomes the
  * PTS of the batch and of its lidar buffer, so a synchronised sink plays the
- * sequence at the pace it was recorded.
+ * sequence at the pace it was recorded. A lidar source that loops the sequence
+ * (multifilesrc loop=true) keeps counting frame_id, so frame_id N reads entry
+ * N modulo the table length, and each pass adds one sequence length to the
+ * recorded times so that they keep increasing.
  *
  * |[
  * gst-launch-1.0 \
@@ -80,6 +83,10 @@ struct _GstG3DBevFusionPrivate {
     guint lidar_pad = 0;
     std::array<bev::CameraCalibration, bev::kNumCameras> cameras{};
     std::vector<FrameRecord> frames; // per-frame table, empty without one
+    // Time from frame 0 of one pass of a looping sequence to frame 0 of the
+    // next: the recorded span plus one more frame interval. None when the
+    // table's times do not give one.
+    GstClockTime loop_period = GST_CLOCK_TIME_NONE;
     bool calibration_event_sent = false;
     bool warned_truncation = false;
     guint64 frames_fusion = 0;
@@ -185,6 +192,16 @@ void load_calibration(const std::string &path, GstG3DBevFusionPrivate *priv) {
             r.has_cameras = true;
         }
         priv->frames.push_back(std::move(r));
+    }
+
+    priv->loop_period = GST_CLOCK_TIME_NONE;
+    const size_t n = priv->frames.size();
+    if (n >= 2) {
+        const GstClockTime first = priv->frames[0].pts, before_last = priv->frames[n - 2].pts,
+                           last = priv->frames[n - 1].pts;
+        if (GST_CLOCK_TIME_IS_VALID(first) && GST_CLOCK_TIME_IS_VALID(before_last) && GST_CLOCK_TIME_IS_VALID(last) &&
+            first <= before_last && before_last < last)
+            priv->loop_period = last - first + (last - before_last);
     }
 }
 
@@ -451,19 +468,22 @@ static GstFlowReturn gst_g3d_bevfusion_transform_ip(GstBaseTransform *trans, Gst
     // The calibration's per-frame table, when it has one, describes this
     // lidar frame. The point count catches a lidar stream that is not the
     // sequence the table was written for, or does not start at its frame 0.
+    // Past the end of the table the source is looping the sequence.
     const FrameRecord *record = nullptr;
+    size_t table_index = 0, table_pass = 0;
     if (!priv->frames.empty()) {
         const size_t id = lidar_meta->frame_id;
-        if (id >= priv->frames.size() || (priv->frames[id].points && priv->frames[id].points != num_points)) {
+        table_index = id % priv->frames.size();
+        table_pass = id / priv->frames.size();
+        if (priv->frames[table_index].points && priv->frames[table_index].points != num_points) {
             gst_buffer_unmap(lidar_buf, &lidar_map);
-            const std::string expected =
-                id < priv->frames.size() ? ", " + std::to_string(priv->frames[id].points) + " points for this one" : "";
-            GST_ELEMENT_ERROR(
-                self, STREAM, FORMAT, ("Lidar frame %zu does not match the calibration's frames table", id),
-                ("it has %zu points; the table has %zu frames%s", num_points, priv->frames.size(), expected.c_str()));
+            GST_ELEMENT_ERROR(self, STREAM, FORMAT,
+                              ("Lidar frame %zu does not match the calibration's frames table", id),
+                              ("it has %zu points; the table has %zu frames, and %zu points for entry %zu", num_points,
+                               priv->frames.size(), priv->frames[table_index].points, table_index));
             return GST_FLOW_ERROR;
         }
-        record = &priv->frames[id];
+        record = &priv->frames[table_index];
         in.sweeps = record->sweeps;
     }
     if (num_points > priv->runtime->max_points() && !priv->warned_truncation) {
@@ -531,14 +551,21 @@ static GstFlowReturn gst_g3d_bevfusion_transform_ip(GstBaseTransform *trans, Gst
 
     // Recorded capture time: the batch and its lidar buffer (which g3drender
     // takes its output PTS from) play back at the recorded pace.
-    if (record && GST_CLOCK_TIME_IS_VALID(record->pts)) {
-        const size_t id = lidar_meta->frame_id;
+    // A later pass of a looping sequence is shifted by whole loop periods;
+    // without one, it keeps the batch's PTS.
+    if (record && GST_CLOCK_TIME_IS_VALID(record->pts) &&
+        (table_pass == 0 || GST_CLOCK_TIME_IS_VALID(priv->loop_period))) {
+        const GstClockTime offset = table_pass ? table_pass * priv->loop_period : 0;
+        GstClockTime next = GST_CLOCK_TIME_NONE;
+        if (table_index + 1 < priv->frames.size())
+            next = priv->frames[table_index + 1].pts;
+        else if (GST_CLOCK_TIME_IS_VALID(priv->loop_period))
+            next = priv->frames[0].pts + priv->loop_period;
         GstClockTime duration = GST_BUFFER_DURATION(buf);
-        if (id + 1 < priv->frames.size() && GST_CLOCK_TIME_IS_VALID(priv->frames[id + 1].pts) &&
-            priv->frames[id + 1].pts > record->pts)
-            duration = priv->frames[id + 1].pts - record->pts;
+        if (GST_CLOCK_TIME_IS_VALID(next) && next > record->pts)
+            duration = next - record->pts;
         for (GstBuffer *b : {buf, lidar_buf}) {
-            GST_BUFFER_PTS(b) = record->pts;
+            GST_BUFFER_PTS(b) = record->pts + offset;
             GST_BUFFER_DTS(b) = GST_CLOCK_TIME_NONE;
             GST_BUFFER_DURATION(b) = duration;
         }
