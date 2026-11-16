@@ -41,11 +41,6 @@ struct FrameInput {
 class Runtime {
   public:
     Runtime(const std::string &config_path, const std::string &device);
-    ~Runtime();
-    Runtime(const Runtime &) = delete;
-    Runtime &operator=(const Runtime &) = delete;
-    Runtime(Runtime &&) = delete;
-    Runtime &operator=(Runtime &&) = delete;
 
     // May be called again between frames, for a calibration that changes per frame.
     void set_calibration(const std::array<CameraCalibration, kNumCameras> &cameras);
@@ -62,7 +57,10 @@ class Runtime {
 
   private:
     struct Impl;
-    std::unique_ptr<Impl> impl_;
+    struct ImplDeleter {
+        void operator()(Impl *impl) const;
+    };
+    std::unique_ptr<Impl, ImplDeleter> impl_;
 };
 
 } // namespace g3d_bevfusion

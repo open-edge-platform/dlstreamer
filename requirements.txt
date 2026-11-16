@@ -11,5 +11,9 @@ prometheus-client==0.25.0
 requests==2.34.2
 
 # gstreamer-python provides PyGObject and GStreamer Python bindings. It is not available on Linux.
-PyGObject==3.50.0; sys_platform != "win32"
+# PyGObject must match the version libgstpython.so was built against, otherwise loading the
+# GStreamer 'python' plugin from a Python process segfaults. Python 3.14 (Ubuntu 26) ships
+# PyGObject 3.56.x; 3.50.0 predates both the girepository-2.0 rework and Python 3.14 support.
+PyGObject==3.50.0; sys_platform != "win32" and python_version < "3.14"
+PyGObject==3.56.2; sys_platform != "win32" and python_version >= "3.14"
 gstreamer-python==1.28.8; sys_platform == "win32"

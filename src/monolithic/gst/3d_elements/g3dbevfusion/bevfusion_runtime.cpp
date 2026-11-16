@@ -340,7 +340,11 @@ struct Runtime::Impl {
     }
 };
 
-Runtime::Runtime(const std::string &config_path, const std::string &device) : impl_(std::make_unique<Impl>()) {
+void Runtime::ImplDeleter::operator()(Impl *impl) const {
+    delete impl;
+}
+
+Runtime::Runtime(const std::string &config_path, const std::string &device) : impl_(new Impl()) {
     const fs::path cfg_path = fs::absolute(config_path);
     const json cfg = read_json(cfg_path);
     const fs::path base = cfg_path.parent_path();
@@ -403,8 +407,6 @@ Runtime::Runtime(const std::string &config_path, const std::string &device) : im
     if (device == "GPU")
         impl_->bind_device_tensors();
 }
-
-Runtime::~Runtime() = default;
 
 void Runtime::set_calibration(const std::array<CameraCalibration, kNumCameras> &cameras) {
     impl_->cameras = cameras;
