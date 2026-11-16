@@ -10,15 +10,8 @@
 
 set -euo pipefail
 
-if [ -z "${MODELS_PATH:-}" ]; then
-  echo "Error: MODELS_PATH is not set." >&2 
-  exit 1
-else 
-  echo "MODELS_PATH: $MODELS_PATH"
-fi
-
 # List help message
-if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
   echo "Usage: $0 [INPUT] [DEVICE_STREAM_12] [DEVICE_STREAM_34] [MODEL_1] [MODEL_2] [OUTPUT]"
   echo ""
   echo "Arguments:"
@@ -30,6 +23,13 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
   echo "  OUTPUT           - Output type (default: file). Supported: file, json"
   echo ""
   exit 0
+fi
+
+if [ -z "${MODELS_PATH:-}" ]; then
+  echo "Error: MODELS_PATH is not set." >&2
+  exit 1
+else
+  echo "MODELS_PATH: $MODELS_PATH"
 fi
 
 INPUT=${1:-}

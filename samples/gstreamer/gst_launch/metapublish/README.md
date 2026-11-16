@@ -32,36 +32,22 @@ The sample contains `model_proc` subfolder with .json files for each model with 
 
 ## Running
 
-The sample requires an input source; with `METHOD=file` and no `OUTPUT`, it prints pretty JSON messages to the console.
+The sample requires an input source. With `METHOD=file` and no `OUTPUT`, it prints pretty JSON messages to the console.
 
-> **NOTE**: Before running this sample with output to MQTT or Kafka, refer to [*this page*](./listener.md) how to set up a MQTT or Kafka listener to consume and review results in the console.
+> **NOTE**: Before using MQTT or Kafka output, see [listener.md](./listener.md) for listener setup.
 
-    ```sh
-    ./metapublish.sh [INPUT] [METHOD] [OUTPUT] [FORMAT] [TOPIC]
-    ```
+```sh
+./metapublish.sh [INPUT] [METHOD] [OUTPUT] [FORMAT] [TOPIC]
+```
 
-1. [INPUT] is the required source. Use any local video, supported stream URL, or camera source; examples use a local path.
-The input could be
-    * URI to a web-based streaming source
-    * local video file path
-    * path to RTSP camera (URL starts with `rtsp://`)
-    * web camera device (ex. /dev/video0)
-An optional HTTPS example source is [`head-pose-face-detection-female-and-male.mp4`](https://raw.githubusercontent.com/intel-iot-devkit/sample-videos/master/head-pose-face-detection-female-and-male.mp4); pass it explicitly as `INPUT` if you choose to use it.
-1. [METHOD] to specify which output method to use when publishing inferences.
-The method could be
-    * file (Default)
-    * kafka
-    * mqtt
-1. [OUTPUT] Indicates the path to the 'file' or to specify the address of message bus broker.
-By default this is
-    * stdout (Default if METHOD is File)
-    * localhost:1883 (Default if METHOD is MQTT)
-    * localhost:9092 (Default if METHOD is Kafka)
-1. [FORMAT] Passed to property 'file-format' in 'gvametapublish', could be
-    * json
-    * json-lines
-1. [TOPIC] (used only if METHOD is MQTT or Kafka) to specify the message bus topic to publish:
-    * dlstreamer (Default)
+Arguments:
+
+1. `INPUT` (required): local video path, supported stream URL, or camera device such as `/dev/video0`.
+   An optional HTTPS example is [`head-pose-face-detection-female-and-male.mp4`](https://github.com/intel-iot-devkit/sample-videos/raw/master/head-pose-face-detection-female-and-male.mp4). Download it yourself and pass it explicitly; the sample does not download the video.
+2. `METHOD`: `file` (default), `kafka`, or `mqtt`.
+3. `OUTPUT`: file path for `file`; broker address for `kafka` or `mqtt`. Defaults: stdout, `localhost:9092`, or `localhost:1883`, respectively.
+4. `FORMAT`: `json` or `json-lines`; defaults to `json` for file output and `json-lines` for Kafka/MQTT.
+5. `TOPIC`: Kafka/MQTT topic (default: `dlstreamer`).
 
 ### Examples
 1. Run with a local video and print pretty JSON to stdout.

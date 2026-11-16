@@ -5,7 +5,8 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 """DL Streamer vs OpenCV + OpenVINO E2E performance comparison.
-    python3 perf_comparison.py [--frames N] [--warmup N] [--runs N]
+    python3 perf_comparison.py --video VIDEO --model MODEL_DIR
+        [--measure-frames N] [--warmup N] [--runs N]
 """
 
 import argparse

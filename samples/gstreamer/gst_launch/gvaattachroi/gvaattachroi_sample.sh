@@ -7,15 +7,8 @@
 
 set -euo pipefail
 
-if [ -z "${MODELS_PATH:-}" ]; then
-  echo "Error: MODELS_PATH is not set." >&2
-  exit 1
-else
-  echo "MODELS_PATH: $MODELS_PATH"
-fi
-
 # List help message
-if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
   echo "Usage: $0 [INPUT] [DEVICE] [OUTPUT] [ROI_COORDS]"
   echo ""
   echo "Arguments:"
@@ -26,6 +19,13 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
   echo "                 If not defined, the roi list file ./roi_list.json will be used"
   echo ""
   exit 0
+fi
+
+if [ -z "${MODELS_PATH:-}" ]; then
+  echo "Error: MODELS_PATH is not set." >&2
+  exit 1
+else
+  echo "MODELS_PATH: $MODELS_PATH"
 fi
 
 INPUT=${1:-}

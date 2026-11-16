@@ -16,12 +16,6 @@ DEFAULT_OUTPUT="json"
 DEFAULT_MODEL="openai_clip-vit-large-patch14"
 DEFAULT_PPBKEND="opencv"
 
-# Check if MODELS_PATH is set
-if [ -z "$MODELS_PATH" ]; then
-    echo "ERROR - MODELS_PATH is not set." >&2
-    exit 1
-fi
-
 SUPPORTED_MODELS=(
   "openai_clip-vit-large-patch14"
   "openai_clip-vit-base-patch16"
@@ -29,7 +23,7 @@ SUPPORTED_MODELS=(
 )
 
 # Print help message
-if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
     echo "Usage: $0 [SOURCE_FILE] [DEVICE] [OUTPUT] [MODEL] [PREPROCESSING_BACKEND]"
     echo ""
     echo "Arguments:"
@@ -40,6 +34,11 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
     echo "  PREPROCESSING_BACKEND  - Preprocessing backend (default: opencv). Supported: ie, opencv, va, va-surface-sharing"
     echo ""
     exit 0
+fi
+
+if [ -z "${MODELS_PATH:-}" ]; then
+    echo "ERROR - MODELS_PATH is not set." >&2
+    exit 1
 fi
 
 # Arguments

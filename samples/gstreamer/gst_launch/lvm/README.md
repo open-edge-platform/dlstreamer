@@ -67,20 +67,16 @@ The sample:
 
 * [Samples overview](../../../README.md)
 
-## Example Usage
+## Examples
 
-To run the sample with default values:
-
-    ./generate_frame_embeddings.sh /path/to/video.mp4
-
-To specify a source file, device, and output:
+Use a local video with GPU inference and FPS-only output:
 
     ./generate_frame_embeddings.sh /path/to/video.mp4 GPU fps
 
-To specify a local video, device, output, and model:
+To select a model explicitly:
 
     ./generate_frame_embeddings.sh /path/to/video.mp4 CPU json openai_clip-vit-large-patch14
 
-To specify a video device, device, output and model:
+To use a camera device, inference device, output and model:
 
     ./generate_frame_embeddings.sh /dev/video0 CPU fps openai_clip-vit-base-patch16

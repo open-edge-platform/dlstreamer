@@ -9,15 +9,8 @@
 # ==============================================================================
 set -e
 
-if [ -z "${MODELS_PATH:-}" ]; then
-  echo "Error: MODELS_PATH is not set." >&2 
-  exit 1
-else 
-  echo "MODELS_PATH: $MODELS_PATH"
-fi
-
 # List help message
-if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
   echo "Usage: $0 [MODEL_TYPE] [MODEL_PATH] [DEVICE] [PREPROC_BACKEND] [INPUT] [OUTPUT]"
   echo ""
   echo "Arguments:"
@@ -29,6 +22,13 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
   echo "  OUTPUT           - Output type (default: file). Supported: file, display, fps, json, display-and-json"
   echo ""
   exit 0
+fi
+
+if [ -z "${MODELS_PATH:-}" ]; then
+  echo "Error: MODELS_PATH is not set." >&2
+  exit 1
+else
+  echo "MODELS_PATH: $MODELS_PATH"
 fi
 
 # Default values for parameters
