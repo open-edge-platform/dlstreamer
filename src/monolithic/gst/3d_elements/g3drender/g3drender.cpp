@@ -755,9 +755,12 @@ void draw_detection_boxes_perspective(cv::Mat &canvas, GstBuffer *inbuf, const G
             if (!clip_to_near_plane(a, b))
                 continue;
             /* At depth >= kNearPlane the projection stays far inside int64, but can
-             * still exceed int, so clip to the canvas before handing it to cv::line. */
+             * still exceed int, so clip to the canvas before handing it to cv::line.
+             * Truncate rather than round, as before, so boxes fully in front of the
+             * camera keep their exact pixels. */
             const cv::Point2d pa = project(a), pb = project(b);
-            cv::Point2l la(std::llround(pa.x), std::llround(pa.y)), lb(std::llround(pb.x), std::llround(pb.y));
+            cv::Point2l la(static_cast<int64>(pa.x), static_cast<int64>(pa.y));
+            cv::Point2l lb(static_cast<int64>(pb.x), static_cast<int64>(pb.y));
             if (!cv::clipLine(frame, la, lb))
                 continue;
             cv::line(canvas, cv::Point(static_cast<int>(la.x), static_cast<int>(la.y)),
