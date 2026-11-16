@@ -10,6 +10,19 @@ set -euo pipefail
 DEVICE=${1:-"GPU"}  # Supported values: CPU, GPU, NPU
 OUTPUT=${2:-"file"} # Supported values: file, display, fps, json, display-and-json
 INPUT=${3:-}
+
+# Check help message
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+	echo "Usage: $0 [DEVICE] [OUTPUT] [INPUT]"
+	echo ""
+	echo "Arguments:"
+	echo "  DEVICE    - Device (default: GPU). Supported: CPU, GPU, NPU"
+	echo "  OUTPUT    - Output type (default: file). Supported: file, display, fps, json, display-and-json"
+	echo "  INPUT     - Required input video path or URL"
+	echo ""
+	exit 0
+fi
+
 if [[ -z "$INPUT" ]]; then
 	echo "Error: provide an input video path or URL as the third argument." >&2
 	exit 2
@@ -20,18 +33,6 @@ if [ -z "${MODELS_PATH:-}" ]; then
 	exit 1
 else
 	echo "MODELS_PATH: $MODELS_PATH"
-fi
-
-# Check help message
-if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
-	echo "Usage: $0 [DEVICE] [OUTPUT] [INPUT]"
-	echo ""
-	echo "Arguments:"
-	echo "  DEVICE    - Device (default: GPU). Supported: CPU, GPU, NPU"
-	echo "  OUTPUT    - Output type (default: file). Supported: file, display, fps, json, display-and-json"
-	echo "  INPUT     - Required input video path or URL"
-	echo ""
-	exit 0
 fi
 
 DETECT_MODEL="centerface"

@@ -12,7 +12,8 @@ inference entirely on the iGPU with zero-copy pipelining.
 
 Use any local H.264 video supported by the installed decoder and any compatible
 Ultralytics/OpenVINO object-detection IR. The examples use a people video and
-YOLO26s INT8; neither is downloaded or required by the sample.
+YOLO26s INT8. Both video and model are required command-line inputs; the sample
+does not download either asset automatically.
 
 ## What DL Streamer does differently
 
