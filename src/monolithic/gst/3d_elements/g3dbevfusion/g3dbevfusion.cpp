@@ -458,9 +458,9 @@ static GstFlowReturn gst_g3d_bevfusion_transform_ip(GstBaseTransform *trans, Gst
             gst_buffer_unmap(lidar_buf, &lidar_map);
             const std::string expected =
                 id < priv->frames.size() ? ", " + std::to_string(priv->frames[id].points) + " points for this one" : "";
-            GST_ELEMENT_ERROR(self, STREAM, FORMAT, ("Lidar frame %zu does not match the calibration's frames table", id),
-                              ("it has %zu points; the table has %zu frames%s", num_points, priv->frames.size(),
-                               expected.c_str()));
+            GST_ELEMENT_ERROR(
+                self, STREAM, FORMAT, ("Lidar frame %zu does not match the calibration's frames table", id),
+                ("it has %zu points; the table has %zu frames%s", num_points, priv->frames.size(), expected.c_str()));
             return GST_FLOW_ERROR;
         }
         record = &priv->frames[id];

@@ -388,9 +388,8 @@ Runtime::Runtime(const std::string &config_path, const std::string &device) : im
     const ov::CompiledModel vox = impl_->voxelize.get_compiled_model();
     const ov::Shape points_shape = vox.input(0).get_shape(), voxels_shape = vox.output(0).get_shape();
     const ov::Shape features_shape = impl_->sparse_encoder.get_compiled_model().input(0).get_shape();
-    if (points_shape.size() != 2 || points_shape[1] != kPointDims || voxels_shape.size() != 2 ||
-        voxels_shape[0] < 2 || voxels_shape[1] != kVoxelColumns || features_shape.size() != 2 ||
-        features_shape[0] != voxels_shape[0] - 1)
+    if (points_shape.size() != 2 || points_shape[1] != kPointDims || voxels_shape.size() != 2 || voxels_shape[0] < 2 ||
+        voxels_shape[1] != kVoxelColumns || features_shape.size() != 2 || features_shape[0] != voxels_shape[0] - 1)
         throw std::runtime_error("voxelize and sparse_encoder IRs in " + model_dir.string() +
                                  " do not fit together; export the model again with g3dbevfusion_prepare_model.sh");
     impl_->max_points = static_cast<int>(points_shape[0]);
