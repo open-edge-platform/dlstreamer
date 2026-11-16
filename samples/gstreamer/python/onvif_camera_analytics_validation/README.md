@@ -74,8 +74,9 @@ source /opt/intel/dlstreamer/scripts/setup_dls_env.sh
 Prepare any VLM model supported by the installed OpenVINO GenAI runtime with the general
 [`download_hf_models.py`](../../../../scripts/download_models/README.md#1-hugging-face-conversion)
 helper. `OpenVINO/gemma-3-4b-it-int8-ov` is one example that fits well on Intel Core Ultra
-systems. Follow the helper README for setup, supported models, and gated-model access. Configure
-the resulting model directory in the sample's pipeline configuration.
+systems; the Quick Start below assumes it was exported with `--outdir "${MODELS_PATH}"`, which
+creates `${MODELS_PATH}/OpenVINO_gemma-3-4b-it-int8-ov`. Follow the helper README for setup, supported
+models, and gated-model access. Pass the resulting model directory with `--model-path`.
 
 ### 5. Create virtual environment and install dependencies
 
@@ -91,7 +92,7 @@ uv pip install -r requirements.txt
 python3 onvif_camera_analytics_validation.py \
     --camera-ip 192.168.1.100 \
     --onvif-user root --onvif-pass root \
-    --model-path "${MODELS_PATH}/gemma-3-4b-it-int8-ov"
+    --model-path "${MODELS_PATH}/OpenVINO_gemma-3-4b-it-int8-ov"
 ```
 
 > If `--rtsp-uri` is omitted, the app discovers the stream URI via ONVIF.

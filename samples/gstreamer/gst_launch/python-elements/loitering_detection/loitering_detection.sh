@@ -16,7 +16,7 @@ Description:
   loitering zones based on the configuration file.
 
 Parameters:
-    INPUT       - Required input video file path or URL
+  INPUT       - Required input video file path or URL
   
   CONFIG_FILE - Zone configuration file for loitering detection
                 Default: <script_dir>/virat_s_000101-config.json
@@ -39,8 +39,8 @@ Parameters:
   EOS_FRAME   - Stop after N decoded buffers (default: 0, disabled)
 
 Examples:
-    # Run with a local video
-    $(basename "$0") video.mp4
+  # Run with a local video
+  $(basename "$0") video.mp4
   
   # Use CPU device with custom config and model
   $(basename "$0") input.mp4 config.json ./models/yolo11s.xml CPU output.mp4

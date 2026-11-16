@@ -31,7 +31,7 @@ or, after installation, under `/opt/intel/dlstreamer/samples`.
   for prerequisites, per-script requirements files and usage examples. Some specialized models
   and datasets use their own preparation steps. Each sample's `README.md` explains its model
   requirements, example models, compatible alternatives, and expected file layout (see the
-  **Models** column in the [Available Sample Apps](./sample_apps_index.md)).
+  **Example models** entries in the [Available Sample Apps](./sample_apps_index.md)).
 - Samples with C/C++ code provide a `build_and_run.sh`; other samples provide a `.sh` script that builds and runs a `gst-launch-1.0` or Python command line.
 
 > **Platform support:** Samples target **Linux (Ubuntu 22.04/24.04)** by default. A subset also ships a

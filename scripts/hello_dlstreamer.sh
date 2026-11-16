@@ -15,23 +15,23 @@ This script provides a simple way to construct and execute
 a sample DL Streamer detection pipeline with a YOLO model.
 
 Options:
-    -h, --help                            Show this help message and exit
-    -i=INPUT, --input=INPUT               Required video file, stream URL, or camera device
-    -m=MODEL, --model=MODEL               Model supported by detection_with_yolo (default: yolo11s)
-                                                                                Prepare a compatible model under MODELS_PATH before running.
-    -p=PRECISION, --precision=PRECISION   Selected precision of the model (default: INT8)
-                                                                                Available types: INT8 | FP32 | FP16
-    -o=OUTPUT, --output=OUTPUT            Type of output from a pipeline (default: display)
-                                                                                Available types: display | file
-    -d=DEVICE, --device=DEVICE            Device to perform detection operations on (default: GPU)
-                                                                                Available devices: CPU | GPU | NPU
-                                                                                Note: GPU and NPU devices require drivers (DLS_install_prerequisites.sh)
+  -h, --help                            Show this help message and exit
+  -i=INPUT, --input=INPUT               Required video file, stream URL, or camera device
+  -m=MODEL, --model=MODEL               Model supported by detection_with_yolo (default: yolo11s)
+                                        Prepare a compatible model under MODELS_PATH before running.
+  -p=PRECISION, --precision=PRECISION   Selected precision of the model (default: INT8)
+                                        Available types: INT8 | FP32 | FP16
+  -o=OUTPUT, --output=OUTPUT            Type of output from a pipeline (default: display)
+                                        Available types: display | file
+  -d=DEVICE, --device=DEVICE            Device to perform detection operations on (default: GPU)
+                                        Available devices: CPU | GPU | NPU
+                                        Note: GPU and NPU devices require drivers (DLS_install_prerequisites.sh)
 
 Examples:
- $(basename "$0") --input=/path/to/video.mp4
- $(basename "$0") --input=/path/to/video.mp4 --model=yolov8s
- $(basename "$0") --input=/path/to/video.mp4 --model=yolov8s --output=file --device=NPU
- $(basename "$0") --help
+  $(basename "$0") --input=/path/to/video.mp4
+  $(basename "$0") --input=/path/to/video.mp4 --model=yolov8s
+  $(basename "$0") --input=/path/to/video.mp4 --model=yolov8s --output=file --device=NPU
+  $(basename "$0") --help
 
 EOF
 }

@@ -156,7 +156,6 @@ Environment variables:
 Example:
 
 ```sh
-# Use all defaults
 # Use the example config/model with a local video
 ./loitering_detection.sh /path/to/video.mp4
 ```

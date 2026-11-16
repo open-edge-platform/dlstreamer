@@ -131,10 +131,10 @@ You can run the sample using the provided shell script (easiest) or directly wit
 
 **Using the shell script**:
 ```sh
-./vehicle_counter.sh /path/to/video.mp4
+./vehicle_counter.sh file:///path/to/video.mp4
 ```
 
-This uses the example YOLO11n model and saves output to `/tmp/vehicle_counter_output.mp4`. The video path is user-provided; use any compatible local clip.
+This uses the example YOLO11n model and saves output to `/tmp/vehicle_counter_output.mp4`. The input is passed to `urisourcebin`, so local files must be given as `file://` URIs.
 
 You can also customize the input, model, and output:
 ```sh

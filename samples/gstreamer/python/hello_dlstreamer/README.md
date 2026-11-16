@@ -78,7 +78,7 @@ The sample displays output on a local desktop by default. Run it on the host or 
 Launch the application:
 
 ```sh
-python3 ./hello_dlstreamer.py /path/to/video.mp4 public/yolo11n/INT8/yolo11n.xml
+python3 ./hello_dlstreamer.py /path/to/video.mp4 "${MODELS_PATH}/public/yolo11n/INT8/yolo11n.xml"
 ```
 
 The video stream displays with object detection annotations, including bounding boxes and class labels.

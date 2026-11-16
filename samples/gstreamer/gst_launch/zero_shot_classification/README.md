@@ -61,7 +61,6 @@ for image input.
 ./zero_shot_classification.sh [INPUT] [DEVICE] [OUTPUT]
 ```
 
-- `INPUT`: an image or video path or URI. It defaults to
 - `INPUT`: required image or video path/URI. Use any input supported by GStreamer; the sample has no bundled or default media.
 - `DEVICE`: device used for both YOLOv8-Face-Detection and CLIP: `CPU`, `GPU` (default), `NPU`, or
    e.g. `MULTI:GPU,CPU`.

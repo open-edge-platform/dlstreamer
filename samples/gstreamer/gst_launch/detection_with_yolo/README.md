@@ -69,15 +69,13 @@ Use any video supported by the installed GStreamer plugins and any compatible YO
 
 > **NOTE**: Prior to running `yolo_detect.sh`, export the required YOLO model with `scripts/download_models/download_ultralytics_models.py` (see `scripts/download_models/README.md` for commands and venv setup).
 
-Example run of `yolo11s` model with CPU device on sample video, saving results into local video file:
-Example run of the `yolo11s` model on a local video, saving results to a file:
+Example run of the `yolo11s` model with CPU device on a local video, saving results to a file:
 
 ```sh
 ./yolo_detect.sh yolo11s CPU /path/to/video.mp4
-Example run of the `yolo11s` model on a local video with GPU device:
 ```
 
-Another example run of `yolo11s` model with GPU device on sample video, saving results into local video file:
+Another example run of the `yolo11s` model with GPU device on a local video, saving results to a file:
 
 ```sh
 ./yolo_detect.sh yolo11s GPU /path/to/video.mp4

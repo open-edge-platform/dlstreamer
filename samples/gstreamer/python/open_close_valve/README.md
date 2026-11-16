@@ -253,7 +253,7 @@ This sample application requires a video file and two models. Use any local vide
 </br>
 
 #### Video sample
-Use any local video supported by GStreamer that contains vehicles; the path used by the sample is an example. Obtain a suitable clip from a source available to you and pass its local path.
+The sample reads the video from `./videos/cars_extended.mp4` (relative to the directory it is run from). Place any local video supported by GStreamer that contains vehicles at that path, or update `video_source` in `open_close_valve_sample.py`.
 </br>
 
 #### Model files

@@ -109,7 +109,7 @@ prepare_ds_lpr_parser() {
 
 if [[ -n "${INTEL_GPU}" || -e "/dev/accel" || -n "${INTEL_CPU}" ]] && ! dls_models_present; then
     printf 'Error: DL Streamer LPR models are missing. Prepare them before running:\n' >&2
-    printf '  python3 ../../../../scripts/download_models/download_other_models.py yolov8_license_plate_detector,ch_PP-OCRv4_rec_infer --outdir public\n' >&2
+    printf '  python3 ../../../../scripts/download_models/download_other_models.py yolov8_license_plate_detector,ch_PP-OCRv4_rec_infer --outdir "%s"\n' "${PWD}" >&2
     printf 'See scripts/download_models/README.md for helper setup instructions.\n' >&2
     exit 1
 fi

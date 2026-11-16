@@ -31,6 +31,7 @@ Use any model supported by `gvagenai` and the installed OpenVINO GenAI runtime; 
 | MiniCPM-V 2.6 | `openbmb/MiniCPM-V-2_6` |
 | Phi-4-multimodal-instruct | `microsoft/Phi-4-multimodal-instruct` |
 | Gemma 3 | `google/gemma-3-4b-it` |
+
 Use any video or camera source supported by the installed GStreamer plugins. Examples use `C:\videos\video.mp4`; the input is independent of the selected VLM.
 
 After exporting the model, set the model path (PowerShell):
@@ -45,7 +46,7 @@ $env:GENAI_MODEL_PATH = "C:\path\to\your\model"
 .\sample_gvagenai.ps1 [OPTIONS]
 ```
 
-The sample takes the following *optional* parameters:
+The sample requires `-Source`; the other parameters are optional:
 
 | Parameter | Description | Default |
 | :--- | :--- | :--- |

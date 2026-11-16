@@ -51,7 +51,7 @@ These instructions assume that the DLStreamer framework is installed on your loc
 ./build_and_run.sh [DEVICE] [OUTPUT] [INPUT_VIDEO]
 ```
 
-The sample takes three command-line *optional* parameters:
+The sample takes three positional parameters; `INPUT_VIDEO` is required, so `DEVICE` and `OUTPUT` must be given before it:
 
 1. **[DEVICE]** to specify device for inference (default: `GPU`)
    * Supported values: `CPU`, `GPU`, `NPU`

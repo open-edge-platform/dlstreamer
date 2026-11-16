@@ -35,7 +35,7 @@ The pipeline uses the `gvadetect` element with the `custom-postproc-lib` paramet
 
 ## Model
 
-The example pipeline is configured for the **YOLOv11s** detector at `$MODELS_PATH/public/yolo11s/FP32/`. A compatible OpenVINO detector can be used after updating the model path in the sample script.
+The example pipeline is configured for the **YOLOv11s** detector at `$MODELS_PATH/public/yolo11s/FP16/yolo11s.xml`. A compatible OpenVINO detector can be used after updating the model path in the sample script.
 
 Prepare a compatible detector with the general [`download_ultralytics_models.py`](../../../../../scripts/download_models/README.md#2-ultralytics-conversion) helper; YOLOv11s is the example model. Follow the helper README for dependencies and setup. Set `MODELS_PATH` to the model store used by the sample.
 
@@ -45,7 +45,7 @@ Prepare a compatible detector with the general [`download_ultralytics_models.py`
 ./build_and_run.sh [DEVICE] [OUTPUT] [INPUT]
 ```
 
-The script takes three optional parameters:
+The script takes three positional parameters; `INPUT` is required, so `DEVICE` and `OUTPUT` must be given before it:
 
 1. **[DEVICE]** - Inference device (default: `GPU`)
    * Supported values: `CPU`, `GPU`, `NPU`

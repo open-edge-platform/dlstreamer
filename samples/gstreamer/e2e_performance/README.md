@@ -11,7 +11,8 @@ defaults to CPU). The DL Streamer pipeline runs decode, preprocessing, and
 inference entirely on the iGPU with zero-copy pipelining.
 
 Use any local H.264 video supported by the installed decoder and any compatible
-Ultralytics/OpenVINO object-detection IR. The examples use a people video and
+Ultralytics/OpenVINO object-detection IR; the model directory must contain the
+IR saved as `yolo26s.xml`/`yolo26s.bin`. The examples use a people video and
 YOLO26s INT8. Both video and model are required command-line inputs; the sample
 does not download either asset automatically.
 
