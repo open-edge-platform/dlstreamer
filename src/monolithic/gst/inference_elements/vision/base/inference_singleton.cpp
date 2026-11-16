@@ -93,15 +93,14 @@ void fillElementProps(GvaBaseInference *targetElem, GvaBaseInference *masterElem
     COPY_GSTRING(targetElem->object_class, masterElem->object_class);
     COPY_GSTRING(targetElem->labels, masterElem->labels);
 
-    // inference-interval can be changed while running: read and written under the element locks, one at a time.
-    // An element that has an interval of its own keeps it, otherwise it takes the one of the master.
+    // inference-interval can be changed while running: hold both element locks (master first - the only place
+    // two element locks nest) so the copy is atomic. An element with its own interval keeps it.
     GST_OBJECT_LOCK(masterElem);
-    const guint inference_interval = masterElem->inference_interval;
-    GST_OBJECT_UNLOCK(masterElem);
     GST_OBJECT_LOCK(targetElem);
     if (!targetElem->inference_interval_set)
-        targetElem->inference_interval = inference_interval;
+        targetElem->inference_interval = masterElem->inference_interval;
     GST_OBJECT_UNLOCK(targetElem);
+    GST_OBJECT_UNLOCK(masterElem);
     // no need to copy model_instance_id because it should match already.
 }
 

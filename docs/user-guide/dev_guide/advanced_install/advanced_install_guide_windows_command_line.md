@@ -22,6 +22,8 @@ Use the `/S` flag to run without the graphical interface.
 
 > **Note:** Required components (GStreamer and Runtime) are always installed regardless of the type or components selected.
 
+> **Note:** GStreamer is installed with the `runtime` setup type by default. When the `development` component is selected (for example, with `/TYPE=Full`), GStreamer is installed with the `debug` setup type, which adds the GStreamer development files. An existing `runtime` installation of the same GStreamer version is reinstalled as `debug`.
+
 ## Usage
 
 ```ps1

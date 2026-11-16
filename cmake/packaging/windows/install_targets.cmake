@@ -238,7 +238,7 @@ cpack_add_component(c04_samples
 
 cpack_add_component(c05_development
     DISPLAY_NAME "Development Files"
-    DESCRIPTION "Header files and import libraries for building C++ applications with DL Streamer"
+    DESCRIPTION "Headers and import libraries for building C++ applications with DL Streamer and GStreamer"
     DISABLED
     INSTALL_TYPES Full
 )

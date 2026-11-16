@@ -171,7 +171,7 @@ Before the first buffer, the element pushes a sticky `GST_EVENT_CUSTOM_DOWNSTREA
 
 - **Six fixed cameras.** The camera branch is exported for a batch of six images of 1600×900-class resolution.
 - **Key frames only.** The reference model aggregates 9 previous LiDAR sweeps, with ego-motion compensation and per-point time offsets. The element uses a single sweep with time offset 0, which lowers recall and makes the velocity output meaningless.
-- **One frame at a time.** Inference is synchronous in the streaming thread: about 2.4 s per frame for fusion (dominated by the BEV-pool op) and 0.14 s for LiDAR-only on an Intel Arc Pro B60.
+- **One frame at a time.** Inference is synchronous in the streaming thread. For fusion, the LiDAR and camera branches run in parallel inside the element. On an Intel Arc Pro B60 a frame takes about 100 ms for fusion and about 60 ms for LiDAR-only.
 - **One sparse-encoder context per process.** The sparse-encoder extension keeps process-wide OpenCL state. Several `g3dbevfusion` instances in one process are serialised around it.
 - **JPEG decoding matters.** The camera branch is sensitive to small pixel differences. `jpegdec` and OpenCV decode the same JPEG slightly differently, and scores can move by a few hundredths as a result.
 

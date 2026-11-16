@@ -360,7 +360,11 @@ onnx_graphsurgeon   # required by paddle2onnx for ONNX graph optimization
 # Custom elements with pixel access
 numpy
 opencv-python
-PyGObject==3.50.0  # 3.50.2 breaks backward-compatibility
+# PyGObject must match the version libgstpython.so was built against, otherwise loading the
+# GStreamer 'python' plugin from a Python process segfaults. 3.50.2 breaks backward-compatibility,
+# and 3.50.0 predates Python 3.14 support, which Ubuntu 26 requires.
+PyGObject==3.50.0; python_version < "3.14"
+PyGObject==3.56.2; python_version >= "3.14"
 ```
 
 ---

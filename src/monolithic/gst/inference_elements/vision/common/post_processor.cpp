@@ -306,25 +306,34 @@ PostProcessor::PostProcessor(InferenceImpl *inference_impl, GvaBaseInference *ba
     if (inference_type == InferenceType::GST_GVA_DETECT_TYPE) {
         initializer.converter_type = ConverterType::TO_ROI;
         GstGvaDetect *gva_detect = reinterpret_cast<GstGvaDetect *>(base_inference);
+        GST_OBJECT_LOCK(gva_detect);
         initializer.threshold = gva_detect->threshold;
         initializer.threshold_explicitly_set = gva_detect->threshold_explicitly_set;
+        GST_OBJECT_UNLOCK(gva_detect);
     } else if (inference_type == InferenceType::GST_GVA_CLASSIFY_TYPE) {
         initializer.converter_type = ConverterType::TO_TENSOR;
         GstGvaClassify *gva_classify = reinterpret_cast<GstGvaClassify *>(base_inference);
+        GST_OBJECT_LOCK(gva_classify);
         initializer.skip_raw_tensors = gva_classify->skip_raw_tensors;
         initializer.zeroshot_embeddings_file =
             gva_classify->zeroshot_embeddings_file ? gva_classify->zeroshot_embeddings_file : "";
+        GST_OBJECT_UNLOCK(gva_classify);
         // Files become data here, like the labels above; the converter only ever sees the class bank.
         if (!initializer.zeroshot_embeddings_file.empty())
             initializer.zeroshot_embeddings = loadEmbeddingsFromFile(initializer.zeroshot_embeddings_file);
+
+        GST_OBJECT_LOCK(gva_classify);
         initializer.zeroshot_topk = gva_classify->zeroshot_topk;
+        GST_OBJECT_UNLOCK(gva_classify);
     } else if (inference_type == InferenceType::GST_GVA_INFERENCE_TYPE) {
         initializer.converter_type = ConverterType::RAW;
     } else if (inference_type == InferenceType::GST_GVA_MONO3D_TYPE) {
         initializer.converter_type = ConverterType::TO_ROI;
         GstGvaMono3d *gva_mono3d = reinterpret_cast<GstGvaMono3d *>(base_inference);
+        GST_OBJECT_LOCK(gva_mono3d);
         initializer.threshold = gva_mono3d->threshold;
         initializer.threshold_explicitly_set = gva_mono3d->threshold_explicitly_set;
+        GST_OBJECT_UNLOCK(gva_mono3d);
     }
 
     if (base_inference->custom_postproc_lib) {

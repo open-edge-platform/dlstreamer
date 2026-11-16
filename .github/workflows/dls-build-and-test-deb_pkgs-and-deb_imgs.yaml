@@ -464,6 +464,10 @@ jobs:
           if [[ ${ubuntu_version} == "ubuntu24" ]]; then
               sudo apt install -y libopencv-dev
           fi
+          if [[ ${ubuntu_version} == "ubuntu26" ]]; then
+              # PyGObject >= 3.52 (required on Python 3.14) builds against girepository-2.0
+              sudo apt install -y libgirepository-2.0-dev
+          fi
 
           if [ -d "$HOME/.virtualenvs" ]; then
             echo "Directory $HOME/.virtualenvs exists - removing it"
