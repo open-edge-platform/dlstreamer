@@ -40,6 +40,13 @@ double intersection_over_union(const Roi &a, const Roi &b) {
 
 } // namespace
 
+// ROI selection, in order:
+//   1. Valid shared ROI from gvaframeselect (ROI meta of type GVA_AGGREGATED_ROI_TYPE)?
+//        yes -> it is the only ROI; class/confidence filters do not apply to it
+//        no  -> continue with the detections below
+//   2. Keep detections matching the target classes and confidence, clipped to the frame.
+//   3. Sort by confidence and drop same-class duplicates (NMS).
+// An empty result means no crops for this frame.
 std::vector<Roi> collect_rois(GstBuffer *input_buffer, const GArray *target_classes, guint frame_width,
                               guint frame_height, float confidence_threshold) {
     std::vector<Roi> detections;
@@ -98,6 +105,7 @@ std::vector<Roi> collect_rois(GstBuffer *input_buffer, const GArray *target_clas
     std::stable_sort(detections.begin(), detections.end(),
                      [](const Roi &a, const Roi &b) { return a.confidence > b.confidence; });
 
+    // Greedy NMS: keep the most confident box, drop same-class boxes with IoU > 0.5.
     std::vector<Roi> selected;
     selected.reserve(detections.size());
     for (const Roi &candidate : detections) {
@@ -110,6 +118,7 @@ std::vector<Roi> collect_rois(GstBuffer *input_buffer, const GArray *target_clas
     return selected;
 }
 
+// Nearest-neighbor resampling on the CPU; no interpolation.
 RoiScaleResult roi_scale_buffer(GstBuffer *input_buffer, const GstVideoInfo &input_info, const Roi &roi,
                                 guint output_width, guint output_height, GstBuffer **output_buffer,
                                 GstVideoInfo *output_info, GstVideoRectangle *content_rect) {
@@ -129,6 +138,7 @@ RoiScaleResult roi_scale_buffer(GstBuffer *input_buffer, const GstVideoInfo &inp
 
     const guint crop_width = static_cast<guint>(right - left);
     const guint crop_height = static_cast<guint>(bottom - top);
+    // Compare aspect ratios without division to pick the limiting side; round the other, keep it >= 1.
     const guint64 width_limited = static_cast<guint64>(output_width) * crop_height;
     const guint64 height_limited = static_cast<guint64>(output_height) * crop_width;
     guint resized_width, resized_height;
@@ -166,6 +176,7 @@ RoiScaleResult roi_scale_buffer(GstBuffer *input_buffer, const GstVideoInfo &inp
         return RoiScaleResult::Error;
     }
 
+    // Rows are addressed via stride; only the centered content area is written, the rest stays black.
     const guint8 *input_pixels = static_cast<const guint8 *>(GST_VIDEO_FRAME_PLANE_DATA(&input_frame, 0));
     guint8 *output_pixels = static_cast<guint8 *>(GST_VIDEO_FRAME_PLANE_DATA(&output_frame, 0));
     const gint input_stride = GST_VIDEO_FRAME_PLANE_STRIDE(&input_frame, 0);
@@ -187,6 +198,7 @@ RoiScaleResult roi_scale_buffer(GstBuffer *input_buffer, const GstVideoInfo &inp
 
     gst_video_frame_unmap(&output_frame);
     gst_video_frame_unmap(&input_frame);
+    // All crops of one input share its timestamps and offset.
     GST_BUFFER_PTS(scaled_buffer) = GST_BUFFER_PTS(input_buffer);
     GST_BUFFER_DTS(scaled_buffer) = GST_BUFFER_DTS(input_buffer);
     GST_BUFFER_DURATION(scaled_buffer) = GST_BUFFER_DURATION(input_buffer);

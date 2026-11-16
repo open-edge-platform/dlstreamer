@@ -56,8 +56,7 @@ class EventSessionController {
     // caller needs to know which sessions were active prior to this frame's updates.
     FrameOutcome process_frame(uint64_t tick, const std::vector<DetectionInput> &detections);
 
-    // Sessions still recording an event or collecting POST frames. Does not include sessions
-    // started on the current/last process_frame() call; see new_triggers for those.
+    // Sessions in EVENT or POST, including ones started by the last process_frame().
     std::vector<uint64_t> active_session_ids() const;
 
     // True while the session is still in its event phase (before POST started).
@@ -71,16 +70,19 @@ class EventSessionController {
   private:
     bool is_target_class(const std::string &label) const;
 
+    // Start of the current cooldown window; suppressed detections do not extend it.
     struct CooldownState {
         uint64_t first_trigger_tick = 0;
         bool has_triggered = false;
     };
 
+    // One session per class, regardless of how many matching boxes are detected.
     struct Session {
         uint64_t id;
         std::string class_label;
         float confidence;
         uint32_t missing_detection_frames = 0;
+        // Gap frames stay in EVENT; the countdown starts on the first frame beyond them.
         uint32_t post_event_remaining = 0;
         bool event_active = true;
     };
