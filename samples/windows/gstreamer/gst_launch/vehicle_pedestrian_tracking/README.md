@@ -41,6 +41,7 @@ Parameters:
 - **-InputSource** - Required input video file path or URL
   - Local file path (e.g., `C:\videos\traffic.mp4`)
   - URL (e.g., `https://...`)
+  - Optional example: [`person-bicycle-car-detection.mp4`](https://github.com/intel-iot-devkit/sample-videos/raw/master/person-bicycle-car-detection.mp4)
 - **-DetectionInterval** - Detection frequency (default: `3`)
   - `1` = detect every frame (highest accuracy, slowest)
   - `3` = detect every 3rd frame (tracking fills gaps)

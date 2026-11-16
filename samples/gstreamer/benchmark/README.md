@@ -17,7 +17,7 @@ The model paths in these examples refer to example configurations. Prepare a com
 
 ## Input video
 
-Use any local video supported by the installed GStreamer plugins. For face-detection examples, choose a clip containing faces; the sample uses `centerface` as its example model. Prepare the video yourself and pass its local path.
+Use any local video supported by the installed GStreamer plugins. For face-detection examples, choose a clip containing faces; the sample uses `centerface` as its example model. Prepare the video yourself and pass its local path. An optional example is [`head-pose-face-detection-female-and-male.mp4`](https://raw.githubusercontent.com/intel-iot-devkit/sample-videos/master/head-pose-face-detection-female-and-male.mp4).
 
 ## Running
 

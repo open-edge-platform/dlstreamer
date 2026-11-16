@@ -37,7 +37,7 @@ The sample needs a video with people and a YOLOv8s detection model. The script d
 
 ### Video
 
-Use any local video supported by GStreamer that contains people, and pass its path with `--input`. The video used in examples is only illustrative; obtain a suitable clip from a source available to you.
+Use any local video supported by GStreamer that contains people, and pass its path with `--input`. The video used in examples is only illustrative; obtain a suitable clip from a source available to you. An optional example is [`people-detection.mp4`](https://github.com/intel-iot-devkit/sample-videos/raw/master/people-detection.mp4).
 
 ### Model
 

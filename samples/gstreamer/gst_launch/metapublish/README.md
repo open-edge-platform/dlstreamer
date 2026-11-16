@@ -46,6 +46,7 @@ The input could be
     * local video file path
     * path to RTSP camera (URL starts with `rtsp://`)
     * web camera device (ex. /dev/video0)
+An optional HTTPS example source is [`head-pose-face-detection-female-and-male.mp4`](https://raw.githubusercontent.com/intel-iot-devkit/sample-videos/master/head-pose-face-detection-female-and-male.mp4); pass it explicitly as `INPUT` if you choose to use it.
 1. [METHOD] to specify which output method to use when publishing inferences.
 The method could be
     * file (Default)

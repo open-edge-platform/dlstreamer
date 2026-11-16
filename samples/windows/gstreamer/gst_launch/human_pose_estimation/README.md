@@ -25,7 +25,7 @@ $set MODELS_PATH = "C:\models"
 Model should be located at:
 - `%MODELS_PATH%\public\yolo26s-pose\FP16\yolo26s-pose.xml`
 
-Use any video supported by the installed GStreamer plugins; the walking clip paths in the examples are illustrative. A clip containing a visible person is useful for checking pose output.
+Use any video supported by the installed GStreamer plugins; the walking clip paths in the examples are illustrative. A clip containing a visible person is useful for checking pose output. An optional example is [`face-demographics-walking.mp4`](https://github.com/intel-iot-devkit/sample-videos/raw/master/face-demographics-walking.mp4).
 ## Running
 
 ```PowerShell

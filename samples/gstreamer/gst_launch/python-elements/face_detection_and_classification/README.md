@@ -107,7 +107,7 @@ The sample requires `INPUT_VIDEO`; device and sink are optional:
    * web camera device (ex. `/dev/video0`)
    * RTSP camera (URL starting with `rtsp://`) or other streaming source (ex URL starting with `http://`)
 
-  Use any video supported by GStreamer; a clip containing faces is useful for this example.
+  Use any video supported by GStreamer; a clip containing faces is useful for this example. An optional sample is [`head-pose-face-detection-female-and-male.mp4`](https://raw.githubusercontent.com/intel-iot-devkit/sample-videos/master/head-pose-face-detection-female-and-male.mp4).
 
 2. [DEVICE] to specify device for detection and classification (used for both age and gender models). Default CPU.
    Please refer to OpenVINO™ toolkit documentation for supported devices.
