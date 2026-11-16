@@ -158,6 +158,8 @@ The LiDAR panel is always a `height × height` square anchored to the right edge
 
 - **Auto-double width**: When the input is a batch stream and `width == height`, `g3drender` automatically doubles `width` to `height × 2` during caps negotiation so the default square canvas fits the side-by-side camera + LiDAR layout. Set `width` to a value other than `height` to suppress this behaviour.
 
+- **Any width**: output frames use GStreamer's default `BGR` layout, with each row padded to a multiple of 4 bytes, so widths that are not a multiple of 4 work with downstream elements such as `videoconvert` and encoders.
+
 - **cam-proj requires calibration**: `cam-proj` mode depends on the `g3d/calibration` sticky event emitted by `g3dobjectfuser` or `g3dbevfusion`. Without a calibration for the selected camera the element falls back to `bev`.
 
 - **3D box convention**: boxes are drawn as `GstAnalytics3DODMtd` defines them: `length` along the box's own x axis, `width` along its y axis, rotated by `yaw` counter-clockwise about +z.

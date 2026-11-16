@@ -6,6 +6,9 @@
 
 #include <gst/check/gstcheck.h>
 #include <gst/check/gstharness.h>
+#include <gst/video/video.h>
+
+#include <cstring>
 
 #include "g3d_test_fixtures.h"
 #include "g3d_test_golden.h"
@@ -676,6 +679,81 @@ GST_START_TEST(test_cam_proj_bg_baseline_golden) {
 }
 GST_END_TEST;
 
+/* 802 BGR pixels are 2406 bytes, not a multiple of 4. */
+#define UNALIGNED_WIDTH 802
+#define UNALIGNED_HEIGHT 400
+
+/* A width whose BGR rows are not a multiple of 4 bytes: the frame has GStreamer's default
+ * stride, padded to 4 bytes, so its size matches the caps and videoconvert reads the same
+ * picture instead of rejecting the buffer. */
+GST_START_TEST(test_unaligned_width) {
+    const Scenario sc = {"unaligned_width",
+                         NULL,
+                         0,
+                         0,
+                         0,
+                         TRUE,
+                         FALSE,
+                         UNALIGNED_WIDTH,
+                         UNALIGNED_HEIGHT,
+                         -40,
+                         40,
+                         -40,
+                         40,
+                         2,
+                         1,
+                         1.0f,
+                         0,
+                         35,
+                         30,
+                         180,
+                         60,
+                         FALSE};
+    const gchar *props = "width=802 height=400 point-radius=2 point-stride=1";
+
+    gchar *desc = g_strdup_printf("g3drender %s", props);
+    GstHarness *h = gst_harness_new_parse(desc);
+    g_free(desc);
+    gst_harness_set_src_caps_str(h, "application/x-lidar");
+    ck_assert_int_eq(gst_harness_push(h, build_lidar_buf(h, &sc)), GST_FLOW_OK);
+    GstBuffer *bgr = gst_harness_pull(h);
+    ck_assert(bgr != NULL);
+    GstCaps *caps = gst_pad_get_current_caps(h->sinkpad);
+    GstVideoInfo info;
+    ck_assert(gst_video_info_from_caps(&info, caps));
+    gst_caps_unref(caps);
+    ck_assert_int_eq(GST_VIDEO_INFO_WIDTH(&info), UNALIGNED_WIDTH);
+    ck_assert_int_eq(GST_VIDEO_INFO_PLANE_STRIDE(&info, 0), GST_ROUND_UP_4(UNALIGNED_WIDTH * 3));
+    ck_assert_uint_eq(gst_buffer_get_size(bgr), GST_VIDEO_INFO_SIZE(&info));
+    gst_harness_teardown(h);
+
+    desc = g_strdup_printf("g3drender %s ! videoconvert ! capsfilter caps=video/x-raw,format=BGRx", props);
+    h = gst_harness_new_parse(desc);
+    g_free(desc);
+    gst_harness_set_src_caps_str(h, "application/x-lidar");
+    ck_assert_int_eq(gst_harness_push(h, build_lidar_buf(h, &sc)), GST_FLOW_OK);
+    GstBuffer *bgrx = gst_harness_pull(h);
+    ck_assert(bgrx != NULL);
+    gst_harness_teardown(h);
+
+    GstMapInfo a, b;
+    ck_assert(gst_buffer_map(bgr, &a, GST_MAP_READ));
+    ck_assert(gst_buffer_map(bgrx, &b, GST_MAP_READ));
+    const gint bgr_stride = GST_VIDEO_INFO_PLANE_STRIDE(&info, 0);
+    const gint bgrx_stride = UNALIGNED_WIDTH * 4;
+    ck_assert_uint_ge(b.size, (gsize)bgrx_stride * UNALIGNED_HEIGHT);
+    gint differing = 0;
+    for (gint y = 0; y < UNALIGNED_HEIGHT; y++)
+        for (gint x = 0; x < UNALIGNED_WIDTH; x++)
+            differing += memcmp(a.data + y * bgr_stride + x * 3, b.data + y * bgrx_stride + x * 4, 3) != 0;
+    gst_buffer_unmap(bgr, &a);
+    gst_buffer_unmap(bgrx, &b);
+    gst_buffer_unref(bgr);
+    gst_buffer_unref(bgrx);
+    ck_assert_msg(differing == 0, "%d pixels differ after videoconvert", differing);
+}
+GST_END_TEST;
+
 static Suite *g3drender_suite(void) {
     Suite *s = suite_create("g3drender");
 
@@ -701,6 +779,10 @@ static Suite *g3drender_suite(void) {
     TCase *tc_tiles = tcase_create("tiles-calib");
     tcase_add_test(tc_tiles, test_tiles_with_calib_golden);
     suite_add_tcase(s, tc_tiles);
+
+    TCase *tc_layout = tcase_create("output-layout");
+    tcase_add_test(tc_layout, test_unaligned_width);
+    suite_add_tcase(s, tc_layout);
 
     return s;
 }

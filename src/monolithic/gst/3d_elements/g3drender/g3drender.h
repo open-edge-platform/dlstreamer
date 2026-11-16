@@ -8,6 +8,7 @@
 
 #include <gst/base/gstbasetransform.h>
 #include <gst/gst.h>
+#include <gst/video/video.h>
 
 G_BEGIN_DECLS
 
@@ -51,6 +52,8 @@ struct _GstG3DRender {
     GstClockTime frame_duration; /* fallback duration derived from negotiated outcaps framerate */
     guint64 frame_count;
     gboolean input_is_batch;
+    /* Negotiated output layout: packed BGR rows, each padded to GStreamer's default 4-byte stride. */
+    GstVideoInfo out_info;
 
     gint forward_axis; /* vehicle forward axis of the sensor: 0 = +x (KITTI), 1 = +y (nuScenes) */
 

@@ -224,6 +224,7 @@ static void gst_g3d_render_init(GstG3DRender *self) {
     self->frame_duration = GST_SECOND / 10;
     self->frame_count = 0;
     self->input_is_batch = FALSE;
+    gst_video_info_init(&self->out_info);
     self->forward_axis = 0;
     for (gint i = 0; i < G3D_RENDER_MAX_CAMERAS; ++i) {
         self->cam_has_calib[i] = FALSE;
@@ -460,8 +461,12 @@ static gboolean gst_g3d_render_set_caps(GstBaseTransform *trans, GstCaps *incaps
     GstG3DRender *self = GST_G3D_RENDER(trans);
     GstStructure *s = gst_caps_get_structure(incaps, 0);
     self->input_is_batch = (g_strcmp0(gst_structure_get_name(s), "multistream/x-analytics-batch") == 0);
-    gst_structure_get_int(gst_caps_get_structure(outcaps, 0), "width", &self->width);
-    gst_structure_get_int(gst_caps_get_structure(outcaps, 0), "height", &self->height);
+    if (!gst_video_info_from_caps(&self->out_info, outcaps)) {
+        GST_ERROR_OBJECT(self, "Invalid output caps %" GST_PTR_FORMAT, outcaps);
+        return FALSE;
+    }
+    self->width = GST_VIDEO_INFO_WIDTH(&self->out_info);
+    self->height = GST_VIDEO_INFO_HEIGHT(&self->out_info);
     gint fps_n = 0, fps_d = 1;
     gboolean have_fps = gst_structure_get_fraction(gst_caps_get_structure(outcaps, 0), "framerate", &fps_n, &fps_d);
     gboolean fps_valid = have_fps && fps_n > 0 && fps_d > 0;
@@ -478,7 +483,7 @@ static GstFlowReturn gst_g3d_render_prepare_output_buffer(GstBaseTransform *tran
     (void)inbuf;
     GstG3DRender *self = GST_G3D_RENDER(trans);
 
-    gsize frame_size = static_cast<gsize>(self->width) * self->height * 3;
+    gsize frame_size = GST_VIDEO_INFO_SIZE(&self->out_info);
     *outbuf = gst_buffer_new_allocate(nullptr, frame_size, nullptr);
     if (!*outbuf) {
         GST_ERROR_OBJECT(self, "Failed to allocate output buffer (%zu bytes)", frame_size);
@@ -1422,8 +1427,10 @@ static GstFlowReturn gst_g3d_render_transform(GstBaseTransform *trans, GstBuffer
         return GST_FLOW_ERROR;
     }
 
-    cv::Mat canvas(self->height, self->width, CV_8UC3, out_map.data);
-    canvas.setTo(cv::Scalar(15, 15, 15));
+    cv::Mat canvas(self->height, self->width, CV_8UC3, out_map.data,
+                   static_cast<size_t>(GST_VIDEO_INFO_PLANE_STRIDE(&self->out_info, 0)));
+    /* The background is (15, 15, 15), so one memset paints it and clears the row padding too. */
+    std::memset(out_map.data, 15, out_map.size);
 
     // ── Layout ──────────────────────────────────────────────────────────────
     // cam-proj mode: projection fills the full canvas; no separate camera panel.
