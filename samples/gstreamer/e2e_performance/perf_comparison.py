@@ -18,6 +18,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 SCRIPT_DIR = Path(__file__).resolve().parent
 OUTPUT_DIR = SCRIPT_DIR / "output"
+EXAMPLE_VIDEO_URL = "https://storage.openvinotoolkit.org/repositories/openvino_notebooks/data/data/video/people.mp4"
 CONFIDENCE_THRESHOLD = 0.35         # used by dlstreamer.py gvadetect threshold
 
 # iGPU inference config (shared by dlstreamer.py)
@@ -70,7 +71,12 @@ def _benchmark(label: str, run_fn, model, video, frames, warmup, runs) -> list[R
 def main() -> None:
     """Entry point."""
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--video", type=Path, required=True, help="Local H.264 video file")
+    ap.add_argument(
+        "--video",
+        type=Path,
+        required=True,
+        help=f"Local H.264 video file; optional example to download manually: {EXAMPLE_VIDEO_URL}",
+    )
     ap.add_argument("--model", type=Path, required=True, help="Local OpenVINO IR model directory containing yolo26s.xml")
     ap.add_argument("--measure-frames", type=int, default=200)
     ap.add_argument("--warmup", type=int, default=50)

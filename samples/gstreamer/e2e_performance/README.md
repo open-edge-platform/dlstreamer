@@ -92,7 +92,9 @@ The example uses a YOLO26s INT8 model. Prepare any compatible OpenVINO model usi
 Ultralytics conversion helper described in [`scripts/download_models/README.md`](../../../scripts/download_models/README.md#2-ultralytics-conversion).
 The benchmark expects the model directory passed to `--model` to follow the sample's documented layout.
 
-Run the benchmark with any compatible local H.264 video:
+Run the benchmark with any compatible local H.264 video. An optional example is
+[`people.mp4`](https://storage.openvinotoolkit.org/repositories/openvino_notebooks/data/data/video/people.mp4);
+download it manually and pass its local path. The sample does not download the video or use it by default:
 
 ```bash
 python3 perf_comparison.py \

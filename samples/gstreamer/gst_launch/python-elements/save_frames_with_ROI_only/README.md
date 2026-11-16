@@ -88,7 +88,7 @@ Before running, ensure the DL Streamer environment is properly configured and th
 ./save_frames_with_roi.sh <INPUT_VIDEO> [DEVICE] [SINK_ELEMENT]
 ```
 
-The sample requires `INPUT_VIDEO`. Use any local video supported by GStreamer, a camera device such as `/dev/video0`, or a stream URI.
+The sample requires `INPUT_VIDEO`. Use any local video supported by GStreamer, a camera device such as `/dev/video0`, or a stream URI. An optional example is [`people.mp4`](https://storage.openvinotoolkit.org/repositories/openvino_notebooks/data/data/video/people.mp4); download it yourself and pass its local path. The sample does not download the video.
 `DEVICE` is optional and defaults to `GPU`. `SINK_ELEMENT` is optional and defaults to `fps`; use `display` to render frames.
 
 Custom element properties can be set by modifying the pipeline in the shell script, e.g.:
