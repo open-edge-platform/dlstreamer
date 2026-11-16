@@ -103,7 +103,9 @@ Full installation guide: [Install Guide for Ubuntu](https://docs.openedgeplatfor
 
 ## Quick Start - Run Your Pipeline
 
-**Step 1 — Set up models and environment** (inside the container or on a native install):
+**Step 1 — Set up model, input video and environment** (inside the container or on a native install):
+
+Download the model you want to use. The code below downloads the `yolo11n` model as an example; you can use any model that meets your needs.
 
 ```bash
 cd ~
@@ -120,11 +122,20 @@ source /opt/intel/dlstreamer/scripts/setup_dls_env.sh
 
 For INT8 export, `--data` selects the dataset YAML used for calibration. If omitted, Ultralytics uses its default dataset.
 
+Prepare an input video. Use any local video file and set the `INPUT_VIDEO` environment variable to its full path.
+The example below downloads a free Pexels video for demo purposes:
+
+```bash
+cd ~
+curl -L -o input_video.mp4 https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4
+export INPUT_VIDEO=$PWD/input_video.mp4
+```
+
 **Step 2 — Run the pipeline.** Change `device=GPU` to `device=CPU` or `device=NPU` — no other code changes needed.
 
 ```bash
 gst-launch-1.0 \
-  urisourcebin buffer-size=4096 uri=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 ! \
+  filesrc location=$INPUT_VIDEO ! \
   decodebin3 ! \
   gvadetect model=~/models/yolo11n/yolo11n.xml device=GPU ! \
   queue ! \
@@ -137,7 +148,7 @@ Output to JSON (works everywhere, including headless Docker):
 
 ```bash
 gst-launch-1.0 \
-  urisourcebin buffer-size=4096 uri=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 ! \
+  filesrc location=$INPUT_VIDEO ! \
   decodebin3 ! \
   gvadetect model=~/models/yolo11n/yolo11n.xml device=GPU ! \
   queue ! \
@@ -148,7 +159,7 @@ gst-launch-1.0 \
 
 ### Python API
 
-Create a file `detect.py`:
+Create a file `detect.py` and set a path to your input video file:
 
 ```python
 import gi
@@ -158,10 +169,10 @@ import os
 
 Gst.init([])
 
-video_url = "https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4"
+video_path = "/path/to/file.mp4"
 model = os.path.expanduser("~/models/yolo11n/yolo11n.xml")
 pipeline = Gst.parse_launch(f"""
-    urisourcebin buffer-size=4096 uri={video_url} !
+    filesrc location={video_path} !
     decodebin3 !
     gvadetect model={model} device=GPU !
     queue !
