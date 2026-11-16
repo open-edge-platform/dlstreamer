@@ -4,10 +4,6 @@
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
-# This sample refers to a video file by Rihard-Clement-Ciprian Diac via Pexels
-# (https://www.pexels.com)
-# ==============================================================================
-#
 # Demonstration script for gvamotiondetect element with optional YOLOv8 detection.
 # Provides GPU (VA surface memory) and CPU (system memory) pipeline variants.
 #

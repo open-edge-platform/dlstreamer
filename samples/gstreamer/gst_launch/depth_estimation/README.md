@@ -44,7 +44,6 @@ cd /opt/intel/dlstreamer/samples/gstreamer/gst_launch/depth_estimation/
 ```
 
 The sample takes four optional parameters:
-The sample takes four parameters; `INPUT` is required:
 
 1. `[INPUT]` specifies the required input source.
    The input can be:

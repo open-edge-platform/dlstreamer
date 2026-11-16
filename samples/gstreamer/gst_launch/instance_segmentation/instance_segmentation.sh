@@ -4,10 +4,6 @@
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
-# This sample refers to a video file by Rihard-Clement-Ciprian Diac via Pexels
-# (https://www.pexels.com)
-# ==============================================================================
-
 # Allowed choices for arguments
 ALLOWED_MODELS=("yolo26s-seg" "yolo11s-seg")
 ALLOWED_DEVICES=("CPU" "GPU" "NPU")

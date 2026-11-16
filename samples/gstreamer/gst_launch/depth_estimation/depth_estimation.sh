@@ -4,10 +4,6 @@
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
-# This sample refers to a video file by cottonbro studio via Pexels
-# (https://www.pexels.com)
-# ==============================================================================
-
 set -euo pipefail
 
 if [ $# -gt 0 ] && ([ "$1" = "--help" ] || [ "$1" = "-h" ]); then
