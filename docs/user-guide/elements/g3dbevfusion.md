@@ -42,11 +42,11 @@ The virtual environment, sources, checkpoint and build trees are removed at the 
 
 ```bash
 sudo apt-get install git curl g++ python3-venv opencl-c-headers ocl-icd-opencl-dev
-./g3dbevfusion_prepare_model.sh 2026.3.1
+./g3dbevfusion_prepare_model.sh 2026.5.0
 ./g3dbevfusion_prepare_data.sh
 ```
 
-Pass the full OpenVINO version of the DL Streamer release that runs the pipeline. The extensions only load into the OpenVINO release they were built against. For a DL Streamer built on an OpenVINO nightly, pass the matching pre-release wheel version, for example `2026.5.0.dev20261030`, with `PIP_EXTRA_INDEX_URL=https://storage.openvinotoolkit.org/simple/wheels/nightly`. The export compiles the custom ops on the GPU, so in a container the GPU has to be available (`--device /dev/dri`).
+Pass the full OpenVINO version of the DL Streamer release that runs the pipeline. It must be 2026.5.0 or later: on earlier releases the OpenVINO GPU plugin miscomputes the detection head and fusion detects nothing, so the script refuses them. The extensions only load into the OpenVINO release they were built against. For a DL Streamer built on an OpenVINO nightly, pass the matching pre-release wheel version, for example `2026.5.0.dev20261030`, with `PIP_EXTRA_INDEX_URL=https://storage.openvinotoolkit.org/simple/wheels/nightly`. The export compiles the custom ops on the GPU, so in a container the GPU has to be available (`--device /dev/dri`).
 
 Run either script with `--help` for every option, including `BEVFUSION_ROOT` to use an existing openvino_contrib checkout and `NUSCENES_ROOT` to convert an existing nuScenes copy.
 
@@ -131,7 +131,7 @@ The per-frame `camera2lidar` matters because each nuScenes camera exposes up to 
 ### Camera + LiDAR fusion on a converted nuScenes scene
 
 ```bash
-./g3dbevfusion.sh nuscenes_mini_seq_12Hz/scene-0103 bevfusion_ov_model_2026.3.1/g3dbevfusion.json fusion -1 out.mp4
+./g3dbevfusion.sh nuscenes_mini_seq_12Hz/scene-0103 bevfusion_ov_model_2026.5.0/g3dbevfusion.json fusion -1 out.mp4
 ```
 
 which runs:

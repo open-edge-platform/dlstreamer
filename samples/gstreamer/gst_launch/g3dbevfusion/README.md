@@ -21,11 +21,11 @@ The sample has four scripts:
 ## Prepare
 
 ```bash
-./g3dbevfusion_prepare_model.sh 2026.3.1
+./g3dbevfusion_prepare_model.sh 2026.5.0
 ./g3dbevfusion_prepare_data.sh
 ```
 
-Pass the full OpenVINO version of the DL Streamer release that will run the pipeline, on the host or in its container. The custom-op extensions only load into the OpenVINO release they were built against, so a model directory prepared for 2026.3.1 does not work with 2026.3.0 or 2026.4.0. The script needs no DL Streamer or OpenVINO environment: it builds the extensions against the `openvino` wheel of that version. For a DL Streamer built on an OpenVINO nightly, pass the matching pre-release wheel version, for example `2026.5.0.dev20261030`, with `PIP_EXTRA_INDEX_URL=https://storage.openvinotoolkit.org/simple/wheels/nightly`.
+Pass the full OpenVINO version of the DL Streamer release that will run the pipeline, on the host or in its container. It must be 2026.5.0 or later: on earlier releases the OpenVINO GPU plugin miscomputes the detection head and fusion detects nothing, so the script refuses them. The custom-op extensions only load into the OpenVINO release they were built against, so a model directory prepared for 2026.5.0 does not work with 2026.5.1 or 2026.6.0. The script needs no DL Streamer or OpenVINO environment: it builds the extensions against the `openvino` wheel of that version. For a DL Streamer built on an OpenVINO nightly, pass the matching pre-release wheel version, for example `2026.5.0.dev20261030`, with `PIP_EXTRA_INDEX_URL=https://storage.openvinotoolkit.org/simple/wheels/nightly`.
 
 The model script checks out a fixed commit of [openvinotoolkit/openvino_contrib](https://github.com/openvinotoolkit/openvino_contrib) and applies the patches in [`patches/`](patches/) on top of it. They carry the openvino_bevfusion fixes that g3dbevfusion relies on, from [openvino_contrib#1197](https://github.com/openvinotoolkit/openvino_contrib/pull/1197), until that PR is merged (override the source with `OPENVINO_CONTRIB_URL` and `OPENVINO_CONTRIB_REF`). They also include a fix that gives the BEV-pool op a zeroed accumulator: without it the camera branch pools into stale GPU memory and fusion detects nothing on OpenVINO 2026.5. Two more patches speed up the model without changing its results: one removes a per-frame allocation that took about half of the sparse encoder's time, and one exports the camera backbone without the 5-D tensors that the GPU plugin runs slowly. Another raises the point and voxel limits of the LiDAR branch from one sweep to the ten the model is trained on. The last one makes the sparse encoder's kernel choice reproducible: it was made by timing, between kernels that give slightly different results. Detections can still differ slightly from run to run, because voxelization picks the points it averages in GPU-scheduling order. The export takes several minutes.
 
@@ -64,14 +64,14 @@ The nuScenes LiDAR turns at 20 Hz, and the six cameras fire together, as the bea
 
 ```bash
 # camera + LiDAR fusion, all frames, rendered to an MP4 video that plays at the recorded pace
-./g3dbevfusion.sh nuscenes_mini_seq_12Hz/scene-0103 bevfusion_ov_model_2026.3.1/g3dbevfusion.json fusion -1 out.mp4
+./g3dbevfusion.sh nuscenes_mini_seq_12Hz/scene-0103 bevfusion_ov_model_2026.5.0/g3dbevfusion.json fusion -1 out.mp4
 
 # the same in a window, or as numbered JPEG files
-./g3dbevfusion.sh nuscenes_mini_seq_12Hz/scene-0103 bevfusion_ov_model_2026.3.1/g3dbevfusion.json fusion -1 display
-./g3dbevfusion.sh nuscenes_mini_seq_12Hz/scene-0103 bevfusion_ov_model_2026.3.1/g3dbevfusion.json fusion -1 out/
+./g3dbevfusion.sh nuscenes_mini_seq_12Hz/scene-0103 bevfusion_ov_model_2026.5.0/g3dbevfusion.json fusion -1 display
+./g3dbevfusion.sh nuscenes_mini_seq_12Hz/scene-0103 bevfusion_ov_model_2026.5.0/g3dbevfusion.json fusion -1 out/
 
 # LiDAR only, first 10 frames, no rendering
-./g3dbevfusion.sh nuscenes_mini_seq_12Hz/scene-0103 bevfusion_ov_model_2026.3.1/g3dbevfusion.json lidar 10
+./g3dbevfusion.sh nuscenes_mini_seq_12Hz/scene-0103 bevfusion_ov_model_2026.5.0/g3dbevfusion.json lidar 10
 ```
 
 Each sensor is read with `multifilesrc`. Every branch is read at the same nominal rate, 12 fps by default (set `FPS`, for example `FPS=2` for a key-frame sequence), so `gvastreammux` pairs frame N of each sensor. `g3dbevfusion` then gives each frame its recorded capture time as its PTS. Consecutive frames are 50 or 100 ms apart, so a video or a window shows the scene at the pace it was recorded. The pipeline is:
@@ -84,7 +84,7 @@ gst-launch-1.0 -e \
   multifilesrc location=scene/LIDAR_TOP/%06d.bin caps=application/octet-stream ! \
     g3dlidarparse frame-rate=12 ! queue ! mux.sink_6 \
   gvastreammux name=mux output-mode=container sync-mode=first-pts max-wait-time=5000000000 ! \
-  g3dbevfusion config=bevfusion_ov_model_2026.3.1/g3dbevfusion.json calibration=scene/calibration.json ! \
+  g3dbevfusion config=bevfusion_ov_model_2026.5.0/g3dbevfusion.json calibration=scene/calibration.json ! \
   g3drender forward-axis=y point-stride=8 width=2400 height=900 ! videoconvert ! video/x-raw,format=NV12 ! \
   vah264enc rate-control=cqp ! h264parse ! mp4mux ! filesink location=out.mp4
 ```
