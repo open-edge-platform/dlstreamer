@@ -46,7 +46,7 @@ sudo apt-get install git curl g++ python3-venv opencl-c-headers ocl-icd-opencl-d
 ./g3dbevfusion_prepare_data.sh
 ```
 
-Pass the full OpenVINO version of the DL Streamer release that runs the pipeline. The extensions only load into the OpenVINO release they were built against. For a DL Streamer built on an OpenVINO nightly, pass the matching pre-release wheel version, for example `2026.5.0.dev20261030`, with `PIP_EXTRA_INDEX_URL=https://storage.openvinotoolkit.org/simple/wheels/nightly`. The export compiles the custom ops on the GPU, so in a container the GPU has to be available (`--device /dev/dri`).
+Pass the full OpenVINO version of the DL Streamer release that runs the pipeline. The extensions only load into the OpenVINO release they were built against. For a DL Streamer built on an OpenVINO nightly, pass the matching pre-release wheel version, for example `2026.5.0rc2`, with `PIP_EXTRA_INDEX_URL=https://storage.openvinotoolkit.org/simple/wheels/nightly`. The export compiles the custom ops on the GPU, so in a container the GPU has to be available (`--device /dev/dri`).
 
 Run either script with `--help` for every option, including `BEVFUSION_ROOT` to use an existing openvino_contrib checkout and `NUSCENES_ROOT` to convert an existing nuScenes copy.
 

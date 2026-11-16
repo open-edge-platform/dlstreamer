@@ -30,7 +30,7 @@ Usage:
 
   openvino-version  Full OpenVINO version of the DL Streamer that will run the
                     pipeline, as published on PyPI, for example 2026.3.1. A
-                    pre-release such as 2026.5.0rc1 or 2026.5.0.dev20261030 is
+                    pre-release such as 2026.5.0rc2 or 2026.5.0.dev20261030 is
                     accepted too, for a DL Streamer built on an OpenVINO nightly;
                     set PIP_EXTRA_INDEX_URL to the index that has it (for example
                     https://storage.openvinotoolkit.org/simple/wheels/nightly).
@@ -81,7 +81,7 @@ OV_VERSION="$1"
 # All three parts, plus an optional rc or dev suffix: pip reads 2026.3 as
 # 2026.3.0, and an extension built against 2026.3.0 does not load into 2026.3.1.
 [[ "${OV_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(rc[0-9]+|\.dev[0-9]+)?$ ]] ||
-  fail "Expected a full OpenVINO version such as 2026.3.1 or 2026.5.0.dev20261030, got: ${OV_VERSION}"
+  fail "Expected a full OpenVINO version such as 2026.3.1 or 2026.5.0rc2, got: ${OV_VERSION}"
 OUT_DIR="${BEVFUSION_MODEL_DIR:-${SCRIPT_DIR}/bevfusion_ov_model_${OV_VERSION}}"
 
 if [[ -f "${OUT_DIR}/g3dbevfusion.json" ]]; then
