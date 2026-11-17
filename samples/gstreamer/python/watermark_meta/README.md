@@ -49,7 +49,7 @@ uv pip install -r requirements.txt
 
 ```bash
 cd samples/gstreamer/python/watermark_meta
-./watermark_meta.sh
+./watermark_meta.sh /path/to/input.mp4
 ```
 
 Or specify custom input/output:
@@ -58,7 +58,7 @@ Or specify custom input/output:
 ./watermark_meta.sh /path/to/input.mp4 /tmp/output.mp4
 ```
 
-Default input: `https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4`  
+Input is required. Use any local video or stream supported by GStreamer and pass its source path explicitly.
 Default output: `/tmp/watermark_meta_output.mp4`
 
 ### Run Directly with Python

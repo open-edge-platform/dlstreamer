@@ -91,46 +91,34 @@ DISPLAY={display} -v /dev/bus/usb:/dev/bus/usb --env MODELS_PATH=/working_dir
 intel/dlstreamer:latest /bin/bash -c"""
 dlstreamer_docker=dlstreamer_docker.replace("\n", " ")
 
-DEEPSTREAM_SETUP_LPR="""
-if [[ -e "/working_dir/deepstream_tao_apps" ]]; then
-  exit 0
-fi
-
-git clone https://github.com/NVIDIA-AI-IOT/deepstream_tao_apps.git
-
-set -e
-
-cd /working_dir/deepstream_tao_apps
-mkdir -p ./models/trafficcamnet
-cd ./models/trafficcamnet
-wget --no-check-certificate --content-disposition 'https://api.ngc.nvidia.com/v2/models/org/nvidia/team/tao/trafficcamnet/pruned_onnx_v1.0.4/files?redirect=true&path=resnet18_trafficcamnet_pruned.onnx' -O resnet18_trafficcamnet_pruned.onnx
-wget --no-check-certificate --content-disposition 'https://api.ngc.nvidia.com/v2/models/org/nvidia/team/tao/trafficcamnet/pruned_onnx_v1.0.4/files?redirect=true&path=resnet18_trafficcamnet_pruned_int8.txt' -O resnet18_trafficcamnet_pruned_int8.txt
-
-cd /working_dir/deepstream_tao_apps
-mkdir -p ./models/LPD_us
-cd ./models/LPD_us
-wget --no-check-certificate --content-disposition 'https://api.ngc.nvidia.com/v2/models/org/nvidia/team/tao/lpdnet/pruned_v2.3.1/files?redirect=true&path=LPDNet_usa_pruned_tao5.onnx' -O LPDNet_usa_pruned_tao5.onnx
-wget --no-check-certificate --content-disposition 'https://api.ngc.nvidia.com/v2/models/org/nvidia/team/tao/lpdnet/pruned_v2.3.1/files?redirect=true&path=usa_cal_10.1.0.bin' -O usa_cal_10.1.0.bin
-wget --no-check-certificate https://api.ngc.nvidia.com/v2/models/nvidia/tao/lpdnet/versions/pruned_v1.0/files/usa_lpd_label.txt
-
-cd /working_dir/deepstream_tao_apps
-mkdir -p ./models/LPR_us
-cd ./models/LPR_us
-wget --no-check-certificate --content-disposition 'https://api.ngc.nvidia.com/v2/models/org/nvidia/team/tao/lprnet/deployable_onnx_v1.1/files?redirect=true&path=us_lprnet_baseline18_deployable.onnx' -O us_lprnet_baseline18_deployable.onnx
-touch labels_us.txt
-
-
-cd /working_dir/deepstream_tao_apps/apps/tao_others/deepstream_lpr_app/nvinfer_custom_lpr_parser/
-
-make
-
-cp /working_dir/deepstream_tao_apps/apps/tao_others/deepstream_lpr_app/dict_us.txt /working_dir/dict.txt
-"""
-
 deepstream_docker=f"""docker run -i --rm --network=host --gpus all -e DISPLAY={display}
 --device /dev/snd -v /tmp/.X11-unix/:/tmp/.X11-unix -v {cwd}:/working_dir -w /working_dir
 nvcr.io/nvidia/deepstream:8.0-samples-multiarch /bin/bash -c"""
 deepstream_docker=deepstream_docker.replace("\n", " ")
+
+def require_model_files(platform, relative_paths):
+    missing = [path for path in relative_paths if not os.path.isfile(os.path.join(cwd, path))]
+    if missing:
+        print(f"Error: {platform} model files are missing:")
+        for path in missing:
+            print(f"  {path}")
+        if platform == "DL Streamer":
+            print("Prepare them with scripts/download_models/download_other_models.py; see its README for setup.")
+        else:
+            print("Prepare the TAO artifacts and deepstream_tao_apps checkout before running.")
+        sys.exit(1)
+
+def prepare_ds_lpr_parser():
+    setup_command = (
+        "cd /working_dir/deepstream_tao_apps/apps/tao_others/deepstream_lpr_app/"
+        "nvinfer_custom_lpr_parser && make && "
+        "cp /working_dir/deepstream_tao_apps/apps/tao_others/deepstream_lpr_app/dict_us.txt "
+        "/working_dir/dict.txt"
+    )
+    result = subprocess.run(f'{deepstream_docker} "{setup_command}"', shell=True, check=False)  # nosec
+    if result.returncode != 0:
+        print("Error: Failed to prepare the DeepStream LPR parser.")
+        sys.exit(1)
 
 # Check for Intel and Nvidia hardware
 lspci_output=os.popen("lspci -nn").read().split("\n")
@@ -164,17 +152,7 @@ def print_nvidia_detected():
     print("---------------------------------------\n")
 
 def run_dlstreamer_pipeline():
-    """Downloads models if needed and run DL Streamer pipeline"""
-    # Check if there are models in current directory and download if necessary
-    if not os.path.exists(f"{cwd}/public/yolov8_license_plate_detector"):
-        print("Downloading DL Streamer models....\n")
-        command=f"{dlstreamer_docker} \"python3 -m venv ~/other_models_venv && "
-        command+="~/other_models_venv/bin/pip install -r "
-        command+="/opt/intel/dlstreamer/scripts/download_models/requirements_download_other_models.txt && "
-        command+="~/other_models_venv/bin/python /opt/intel/dlstreamer/scripts/download_models/download_other_models.py "
-        command+="yolov8_license_plate_detector,ch_PP-OCRv4_rec_infer \""
-        os.system(command) # nosec
-
+    """Run the DL Streamer pipeline."""
     dls_pipeline = dlstreamer_pipelines[pipeline]
     print(f"DL STREAMER PIPELINE:\n{dls_pipeline}\n\n")
     with subprocess.Popen(f"{dlstreamer_docker} \"{dls_pipeline}\"", shell=True, # nosec
@@ -183,15 +161,7 @@ def run_dlstreamer_pipeline():
             print(f"[DL Streamer] {line.rstrip()}")
 
 def run_deepstream_pipeline():
-    """Downloads models if needed and run DeepStream pipeline"""
-    # Check if there are models in current directory and download if necessary
-    if not os.path.exists(f"{cwd}/deepstream_tao_apps"):
-        print("Downloading DeepStream models....\n")
-        command=f"{deepstream_docker}"
-        command=command.replace("\n", " ")
-        command+=f" \"{DEEPSTREAM_SETUP_LPR}\""
-        os.system(command) # nosec
-
+    """Run the DeepStream pipeline."""
     ds_pipeline = deepstream_pipelines[pipeline]
     print(f"DEEPSTREAM PIPELINE:\n{ds_pipeline}\n\n")
     with subprocess.Popen(f"{deepstream_docker} \"{ds_pipeline}\"", shell=True, # nosec
@@ -204,6 +174,25 @@ def replace_in_dlstreamer_pipeline(from_str, to_str):
     NPU or CPU execution."""
     dlstreamer_pipelines[pipeline] = re.sub(f"{from_str}", f"{to_str}",
     dlstreamer_pipelines[pipeline])
+
+if INTEL_GPU or INTEL_NPU or INTEL_CPU:
+    require_model_files("DL Streamer", [
+        "public/yolov8_license_plate_detector/FP32/yolov8_license_plate_detector.xml",
+        "public/ch_PP-OCRv4_rec_infer/FP32/ch_PP-OCRv4_rec_infer.xml",
+    ])
+
+if NVIDIA_GPU:
+    require_model_files("DeepStream", [
+        "deepstream_tao_apps/models/trafficcamnet/resnet18_trafficcamnet_pruned.onnx",
+        "deepstream_tao_apps/models/trafficcamnet/resnet18_trafficcamnet_pruned_int8.txt",
+        "deepstream_tao_apps/models/LPD_us/LPDNet_usa_pruned_tao5.onnx",
+        "deepstream_tao_apps/models/LPD_us/usa_cal_10.1.0.bin",
+        "deepstream_tao_apps/models/LPD_us/usa_lpd_label.txt",
+        "deepstream_tao_apps/models/LPR_us/us_lprnet_baseline18_deployable.onnx",
+        "deepstream_tao_apps/models/LPR_us/labels_us.txt",
+        "deepstream_tao_apps/apps/tao_others/deepstream_lpr_app/dict_us.txt",
+    ])
+    prepare_ds_lpr_parser()
 
 # Run pipeline
 if NVIDIA_GPU and INTEL_GPU:

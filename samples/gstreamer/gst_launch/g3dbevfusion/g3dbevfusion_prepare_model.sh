@@ -32,7 +32,7 @@ Usage:
                     pipeline, as published on PyPI, for example 2026.5.0. It must
                     be 2026.5.0 or later: on earlier releases the OpenVINO GPU
                     plugin miscomputes the detection head (CVS-199050). A
-                    pre-release such as 2026.5.0rc1 or 2026.5.0.dev20261030 is
+                    pre-release such as 2026.5.0rc2 or 2026.5.0.dev20261030 is
                     accepted too, for a DL Streamer built on an OpenVINO nightly;
                     set PIP_EXTRA_INDEX_URL to the index that has it (for example
                     https://storage.openvinotoolkit.org/simple/wheels/nightly).

@@ -8,7 +8,7 @@
 # ==============================================================================
 
 param(
-    [Alias("S")]  [string]$Source          = "https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4",
+    [Alias("S")]  [string]$Source          = "",
     [Alias("D")]  [string]$Device          = "CPU",
     [Alias("P")]  [string]$Prompt          = "Describe what you see in this video.",
     [Alias("F")]  [string]$FrameRate       = "1",
@@ -29,7 +29,7 @@ function Show-Usage {
     Write-Host "Video Summarization with MiniCPM-V, Phi-4-multimodal-instruct or Gemma 3 model using gvagenai element"
     Write-Host ""
     Write-Host "Options:"
-    Write-Host "  -Source FILE/URL/CAMERA        Input source (file path, URL, or 'camera'/webcam device index)"
+    Write-Host "  -Source FILE/URL/CAMERA        Required input source (file path, URL, or 'camera'/webcam device index)"
     Write-Host "  -Device DEVICE                 Inference device (CPU, GPU, NPU, or indexed GPU like GPU.0). Default: CPU"
     Write-Host "  -Prompt TEXT                   Text prompt for the model"
     Write-Host "  -FrameRate RATE                Frame sampling rate (fps). Default: 1"
@@ -62,6 +62,11 @@ function Show-Usage {
 if ($Help) {
     Show-Usage
     exit 0
+}
+
+if ([string]::IsNullOrWhiteSpace($Source)) {
+    Write-Host "ERROR: Input source is required. Pass -Source with a local video path, URL, or camera." -ForegroundColor Red
+    exit 1
 }
 
 # Check if GENAI_MODEL_PATH is set

@@ -92,15 +92,10 @@ from the model-download environment.
 > **Note:** the sample never downloads media or models. Prepare the input video and export
 > both models beforehand, as described below.
 
-## Download Video
+## Video Input
 
-Download an example self-checkout video file:
+Use any local video supported by GStreamer that shows a checkout interaction; the example filename is illustrative. Pass the file with `--video-path`.
 
-```bash
-curl -L -o checkout.mp4 "https://www.pexels.com/download/video/35256160"
-```
-
-Pass the file with `--video-path`.
 
 ## Prepare Models
 

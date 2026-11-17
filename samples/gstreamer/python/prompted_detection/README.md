@@ -46,14 +46,8 @@ Streamer natively and skipped them, see
 [Step 9: Install Python dependencies](../../../../docs/user-guide/dev_guide/advanced_install/advanced_install_guide_compilation.md#step-9-install-python-dependencies-optional)
 in the Advanced Install Guide. The Docker image already includes them.
 
-### Download Video
-
-Download example video file:
-
-```sh
-curl -L -o 1192116-sd_640_360_30fps.mp4 \
-    "https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4"
-```
+### Input Video
+Use any local video supported by GStreamer and pass its path with `--input`. A clip containing the prompted object classes is useful for this example.
 
 ### Prepare Model
 
@@ -65,7 +59,7 @@ Use the [Ultralytics model conversion](../../../../scripts/download_models/READM
 
 ```sh
 python3 prompted_detection.py \
-    --input 1192116-sd_640_360_30fps.mp4 \
+    --input /path/to/video.mp4 \
     --prompt "person"
 ```
 

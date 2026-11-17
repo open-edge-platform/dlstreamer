@@ -17,10 +17,7 @@ Pipeline elements:
 
 ## Models
 
-- **yolov8_license_plate_detector** - YOLOv8-based license plate detector
-- **ch_PP-OCRv4_rec_infer** - PaddlePaddle OCR V4 recognition model
-
-> **NOTE**: Prepare required models with [`download_other_models.py`](../../../../../scripts/download_models/download_other_models.py) `yolov8_license_plate_detector,ch_PP-OCRv4_rec_infer` before using this sample.
+The example uses `yolov8_license_plate_detector` and `ch_PP-OCRv4_rec_infer` for plate detection and OCR. Other compatible detector/recognizer pairs can be used by updating their model paths and matching model-proc configuration. Prepare the example pair with the general [`download_other_models.py`](../../../../../scripts/download_models/README.md#4-other-public-models) helper, selecting `yolov8_license_plate_detector,ch_PP-OCRv4_rec_infer`.
 
 ## Environment Variables
 
@@ -32,6 +29,8 @@ Models should be located at:
 - `%MODELS_PATH%\public\yolov8_license_plate_detector\FP32\yolov8_license_plate_detector.xml`
 - `%MODELS_PATH%\public\ch_PP-OCRv4_rec_infer\FP32\ch_PP-OCRv4_rec_infer.xml`
 
+Use any video supported by the installed GStreamer plugins; the parking-video paths below are examples. A clip with visible license plates is useful for checking the result.
+
 ## Running
 
 ```PowerShell
@@ -39,7 +38,7 @@ Models should be located at:
 ```
 
 Parameters:
-- **-InputSource** - Input source (default: `https://github.com/open-edge-platform/edge-ai-resources/raw/main/videos/ParkingVideo.mp4`)
+- **-InputSource** - Required input video file path or URL
   - Local file path (e.g., `C:\videos\parking.mp4`)
   - URL (e.g., `https://...`)
 - **-Device** - Inference device (default: `GPU`)
@@ -58,9 +57,9 @@ Parameters:
 
 ## Examples
 
-### Use default settings (GitHub video, GPU, benchmark mode)
+### Run with a local video (GPU, benchmark mode)
 ```PowerShell
-.\license_plate_recognition.ps1
+.\license_plate_recognition.ps1 -InputSource "C:\videos\parking.mp4"
 ```
 
 ### Display with real-time visualization

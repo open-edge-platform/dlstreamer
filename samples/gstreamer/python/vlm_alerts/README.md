@@ -49,16 +49,11 @@ The conversion script automatically selects compatible Hugging Face package vers
 temporary virtual environment when a model requires them; other export dependencies are reused
 from the model-download environment.
 
-## Download Video
+## Video Input
 
-Download an example video file:
+Use any local video supported by GStreamer that contains the events or objects described by the alert rules. Pass its path with `--video-path`.
 
-```code
-curl -L -o 2103099-hd_1280_720_60fps.mp4 \
-    "https://videos.pexels.com/video-files/2103099/2103099-hd_1280_720_60fps.mp4"
-```
-
-Pass the file with `--video-path`. The flag is repeatable; extra inputs are only used by the
+The flag is repeatable; extra inputs are only used by the
 four-stream scenario (**`--stream-groups`**).
 
 ## Prepare Model
@@ -180,7 +175,7 @@ Run one video stream with an isolated model instance:
 
 ```code
 python3 vlm_alerts.py \
-    --video-path 2103099-hd_1280_720_60fps.mp4 \
+    --video-path /path/to/video.mp4 \
     --prompt "Is there a police car? Answer yes or no."
 ```
 
@@ -195,7 +190,7 @@ use **`model-instance-id=stream-grp-2`**.
 ```code
 python3 vlm_alerts.py \
     --stream-groups \
-    --video-path 2103099-hd_1280_720_60fps.mp4 \
+    --video-path /path/to/video.mp4 \
     --prompt "Is there a police car? Answer yes or no."
 ```
 

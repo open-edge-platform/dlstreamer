@@ -21,7 +21,11 @@ This sample builds a GStreamer pipeline of the following elements:
 **Sink**: `fakesink` (default) or `gvafpscounter` for performance measurement.
 
 ## Model
-The sample uses the following models with OpenVINO™ format:
+Use any video supported by the installed GStreamer plugins. The examples use `C:\videos\sample.mp4`; it is not a required clip. The model can be any compatible CLIP image encoder in OpenVINO format; the models below are examples.
+
+Prepare the example Hugging Face models with the general [`download_hf_models.py`](../../../../../scripts/download_models/README.md#1-hugging-face-conversion) helper, selecting the matching model ID, for example `openai/clip-vit-large-patch14`.
+
+The sample supports these models in OpenVINO™ format; pass the converted directory name (with the `openai_` prefix) to `-Model`:
 - [`clip-vit-large-patch14`](https://huggingface.co/openai/clip-vit-large-patch14)
 - [`clip-vit-base-patch16`](https://huggingface.co/openai/clip-vit-base-patch16)
 - [`clip-vit-base-patch32`](https://huggingface.co/openai/clip-vit-base-patch32)
@@ -64,14 +68,14 @@ $set MODELS_PATH = "C:\models"
 .\generate_frame_embedding.ps1 [-InputSource <path>] [-Device <device>] [-Precision <precision>] [-Model <model>] [-PreprocessBackend <backend>] [-OutputType <type>] [-FrameLimiter <element>]
 ```
 
-The sample takes the following *optional* parameters:
+The sample requires `-InputSource`; the other parameters are optional:
 
 | Parameter | Description | Default |
 | :--- | :--- | :--- |
-| -InputSource | Local file path or HTTPS URL | Pexels Video URL |
+| -InputSource | Local file path or HTTPS URL | required |
 | -Device | `CPU`, `GPU`, or `NPU` | `CPU` |
 | -Precision | `FP32`, `FP16`, or `INT8` | `FP32` |
-| -Model | CLIP model name (see above) | `clip-vit-large-patch14` |
+| -Model | CLIP model directory name (see above) | `openai_clip-vit-large-patch14` |
 | -PreprocessBackend | `ie`, `opencv`, `d3d11`, `d3d11-surface-sharing`, `d3d12` or `d3d12-surface-sharing` (D3D backends need GPU or NPU) | `opencv` for CPU; `d3d12-surface-sharing` for GPU; `d3d12` for NPU |
 | -OutputType | `json` (save embeddings) or `fps` (benchmark) | `json` |
 | -FrameLimiter | Optional GStreamer element to insert after decode | empty |
@@ -90,19 +94,19 @@ The sample:
 
 ## Example Usage
 
-Default execution (CPU, FP32, JSON output):
+Run with a local video (CPU, FP32, JSON output):
 ```PowerShell
-.\generate_frame_embedding.ps1
+.\generate_frame_embedding.ps1 -InputSource "C:\videos\sample.mp4"
 ```
 
 High-performance GPU inference (Intel® Arc™ GPU, FP16):
 ```PowerShell
-.\generate_frame_embedding.ps1 -InputSource "C:\you\video\path\sample.mp4" -Device GPU -Precision FP16 -Model clip-vit-large-patch14 -OutputType json
+.\generate_frame_embedding.ps1 -InputSource "C:\you\video\path\sample.mp4" -Device GPU -Precision FP16 -Model openai_clip-vit-large-patch14 -OutputType json
 ```
 
 Benchmark throughput (FPS mode):
 ```PowerShell
-.\generate_frame_embedding.ps1 -InputSource https://example.com/stream.mp4 -Device CPU -Precision FP32 -Model clip-vit-base-patch32 -PreprocessBackend opencv -OutputType fps
+.\generate_frame_embedding.ps1 -InputSource "C:\videos\sample.mp4" -Device CPU -Precision FP32 -Model openai_clip-vit-base-patch32 -PreprocessBackend opencv -OutputType fps
 ```
 
 Process only first 1000 frames (for testing):

@@ -11,13 +11,13 @@ Note that this sample doesn't contain .json files with post-processing rules as 
 
 ## Models
 
-The sample uses by default the following pre-trained models from OpenVINO™ Toolkit [Open Model Zoo](https://github.com/openvinotoolkit/open_model_zoo)
+The sample is configured with example models from different sources. `centerface` is converted from the upstream CenterFace project; the `dima806/*` models are from Hugging Face. The general model-preparation helpers convert them to OpenVINO IR; see [`scripts/download_models/README.md`](../../../../scripts/download_models/README.md).
 *   __centerface__ is primary detection network for finding faces and generates facial landmark points
 *   __dima806/facial_age_image_detection__ ageestimation on detected faces
 *   __dima806/fairface_gender_image_detection__ gender estimation on detected faces
 *   __dima806/face_emotions_image_detection__ emotions recognition
 
-> **NOTE**: Before running samples (including this one), prepare required models using scripts in `scripts/download_models` (see `scripts/download_models/README.md` for per-model commands and per-script venv setup).
+The listed models are examples used by this sample. Prepare compatible OpenVINO IR models before running; use the general helpers in [`scripts/download_models`](../../../../scripts/download_models/README.md) if conversion is needed. Changing models may require updating the paths and model-specific post-processing settings.
 
 ## Running
 
@@ -25,7 +25,7 @@ The sample uses by default the following pre-trained models from OpenVINO™ Too
 ./draw_face_attributes.sh [INPUT_VIDEO]
 ```
 
-If no input parameters specified, the sample by default streams video example from HTTPS link (utilizing `urisourcebin` element) so requires internet connection.
+`INPUT_VIDEO` is required. Use any local video, supported stream URL, or camera source; a clip containing faces is useful for this sample.
 The command-line parameter INPUT_VIDEO allows to change input video and supports
 * local video file
 * web camera device (ex. `/dev/video0`)
