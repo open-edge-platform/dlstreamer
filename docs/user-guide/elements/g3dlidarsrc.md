@@ -162,6 +162,8 @@ The chosen value is written to both `LidarMeta.exit_source_timestamp` and `GST_B
 
 With `ntp-sync=false` the PTS marks when the frame was **captured**, not when it left the element. A frame is only complete after its whole scan period (e.g. 100 ms at 10 Hz) plus decode and queueing, so using the dequeue time would place the LiDAR roughly one frame period later than a camera frame captured at the same instant. The backend reports the capture time on the host wall clock (see the `use_lidar_clock` contract in [g3d_lidar_backend_api.h](../../../include/dlstreamer/lidar/g3d_lidar_backend_api.h)) and the element converts it to running time. Which instant within the frame is reported depends on the backend (RoboSense: last point by default, first point with `params.ts_first_point=true`). If a backend reports a value that is not a recent host time, the element logs a warning once and falls back to the dequeue time.
 
+The LiDAR starts streaming when the element starts, but frames are only pushed once the pipeline is in `PLAYING`, which can take a while if another source is slow to open its device. With `ntp-sync=false`, frames captured before the pipeline reached `PLAYING` have no running time, so the element drops them rather than pushing a burst of stale frames. The first buffer is the first frame captured after `PLAYING`.
+
 
 
 ## Vendor backends

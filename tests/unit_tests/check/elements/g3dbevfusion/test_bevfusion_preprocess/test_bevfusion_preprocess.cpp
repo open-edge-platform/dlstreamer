@@ -165,33 +165,56 @@ GST_START_TEST(test_pack_geometry_layout) {
 GST_END_TEST;
 
 GST_START_TEST(test_pack_points_adds_zero_time_and_truncates) {
-    std::vector<float> in(static_cast<size_t>(kMaxPoints + 5) * 4);
+    const int max_points = 100;
+    std::vector<float> in(static_cast<size_t>(max_points + 5) * 4);
     for (size_t i = 0; i < in.size(); i++)
         in[i] = static_cast<float>(i % 97) + 1.0f;
-    std::vector<float> out(static_cast<size_t>(kMaxPoints) * kPointDims, -1.0f);
+    std::vector<float> out(static_cast<size_t>(max_points) * kPointDims, -1.0f);
 
-    ck_assert_int_eq(pack_points(in.data(), 2, 4, out.data()), 2);
+    ck_assert_int_eq(pack_points(in.data(), 2, 4, {}, max_points, out.data(), max_points), 2);
     for (int j = 0; j < 4; j++)
         assert_near(out[5 + j], in[4 + j], 0.0);
     assert_near(out[4], 0.0f, 0.0);
     assert_near(out[9], 0.0f, 0.0);
     assert_near(out[10], 0.0f, 0.0); /* padding */
 
-    ck_assert_int_eq(pack_points(in.data(), kMaxPoints + 5, 4, out.data()), kMaxPoints);
+    ck_assert_int_eq(pack_points(in.data(), max_points + 5, 4, {}, max_points, out.data(), 2), max_points);
+}
+GST_END_TEST;
+
+GST_START_TEST(test_pack_points_sweep_time_lags) {
+    const int max_points = 10;
+    std::vector<float> in(static_cast<size_t>(8) * 4, 1.0f);
+    std::vector<float> out(static_cast<size_t>(max_points) * kPointDims, -1.0f);
+    /* Three turns of 2, 0 and 3 points; the last 3 points are past them. */
+    const std::vector<LidarSweep> sweeps = {{2, 0.0f}, {0, 0.25f}, {3, 0.05f}};
+
+    ck_assert_int_eq(pack_points(in.data(), 8, 4, sweeps, max_points, out.data(), max_points), 8);
+    const float want[8] = {0.0f, 0.0f, 0.05f, 0.05f, 0.05f, 0.0f, 0.0f, 0.0f};
+    for (int i = 0; i < 8; i++)
+        assert_near(out[i * kPointDims + 4], want[i], 0.0);
+    assert_near(out[8 * kPointDims], 0.0f, 0.0); /* stale rows cleared */
+
+    /* A shorter frame only clears the rows the previous one used. */
+    std::fill(out.begin(), out.end(), -1.0f);
+    ck_assert_int_eq(pack_points(in.data(), 2, 4, sweeps, max_points, out.data(), 4), 2);
+    assert_near(out[3 * kPointDims], 0.0f, 0.0);
+    assert_near(out[4 * kPointDims], -1.0f, 0.0);
 }
 GST_END_TEST;
 
 GST_START_TEST(test_unpack_voxels) {
-    std::vector<float> result(static_cast<size_t>(kMaxVoxels + 1) * kVoxelColumns, 0.0f);
+    const int max_voxels = 50;
+    std::vector<float> result(static_cast<size_t>(max_voxels + 1) * kVoxelColumns, 0.0f);
     result[0] = 2.0f;
     const float v0[kVoxelColumns] = {1, 2, 3, 4, 0, 0, 100, 200, 30};
     const float v1[kVoxelColumns] = {5, 6, 7, 8, 0, 0, 101, 202, 31};
     std::copy(v0, v0 + kVoxelColumns, result.begin() + kVoxelColumns);
     std::copy(v1, v1 + kVoxelColumns, result.begin() + 2 * kVoxelColumns);
-    std::vector<float> features(static_cast<size_t>(kMaxVoxels) * 5, -1.0f);
-    std::vector<int32_t> coords(static_cast<size_t>(kMaxVoxels) * 4, -1);
+    std::vector<float> features(static_cast<size_t>(max_voxels) * 5, -1.0f);
+    std::vector<int32_t> coords(static_cast<size_t>(max_voxels) * 4, -1);
 
-    ck_assert_int_eq(unpack_voxels(result.data(), features.data(), coords.data()), 2);
+    ck_assert_int_eq(unpack_voxels(result.data(), max_voxels, features.data(), coords.data(), max_voxels), 2);
     assert_near(features[5], 5.0f, 0.0);
     assert_near(features[8], 8.0f, 0.0);
     ck_assert_int_eq(coords[0], 0);
@@ -269,6 +292,7 @@ static Suite *bevfusion_preprocess_suite(void) {
     tcase_add_test(tc, test_depth_maps_scatter_points);
     tcase_add_test(tc, test_pack_geometry_layout);
     tcase_add_test(tc, test_pack_points_adds_zero_time_and_truncates);
+    tcase_add_test(tc, test_pack_points_sweep_time_lags);
     tcase_add_test(tc, test_unpack_voxels);
     tcase_add_test(tc, test_decode_boxes);
     suite_add_tcase(s, tc);

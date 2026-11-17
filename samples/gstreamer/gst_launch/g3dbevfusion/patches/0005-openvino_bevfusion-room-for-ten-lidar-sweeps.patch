@@ -1,0 +1,194 @@
+openvino_bevfusion: make room for ten lidar sweeps.
+
+BEVFusion is trained on the nuScenes key frame plus its 9 previous lidar
+sweeps, with the time lag of each sweep as the 5th point column, but the
+export only accepts 70000 points and 60000 voxels: one sweep. Ten sweeps are
+up to 10 x 34752 points (32 beams x 1086 firings); on nuScenes mini they give
+83000 voxels on average and up to 136000.
+
+Accept 350000 points and 160000 voxels, BEVFusion's test-time max_voxels,
+and double the voxelize hash table to 2^18 slots so it stays at most ~60%
+full. run_inference_standalone.py and config.py load 9 sweeps, as the
+reference test pipeline does. The model weights are unchanged; a single
+sweep still runs exactly as before.
+
+Remove this patch once openvino_contrib carries an equivalent change.
+
+diff --git a/modules/openvino_bevfusion/bevfusion/config.py b/modules/openvino_bevfusion/bevfusion/config.py
+index 39423cbf4efface37e1e62a123a2ee9be9601a1a..f763b7b9319446e8c64abddc47c887c31de4e871 100644
+--- a/modules/openvino_bevfusion/bevfusion/config.py
++++ b/modules/openvino_bevfusion/bevfusion/config.py
+@@ -34,7 +34,7 @@ VOXEL_SIZE = np.array([0.075, 0.075, 0.2])
+ SPARSE_SHAPE = np.array([1440, 1440, 41])  # [X, Y, Z]
+ 
+ # Number of LiDAR sweeps to accumulate (fewer = faster, more = denser)
+-SWEEPS_NUM = 1
++SWEEPS_NUM = 9
+ 
+ # ── BEV / Depth ───────────────────────────────────────────────────────────────
+ D = 118   # depth bins
+diff --git a/modules/openvino_bevfusion/bevfusion/sparse_encoder_extension.py b/modules/openvino_bevfusion/bevfusion/sparse_encoder_extension.py
+index 1f71b3c4455b6034a8c6c39fc340d773eb74ff23..07f150bcddbb070694441939cdc67483270d0790 100644
+--- a/modules/openvino_bevfusion/bevfusion/sparse_encoder_extension.py
++++ b/modules/openvino_bevfusion/bevfusion/sparse_encoder_extension.py
+@@ -27,7 +27,7 @@ _EXT_DIR = Path(__file__).resolve().parent.parent / 'openvino_extensions' / 'spa
+ _EXT_LIB = _EXT_DIR / 'build' / 'libopenvino_sparse_encoder_extension.so'
+ 
+ # ── Architecture constants ─────────────────────────────────────────────────────
+-MAX_N         = 60000
++MAX_N         = 160000  # = voxelize MAX_VOXELS
+ NUM_FEATURES  = 5
+ BEV_C, BEV_H, BEV_W = 256, 180, 180
+ 
+diff --git a/modules/openvino_bevfusion/bevfusion/voxelize_extension.py b/modules/openvino_bevfusion/bevfusion/voxelize_extension.py
+index 149468425d8bed82250b77655be0d865409519ec..ba58f9206125eadc4483c0251bbe718c1493a5f7 100644
+--- a/modules/openvino_bevfusion/bevfusion/voxelize_extension.py
++++ b/modules/openvino_bevfusion/bevfusion/voxelize_extension.py
+@@ -29,8 +29,11 @@ _EXT_LIB = _EXT_DIR / 'build' / 'libopenvino_voxelize_extension.so'
+ _GPU_CFG = _EXT_DIR / 'voxelize_gpu.xml'
+ 
+ # ── Constants (must match GPU kernels and C++ ops) ─────────────────────────────
+-MAX_POINTS   = 70000
+-MAX_VOXELS   = 60000
++# Ten nuScenes turns (the key frame + 9 sweeps, as BEVFusion is trained) of at
++# most 32 beams x 1086 firings each; 160000 voxels is BEVFusion's test-time max_voxels.
++MAX_POINTS   = 350000
++MAX_VOXELS   = 160000
++HASH_SIZE    = 262144  # 2^18, keeps the table at most ~60% full
+ NUM_FEATURES = 5
+ 
+ HAS_VOXELIZE_EXTENSION = _EXT_LIB.exists()
+@@ -44,13 +47,13 @@ def _make_voxelize_ir() -> str:
+       2. VoxelizeMean    (custom) — workspace → mean features + coords
+ 
+     Inputs:
+-      0: points      [70000, 5]  FP32  (padded LiDAR points)
++      0: points      [MAX_POINTS, 5]  FP32  (padded LiDAR points)
+       1: num_points   [1]        I32   (actual point count)
+ 
+     Output:
+-      0: result       [60001, 9]  FP32  (row 0 = metadata, rest = features+coords)
++      0: result       [MAX_VOXELS + 1, 9]  FP32  (row 0 = metadata, rest = features+coords)
+     """
+-    ws_size = 1441793  # 1 + 131072*11
++    ws_size = 1 + HASH_SIZE * 11
+ 
+     return f"""\
+ <?xml version="1.0"?>
+diff --git a/modules/openvino_bevfusion/openvino_extensions/sparse_encoder/sparse_encoder_op.hpp b/modules/openvino_bevfusion/openvino_extensions/sparse_encoder/sparse_encoder_op.hpp
+index 8ba260b9bd40bda008c6eafe556693bebd60c8a7..731f1f6ba2a1695c4d364d9902f1b053f5d2ec46 100644
+--- a/modules/openvino_bevfusion/openvino_extensions/sparse_encoder/sparse_encoder_op.hpp
++++ b/modules/openvino_bevfusion/openvino_extensions/sparse_encoder/sparse_encoder_op.hpp
+@@ -28,7 +28,7 @@
+ namespace BEVFusionExtension {
+ 
+ // Fixed architecture constants
+-constexpr int64_t SPENC_MAX_N         = 60000;
++constexpr int64_t SPENC_MAX_N         = 160000;
+ constexpr int64_t SPENC_NUM_FEATURES  = 5;
+ constexpr int64_t SPENC_BEV_C         = 256;
+ constexpr int64_t SPENC_BEV_H         = 180;
+diff --git a/modules/openvino_bevfusion/openvino_extensions/voxelize/voxelize_mean.cl b/modules/openvino_bevfusion/openvino_extensions/voxelize/voxelize_mean.cl
+index a427576f81f7c4078ec234f8137eea0e516add76..20ea58632b37fd0d11e4997615aded5ef6352461 100644
+--- a/modules/openvino_bevfusion/openvino_extensions/voxelize/voxelize_mean.cl
++++ b/modules/openvino_bevfusion/openvino_extensions/voxelize/voxelize_mean.cl
+@@ -17,11 +17,11 @@
+  * Output: result    [MAX_VOXELS + 1, 9] float32
+  */
+ 
+-#define MAX_VOXELS          60000
++#define MAX_VOXELS          160000
+ #define MAX_POINTS_PER_VOX  10
+ #define NUM_FEATURES        5
+ #define FP_SCALE            4096
+-#define HASH_SIZE           131072
++#define HASH_SIZE           262144
+ #define HT_OFFSET           1
+ #define ENTRY_STRIDE        11
+ #define WG_SIZE             1024
+diff --git a/modules/openvino_bevfusion/openvino_extensions/voxelize/voxelize_op.hpp b/modules/openvino_bevfusion/openvino_extensions/voxelize/voxelize_op.hpp
+index 23da043f793b22497f95f609f4f8287a13970b5c..24f6a9416c6cf9aaa2a13138a4ce5051bc7a8aeb 100644
+--- a/modules/openvino_bevfusion/openvino_extensions/voxelize/voxelize_op.hpp
++++ b/modules/openvino_bevfusion/openvino_extensions/voxelize/voxelize_op.hpp
+@@ -19,17 +19,17 @@
+ namespace BEVFusionExtension {
+ 
+ // ── Constants (BEVFusion defaults) ───────────────────────────────────────────
+-constexpr int64_t VOXEL_MAX_POINTS   = 70000;   // max input point count
+-constexpr int64_t VOXEL_MAX_VOXELS   = 60000;   // max output voxel count
++constexpr int64_t VOXEL_MAX_POINTS   = 350000;  // max input point count (10 nuScenes turns)
++constexpr int64_t VOXEL_MAX_VOXELS   = 160000;  // max output voxel count
+ constexpr int64_t VOXEL_MAX_PTS_PER  = 10;      // max points per voxel
+ constexpr int64_t VOXEL_NUM_FEATURES = 5;       // x, y, z, intensity, timestamp
+-constexpr int64_t VOXEL_HASH_SIZE    = 131072;  // 2^17, open-address hash table
++constexpr int64_t VOXEL_HASH_SIZE    = 262144;  // 2^18, open-address hash table
+ constexpr int64_t VOXEL_FP_SCALE     = 4096;    // fixed-point scale
+ 
+ // Hash table entry stride (inline: key, feat*5, count, batch, x, y, z)
+ constexpr int64_t VOXEL_ENTRY_STRIDE     = 11;
+ constexpr int64_t VOXEL_HT_OFFSET        = 1;
+-constexpr int64_t VOXEL_WORKSPACE_SIZE   = 1 + VOXEL_HASH_SIZE * VOXEL_ENTRY_STRIDE; // 1441793
++constexpr int64_t VOXEL_WORKSPACE_SIZE   = 1 + VOXEL_HASH_SIZE * VOXEL_ENTRY_STRIDE; // 2883585
+ 
+ // Grid dimensions
+ constexpr int VOXEL_GRID_X = 1440;
+diff --git a/modules/openvino_bevfusion/openvino_extensions/voxelize/voxelize_scatter.cl b/modules/openvino_bevfusion/openvino_extensions/voxelize/voxelize_scatter.cl
+index c4547f57271d3fd7d8b30b070f0ace396ebdf0e7..535d87220be7ed5fcf02efb70da49430e33b9eb2 100644
+--- a/modules/openvino_bevfusion/openvino_extensions/voxelize/voxelize_scatter.cl
++++ b/modules/openvino_bevfusion/openvino_extensions/voxelize/voxelize_scatter.cl
+@@ -9,9 +9,9 @@
+  * Single work-group approach to avoid stale-buffer issue.
+  * GWS = LWS = 1024 (all WIs in one work-group).
+  *
+- * Phase 1: Zero entire workspace (each WI zeros ~1409 ints).
++ * Phase 1: Zero entire workspace (each WI zeros ~2816 ints).
+  * Barrier (CLK_GLOBAL_MEM_FENCE) — valid because single WG.
+- * Phase 2: Hash-insert all points (each WI processes ~68 points).
++ * Phase 2: Hash-insert all points (each WI processes up to ~342 points).
+  *
+  * Workspace layout (int32 flat buffer):
+  *   [0]:                        num_voxels counter
+@@ -31,15 +31,15 @@
+ #define RANGE_Z_MIN -5.0f
+ 
+ /* ── Workspace layout ── */
+-#define MAX_VOXELS          60000
++#define MAX_VOXELS          160000
+ #define MAX_POINTS_PER_VOX  10
+ #define NUM_FEATURES        5
+ #define FP_SCALE            4096
+-#define HASH_SIZE           131072
+-#define HASH_MASK           131071
++#define HASH_SIZE           262144
++#define HASH_MASK           262143
+ #define HT_OFFSET           1
+ #define ENTRY_STRIDE        11  /* key, feat*5, count, batch, x, y, z */
+-#define WORKSPACE_SIZE      1441793
++#define WORKSPACE_SIZE      2883585  /* 1 + HASH_SIZE * ENTRY_STRIDE */
+ #define WG_SIZE             1024
+ 
+ 
+diff --git a/modules/openvino_bevfusion/run_inference_standalone.py b/modules/openvino_bevfusion/run_inference_standalone.py
+index 668a32afb6263c902eaaac93a51200c73f1236c1..35e3c52aa7459c9c6b4860ef4bdd92645c981ee0 100644
+--- a/modules/openvino_bevfusion/run_inference_standalone.py
++++ b/modules/openvino_bevfusion/run_inference_standalone.py
+@@ -48,7 +48,7 @@ IMG_STD = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+ 
+ POINT_CLOUD_RANGE = np.array([-54.0, -54.0, -5.0, 54.0, 54.0, 3.0])
+ VOXEL_SIZE = np.array([0.075, 0.075, 0.2])
+-SWEEPS_NUM = 1
++SWEEPS_NUM = 9  # sweeps besides the key frame, as BEVFusion is trained
+ 
+ D = 118
+ C = 80
+@@ -69,8 +69,8 @@ OUT_SIZE_FACTOR = 8
+ POST_CENTER_RANGE = [-61.2, -61.2, -10.0, 61.2, 61.2, 10.0]
+ 
+ # Padding limits for custom ops
+-MAX_POINTS = 70000
+-MAX_VOXELS = 60000
++MAX_POINTS = 350000
++MAX_VOXELS = 160000
+ 
+ # ═══════════════════════════════════════════════════════════════════════════════
+ # Data loading

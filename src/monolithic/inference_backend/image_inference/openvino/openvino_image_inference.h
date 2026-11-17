@@ -4,6 +4,34 @@
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
+// OpenVinoImageInference: the OpenVINO implementation of InferenceBackend::ImageInference, created by the factory in
+// image_inference.cpp. Start here.
+//
+// Set-up (the constructor, in openvino_image_inference.cpp), in this order:
+//   1. PrepareModel()           ov::Model and config -> PreparedModel: reshape, layouts, pre-processing, batch size.
+//   2. CreateRemoteContext()    GPU surface sharing only: OpenVINO context made from the pipeline's VA-API/D3D context.
+//   3. CompileModelForDevice()  PreparedModel -> ov::CompiledModel on the device.
+//   4. One InferSlot per request: an infer request plus the batch of frames being filled for it. A slot is empty (in
+//      the InferSlotPool), being filled (current_slot_) or running inference.
+//
+// Run time:
+//   SubmitImage()        (openvino_image_inference_submit.cpp) takes the current slot, or waits for an empty one;
+//                        puts the frame into the slot's input tensors, by software pre-processing or with
+//                        ImageToTensorConverter, which wraps the image memory without copying it; starts the request
+//                        when the batch is full.
+//   completion callback  (openvino_image_inference.cpp, on an OpenVINO thread) passes the outputs and the frames on to
+//                        the callback, then FreeSlot() returns the slot to the pool.
+//   Flush(), Close()     (openvino_image_inference.cpp) start the partly filled batch and wait until no frame is in
+//                        flight.
+//
+// Modules. An arrow means "uses"; none of them includes this header.
+//   openvino_config_helper.h              typed view of the string-keyed InferenceConfig
+//   openvino_core.h                       the shared ov::Core and device queries
+//   openvino_prepared_model.*             -> config_helper, core
+//   openvino_model_compilation.*          -> prepared_model, config_helper, core
+//   openvino_image_to_tensor_converter.*  -> core
+//   infer_slot_pool.h                     the pool of empty slots; depends on nothing here
+//   openvino_formatters.h, openvino_blob_wrapper.h   fmt formatters; ov::Tensor as InputBlob/OutputBlob
 #pragma once
 
 #include "inference_backend/image_inference.h"
@@ -19,15 +47,17 @@
 #include <thread>
 
 #include "config.h"
-#include "safe_queue.h"
+#include "infer_slot_pool.h"
+#include "openvino_image_to_tensor_converter.h"
+#include "openvino_prepared_model.h"
 
-class OpenVINOImageInference : public InferenceBackend::ImageInference {
+class OpenVinoImageInference : public InferenceBackend::ImageInference {
   public:
-    OpenVINOImageInference(const InferenceBackend::InferenceConfig &config, InferenceBackend::Allocator *allocator,
+    OpenVinoImageInference(const InferenceBackend::InferenceConfig &config, InferenceBackend::Allocator *allocator,
                            dlstreamer::ContextPtr context, CallbackFunc callback, ErrorHandlingFunc error_handler,
                            InferenceBackend::MemoryType memory_type);
 
-    ~OpenVINOImageInference();
+    ~OpenVinoImageInference();
 
     void SubmitImage(IFrameBase::Ptr frame,
                      const std::map<std::string, InferenceBackend::InputLayerDesc::Ptr> &input_preprocessors) override;
@@ -53,9 +83,6 @@ class OpenVINOImageInference : public InferenceBackend::ImageInference {
     // True if the NPU plugin/driver can consume strided input tensors (NPU_ENABLE_STRIDES_FOR).
     static bool IsNpuStridedInputSupported();
 
-    // Batch size the backend uses when batch-size is 0 (auto): ov::optimal_batch_size, or 1 if not supported.
-    static int GetDeviceOptimalBatchSize(const std::string &device);
-
     bool IsQueueFull() override;
 
     void Flush() override;
@@ -63,53 +90,62 @@ class OpenVINOImageInference : public InferenceBackend::ImageInference {
     void Close() override;
 
   protected:
-    std::unique_ptr<class OpenVinoNewApiImpl> _impl;
-
-    struct BatchRequest {
-        ov::InferRequest infer_request_new;
+    struct InferSlot {
+        ov::InferRequest infer_request;
         std::vector<IFrameBase::Ptr> buffers;
         std::vector<ov::TensorVector> in_tensors;
 
-        void start_async() {
-            return this->infer_request_new.start_async();
+        void StartAsync() {
+            return infer_request.start_async();
         }
     };
 
-    void HandleError(const std::shared_ptr<BatchRequest> &request);
-    void WorkingFunction(const std::shared_ptr<BatchRequest> &request);
+    void HandleError(InferSlot *inference_slot);
+    void WorkingFunction(InferSlot *inference_slot);
 
     dlstreamer::ContextPtr context_;
-    InferenceBackend::MemoryType memory_type;
-    CallbackFunc callback;
-    ErrorHandlingFunc handleError;
+    InferenceBackend::MemoryType memory_type_;
+    CallbackFunc callback_;
+    ErrorHandlingFunc handle_error_;
 
-    std::string model_name;
-    std::string image_layer;
+    std::string model_path_;
+    InferenceBackend::OpenVino::PreparedModel prepared_model_;
+    ov::CompiledModel compiled_model_;
+    std::unique_ptr<InferenceBackend::OpenVino::ImageToTensorConverter> img_to_tensor_;
 
-    int batch_size;
-    int batch_timeout;
-    int nireq;
-    SafeQueue<std::shared_ptr<BatchRequest>> freeRequests;
+    std::string model_name_;
+    std::string image_layer_;
 
-    std::unique_ptr<InferenceBackend::ImagePreprocessor> pre_processor;
+    int batch_size_;
+    int batch_timeout_;
+    int nireq_;
+    // All slots live here for as long as the object does; everything else only points to them.
+    std::vector<std::unique_ptr<InferSlot>> inference_slots_;
+    // Empty slots only. A slot being filled is current_slot_; a slot running inference is in neither.
+    InferSlotPool<InferSlot *> free_slots_;
+    // The slot that takes the next frame, null if none. Written under requests_mutex_; atomic so that IsQueueFull() can
+    // read it without the lock.
+    std::atomic<InferSlot *> current_slot_{nullptr};
+
+    std::unique_ptr<InferenceBackend::ImagePreprocessor> pre_processor_;
 
     // Threading
     std::mutex requests_mutex_;
-    std::atomic<unsigned int> requests_processing_;
-    std::condition_variable request_processed_;
-    std::mutex flush_mutex;
+    std::atomic<unsigned int> frames_in_flight_;
+    std::condition_variable frames_done_;
+    std::mutex flush_mutex_;
 
   private:
-    void FreeRequest(std::shared_ptr<BatchRequest> request);
+    void FreeSlot(InferSlot *inference_slot);
     bool DoNeedImagePreProcessing(const InferenceBackend::ImagePtr src_img);
-    void SubmitImageProcessing(const std::string &input_name, std::shared_ptr<BatchRequest> request,
+    void SubmitImageProcessing(const std::string &input_name, InferSlot *inference_slot,
                                const InferenceBackend::Image &src_img,
                                const InferenceBackend::InputImageLayerDesc::Ptr &pre_proc_info,
                                const InferenceBackend::ImageTransformationParams::Ptr image_transform_info);
-    void BypassImageProcessing(const std::string &input_name, std::shared_ptr<BatchRequest> request,
+    void BypassImageProcessing(const std::string &input_name, InferSlot *inference_slot,
                                const InferenceBackend::Image &src_img, size_t batch_size);
-    void SetCompletionCallback(std::shared_ptr<BatchRequest> &batch_request);
+    void SetCompletionCallback(InferSlot *inference_slot);
     void
-    ApplyInputPreprocessors(std::shared_ptr<BatchRequest> &request,
+    ApplyInputPreprocessors(InferSlot *inference_slot,
                             const std::map<std::string, InferenceBackend::InputLayerDesc::Ptr> &input_preprocessors);
 };
