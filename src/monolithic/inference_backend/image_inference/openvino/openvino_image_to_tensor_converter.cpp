@@ -6,7 +6,8 @@
 
 // ImageToTensorConverter: how each image format and memory type maps to tensor shape, strides and ROI.
 // For DMA-BUF images, each pool buffer (identified by its DMA-BUF file descriptor, "fd") is imported into the NPU
-// once and the tensor is cached (see ImageRgbpDmabufToNpuTensor).
+// once and the tensor is cached (see ImageRgbpDmabufToNpuTensor). Likewise, each VA surface shared with the GPU is
+// imported once and its remote tensors are cached (see ImageNv12SurfaceToTensor).
 
 #include "openvino_image_to_tensor_converter.h"
 
@@ -166,9 +167,26 @@ std::vector<ov::Tensor> ImageToTensorConverter::ImageNv12ToTensor(const Image &i
     return {y_tensor, uv_tensor};
 }
 
+// Wrap a VA surface shared with the GPU as remote tensors (Y and UV planes), zero-copy.
+//
+// Fix for https://github.com/open-edge-platform/dlstreamer/issues/1240 (gvadetect stops the pipeline with
+// "vaSyncSurface ... failed" under multi-stream GPU load). Since OpenVINO 2026.4 the GPU plugin keeps the import of a
+// VA surface only as long as a remote tensor wrapping it is alive (openvinotoolkit/openvino#37379, #38686). Creating
+// new tensors for every frame therefore re-imported (VM_BIND) and released (VM_UNBIND) the surface on every inference;
+// besides the overhead, with many streams this churn triggered GPU page faults and a compute engine reset, after which
+// vaSyncSurface failed. The surfaces reaching this path are the VaApiImagePool buffers, which keep their identity for
+// the element lifetime and outlive this converter, so the tensors are created once per surface and cached. This is the
+// usage the OpenVINO GPU plugin expects, so the cache must stay even once the underlying driver issue is fixed.
 std::vector<ov::Tensor> ImageToTensorConverter::ImageNv12SurfaceToTensor(const Image &image) {
     if (!gpu_context_)
         throw std::runtime_error("VA surface sharing requires a GPU device with an OpenVINO™ remote context");
+
+    const VaSurfaceKey key{image.va_display, image.va_surface_id, image.width, image.height};
+    std::lock_guard<std::mutex> lock(va_surface_tensor_cache_mutex_);
+    const auto cached = va_surface_tensor_cache_.find(key);
+    if (cached != va_surface_tensor_cache_.end())
+        return cached->second;
+
     auto rmt_ctx = gpu_context_->remote_context();
     auto va_surface = image.va_surface_id;
     auto width = image.width;
@@ -181,7 +199,7 @@ std::vector<ov::Tensor> ImageToTensorConverter::ImageNv12SurfaceToTensor(const I
     tensor_params[ov::intel_gpu::va_plane.name()] = uint32_t(1);
     auto uv_tensor = rmt_ctx.create_tensor(ov::element::u8, {1, height / 2, width / 2, 2}, tensor_params);
 
-    return {y_tensor, uv_tensor};
+    return va_surface_tensor_cache_.emplace(key, std::vector<ov::Tensor>{y_tensor, uv_tensor}).first->second;
 }
 
 // D3D11/D3D12 BGRA/RGBA texture wrapped via OpenCL interop by the producer.
