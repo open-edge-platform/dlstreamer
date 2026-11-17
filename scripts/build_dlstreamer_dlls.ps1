@@ -20,7 +20,7 @@ param(
 )
 
 $GSTREAMER_VERSION = "1.28.8"
-$OPENVINO_NIGHTLY_VERSION = "2026.5.0.0.dev20261030"
+$OPENVINO_NIGHTLY_VERSION = "2026.5.0.0rc2"
 $PYTHON_VERSION = "3.12.7"
 $OPENVINO_DEST_FOLDER = "$env:LOCALAPPDATA\Programs\openvino"
 $GSTREAMER_DEST_FOLDER = "$env:ProgramFiles\gstreamer\1.0\msvc_x86_64"
@@ -429,7 +429,7 @@ if ($OPENVINO_NEEDS_INSTALL) {
 
 	$OPENVINO_INSTALLER = "${DLSTREAMER_TMP}\openvino_genai_windows_${OPENVINO_NIGHTLY_VERSION}_x86_64.zip"
 	Write-Host "Downloading OpenVINO GenAI nightly ${OPENVINO_NIGHTLY_VERSION}..."
-	Invoke-DownloadFile -OutFile $OPENVINO_INSTALLER -Uri "https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/nightly/${OPENVINO_NIGHTLY_VERSION}/openvino_genai_windows_${OPENVINO_NIGHTLY_VERSION}_x86_64.zip"
+	Invoke-DownloadFile -OutFile $OPENVINO_INSTALLER -Uri "https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/pre-release/${OPENVINO_NIGHTLY_VERSION}/openvino_genai_windows_${OPENVINO_NIGHTLY_VERSION}_x86_64.zip"
 
 	Write-Host "Extracting OpenVINO GenAI nightly ${OPENVINO_NIGHTLY_VERSION}..."
 	# The archive's top-level folder is named after the nightly version with
