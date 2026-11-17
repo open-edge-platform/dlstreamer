@@ -2,9 +2,11 @@ openvino_bevfusion fixes that g3dbevfusion relies on: detection head weights,
 sparse encoder layout, OpenVINO 2026 compatibility and checkpoint sanitizing.
 
 Squashed from https://github.com/openvinotoolkit/openvino_contrib/pull/1197
-(head 1d7ca25ae8d53ea510c19b47bb16061b834e2104), against openvino_contrib
-master 192fffa4a6533502d1a523e7853f5d982be57dd8. Remove this patch once the
-PR is merged and g3dbevfusion_prepare.sh pins a commit that contains it.
+(head 1d7ca25ae8d53ea510c19b47bb16061b834e2104, without 824938c4, its
+workaround for the OpenVINO GPU ScatterNDUpdate bug CVS-199050, which
+OpenVINO 2026.5.0 fixes), against openvino_contrib master
+192fffa4a6533502d1a523e7853f5d982be57dd8. Remove this patch once the PR is
+merged and g3dbevfusion_prepare_model.sh pins a commit that contains it.
 
 diff --git a/modules/openvino_bevfusion/bevfusion/sparse_encoder_extension.py b/modules/openvino_bevfusion/bevfusion/sparse_encoder_extension.py
 index 606b299add30372a91c55df0af0b7e4aa222a625..1f71b3c4455b6034a8c6c39fc340d773eb74ff23 100644
@@ -34,7 +36,7 @@ index 606b299add30372a91c55df0af0b7e4aa222a625..1f71b3c4455b6034a8c6c39fc340d773
  
  def pack_sparse_encoder_weights(weights_dir: str) -> np.ndarray:
 diff --git a/modules/openvino_bevfusion/export.py b/modules/openvino_bevfusion/export.py
-index db916883f58354383075ca8581a3b51c0ec23c8e..d025ec295a715f730b4ace9cf7f872341842cd1c 100644
+index db916883f58354383075ca8581a3b51c0ec23c8e..f803efedda0782f9d7b7264bfefbcc86f6e84538 100644
 --- a/modules/openvino_bevfusion/export.py
 +++ b/modules/openvino_bevfusion/export.py
 @@ -38,6 +38,7 @@ import argparse
@@ -152,7 +154,7 @@ index db916883f58354383075ca8581a3b51c0ec23c8e..d025ec295a715f730b4ace9cf7f87234
  # ============================================================================
  
 +# Buffers computed at construction time rather than read from the checkpoint.
-+TRANSFUSION_COMPUTED_BUFFERS = {'bev_pos', 'nms_interior', 'nms_exempt_class'}
++TRANSFUSION_COMPUTED_BUFFERS = {'bev_pos'}
 +
 +# The checkpoint stores the decoder layer with mmcv BaseTransformerLayer naming
 +# (mmdet's DetrTransformerDecoderLayer), while the module below is written with
@@ -201,54 +203,7 @@ index db916883f58354383075ca8581a3b51c0ec23c8e..d025ec295a715f730b4ace9cf7f87234
              q2, _ = self.multihead_attn(q, k, v)
              query2 = query2 + q2.permute(1, 2, 0)
              query2 = self.norm2(query2.permute(0, 2, 1)).permute(0, 2, 1)
-@@ -738,6 +812,13 @@ def build_transfusion_head(state_dict, prefixes):
-             batch_y = batch_y + 0.5
-             coord = torch.cat([batch_x[None], batch_y[None]], dim=0)[None]
-             self.register_buffer('bev_pos', coord.view(1, 2, -1).permute(0, 2, 1))
-+            pad = self.nks // 2
-+            interior = torch.zeros(1, 1, xs, ys)
-+            interior[:, :, pad:xs - pad, pad:ys - pad] = 1.0
-+            self.register_buffer('nms_interior', interior)
-+            exempt = torch.zeros(1, self.nc, 1, 1)
-+            exempt[:, 8:10] = 1.0
-+            self.register_buffer('nms_exempt_class', exempt)
- 
-         def forward(self, bev_features):
-             B = bev_features.shape[0]
-@@ -747,16 +828,22 @@ def build_transfusion_head(state_dict, prefixes):
-             x = F.relu(x)
-             dense_heatmap = self.heatmap_head[1](x)
-             heatmap = dense_heatmap.detach().sigmoid()
--            pad = self.nks // 2
--            local_max = torch.zeros_like(heatmap)
--            local_max_inner = F.max_pool2d(heatmap, kernel_size=self.nks, stride=1,
--                                           padding=0)
--            local_max[:, :, pad:(-pad), pad:(-pad)] = local_max_inner
--            local_max[:, 8] = F.max_pool2d(heatmap[:, 8:9], kernel_size=1, stride=1,
--                                           padding=0)[:, 0]
--            local_max[:, 9] = F.max_pool2d(heatmap[:, 9:10], kernel_size=1, stride=1,
--                                           padding=0)[:, 0]
--            heatmap = heatmap * (heatmap == local_max)
-+            # Local-max suppression, as in the reference: a cell survives if it
-+            # is the maximum of its nks x nks window; cells in the outer
-+            # nks//2 border never survive (the reference compares them against
-+            # a zero-filled local_max, and sigmoid is never 0); classes 8 and 9
-+            # (pedestrian, traffic_cone) use a 1x1 window, i.e. no suppression.
-+            #
-+            # The reference builds local_max with slice assignments into a
-+            # zeros_like() tensor. Those export as ScatterNDUpdate, which the
-+            # OpenVINO GPU plugin computes incorrectly in this graph (seen on
-+            # 2025.4 and 2026.3: the queries are then taken from the BEV corner
-+            # and every score is ~0). Express the same result with masks only.
-+            pooled = F.max_pool2d(heatmap, kernel_size=self.nks, stride=1,
-+                                  padding=self.nks // 2)
-+            keep = (heatmap == pooled).float() * self.nms_interior
-+            keep = torch.maximum(keep, self.nms_exempt_class)
-+            heatmap = heatmap * keep
-             feat_flat = fusion_feat.view(B, self.hc, -1)
-             hm_flat = heatmap.view(B, self.nc, -1)
-             hm_all = hm_flat.view(B, -1)
-@@ -791,13 +878,25 @@ def build_transfusion_head(state_dict, prefixes):
+@@ -791,13 +865,25 @@ def build_transfusion_head(state_dict, prefixes):
      loaded = 0
      for k, v in state_dict.items():
          if k.startswith(prefix):
@@ -275,7 +230,7 @@ index db916883f58354383075ca8581a3b51c0ec23c8e..d025ec295a715f730b4ace9cf7f87234
      return head
  
  
-@@ -825,7 +924,12 @@ class CameraEncoderMerged(nn.Module):
+@@ -825,7 +911,12 @@ class CameraEncoderMerged(nn.Module):
      def forward(self, images, depth_maps):
          cam_feats = self.backbone_neck(images)       # [B,256,32,88]
          depth_feats = self.dtransform(depth_maps)     # [B,64,32,88]
@@ -289,7 +244,7 @@ index db916883f58354383075ca8581a3b51c0ec23c8e..d025ec295a715f730b4ace9cf7f87234
          daf = self.depthnet(combined)                 # [B,198,32,88]
          depth_logits = daf[:, :D_BINS]                # [B,118,32,88]
          context_feats = daf[:, D_BINS:]               # [B,80,32,88]
-@@ -1082,7 +1186,7 @@ def optimize_full_detection_topk(output_dir: Path):
+@@ -1082,7 +1173,7 @@ def optimize_full_detection_topk(output_dir: Path):
      full_detection_original.xml.
      """
      import openvino as ov
@@ -298,7 +253,7 @@ index db916883f58354383075ca8581a3b51c0ec23c8e..d025ec295a715f730b4ace9cf7f87234
  
      xml_path = output_dir / 'full_detection.xml'
      if not xml_path.exists():
-@@ -1280,7 +1384,11 @@ def main():
+@@ -1280,7 +1371,11 @@ def main():
      else:
          print(f"\n[A1] Camera Backbone + Neck (SwinT + FPN)")
          cam_model = CameraBackboneNeck()
