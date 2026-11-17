@@ -24,9 +24,9 @@ if(DLSTREAMER_BASE_DIR)
         ${DLSTREAMER_BASE_DIR}/include
     )
     if(WIN32)
-        find_package(OpenCV CONFIG REQUIRED COMPONENTS core imgproc)
+        find_package(OpenCV 5.1.0 CONFIG REQUIRED COMPONENTS core imgproc)
     else()
-        find_package(OpenCV CONFIG REQUIRED COMPONENTS core imgproc
+        find_package(OpenCV 5.1.0 CONFIG REQUIRED COMPONENTS core imgproc
             PATHS "${CMAKE_BINARY_DIR}/deps/opencv-bin/lib/cmake/opencv5"
         )
     endif()
@@ -36,7 +36,7 @@ else()
     # (done by build_and_run.sh or setup_dls_env.sh).
     set(DLSTREAMER_INSTALL_DIR "/opt/intel/dlstreamer")
     set(DLSTREAMER_INCLUDE_DIRS ${DLSTREAMER_INSTALL_DIR}/include)
-    find_package(OpenCV CONFIG REQUIRED COMPONENTS core imgproc
+    find_package(OpenCV 5.1.0 CONFIG REQUIRED COMPONENTS core imgproc
         PATHS "${DLSTREAMER_INSTALL_DIR}/opencv/lib/cmake/opencv5"
     )
 endif()
