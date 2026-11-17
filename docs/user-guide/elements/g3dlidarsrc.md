@@ -6,7 +6,7 @@ Captures real-time point clouds from a physical LiDAR device and emits `applicat
 
 The `g3dlidarsrc` element is the live-capture counterpart to `g3dlidarparse`. Where `g3dlidarparse` replays recorded BIN/PCD frames from disk, `g3dlidarsrc` receives UDP packets directly from a sensor, decodes them via the vendor SDK, and converts the resulting frames into dense point-cloud buffers.
 
-It is implemented as a `GstPushSrc` live source. The current backend is **RoboSense** (via the header-only `rs_driver` SDK), and the only hardware tested so far is the **RSE1 (E1R)**. Other RoboSense models that `rs_driver` advertises support for (RS16, RS32, RS128, RSM1, etc.) are not validated here. The element has **no compile-time dependency** on any vendor SDK: each vendor is a separate backend shared library that the element loads at runtime via `dlopen`, selected by the config's `vendor` field (see [Vendor backends](#vendor-backends) below).
+It is implemented as a `GstPushSrc` live source. Two backends are available: **RoboSense** (via the header-only `rs_driver` SDK; hardware tested: **RSE1 (E1R)** — other RoboSense models that `rs_driver` advertises support for (RS16, RS32, RS128, RSM1, etc.) are not validated here) and **Livox** (via Livox-SDK2; hardware tested: **Mid-360S**). The element has **no compile-time dependency** on any vendor SDK: each vendor is a separate backend shared library that the element loads at runtime via `dlopen`, selected by the config's `vendor` field (see [Vendor backends](#vendor-backends) below).
 
 Key operations:
 - **Configuration-driven setup**: A JSON `config` file declares the `vendor`, `model`, and `transport`. 
@@ -52,7 +52,7 @@ A key principle: `transport` only carries fields whose meaning is vendor-neutral
 
 | Field       | Required | Description                                                                                                                                                                              |
 |-------------|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `vendor`    | Yes      | Vendor identity; selects the SDK backend. Currently only `robosense` is implemented.                                                                                                      |
+| `vendor`    | Yes      | Vendor identity; selects the SDK backend. Implemented: `robosense`, `livox`.                                                                                                              |
 | `model`     | Yes      | Device model within that vendor.                                                  |
 | `transport` | Yes      | Object describing how data is transported (vendor-neutral). The `type` field is a discriminator that determines which sub-fields apply.                                                   |
 | `params`    | No       | Free-form object for vendor/model-specific extras (port numbers, SDK options, ...). It is not interpreted by the generic parser and is passed through to the corresponding vendor backend. |
@@ -89,6 +89,28 @@ The fields below are validated on the only model we have tested (**RSE1**).
 | `wait_for_difop`  | decoder | boolean | `true`   | If `true`, the SDK suppresses point clouds until it has seen at least one DIFOP packet (so calibration/temperature/clock info is available). Set to `false` only for debugging when you know DIFOP is missing and want raw points anyway.                  |
 
 
+### Livox `params` (`vendor = "livox"`)
+
+Supported `model` values: `MID360`, `MID360S`, `HAP` (only **MID360S** is validated on hardware). The model matters: Livox-SDK2 only talks to devices whose type matches the configured model, so a Mid-360S configured as `MID360` is silently ignored and the pipeline times out.
+
+For Livox, `transport.bind_address` is **required** and must be the IPv4 address of the local NIC connected to the LiDAR (e.g. `192.168.1.50`), not `0.0.0.0`: Livox-SDK2 binds to it *and* tells the LiDAR to stream to it. The backend uses the Livox factory UDP ports (LiDAR 56100/56200/56300/56400/56500, host 56101/56201/56301/56401/56501) in unicast mode.
+
+Every key is optional; unknown keys fail the pipeline with an error listing the accepted keys.
+
+| Key               | Type    | Default | Description                                                                                                                                                                                                                                                                                                  |
+|-------------------|---------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `lidar_ip`        | string  | —       | IPv4 address of the LiDAR to stream from. If omitted, the first LiDAR discovered on the network is used and any other one is ignored (with a warning).                                                                                                                                                      |
+| `frame_period_ms` | int     | `100`   | Frame length in ms (10–10000). Livox-SDK2 delivers ~96-point UDP packets, so the backend assembles frames itself: a frame is cut when a point crosses a `frame_period_ms` boundary of the **device clock**. When the LiDAR is time-synchronized (PPS/GPS or PTP), boundaries are aligned to whole seconds. |
+| `min_range`       | number  | `0.0`   | Minimum point distance in metres (`0.0` disables).                                                                                                                                                                                                                                                         |
+| `max_range`       | number  | `0.0`   | Maximum point distance in metres (`0.0` disables).                                                                                                                                                                                                                                                         |
+| `sdk_log`         | boolean | `false` | Keep Livox-SDK2's console logging enabled (useful when the device is not discovered).                                                                                                                                                                                                                       |
+
+Livox specifics:
+- Points are output in metres in the LiDAR frame (x forward, y left, z up); intensity is the Livox reflectivity (0–255). Points without a return (`0,0,0`) are dropped.
+- The frame timestamp is the frame **start**: on the device clock with `ntp-sync=true`, otherwise converted to host `CLOCK_REALTIME` using the observed device-to-host offset.
+- The first (incomplete) frame after start, and frames around a device clock jump (e.g. when time sync is acquired), are dropped.
+- The backend surfaces a warning when the LiDAR reports `cur_work_state = ERROR` (e.g. scan-module HMS faults, during which no points are sent). Power-cycling the LiDAR usually recovers it.
+- Livox-SDK2 is a process-wide singleton, so only one Livox `g3dlidarsrc` per process is supported.
 
 
 ## Pipeline Examples
@@ -223,6 +245,22 @@ There are two ways to provide the `rs_driver` source it compiles against. **If i
   The helper is idempotent, so re-running it after a `git clean` is safe.
 
 - **Option B — let CMake do it (default).** Don't set `RS_DRIVER_SRC_DIR`. The first `cmake ..` with `ENABLE_LIDAR_ROBOSENSE=ON` automatically clones the pinned commit, applies the patches, and configures the build. One-time network download; nothing else to do.
+
+### Livox backend (Livox-SDK2)
+
+The Livox backend ([backends/livox/](../../../src/monolithic/gst/3d_elements/g3dlidarsrc/backends/livox/)) is built by the `g3dlidar_livox` target, gated by the `ENABLE_LIDAR_LIVOX` option (default OFF), producing `libg3dlidar_livox.so` (Linux only). Only Livox-SDK2's static library is built (position-independent, no samples, no install step) and linked privately into the backend; its symbols (including its bundled spdlog) are not exported.
+
+```bash
+# From the DL Streamer root
+make build ENABLE_LIDAR_LIVOX=ON
+```
+
+Livox-SDK2 sources are obtained like rs_driver:
+
+- **Option A — bring your own.** Point `LIVOX_SDK2_SRC_DIR` (CMake or environment variable) at a Livox-SDK2 checkout matching `LIVOX_SDK2_VERSION` in the backend's [CMakeLists.txt](../../../src/monolithic/gst/3d_elements/g3dlidarsrc/backends/livox/CMakeLists.txt).
+- **Option B — default.** Leave it unset; the pinned revision is cloned at build time.
+
+Host network setup (Mid-360/Mid-360S factory defaults): give the NIC connected to the LiDAR a static address in `192.168.1.0/24` (Livox tools default to `192.168.1.50`) and use it as `transport.bind_address`. Example config: [configs/livox_mid360s_udp.json](../../../src/monolithic/gst/3d_elements/g3dlidarsrc/configs/livox_mid360s_udp.json).
 
 ### Adding a new vendor
 

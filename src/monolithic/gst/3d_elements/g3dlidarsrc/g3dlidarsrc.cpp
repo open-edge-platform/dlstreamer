@@ -154,7 +154,7 @@ static void gst_g3d_lidar_src_class_init(GstG3DLidarSrcClass *klass) {
     g_object_class_install_property(
         gobject_class, PROP_NTP_SYNC,
         g_param_spec_boolean("ntp-sync", "NTP Sync",
-                             "Timestamp source for buffer PTS (TRUE = LiDAR clock from DIFOP, "
+                             "Timestamp source for buffer PTS (TRUE = LiDAR device clock reported by the backend, "
                              "FALSE = pipeline running time of the frame capture, starts from 0 at PLAYING)",
                              DEFAULT_NTP_SYNC, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
@@ -361,10 +361,10 @@ static void on_cloud_cb(void *user, const g3d_lidar_frame *frame) {
     self->priv->queue_cond.notify_one();
 }
 
-/* Shim error callback: surface rs_driver exceptions as element warnings. */
+/* Shim error callback: surface backend (vendor SDK) errors as element warnings. */
 static void on_error_cb(void *user, const char *msg) {
     GstG3DLidarSrc *self = GST_G3D_LIDAR_SRC(user);
-    GST_WARNING_OBJECT(self, "rs_driver exception: %s", msg ? msg : "(null)");
+    GST_WARNING_OBJECT(self, "LiDAR backend: %s", msg ? msg : "(null)");
 }
 
 static gboolean gst_g3d_lidar_src_start(GstBaseSrc *src) {

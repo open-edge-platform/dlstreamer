@@ -1,0 +1,12 @@
+{
+  "vendor": "livox",
+  "model": "MID360S",
+  "transport": {
+    "type": "udp",
+    "bind_address": "192.168.1.50"
+  },
+  "params": {
+    "lidar_ip": "192.168.1.198",
+    "frame_period_ms": 100
+  }
+}
