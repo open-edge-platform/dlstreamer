@@ -19,7 +19,7 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
   echo "Usage: $0 [INPUT] [DETECTION_INTERVAL] [DEVICE] [OUTPUT] [TRACKING_TYPE]"
   echo ""
   echo "Arguments:"
-  echo "  INPUT               - Input source (default: Pexels video URL)"
+  echo "  INPUT               - Required input video path, stream URL, or camera device"
   echo "  DETECTION_INTERVAL  - Object detection interval (default: 3). 1 means detection every frame, 2 means detection every second frame, etc."
   echo "  DEVICE              - Device for decode and inference in OpenVINO(TM) format (default: AUTO). Supported: AUTO, CPU, GPU, GPU.0"
   echo "  OUTPUT              - Output type (default: display-async). Supported: display, display-async, fps, json, display-and-json, file"
@@ -29,7 +29,11 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
 fi
 
 # Command-line parameters
-INPUT=${1:-https://github.com/intel-iot-devkit/sample-videos/raw/master/person-bicycle-car-detection.mp4} # Input file or URL
+INPUT=${1:-} # Input file or URL
+if [[ -z "$INPUT" ]]; then
+  echo "Error: provide an input video path, stream URL, or camera device as the first argument." >&2
+  exit 2
+fi
 DETECTION_INTERVAL=${2:-3}     # Object detection interval: 1 means detection every frame, 2 means detection every second frame, etc.
 DEVICE=${3:-AUTO}              # Device for decode and inference in OpenVINO(TM) format, examples: AUTO, CPU, GPU, GPU.0
 OUTPUT=${4:-display-async}     # Output type, valid values: display, display-async, fps, json, display-and-json, file

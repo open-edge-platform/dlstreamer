@@ -44,17 +44,13 @@ Install DLStreamer on the host (see [DLStreamer Installation Guide](../../../../
 cd samples/gstreamer/python/face_detection_and_classification
 ```
 
-## Download Video
+## Input Video
 
-Download example video file:
-
-```sh
-curl -L -o input.mp4 "https://videos.pexels.com/video-files/18553046/18553046-hd_1280_720_30fps.mp4"
-```
+Use any local video supported by the installed GStreamer plugins. A clip containing faces is useful for this example; `--input` is required.
 
 ## Prepare Models
 
-This sample uses two models from Hugging Face:
+The examples use two Hugging Face models; compatible face-detection and face-classification models can be substituted by updating their paths. Prepare them with the general helpers in [`scripts/download_models/README.md`](../../../../scripts/download_models/README.md): `download_ultralytics_models.py` for `arnabdhar/YOLOv8-Face-Detection` and `download_hf_models.py` for `dima806/fairface_age_image_detection`.
 
 - **Face detection:** `arnabdhar/YOLOv8-Face-Detection` (Ultralytics YOLO format)
   - Prepare with [Ultralytics conversion](../../../../scripts/download_models/README.md#2-ultralytics-conversion)
@@ -81,7 +77,7 @@ python3 face_detection_and_classification.py \
     --cls-model models/public/dima806_fairface_age_image_detection/FP16/dima806_fairface_age_image_detection.xml
 ```
 
-If `--input` is omitted, the script downloads and uses a default video automatically.
+The sample does not download media; always pass the input path with `--input`.
 
 Run `python3 face_detection_and_classification.py --help` to see all available options.
 

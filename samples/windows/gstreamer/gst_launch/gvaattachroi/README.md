@@ -40,7 +40,7 @@ graph LR
 
 ## Models
 
-The sample uses YOLOv8s model (or other supported YOLO variants) from MODELS_PATH.
+Use any video supported by the installed GStreamer plugins and any compatible YOLO detector. The example uses `yolov8s` with `C:\videos\traffic.mp4`; this model/video pair is illustrative. Prepare YOLO models with the general [`download_ultralytics_models.py`](../../../../../scripts/download_models/README.md#2-ultralytics-conversion) helper; for example, use the model name `yolo11s.pt` for the alternative shown below.
 
 ## ROI Definition
 
@@ -49,7 +49,7 @@ The sample uses YOLOv8s model (or other supported YOLO variants) from MODELS_PAT
 Specify ROI coordinates directly as a parameter:
 
 ```PowerShell
-.\gvaattachroi_sample.ps1 -RoiCoords "100,150,540,360"
+.\gvaattachroi_sample.ps1 -InputSource C:\videos\traffic.mp4 -RoiCoords "100,150,540,360"
 ```
 
 Format: `x_top_left,y_top_left,x_bottom_right,y_bottom_right`
@@ -77,7 +77,7 @@ Use a JSON file to define multiple ROIs. See the example `roi_list.json` file in
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| -InputSource | DEFAULT | Local file path or URI. Use 'DEFAULT' for built-in sample video |
+| -InputSource | (required) | Local file path or URI |
 | -Device | CPU | Inference device: CPU, GPU, NPU |
 | -OutputType | display | Output type: display, json, fps, display-and-json |
 | -RoiCoords | (empty) | ROI coordinates: x_top_left,y_top_left,x_bottom_right,y_bottom_right |
@@ -94,13 +94,13 @@ Notes:
 - Use ROI list file (default):
 ```PowerShell
 $env:MODELS_PATH = "C:\models"
-.\gvaattachroi_sample.ps1
+.\gvaattachroi_sample.ps1 -InputSource C:\videos\traffic.mp4
 ```
 
 - Specify ROI coordinates directly:
 ```PowerShell
 $env:MODELS_PATH = "C:\models"
-.\gvaattachroi_sample.ps1 -RoiCoords "100,150,540,360"
+.\gvaattachroi_sample.ps1 -InputSource C:\videos\traffic.mp4 -RoiCoords "100,150,540,360"
 ```
 
 - GPU with custom video and JSON output:
@@ -117,17 +117,17 @@ $env:MODELS_PATH = "C:\models"
 
 - Process only first 1000 frames (for testing):
 ```PowerShell
-.\gvaattachroi_sample.ps1 -OutputType json -FrameLimiter " ! identity eos-after=1000"
+.\gvaattachroi_sample.ps1 -InputSource C:\videos\traffic.mp4 -OutputType json -FrameLimiter " ! identity eos-after=1000"
 ```
 
 - Use different model:
 ```PowerShell
-.\gvaattachroi_sample.ps1 -Model yolo11s -Precision FP16 -Device GPU
+.\gvaattachroi_sample.ps1 -InputSource C:\videos\traffic.mp4 -Model yolo11s -Precision FP16 -Device GPU
 ```
 
 - NPU device with INT8 model:
 ```PowerShell
-.\gvaattachroi_sample.ps1 -Device NPU -Model yolov8s -Precision INT8 -OutputType json
+.\gvaattachroi_sample.ps1 -InputSource C:\videos\traffic.mp4 -Device NPU -Model yolov8s -Precision INT8 -OutputType json
 ```
 
 ## Understanding ROI Coordinates

@@ -76,25 +76,25 @@ Example deployment of Geti™ anomaly detection UFlow model using CPU device, sa
 Example deployment of Geti™ bounding-box detection model using GPU device, saving results into a file on local disk.
 
 ```sh
-./geti_sample.sh detection GPU
+./geti_sample.sh detection geti-detection/FP16/openvino.xml GPU opencv /path/to/video.mp4 json
 ```
 
 Example deployment of Geti™ single-label classification model using NPU device, saving results into a file on local disk.
 
 ```sh
-./geti_sample.sh classification_single NPU
+./geti_sample.sh geti-classification-single geti-classification-single/FP16/openvino.xml NPU opencv /path/to/video.mp4 json
 ```
 
 Example deployment of Geti™ multi-label classification model using CPU device, saving results into a file on local disk.
 
 ```sh
-./geti_sample.sh classification_multi CPU
+./geti_sample.sh geti-classification-multi geti-classification-multi/FP16/openvino.xml CPU opencv /path/to/video.mp4 json
 ```
 
 Example deployment of Geti™ instance segmentation model (MaskRCNN, RTMDet or RF-DETR-Seg) using CPU device, saving results into `output.json`.
 
 ```sh
-./geti_sample.sh instance-segmentation geti-segmentation/FP16/openvino.xml CPU opencv https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 json
+./geti_sample.sh instance-segmentation geti-segmentation/FP16/openvino.xml CPU opencv /path/to/video.mp4 json
 ```
 
 ## See also

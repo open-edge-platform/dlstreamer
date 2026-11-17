@@ -35,10 +35,7 @@ graph LR
 
 ## Model
 
-This sample uses the ACLNet model trained for audio event detection and made available through the Open Model Zoo. For more details see [here](https://github.com/openvinotoolkit/open_model_zoo/blob/master/models/public/aclnet/README.md).
-*   __aclnet_des_53_fp32.onnx__ is end-to-end convolutional neural network architecture for audio classification
-
-> **NOTE**: Before running this sample, prepare the required model with [`download_other_models.py`](../../../../../scripts/download_models/download_other_models.py) `aclnet` (see `scripts/download_models/README.md`).
+The example uses the Open Model Zoo `aclnet` model (`aclnet_des_53_fp32.onnx`). It is an example, not a required model choice: use a compatible audio event-classification model and provide matching model-proc configuration. Prepare ACLNet with the general [`download_other_models.py`](../../../../../scripts/download_models/README.md) helper, selecting `aclnet`.
 
 ## Environment Variables
 
@@ -73,6 +70,8 @@ Along with the model network and weights, gvaudiodetect uses an additional `mode
 Where `-InputSource` can be:
 * local audio file (`C:\path\to\example.audio.wav`)
 * network source (ex URL starting with `http://`)
+
+Any audio input supported by the installed GStreamer plugins can be used. The sample audio filename above is only an example.
 
 By default, if no `-InputSource` is specified, the sample uses a local file `how_are_you_doing.wav` in the script directory.
 

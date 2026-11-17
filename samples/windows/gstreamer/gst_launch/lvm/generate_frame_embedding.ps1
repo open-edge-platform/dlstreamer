@@ -5,7 +5,7 @@
 # ==============================================================================
 
 param(
-    [string]$InputSource = "https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4",
+    [string]$InputSource = "",
     [string]$Device = "CPU",
     [string]$Precision = "FP16",
     [string]$Model = "openai_clip-vit-large-patch14",
@@ -19,7 +19,7 @@ if ($InputSource -eq "--help" -or $InputSource -eq "-h") {
     Write-Host "Usage: generate_frame_embedding.ps1 [-InputSource <path>] [-Device <device>] [-Precision <precision>] [-Model <model>] [-PreprocessBackend <backend>] [-OutputType <type>] [-FrameLimiter <element>]"
     Write-Host ""
     Write-Host "Parameters:"
-    Write-Host "  -InputSource        Input source (default: Pexels video URL)"
+    Write-Host "  -InputSource        Required local video path or URL"
     Write-Host "  -Device             Device (default: CPU). Supported: CPU, GPU, NPU"
     Write-Host "  -Precision          Model precision (default: FP16). Supported: FP32, FP16, INT8"
     Write-Host "  -Model              Model name (default: openai_clip-vit-large-patch14)"
@@ -29,6 +29,11 @@ if ($InputSource -eq "--help" -or $InputSource -eq "-h") {
     Write-Host "  -FrameLimiter       Optional GStreamer element to add after decode (e.g., ' ! identity eos-after=1000')"
     Write-Host ""
     exit 0
+}
+
+if ([string]::IsNullOrWhiteSpace($InputSource)) {
+    Write-Host "ERROR: Input source is required. Pass -InputSource with a local video path or URL." -ForegroundColor Red
+    exit 1
 }
 
 # Check MODELS_PATH

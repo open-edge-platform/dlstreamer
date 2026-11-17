@@ -6,7 +6,7 @@
 
 param(
     [string]$Device = "CPU",
-    [string]$InputSource = "DEFAULT",
+    [string]$InputSource = "",
     [string]$Model = "",
     [string]$Precision = "FP16",
     [string]$PreprocessBackend = "",
@@ -21,8 +21,7 @@ if ($Device -eq "--help" -or $Device -eq "-h") {
     Write-Host ""
     Write-Host "Parameters:"
     Write-Host "  -Device                Device (default: CPU). Supported: CPU, GPU, NPU"
-    Write-Host "  -InputSource           Input source (default: Pexels video URL)"
-    Write-Host "                         Use 'DEFAULT' for default video"
+    Write-Host "  -InputSource           Required local video path or URI"
     Write-Host "  -Model                 Model path (default: yolov8n from MODELS_PATH)"
     Write-Host "  -Precision             Model precision (default: FP32). Supported: FP32, FP16, INT8"
     Write-Host "  -PreprocessBackend     Preprocessing backend (default: opencv for CPU, d3d12-surface-sharing for GPU, d3d12 for NPU)"
@@ -41,9 +40,9 @@ if (-not $env:MODELS_PATH) {
 }
 Write-Host "MODELS_PATH: $env:MODELS_PATH"
 
-# Handle default input source
-if ($InputSource -eq "DEFAULT" -or $InputSource -eq ".") {
-    $InputSource = "https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4"
+if ([string]::IsNullOrWhiteSpace($InputSource)) {
+    Write-Host "ERROR: Input source is required. Pass -InputSource with a local video path or URL." -ForegroundColor Red
+    exit 1
 }
 
 # Validate device

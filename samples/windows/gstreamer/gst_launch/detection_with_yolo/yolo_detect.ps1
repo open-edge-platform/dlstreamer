@@ -10,7 +10,7 @@
 param(
     [string]$Model = "yolox_s",
     [string]$Device = "GPU",
-    [string]$InputSource = "https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4",
+    [string]$InputSource = "",
     [string]$OutputType = "display",
     [string]$PreprocessBackend = "",
     [string]$Precision = "FP16",
@@ -28,7 +28,7 @@ if ($Model -eq "--help" -or $Model -eq "-h") {
     Write-Host "                                 yolo11s-seg, yolo11s-obb, yolo11s-pose, yolo26n, yolo26s,"
     Write-Host "                                 yolo26m, yolo26l, yolo26x, yolo26s-obb, yolo26s-seg, yolo26s-pose"
     Write-Host "  -Device             Device (default: GPU). Supported: CPU, GPU, NPU"
-    Write-Host "  -InputSource        Input source (default: Pexels video URL)"
+    Write-Host "  -InputSource        Required input video file path or URL"
     Write-Host "  -OutputType         Output type (default: display). Supported: file, display, fps, json, display-and-json"
     Write-Host "  -PreprocessBackend  Preprocessing backend (default: opencv for CPU, d3d12-surface-sharing for GPU, d3d12 for NPU)"
     Write-Host "                      Supported: ie, opencv, d3d11, d3d11-surface-sharing, d3d12, d3d12-surface-sharing"
@@ -36,6 +36,11 @@ if ($Model -eq "--help" -or $Model -eq "-h") {
     Write-Host "  -FrameLimiter       Optional GStreamer element to add after decode (e.g., ' ! identity eos-after=100')"
     Write-Host ""
     exit 0
+}
+
+if ([string]::IsNullOrWhiteSpace($InputSource)) {
+    Write-Host "ERROR: Input source is required. Pass -InputSource with a local video path or URL." -ForegroundColor Red
+    exit 1
 }
 
 # Check MODELS_PATH

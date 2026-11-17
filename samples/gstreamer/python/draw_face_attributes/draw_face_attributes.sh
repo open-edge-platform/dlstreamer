@@ -14,7 +14,11 @@ else
   echo "MODELS_PATH: $MODELS_PATH"
 fi
 
-INPUT=${1:-https://github.com/intel-iot-devkit/sample-videos/raw/master/head-pose-face-detection-female-and-male.mp4}
+INPUT=${1:-}
+if [[ -z "$INPUT" ]]; then
+  echo "Error: provide an input video path, stream URL, or camera device as the first argument." >&2
+  exit 2
+fi
 OUTPUT=${2:-display} # Output type, valid values: display, json ,display-and-json 
 DEVICE=${3:-CPU} # Target device for inference elements (e.g. CPU, GPU, NPU)
 

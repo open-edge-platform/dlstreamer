@@ -130,41 +130,21 @@ the commands from
 
 ### [Optional] Step 5: Post installation steps
 
-#### Download the model and run hello_dlstreamer script
+#### Prepare a model and run hello_dlstreamer
 
-Before executing any scripts, ensure you have set the MODELS_PATH
-environment variable to the directory where the model will be downloaded
-or where it already exists. The `hello_dlstreamer.sh` script assumes the
-availability of the YOLO11s model. If you do not have it, download it
-using the following command:
-
-> **NOTE:**
->
-> - The Ultralytics conversion script will download the YOLO11s model and
->   convert it to the OpenVINO™ format.
->
-> - If you already have the model, skip this step and simply export the
->   MODELS_PATH and execute the `hello_dlstreamer.sh` script.
-
-```bash
-sudo apt install -y python3-venv
-mkdir -p "$HOME/.virtualenvs/download-models" "$HOME/models"
-python3 -m venv "$HOME/.virtualenvs/download-models"
-"$HOME/.virtualenvs/download-models/bin/pip" install --no-cache-dir --upgrade pip \
-  -r /opt/intel/dlstreamer/scripts/download_models/requirements_download_ultralytics_models.txt
-source "$HOME/.virtualenvs/download-models/bin/activate"
-export MODELS_PATH="$HOME/models"
-python3 /opt/intel/dlstreamer/scripts/download_models/download_ultralytics_models.py \
-  --model yolo11s --int8 --outdir "$MODELS_PATH/public/yolo11s/INT8"
-```
+Set `MODELS_PATH` to the root containing a model supported by the bundled detection sample. The
+script defaults to `yolo11s` with `INT8` precision as an example; other models supported by
+`detection_with_yolo/yolo_detect.sh` can be selected with `--model` and `--precision`. Prepare a
+compatible OpenVINO IR model with the general model helpers described in
+`/opt/intel/dlstreamer/scripts/download_models/README.md`. The expected layout is
+`$MODELS_PATH/public/<MODEL>/<PRECISION>/<MODEL>.xml`.
 
 The `hello_dlstreamer.sh` script will set up the required environment
-variables and runs a sample pipeline to confirm that Deep Learning Streamer
-is installed correctly. To run the `hello_dlstreamer.sh` script, execute the
-following command:
+variables and run a sample pipeline to confirm that Deep Learning Streamer
+is installed correctly. Provide a local video path, stream URL, or camera device:
 
 ```bash
-/opt/intel/dlstreamer/scripts/hello_dlstreamer.sh
+/opt/intel/dlstreamer/scripts/hello_dlstreamer.sh --input=/path/to/video.mp4
 ```
 
 > **NOTE:** To set up Linux with the relevant environment variables every time a new

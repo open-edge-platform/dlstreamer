@@ -25,11 +25,13 @@ Overall this sample builds GStreamer pipeline of the following elements
 
 ## Models
 
-The sample uses the following pre-trained models by default:
+The sample is configured with these example pre-trained models:
 *   __yolo26s__ is the primary detection network for detecting persons, vehicles, and bikes
 *   __dima806_vehicle_10_types_image_detection__ classifies vehicle types
 
-> **NOTE**: Before running samples (including this one), prepare required models using scripts in [`scripts/download_models`](../../../../scripts/download_models) and follow the per-script setup notes in [`README`](../../../../scripts/download_models/README.md).
+Compatible models may be substituted by updating the model paths in the sample script; the vehicle classifier must support the configured object classes.
+
+The listed models are examples for the current pipeline configuration. Prepare compatible detection and classification models before running; use the general helpers in [`scripts/download_models`](../../../../scripts/download_models/README.md) if conversion is needed. Substituting models requires updating their paths, and the classifier must support the configured object classes.
 
 ## Running
 
@@ -37,13 +39,13 @@ The sample uses the following pre-trained models by default:
 ./vehicle_pedestrian_tracking.sh [INPUT_VIDEO] [DETECTION_INTERVAL] [DEVICE] [SINK_ELEMENT] [TRACKING_TYPE]
 ```
 
-The sample takes four command-line parameters:
+The sample requires an input video; the detection interval, device, output, and tracking type can be selected independently:
 1. [INPUT_VIDEO] to specify input video.
 The input could be
     * video file path
     * web camera device (ex. /dev/video0)
     * URL of RTSP camera (URL starts with `rtsp://`) or other streaming source (ex `http://`)
-If parameter is not specified, the sample by default streams video example from HTTPS link (utilizing `urisourcebin` element) so requires internet connection.
+Use any local video, supported stream URL, or camera source. A clip containing people and vehicles is useful for this example.
 2. [DETECTION_INTERVAL] to specify interval between inference requests. An interval of N performs inference on every Nth frame. Default value is 10
 3. [DEVICE] to specify device for detection and classification.
     Please refer to OpenVINO™ toolkit documentation for supported devices.

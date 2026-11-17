@@ -17,10 +17,10 @@ This sample builds GStreamer pipeline of the following elements
 
 ## Models
 
-The sample uses by default the following pre-trained models from OpenVINO™ Toolkit [Open Model Zoo](https://github.com/openvinotoolkit/open_model_zoo)
+The sample is configured with the `yolo26s-pose` example model from Ultralytics. Prepare a compatible OpenVINO IR pose model using the general Ultralytics conversion helper; see [`scripts/download_models/README.md`](../../../../scripts/download_models/README.md) for supported models and setup.
 *   __yolo26s-pose__ generates poses keypoints
 
-> **NOTE**: Before running samples (including this one), prepare required models using scripts in `scripts/download_models` (see `scripts/download_models/README.md` for per-model commands and per-script venv setup).
+The listed pose model is an example for the current pipeline configuration. Prepare a compatible pose model before running; use the general helpers in [`scripts/download_models`](../../../../scripts/download_models/README.md) if conversion is needed. When substituting the model, update its path and matching model-proc configuration.
 
 The sample contains `model_proc` subfolder with .json files for each model with description of model input/output formats and post-processing rules for classification models.
 
@@ -29,13 +29,13 @@ The sample contains `model_proc` subfolder with .json files for each model with 
 ```sh
 ./human_pose_estimation.sh [INPUT_VIDEO] [DEVICE] [SINK_ELEMENT]
 ```
-The sample takes three command-line *optional* parameters:
+The sample requires an input source; device and sink are optional:
 1. [INPUT_VIDEO] to specify input video file.
 The input could be
 * local video file
 * web camera device (ex. `/dev/video0`)
 * RTSP camera (URL starting with `rtsp://`) or other streaming source (ex URL starting with `http://`)
-If parameter is not specified, the sample by default streams video example from HTTPS link (utilizing `urisourcebin` element) so requires internet connection.
+Use any local video, supported stream URL, or camera source. A clip containing a visible person is useful for pose estimation.
 2. [DEVICE] to specify device for detection and classification.
         Please refer to OpenVINO™ toolkit documentation for supported devices.
         https://docs.openvinotoolkit.org/latest/openvino_docs_IE_DG_supported_plugins_Supported_Devices.html
