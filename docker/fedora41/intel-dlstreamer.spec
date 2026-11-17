@@ -83,7 +83,6 @@ done
 /opt/intel/dlstreamer/
 /opt/opencv/
 /opt/rdkafka/
-/opt/ffmpeg/
 /opt/librealsense/
 
 %changelog
