@@ -184,7 +184,7 @@ done
 cleanup_old_gpu_drivers
 
 chmod +x "$PREREQUISITES_SCRIPT_PATH"/DLS_install_prerequisites.sh
-"$PREREQUISITES_SCRIPT_PATH"/DLS_install_prerequisites.sh --reinstall-npu-driver=yes
+"$PREREQUISITES_SCRIPT_PATH"/DLS_install_prerequisites.sh --reinstall-npu-driver=no
 
 # OpenVINO is no longer bundled inside the intel-dlstreamer package, so it must
 # be installed separately, alongside the .deb, before DL Streamer is used.
