@@ -1666,17 +1666,23 @@ bool InferenceImpl::CheckSrcPadBlocked(GstObject *src) {
     const gchar *factory_name = factory ? gst_plugin_feature_get_name(GST_PLUGIN_FEATURE(factory)) : nullptr;
 
     if (factory_name && strcmp(factory_name, "queue") == 0) {
-        guint buf_cnt = 0;
-        GstState state, pending;
+        guint buf_cnt = 0, max_buf = 0, bytes = 0, max_bytes = 0;
+        guint64 time = 0, max_time = 0;
+        g_object_get(dst, "current-level-buffers", &buf_cnt, "max-size-buffers", &max_buf, "current-level-bytes",
+                     &bytes, "max-size-bytes", &max_bytes, "current-level-time", &time, "max-size-time", &max_time,
+                     NULL);
 
-        g_object_get(dst, "current-level-buffers", &buf_cnt, NULL);
-
-        // use timeout instead of GST_CLOCK_TIME_NONE to avoid blocking
-        // NOTE: buf_cnt and state not queried atomically - acceptable as heuristic
-        gst_element_get_state(GST_ELEMENT(dst), &state, &pending, 10 * GST_MSECOND);
-
-        if ((buf_cnt > 1) && (state == GST_STATE_PAUSED)) {
-            blocked = true;
+        // The queue is about to block its sink pad when one more buffer would exceed any of its limits.
+        // A blocked gst_pad_push from the completion thread would stall every stream sharing this
+        // instance (output_frames_mutex and _mutex are held across it), so stop *this* stream's source
+        // thread instead. Per-buffer size/duration are estimated from the queue's current contents.
+        if (buf_cnt > 0) {
+            const guint avg_bytes = bytes / buf_cnt;
+            const guint64 avg_time = time / buf_cnt;
+            if ((max_buf > 0 && buf_cnt + 1 >= max_buf) || (max_bytes > 0 && bytes + avg_bytes > max_bytes) ||
+                (max_time > 0 && time + avg_time > max_time)) {
+                blocked = true;
+            }
         }
     }
 
