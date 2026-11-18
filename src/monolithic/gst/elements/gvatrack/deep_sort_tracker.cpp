@@ -199,6 +199,7 @@ void Track::update(const Detection &detection) {
 
     if (state_ == TrackState::Tentative && hits_ >= n_init_) {
         state_ = TrackState::Confirmed;
+        was_confirmed_ = true;
     }
 }
 
@@ -319,18 +320,24 @@ DeepSortTracker::DeepSortTracker(float max_iou_distance, int max_age, int n_init
 /**
  * @brief Main tracking function - process frame detections and update tracks with IDs
  */
-void DeepSortTracker::track(dlstreamer::FramePtr buffer, GVA::VideoFrame &frame_meta) {
+void DeepSortTracker::track(dlstreamer::FramePtr buffer, GVA::VideoFrame &frame_meta, GstBuffer *gst_buffer) {
     if (!buffer) {
         throw std::invalid_argument("DeepSortTracker: buffer is nullptr");
     }
+    if (!gst_buffer) {
+        throw std::invalid_argument("DeepSortTracker: gst_buffer is nullptr");
+    }
     frame_num_++;
+    const GstClockTime pts = GST_BUFFER_PTS(gst_buffer);
 
     // Expire old re-ID gallery entries
     if (reid_max_age_ > 0) {
-        reid_gallery_.erase(
-            std::remove_if(reid_gallery_.begin(), reid_gallery_.end(),
-                           [&](const GalleryEntry &e) { return (frame_num_ - e.deletion_frame) > reid_max_age_; }),
-            reid_gallery_.end());
+        auto expired = [&](const GalleryEntry &e) { return (frame_num_ - e.deletion_frame) > reid_max_age_; };
+        for (const auto &entry : reid_gallery_) {
+            if (expired(entry))
+                history_.forget(entry.track_id);
+        }
+        reid_gallery_.erase(std::remove_if(reid_gallery_.begin(), reid_gallery_.end(), expired), reid_gallery_.end());
     }
 
     auto regions = frame_meta.regions();
@@ -372,7 +379,8 @@ void DeepSortTracker::track(dlstreamer::FramePtr buffer, GVA::VideoFrame &frame_
         // Assign tracking ID to the original region
         int reg_idx = detections[match.first].region_index;
         if (reg_idx >= 0 && reg_idx < static_cast<int>(regions.size()) && tracks_[match.second]->is_confirmed()) {
-            regions[reg_idx].set_object_id(tracks_[match.second]->track_id());
+            const auto times = history_.touch(track->track_id(), pts);
+            regions[reg_idx].set_object_id(track->track_id(), times.first_seen, times.last_seen);
         }
     }
 
@@ -435,6 +443,9 @@ void DeepSortTracker::track(dlstreamer::FramePtr buffer, GVA::VideoFrame &frame_
         if (!reused)
             track_id = next_id_++;
 
+        // Keeps first_seen of a reacquired id
+        history_.touch(track_id, pts);
+
         auto new_track = std::make_unique<Track>(detections[det_idx].bbox, track_id, n_init_, max_age_,
                                                  detections[det_idx].feature, nn_budget_);
         GST_DEBUG("NEW TRACK: ID=%d%s, bbox[%.1f, %.1f, %.1f x %.1f]", track_id, reused ? " (RE-ID)" : "",
@@ -443,20 +454,26 @@ void DeepSortTracker::track(dlstreamer::FramePtr buffer, GVA::VideoFrame &frame_
         tracks_.push_back(std::move(new_track));
     }
 
-    // Step 6: Save deleted confirmed tracks to re-ID gallery, then remove
-    if (reid_max_age_ > 0) {
-        for (auto &track : tracks_) {
-            if (track->is_deleted() && !track->features().empty()) {
-                GalleryEntry entry;
-                entry.track_id = track->track_id();
-                entry.features = track->features();
-                entry.last_bbox = track->to_bbox();
-                entry.deletion_frame = frame_num_;
-                GST_DEBUG("F%d GALLERY SAVE: track_id=%d, features=%zu, bbox[%.0f,%.0f]", frame_num_, entry.track_id,
-                          entry.features.size(), entry.last_bbox.x + entry.last_bbox.width / 2.0f,
-                          entry.last_bbox.y + entry.last_bbox.height / 2.0f);
-                reid_gallery_.push_back(std::move(entry));
-            }
+    // Step 6: Report lost tracks, save deleted tracks to re-ID gallery, then remove
+    for (auto &track : tracks_) {
+        if (!track->is_deleted())
+            continue;
+
+        if (track->was_confirmed())
+            history_.report_lost(gst_buffer, track->track_id());
+
+        if (reid_max_age_ > 0 && !track->features().empty()) {
+            GalleryEntry entry;
+            entry.track_id = track->track_id();
+            entry.features = track->features();
+            entry.last_bbox = track->to_bbox();
+            entry.deletion_frame = frame_num_;
+            GST_DEBUG("F%d GALLERY SAVE: track_id=%d, features=%zu, bbox[%.0f,%.0f]", frame_num_, entry.track_id,
+                      entry.features.size(), entry.last_bbox.x + entry.last_bbox.width / 2.0f,
+                      entry.last_bbox.y + entry.last_bbox.height / 2.0f);
+            reid_gallery_.push_back(std::move(entry));
+        } else {
+            history_.forget(track->track_id());
         }
     }
     tracks_.erase(std::remove_if(tracks_.begin(), tracks_.end(),

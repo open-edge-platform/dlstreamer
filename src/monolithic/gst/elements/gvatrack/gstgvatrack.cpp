@@ -383,7 +383,7 @@ static GstFlowReturn gst_gva_track_transform_ip(GstBaseTransform *trans, GstBuff
             auto gstbuffer = std::make_shared<dlstreamer::GSTFrame>(buf, gva_track->info);
             GVA::VideoFrame video_frame(buf, gva_track->info);
 
-            gva_track->tracker->track(gstbuffer, video_frame);
+            gva_track->tracker->track(gstbuffer, video_frame, buf);
         } catch (const std::exception &e) {
             GST_ELEMENT_ERROR(gva_track, STREAM, FAILED, ("transform_ip failed"),
                               ("%s", Utils::createNestedErrorMsg(e).c_str()));
