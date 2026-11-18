@@ -125,6 +125,10 @@ void CopyOutputBlobToGstStructure(InferenceBackend::OutputBlob::Ptr blob, GstStr
         auto dims = blob->GetDims();
         if (dims.size() == 0)
             throw std::invalid_argument("Blob has 0 dimensions");
+        // Only one batch element was copied: describe that element, not the whole batch. Otherwise the dims claim
+        // batch_size times more data than the structure holds, and GstTensor rejects the raw tensor meta.
+        if (batch_size > 1 && dims[0] == static_cast<size_t>(batch_size))
+            dims[0] = 1;
 
         GValueArray *g_arr = ConvertVectorToGValueArr(dims);
         gst_structure_set_array(gst_struct, "dims", g_arr);
