@@ -140,7 +140,7 @@ sudo apt-get install -y intel-dlstreamer
 **That's it — DL Streamer is installed!** This single package also pulls in
 everything it needs, including the OpenVINO™ toolkit and GStreamer.
 
-> **Other systems?** For Windows\*, WSL2\*, Docker\*, or Ubuntu 22.04, see the
+> **Other systems?** For Windows\*, Docker\*, Ubuntu 26.04 or Ubuntu 22.04, see the
 > full [Install Guide](./install/install_guide_index.md). (Docker is also covered
 > in [Step 5](#step-5---run-in-docker-gpunpu-passthrough) of this tutorial.)
 
