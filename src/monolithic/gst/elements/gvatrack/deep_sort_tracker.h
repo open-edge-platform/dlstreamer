@@ -7,6 +7,7 @@
 #pragma once
 
 #include "itracker.h"
+#include "track_history.h"
 #include <dlstreamer/base/memory_mapper.h>
 
 #include <opencv2/opencv.hpp>
@@ -64,6 +65,10 @@ class Track {
     bool is_deleted() const {
         return state_ == TrackState::Deleted;
     }
+    // True if the track was confirmed at any time, i.e. its id has been published downstream
+    bool was_confirmed() const {
+        return was_confirmed_;
+    }
 
     cv::Rect_<float> to_bbox() const;
     int track_id() const {
@@ -109,6 +114,7 @@ class Track {
     int age_;
     int time_since_update_;
     TrackState state_;
+    bool was_confirmed_ = false;
 
     // Parameters
     int n_init_;
@@ -140,7 +146,7 @@ class DeepSortTracker : public ITracker {
 
     ~DeepSortTracker() override = default;
 
-    void track(dlstreamer::FramePtr buffer, GVA::VideoFrame &frame_meta) override;
+    void track(dlstreamer::FramePtr buffer, GVA::VideoFrame &frame_meta, GstBuffer *gst_buffer) override;
 
   private:
     // Deep SORT algorithm components
@@ -151,6 +157,9 @@ class DeepSortTracker : public ITracker {
     // Re-ID gallery: deleted tracks saved for re-identification
     std::vector<GalleryEntry> reid_gallery_;
     int reid_max_age_; // How long to keep gallery entries (frames). 0 = disabled.
+
+    // First/last seen timestamps of published ids, kept as long as the id may be reacquired
+    TrackHistory history_;
 
     // Parameters
     float max_iou_distance_;

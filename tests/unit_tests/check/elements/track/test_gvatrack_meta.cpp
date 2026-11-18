@@ -11,7 +11,8 @@
  * Frames with and without detections are pushed through gvatrack (imageless tracking, so pixel data is
  * irrelevant) to emulate gvadetect with inference-interval > 1. The tests check that the regions gvatrack
  * generates for frames without an associated detection carry the data of the last associated detection:
- * confidence and per-object tensors such as yolo-pose keypoints.
+ * confidence and per-object tensors such as yolo-pose keypoints. The tracking metadata of the regions is checked
+ * for the first/last seen timestamps and the lost state of the track.
  */
 
 #include <gtest/gtest.h>
@@ -23,6 +24,7 @@
 #include "dlstreamer/gst/metadata/gstanalyticskeypointdescriptor.h"
 #include "video_frame.h"
 
+#include <optional>
 #include <vector>
 
 namespace {
@@ -32,8 +34,40 @@ constexpr int HEIGHT = 480;
 constexpr int LABEL_ID = 0;
 constexpr const char *LABEL = "person";
 constexpr int KEYPOINT_COUNT = 17;
+constexpr int FEATURE_SIZE = 128;
 // Number of frames with detections pushed before the tracker is expected to report a track
 constexpr int WARMUP_FRAMES = 5;
+// Upper bound of frames without detections after which the tracker must have reported the track lost
+constexpr int MAX_FRAMES_UNTIL_LOST = 300;
+
+// Nonzero, so that a timestamp left uninitialized is noticed
+GstClockTime frame_pts(guint64 index) {
+    return (index + 1) * GST_SECOND / 30;
+}
+
+struct TrackingInfo {
+    guint64 id;
+    GstClockTime first_seen;
+    GstClockTime last_seen;
+    bool lost;
+};
+
+std::vector<TrackingInfo> tracking_infos(GstBuffer *buffer) {
+    std::vector<TrackingInfo> infos;
+    GstAnalyticsRelationMeta *relation_meta = gst_buffer_get_analytics_relation_meta(buffer);
+    if (!relation_meta)
+        return infos;
+    gpointer state = nullptr;
+    GstAnalyticsTrackingMtd mtd;
+    while (gst_analytics_relation_meta_iterate(relation_meta, &state, gst_analytics_tracking_mtd_get_mtd_type(), &mtd)) {
+        TrackingInfo info;
+        gboolean lost;
+        EXPECT_TRUE(gst_analytics_tracking_mtd_get_info(&mtd, &info.id, &info.first_seen, &info.last_seen, &lost));
+        info.lost = lost;
+        infos.push_back(info);
+    }
+    return infos;
+}
 
 struct Box {
     int x, y, w, h;
@@ -44,7 +78,28 @@ struct Detection {
     double confidence;
     // Keypoint x/y positions relative to the bounding box, empty means no keypoints tensor
     std::vector<float> keypoints;
+    // Appearance feature as produced by gvainference for Deep SORT, empty means no feature tensor
+    std::vector<float> feature;
 };
+
+std::vector<float> make_feature(float seed) {
+    std::vector<float> feature(FEATURE_SIZE);
+    for (int i = 0; i < FEATURE_SIZE; i++)
+        feature[i] = 1.0f + seed * (i % 7);
+    return feature;
+}
+
+GstStructure *make_feature_structure(const std::vector<float> &feature) {
+    GstStructure *s = gst_structure_new_empty("inference_layer_name:output");
+    GVA::Tensor tensor(s);
+    tensor.set_type(GVA::GST_ANALYTICS_TENSOR_2_TENSOR);
+    tensor.set_layer_name("output");
+    tensor.set_string("tensor_name", "output");
+    tensor.set_dims({1, static_cast<guint>(FEATURE_SIZE)});
+    tensor.set_data(feature.data(), feature.size() * sizeof(float));
+    tensor.set_precision(GVA::Tensor::Precision::FP32);
+    return s;
+}
 
 std::vector<float> make_keypoints(float offset) {
     std::vector<float> positions(KEYPOINT_COUNT * 2);
@@ -117,9 +172,13 @@ class GvaTrackMetaTest : public ::testing::Test {
     void SetUp() override {
         harness = gst_harness_new("gvatrack");
         ASSERT_NE(harness, nullptr);
-        gst_util_set_object_arg(G_OBJECT(harness->element), "tracking-type", "short-term-imageless");
+        configure_tracker();
         gst_harness_set_src_caps_str(harness, "video/x-raw,format=BGRx,width=640,height=480,framerate=30/1");
         gst_video_info_set_format(&info, GST_VIDEO_FORMAT_BGRx, WIDTH, HEIGHT);
+    }
+
+    virtual void configure_tracker() {
+        gst_util_set_object_arg(G_OBJECT(harness->element), "tracking-type", "short-term-imageless");
     }
 
     void TearDown() override {
@@ -130,7 +189,7 @@ class GvaTrackMetaTest : public ::testing::Test {
     // Pushes a frame with the given detections and returns the output buffer (caller owns it)
     GstBuffer *push(const std::vector<Detection> &detections) {
         GstBuffer *buffer = gst_harness_create_buffer(harness, GST_VIDEO_INFO_SIZE(&info));
-        GST_BUFFER_PTS(buffer) = frame_index++ * GST_SECOND / 30;
+        GST_BUFFER_PTS(buffer) = frame_pts(frame_index++);
         {
             GVA::VideoFrame frame(buffer, &info);
             for (const Detection &detection : detections) {
@@ -139,6 +198,8 @@ class GvaTrackMetaTest : public ::testing::Test {
                 roi.detection().set_int("label_id", LABEL_ID);
                 if (!detection.keypoints.empty())
                     roi.add_tensor(GVA::Tensor(make_keypoints_structure(detection.keypoints)));
+                if (!detection.feature.empty())
+                    roi.add_tensor(GVA::Tensor(make_feature_structure(detection.feature)));
             }
         }
         EXPECT_EQ(gst_harness_push(harness, buffer), GST_FLOW_OK);
@@ -257,6 +318,148 @@ TEST_F(GvaTrackMetaTest, ConfidenceCarriedToRegionWithoutDetection) {
         EXPECT_EQ(roi.detection().get_int("label_id", -1), LABEL_ID);
     }
     gst_buffer_unref(out);
+}
+
+// first_seen stays at the start of the track, last_seen follows the timestamp of the current frame
+TEST_F(GvaTrackMetaTest, FirstAndLastSeenFollowFrameTimestamps) {
+    warmup({{BOX_A, 0.9, {}}});
+
+    GstBuffer *out = push({{BOX_A, 0.9, {}}});
+    std::vector<TrackingInfo> infos = tracking_infos(out);
+    ASSERT_EQ(infos.size(), 1u);
+    const guint64 id = infos[0].id;
+    const GstClockTime first_seen = infos[0].first_seen;
+    EXPECT_GE(first_seen, frame_pts(0));
+    EXPECT_LE(first_seen, frame_pts(WARMUP_FRAMES - 1));
+    EXPECT_EQ(infos[0].last_seen, GST_BUFFER_PTS(out));
+    EXPECT_FALSE(infos[0].lost);
+    gst_buffer_unref(out);
+
+    for (int i = 0; i < 3; i++) {
+        out = push({{BOX_A, 0.9, {}}});
+        infos = tracking_infos(out);
+        ASSERT_EQ(infos.size(), 1u) << "frame " << i;
+        EXPECT_EQ(infos[0].id, id);
+        EXPECT_EQ(infos[0].first_seen, first_seen);
+        EXPECT_EQ(infos[0].last_seen, GST_BUFFER_PTS(out));
+        gst_buffer_unref(out);
+    }
+}
+
+// Once the tracker loses the object, a single lost TrackingMtd is added to the buffer of the frame it happens on
+TEST_F(GvaTrackMetaTest, LostTrackReportedOnce) {
+    warmup({{BOX_A, 0.9, {}}});
+    GstBuffer *out = push({{BOX_A, 0.9, {}}});
+    const std::vector<TrackingInfo> tracked = tracking_infos(out);
+    ASSERT_EQ(tracked.size(), 1u);
+    const GstClockTime last_detected_pts = GST_BUFFER_PTS(out);
+    gst_buffer_unref(out);
+
+    int lost_reports = 0;
+    for (int i = 0; i < MAX_FRAMES_UNTIL_LOST; i++) {
+        out = push({});
+        for (const TrackingInfo &info : tracking_infos(out)) {
+            if (!info.lost)
+                continue;
+            lost_reports++;
+            EXPECT_EQ(info.id, tracked[0].id);
+            EXPECT_EQ(info.first_seen, tracked[0].first_seen);
+            EXPECT_GE(info.last_seen, last_detected_pts);
+            EXPECT_LT(info.last_seen, GST_BUFFER_PTS(out));
+        }
+        gst_buffer_unref(out);
+    }
+    EXPECT_EQ(lost_reports, 1);
+}
+
+// Deep SORT confirms a track after n_init hits and deletes it after max_age missed frames
+class GvaTrackDeepSortTest : public GvaTrackMetaTest {
+  protected:
+    void configure_tracker() override {
+        gst_util_set_object_arg(G_OBJECT(harness->element), "tracking-type", "deep-sort");
+        g_object_set(harness->element, "deepsort-trck-cfg", "n_init=2,max_age=3,reid_max_age=100", nullptr);
+    }
+
+    // Pushes frames until a lost TrackingMtd shows up, returns it or nullopt
+    std::optional<TrackingInfo> push_until_lost() {
+        for (int i = 0; i < MAX_FRAMES_UNTIL_LOST; i++) {
+            GstBuffer *out = push({});
+            std::vector<TrackingInfo> infos = tracking_infos(out);
+            gst_buffer_unref(out);
+            for (const TrackingInfo &info : infos) {
+                if (info.lost)
+                    return info;
+            }
+        }
+        return std::nullopt;
+    }
+};
+
+TEST_F(GvaTrackDeepSortTest, FirstAndLastSeenFollowFrameTimestamps) {
+    const std::vector<float> feature = make_feature(0.1f);
+    const Detection det = {BOX_A, 0.9, {}, feature};
+
+    gst_buffer_unref(push({det}));
+    for (int i = 0; i < 3; i++) {
+        GstBuffer *out = push({det});
+        std::vector<TrackingInfo> infos = tracking_infos(out);
+        ASSERT_EQ(infos.size(), 1u) << "frame " << i;
+        EXPECT_EQ(infos[0].first_seen, frame_pts(0));
+        EXPECT_EQ(infos[0].last_seen, GST_BUFFER_PTS(out));
+        EXPECT_FALSE(infos[0].lost);
+        gst_buffer_unref(out);
+    }
+}
+
+TEST_F(GvaTrackDeepSortTest, LostTrackReportedOnce) {
+    const Detection det = {BOX_A, 0.9, {}, make_feature(0.1f)};
+    GstClockTime last_detected_pts = 0;
+    guint64 id = 0;
+    for (int i = 0; i < 4; i++) {
+        GstBuffer *out = push({det});
+        last_detected_pts = GST_BUFFER_PTS(out);
+        std::vector<TrackingInfo> infos = tracking_infos(out);
+        if (!infos.empty())
+            id = infos[0].id;
+        gst_buffer_unref(out);
+    }
+    ASSERT_NE(id, 0u);
+
+    std::optional<TrackingInfo> lost = push_until_lost();
+    ASSERT_TRUE(lost.has_value());
+    EXPECT_EQ(lost->id, id);
+    EXPECT_EQ(lost->first_seen, frame_pts(0));
+    EXPECT_EQ(lost->last_seen, last_detected_pts);
+
+    EXPECT_FALSE(push_until_lost().has_value()) << "Track reported lost more than once";
+}
+
+// A track whose id is reacquired through re-ID keeps the original first_seen
+TEST_F(GvaTrackDeepSortTest, ReacquiredIdKeepsFirstSeen) {
+    const Detection det = {BOX_A, 0.9, {}, make_feature(0.1f)};
+    guint64 id = 0;
+    for (int i = 0; i < 4; i++) {
+        GstBuffer *out = push({det});
+        std::vector<TrackingInfo> infos = tracking_infos(out);
+        if (!infos.empty())
+            id = infos[0].id;
+        gst_buffer_unref(out);
+    }
+    ASSERT_NE(id, 0u);
+    ASSERT_TRUE(push_until_lost().has_value());
+
+    for (int i = 0; i < 3; i++) {
+        GstBuffer *out = push({det});
+        std::vector<TrackingInfo> infos = tracking_infos(out);
+        if (i > 0) {
+            ASSERT_EQ(infos.size(), 1u) << "frame " << i;
+            EXPECT_EQ(infos[0].id, id);
+            EXPECT_EQ(infos[0].first_seen, frame_pts(0));
+            EXPECT_EQ(infos[0].last_seen, GST_BUFFER_PTS(out));
+            EXPECT_FALSE(infos[0].lost);
+        }
+        gst_buffer_unref(out);
+    }
 }
 
 GTEST_API_ int main(int argc, char **argv) {

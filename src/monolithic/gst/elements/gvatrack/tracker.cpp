@@ -59,14 +59,14 @@ std::vector<vas::ot::DetectedObject> convertRoisToDetectedObjects(std::vector<GV
 }
 
 void append(GVA::VideoFrame &video_frame, const vas::ot::Object &tracked_object, const std::string &label,
-            const VasWrapper::TrackState &state) {
+            const VasWrapper::TrackState &state, const TrackHistory::Timestamps &times) {
     auto roi = video_frame.add_region(tracked_object.rect.x, tracked_object.rect.y, tracked_object.rect.width,
                                       tracked_object.rect.height, label, state.confidence);
     roi.detection().set_int("label_id", tracked_object.class_label);
     // add_tensor takes ownership of the structure, so attach a copy and keep the original for later frames
     for (const auto &tensor : state.tensors)
         roi.add_tensor(GVA::Tensor(gst_structure_copy(tensor.get())));
-    roi.set_object_id(tracked_object.tracking_id);
+    roi.set_object_id(tracked_object.tracking_id, times.first_seen, times.last_seen);
 }
 
 } // namespace
@@ -177,7 +177,7 @@ Tracker::Tracker(const std::string &device, vas::ot::TrackingType tracking_type,
     _impl->init(std::move(builder), tracking_type);
 }
 
-void Tracker::track(dls::FramePtr buffer, GVA::VideoFrame &frame_meta) {
+void Tracker::track(dls::FramePtr buffer, GVA::VideoFrame &frame_meta, GstBuffer *gst_buffer) {
     if (!buffer)
         throw std::invalid_argument("buffer is nullptr");
 
@@ -194,6 +194,7 @@ void Tracker::track(dls::FramePtr buffer, GVA::VideoFrame &frame_meta) {
     // Tracker itself only produces bounding boxes, so for objects without associated detection on this frame
     // the confidence and tensors (e.g. keypoints) of the last detection associated with the same track are
     // carried forward.
+    const GstClockTime pts = GST_BUFFER_PTS(gst_buffer);
     std::unordered_map<uint64_t, TrackState> alive_states;
     for (const auto &tracked_object : tracked_objects) {
         const bool associated = tracked_object.association_idx != NO_ASSOCIATION;
@@ -212,13 +213,19 @@ void Tracker::track(dls::FramePtr buffer, GVA::VideoFrame &frame_meta) {
         }
 
         if (tracked_object.status != vas::ot::TrackingStatus::LOST) {
+            const auto times = history.touch(tracked_object.tracking_id, pts);
             if (associated) {
-                regions[tracked_object.association_idx].set_object_id(tracked_object.tracking_id);
+                regions[tracked_object.association_idx].set_object_id(tracked_object.tracking_id, times.first_seen,
+                                                                      times.last_seen);
             } else {
                 auto it = labels.find(tracked_object.class_label);
                 std::string label = it != labels.end() ? it->second : std::string();
-                append(frame_meta, tracked_object, label, state);
+                append(frame_meta, tracked_object, label, state, times);
             }
+        } else {
+            // VAS does not reuse ids of lost objects
+            history.report_lost(gst_buffer, tracked_object.tracking_id);
+            history.forget(tracked_object.tracking_id);
         }
         alive_states[tracked_object.tracking_id] = std::move(state);
     }
