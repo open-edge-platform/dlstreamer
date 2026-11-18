@@ -189,8 +189,12 @@ class GvaTrackMetaTest : public ::testing::Test {
 
     // Pushes a frame with the given detections and returns the output buffer (caller owns it)
     GstBuffer *push(const std::vector<Detection> &detections) {
+        return push_with_pts(detections, frame_pts(frame_index++));
+    }
+
+    GstBuffer *push_with_pts(const std::vector<Detection> &detections, GstClockTime pts) {
         GstBuffer *buffer = gst_harness_create_buffer(harness, GST_VIDEO_INFO_SIZE(&info));
-        GST_BUFFER_PTS(buffer) = frame_pts(frame_index++);
+        GST_BUFFER_PTS(buffer) = pts;
         {
             GVA::VideoFrame frame(buffer, &info);
             for (const Detection &detection : detections) {
@@ -373,6 +377,20 @@ TEST_F(GvaTrackMetaTest, LostTrackReportedOnce) {
     EXPECT_EQ(lost_reports, 1);
 }
 
+// Buffers without PTS must not break tracking, timestamps of such tracks are reported as 0
+TEST_F(GvaTrackMetaTest, BuffersWithoutPtsReportZeroTimestamps) {
+    for (int i = 0; i < WARMUP_FRAMES; i++)
+        gst_buffer_unref(push_with_pts({{BOX_A, 0.9, {}}}, GST_CLOCK_TIME_NONE));
+
+    GstBuffer *out = push_with_pts({{BOX_A, 0.9, {}}}, GST_CLOCK_TIME_NONE);
+    std::vector<TrackingInfo> infos = tracking_infos(out);
+    ASSERT_EQ(infos.size(), 1u);
+    EXPECT_EQ(infos[0].first_seen, 0u);
+    EXPECT_EQ(infos[0].last_seen, 0u);
+    EXPECT_FALSE(infos[0].lost);
+    gst_buffer_unref(out);
+}
+
 // Deep SORT confirms a track after n_init hits and deletes it after max_age missed frames
 class GvaTrackDeepSortTest : public GvaTrackMetaTest {
   protected:
@@ -459,6 +477,45 @@ TEST_F(GvaTrackDeepSortTest, ReacquiredIdKeepsFirstSeen) {
             EXPECT_EQ(infos[0].last_seen, GST_BUFFER_PTS(out));
             EXPECT_FALSE(infos[0].lost);
         }
+        gst_buffer_unref(out);
+    }
+}
+
+// A track first seen on buffers without PTS gets first_seen from the first buffer with a valid PTS
+TEST_F(GvaTrackDeepSortTest, FirstSeenSetByFirstValidPts) {
+    const Detection det = {BOX_A, 0.9, {}, make_feature(0.1f)};
+
+    for (int i = 0; i < 2; i++) {
+        GstBuffer *out = push_with_pts({det}, GST_CLOCK_TIME_NONE);
+        for (const TrackingInfo &info : tracking_infos(out)) {
+            EXPECT_EQ(info.first_seen, 0u);
+            EXPECT_EQ(info.last_seen, 0u);
+        }
+        gst_buffer_unref(out);
+    }
+
+    // The first buffer with a valid PTS is frame_pts(0)
+    for (int i = 0; i < 3; i++) {
+        GstBuffer *out = push({det});
+        std::vector<TrackingInfo> infos = tracking_infos(out);
+        ASSERT_EQ(infos.size(), 1u) << "frame " << i;
+        EXPECT_EQ(infos[0].first_seen, frame_pts(0));
+        EXPECT_EQ(infos[0].last_seen, GST_BUFFER_PTS(out));
+        gst_buffer_unref(out);
+    }
+}
+
+// PTS 0 is a valid timestamp: first_seen must stay 0 when later frames have a greater PTS
+TEST_F(GvaTrackDeepSortTest, ZeroPtsIsValidFirstSeen) {
+    const Detection det = {BOX_A, 0.9, {}, make_feature(0.1f)};
+
+    gst_buffer_unref(push_with_pts({det}, 0));
+    for (int i = 0; i < 3; i++) {
+        GstBuffer *out = push({det});
+        std::vector<TrackingInfo> infos = tracking_infos(out);
+        ASSERT_EQ(infos.size(), 1u) << "frame " << i;
+        EXPECT_EQ(infos[0].first_seen, 0u);
+        EXPECT_EQ(infos[0].last_seen, GST_BUFFER_PTS(out));
         gst_buffer_unref(out);
     }
 }

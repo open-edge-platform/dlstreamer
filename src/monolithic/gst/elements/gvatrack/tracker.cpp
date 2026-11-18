@@ -180,6 +180,8 @@ Tracker::Tracker(const std::string &device, vas::ot::TrackingType tracking_type,
 void Tracker::track(dls::FramePtr buffer, GVA::VideoFrame &frame_meta, GstBuffer *gst_buffer) {
     if (!buffer)
         throw std::invalid_argument("buffer is nullptr");
+    if (!gst_buffer)
+        throw std::invalid_argument("gst_buffer is nullptr");
 
     std::vector<vas::ot::Object> tracked_objects;
     auto regions = frame_meta.regions();

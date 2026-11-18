@@ -324,6 +324,9 @@ void DeepSortTracker::track(dlstreamer::FramePtr buffer, GVA::VideoFrame &frame_
     if (!buffer) {
         throw std::invalid_argument("DeepSortTracker: buffer is nullptr");
     }
+    if (!gst_buffer) {
+        throw std::invalid_argument("DeepSortTracker: gst_buffer is nullptr");
+    }
     frame_num_++;
     const GstClockTime pts = GST_BUFFER_PTS(gst_buffer);
 
