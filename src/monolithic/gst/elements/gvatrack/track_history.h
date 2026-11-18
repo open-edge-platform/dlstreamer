@@ -51,7 +51,8 @@ class TrackHistory {
 
         const Timestamps times = published(it->second);
         GstAnalyticsTrackingMtd mtd;
-        if (!relation_meta || !gst_analytics_relation_meta_add_tracking_mtd(relation_meta, id, times.first_seen, &mtd) ||
+        if (!relation_meta ||
+            !gst_analytics_relation_meta_add_tracking_mtd(relation_meta, id, times.first_seen, &mtd) ||
             !gst_analytics_tracking_mtd_update_last_seen(&mtd, times.last_seen) ||
             !gst_analytics_tracking_mtd_set_lost(&mtd)) {
             GST_WARNING("Failed to add lost tracking metadata for track %" G_GUINT64_FORMAT, id);
