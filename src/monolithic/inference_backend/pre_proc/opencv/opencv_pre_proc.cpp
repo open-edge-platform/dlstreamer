@@ -17,6 +17,45 @@ namespace GlobUtils = Utils;
 using namespace InferenceBackend;
 using namespace InferenceBackend::Utils;
 
+namespace {
+
+// NV12 chroma is subsampled 2x2, so a ROI with an odd origin or size cannot be expressed as plane offsets.
+bool IsChromaUnalignedNV12Roi(const Image &src) {
+    if (src.format != FOURCC_NV12 || (!src.rect.width && !src.rect.height))
+        return false;
+    return (src.rect.x | src.rect.y | src.rect.width | src.rect.height) & 1;
+}
+
+// Converts the chroma-aligned region enclosing the ROI to BGR, then crops the ROI out of the result.
+// Gives the same pixels as converting the whole frame first.
+int UnalignedNV12RoiToMat(const Image &src, cv::Mat &dst) {
+    if (src.width <= src.rect.x || src.height <= src.rect.y)
+        throw std::logic_error("Requested rectangle is out of image boundaries.");
+
+    // ImageToMat drops the last odd row/column of the frame, so the region cannot extend into it
+    const uint32_t x0 = src.rect.x & ~1u;
+    const uint32_t y0 = src.rect.y & ~1u;
+    const uint64_t x_end = (uint64_t{src.rect.x} + src.rect.width + 1) & ~uint64_t{1};
+    const uint64_t y_end = (uint64_t{src.rect.y} + src.rect.height + 1) & ~uint64_t{1};
+    const uint32_t x1 = static_cast<uint32_t>(std::min<uint64_t>(x_end, src.width & ~1u));
+    const uint32_t y1 = static_cast<uint32_t>(std::min<uint64_t>(y_end, src.height & ~1u));
+    if (x1 <= src.rect.x || y1 <= src.rect.y)
+        throw std::logic_error("Requested rectangle is out of image boundaries.");
+
+    Image region = src;
+    region.rect = InferenceBackend::Rectangle<uint32_t>(x0, y0, x1 - x0, y1 - y0);
+    region = ApplyCrop(region);
+
+    cv::Mat bgr;
+    const int format = ImageToMat(region, bgr);
+    const int width = safe_convert<int>(std::min(src.rect.width, x1 - src.rect.x));
+    const int height = safe_convert<int>(std::min(src.rect.height, y1 - src.rect.y));
+    dst = bgr(cv::Rect(safe_convert<int>(src.rect.x - x0), safe_convert<int>(src.rect.y - y0), width, height));
+    return format;
+}
+
+} // namespace
+
 ImagePreprocessor *InferenceBackend::CreatePreProcOpenCV(const std::string custom_preproc_lib) {
     return new OpenCV_VPP(custom_preproc_lib);
 }
@@ -283,7 +322,6 @@ void OpenCV_VPP::Convert(const Image &raw_src, Image &dst, const InputImageLayer
             throw std::invalid_argument("allocate_destination set to true is not supported");
         }
 
-        Image src = ApplyCrop(raw_src);
         if (!needPreProcessing(raw_src, dst)) {
             CopyImage(raw_src, dst);
         }
@@ -291,7 +329,12 @@ void OpenCV_VPP::Convert(const Image &raw_src, Image &dst, const InputImageLayer
         cv::Mat src_mat_image;
         cv::Mat dst_mat_image;
 
-        auto converted_format = ImageToMat(src, src_mat_image);
+        int converted_format;
+        if (IsChromaUnalignedNV12Roi(raw_src)) {
+            converted_format = UnalignedNV12RoiToMat(raw_src, src_mat_image);
+        } else {
+            converted_format = ImageToMat(ApplyCrop(raw_src), src_mat_image);
+        }
 
         if (needCustomImageConvert(pre_proc_info)) {
             if (dst.height > safe_convert<uint32_t>(std::numeric_limits<int>::max()) and
