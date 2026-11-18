@@ -36,8 +36,9 @@ else()
     # (done by build_and_run.sh or setup_dls_env.sh).
     set(DLSTREAMER_INSTALL_DIR "/opt/intel/dlstreamer")
     set(DLSTREAMER_INCLUDE_DIRS ${DLSTREAMER_INSTALL_DIR}/include)
+    # Pass the OpenCV install prefix so CMake searches both lib/ (Ubuntu) and lib64/ (Fedora).
     find_package(OpenCV 5.1.0 CONFIG REQUIRED COMPONENTS core imgproc
-        PATHS "${DLSTREAMER_INSTALL_DIR}/opencv/lib/cmake/opencv5"
+        PATHS "${DLSTREAMER_INSTALL_DIR}/opencv"
     )
 endif()
 
