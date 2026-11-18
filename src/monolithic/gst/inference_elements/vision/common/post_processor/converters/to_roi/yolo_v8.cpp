@@ -15,12 +15,54 @@
 #include <dlstreamer/gst/videoanalytics/tensor.h>
 #include <gst/gst.h>
 
+#include <algorithm>
+#include <limits>
 #include <map>
 #include <memory>
 #include <string>
 #include <vector>
 
 using namespace post_processing;
+
+namespace {
+
+/*
+ * YOLOv8 output blobs are channel-major: [object_size, num_proposals]. Instead of transposing the whole blob,
+ * the class score rows are scanned contiguously (SIMD friendly) to find the best score of each proposal, and the
+ * class index is resolved only for proposals passing the threshold. Scores, class ids and proposal order match
+ * cv::minMaxLoc run on each row of the transposed blob: NaN scores are ignored and ties go to the lowest class id.
+ */
+template <typename Callback>
+void forEachCandidate(const float *data, size_t num_proposals, size_t class_offset, size_t class_count,
+                      double threshold, Callback &&on_candidate) {
+    constexpr size_t block_size = 512;
+    float max_scores[block_size];
+    const float *class_rows = data + class_offset * num_proposals;
+
+    for (size_t block_start = 0; block_start < num_proposals; block_start += block_size) {
+        const size_t block_len = std::min(block_size, num_proposals - block_start);
+
+        std::fill_n(max_scores, block_len, -std::numeric_limits<float>::infinity());
+        for (size_t c = 0; c < class_count; ++c) {
+            const float *row = class_rows + c * num_proposals + block_start;
+            for (size_t j = 0; j < block_len; ++j)
+                max_scores[j] = row[j] > max_scores[j] ? row[j] : max_scores[j];
+        }
+
+        for (size_t j = 0; j < block_len; ++j) {
+            const float max_score = max_scores[j];
+            if (max_score > threshold) {
+                const size_t i = block_start + j;
+                size_t class_id = 0;
+                while (class_rows[class_id * num_proposals + i] != max_score)
+                    ++class_id;
+                on_candidate(i, max_score, class_id);
+            }
+        }
+    }
+}
+
+} // namespace
 
 void YOLOv8Converter::parseOutputBlob(const float *data, const std::vector<size_t> &dims,
                                       std::vector<DetectedObject> &objects, bool oob) const {
@@ -36,31 +78,26 @@ void YOLOv8Converter::parseOutputBlob(const float *data, const std::vector<size_
 
     size_t object_size = dims[dims_size - 2];
     size_t max_proposal_count = dims[dims_size - 1];
+    size_t non_class_fields = YOLOV8_OFFSET_CS + (oob ? 1 : 0);
 
-    // transpose
-    cv::Mat outputs(object_size, max_proposal_count, CV_32F, (float *)data);
-    cv::transpose(outputs, outputs);
-    float *output_data = (float *)outputs.data;
+    if (object_size < non_class_fields)
+        throw std::invalid_argument("Output blob object size " + std::to_string(object_size) +
+                                    " is not supported (less than " + std::to_string(non_class_fields) + ").");
 
-    for (size_t i = 0; i < max_proposal_count; ++i) {
-        float *classes_scores = output_data + YOLOV8_OFFSET_CS;
-        cv::Mat scores(1, object_size - YOLOV8_OFFSET_CS - (oob ? 1 : 0), CV_32FC1, classes_scores);
-        cv::Point class_id;
-        double maxClassScore;
-        cv::minMaxLoc(scores, 0, &maxClassScore, 0, &class_id);
-        if (maxClassScore > confidence_threshold) {
+    // blob layout is [object_size, max_proposal_count]: field f of proposal i is at data[f * max_proposal_count + i]
+    auto field = [&](size_t f, size_t i) { return data[f * max_proposal_count + i]; };
 
-            float x = output_data[YOLOV8_OFFSET_X];
-            float y = output_data[YOLOV8_OFFSET_Y];
-            float w = output_data[YOLOV8_OFFSET_W];
-            float h = output_data[YOLOV8_OFFSET_H];
-            float r = oob ? output_data[object_size - 1] : 0;
-            objects.push_back(DetectedObject(x, y, w, h, r, maxClassScore, class_id.x,
-                                             BlobToMetaConverter::getLabelByLabelId(class_id.x), 1.0f / input_width,
-                                             1.0f / input_height, true));
-        }
-        output_data += object_size;
-    }
+    forEachCandidate(data, max_proposal_count, YOLOV8_OFFSET_CS, object_size - non_class_fields, confidence_threshold,
+                     [&](size_t i, float max_class_score, size_t class_id) {
+                         float x = field(YOLOV8_OFFSET_X, i);
+                         float y = field(YOLOV8_OFFSET_Y, i);
+                         float w = field(YOLOV8_OFFSET_W, i);
+                         float h = field(YOLOV8_OFFSET_H, i);
+                         float r = oob ? field(object_size - 1, i) : 0;
+                         objects.push_back(DetectedObject(x, y, w, h, r, max_class_score, class_id,
+                                                          BlobToMetaConverter::getLabelByLabelId(class_id),
+                                                          1.0f / input_width, 1.0f / input_height, true));
+                     });
 }
 
 TensorsTable YOLOv8Converter::convert(const OutputBlobs &output_blobs) {
@@ -168,20 +205,25 @@ void YOLOv8PoseConverter::parseOutputBlob(const float *data, const std::vector<s
     size_t max_proposal_count = dims[boxes_dims_size - 1];
     size_t keypoint_count = (object_size - YOLOV8_OFFSET_CS - 1) / 3;
 
-    // Transpose objects
-    cv::Mat outputs(object_size, max_proposal_count, CV_32F, (float *)data);
-    cv::transpose(outputs, outputs);
-    float *output_data = (float *)outputs.data;
+    // blob layout is [object_size, max_proposal_count]: field f of proposal i is at data[f * max_proposal_count + i]
+    auto field = [&](size_t f, size_t i) { return data[f * max_proposal_count + i]; };
+    const float *confidence_row = data + YOLOV8_OFFSET_CS * max_proposal_count;
+
+    const std::vector<std::string> names(coco17_descriptor->point_names,
+                                         coco17_descriptor->point_names + coco17_descriptor->point_count);
+    const std::vector<uint32_t> connections(coco17_descriptor->skeleton_connections,
+                                            coco17_descriptor->skeleton_connections +
+                                                coco17_descriptor->skeleton_connection_count * 2);
 
     for (size_t i = 0; i < max_proposal_count; ++i) {
-        float confidence = output_data[YOLOV8_OFFSET_CS];
+        float confidence = confidence_row[i];
         if (confidence > confidence_threshold) {
 
             // coordinates are relative to bounding box center
-            float w = output_data[YOLOV8_OFFSET_W];
-            float h = output_data[YOLOV8_OFFSET_H];
-            float x = output_data[YOLOV8_OFFSET_X] - w / 2;
-            float y = output_data[YOLOV8_OFFSET_Y] - h / 2;
+            float w = field(YOLOV8_OFFSET_W, i);
+            float h = field(YOLOV8_OFFSET_H, i);
+            float x = field(YOLOV8_OFFSET_X, i) - w / 2;
+            float y = field(YOLOV8_OFFSET_Y, i) - h / 2;
 
             auto detected_object =
                 DetectedObject(x, y, w, h, 0, confidence, 0, BlobToMetaConverter::getLabelByLabelId(0),
@@ -191,11 +233,11 @@ void YOLOv8PoseConverter::parseOutputBlob(const float *data, const std::vector<s
             cv::Mat positions(keypoint_count, 2, CV_32F);
             std::vector<float> confidences(keypoint_count, 0.0f);
             for (size_t k = 0; k < keypoint_count; k++) {
-                float position_x = output_data[YOLOV8_OFFSET_CS + 1 + k * 3 + 0];
-                float position_y = output_data[YOLOV8_OFFSET_CS + 1 + k * 3 + 1];
+                float position_x = field(YOLOV8_OFFSET_CS + 1 + k * 3 + 0, i);
+                float position_y = field(YOLOV8_OFFSET_CS + 1 + k * 3 + 1, i);
                 positions.at<float>(k, 0) = (position_x - x) / w;
                 positions.at<float>(k, 1) = (position_y - y) / h;
-                confidences[k] = output_data[YOLOV8_OFFSET_CS + 1 + k * 3 + 2];
+                confidences[k] = field(YOLOV8_OFFSET_CS + 1 + k * 3 + 2, i);
             }
 
             // create tensor with keypoints
@@ -213,21 +255,12 @@ void YOLOv8PoseConverter::parseOutputBlob(const float *data, const std::vector<s
 
             // set additional tensor properties as vectors: confidence, point names and point connections
             tensor.set_vector<float>("confidence", confidences);
-
-            std::vector<std::string> names(coco17_descriptor->point_names,
-                                           coco17_descriptor->point_names + coco17_descriptor->point_count);
-            std::vector<uint32_t> connections(coco17_descriptor->skeleton_connections,
-                                              coco17_descriptor->skeleton_connections +
-                                                  coco17_descriptor->skeleton_connection_count * 2);
             tensor.set_vector<std::string>("point_names", names);
             tensor.set_vector<uint32_t>("point_connections", connections);
 
             detected_object.tensors.push_back(tensor.gst_structure());
             objects.push_back(detected_object);
         }
-        output_data += object_size;
-
-        // Future optimization: generate masks after running NMS algorithm on detected objects
     }
 }
 
@@ -247,37 +280,38 @@ void YOLOv8SegConverter::parseOutputBlob(const float *boxes_data, const std::vec
     size_t object_size = boxes_dims[boxes_dims_size - 2];
     size_t max_proposal_count = boxes_dims[boxes_dims_size - 1];
     size_t mask_count = masks_dims[masks_dims_size - 3];
-    size_t class_count = object_size - mask_count - YOLOV8_OFFSET_CS;
     size_t mask_height = masks_dims[masks_dims_size - 2];
     size_t mask_width = masks_dims[masks_dims_size - 1];
 
-    // Transpose objects
-    cv::Mat outputs(object_size, max_proposal_count, CV_32F, (float *)boxes_data);
-    cv::transpose(outputs, outputs);
-    float *output_data = (float *)outputs.data;
+    if (object_size < YOLOV8_OFFSET_CS + mask_count)
+        throw std::invalid_argument("Output blob object size " + std::to_string(object_size) +
+                                    " is not supported (less than " + std::to_string(YOLOV8_OFFSET_CS + mask_count) +
+                                    ").");
+    size_t class_count = object_size - mask_count - YOLOV8_OFFSET_CS;
+
+    // blob layout is [object_size, max_proposal_count]: field f of proposal i is at data[f * max_proposal_count + i]
+    auto field = [&](size_t f, size_t i) { return boxes_data[f * max_proposal_count + i]; };
 
     // Map masks
     cv::Mat masks(mask_count, mask_width * mask_height, CV_32F, (float *)masks_data);
+    cv::Mat mask_scores(1, mask_count, CV_32F);
 
-    for (size_t i = 0; i < max_proposal_count; ++i) {
-        cv::Mat class_scores(1, class_count, CV_32F, output_data + YOLOV8_OFFSET_CS);
-        cv::Mat mask_scores(1, mask_count, CV_32F, output_data + YOLOV8_OFFSET_CS + class_count);
-        cv::Point class_id;
-        double max_class_score;
-        cv::minMaxLoc(class_scores, 0, &max_class_score, 0, &class_id);
-        if (max_class_score > confidence_threshold) {
-
+    forEachCandidate(
+        boxes_data, max_proposal_count, YOLOV8_OFFSET_CS, class_count, confidence_threshold,
+        [&](size_t i, float max_class_score, size_t class_id) {
             // coordinates are relative to bounding box center
-            float w = output_data[YOLOV8_OFFSET_W];
-            float h = output_data[YOLOV8_OFFSET_H];
-            float x = output_data[YOLOV8_OFFSET_X] - w / 2;
-            float y = output_data[YOLOV8_OFFSET_Y] - h / 2;
+            float w = field(YOLOV8_OFFSET_W, i);
+            float h = field(YOLOV8_OFFSET_H, i);
+            float x = field(YOLOV8_OFFSET_X, i) - w / 2;
+            float y = field(YOLOV8_OFFSET_Y, i) - h / 2;
 
-            auto detected_object = DetectedObject(x, y, w, h, 0, max_class_score, class_id.x,
-                                                  BlobToMetaConverter::getLabelByLabelId(class_id.x),
-                                                  1.0f / input_width, 1.0f / input_height, false);
+            auto detected_object = DetectedObject(x, y, w, h, 0, max_class_score, class_id,
+                                                  BlobToMetaConverter::getLabelByLabelId(class_id), 1.0f / input_width,
+                                                  1.0f / input_height, false);
 
             // compose mask for detected bounding box
+            for (size_t m = 0; m < mask_count; ++m)
+                mask_scores.at<float>(0, static_cast<int>(m)) = field(YOLOV8_OFFSET_CS + class_count + m, i);
             cv::Mat composed_mask = mask_scores * masks;
             composed_mask = composed_mask.reshape(1, mask_height);
 
@@ -311,11 +345,9 @@ void YOLOv8SegConverter::parseOutputBlob(const float *boxes_data, const std::vec
             // add tensor to the list of detected objects
             detected_object.tensors.push_back(tensor.gst_structure());
             objects.push_back(detected_object);
-        }
-        output_data += object_size;
 
-        // Future optimization: generate masks after running NMS algorithm on detected objects
-    }
+            // Future optimization: generate masks after running NMS algorithm on detected objects
+        });
 }
 
 TensorsTable YOLOv8SegConverter::convert(const OutputBlobs &output_blobs) {
