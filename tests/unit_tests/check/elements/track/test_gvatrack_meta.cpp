@@ -59,7 +59,8 @@ std::vector<TrackingInfo> tracking_infos(GstBuffer *buffer) {
         return infos;
     gpointer state = nullptr;
     GstAnalyticsTrackingMtd mtd;
-    while (gst_analytics_relation_meta_iterate(relation_meta, &state, gst_analytics_tracking_mtd_get_mtd_type(), &mtd)) {
+    while (
+        gst_analytics_relation_meta_iterate(relation_meta, &state, gst_analytics_tracking_mtd_get_mtd_type(), &mtd)) {
         TrackingInfo info;
         gboolean lost;
         EXPECT_TRUE(gst_analytics_tracking_mtd_get_info(&mtd, &info.id, &info.first_seen, &info.last_seen, &lost));
