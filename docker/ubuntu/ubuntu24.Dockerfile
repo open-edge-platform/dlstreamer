@@ -70,12 +70,12 @@ RUN \
     apt-get install -y --no-install-recommends software-properties-common=0.99.49.4 && \
     add-apt-repository -y ppa:kobuk-team/intel-graphics && \
     apt-get update && \
-    echo "Snapshot: 20260916T030400Z" >> /etc/apt/sources.list.d/kobuk-team-ubuntu-intel-graphics-noble.sources && \
+    echo "Snapshot: 20261117T100000Z" >> /etc/apt/sources.list.d/kobuk-team-ubuntu-intel-graphics-noble.sources && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-    intel-metrics-discovery=1.14.188-1~24.04~ppa1 intel-gsc=1.2.0-1~24.04~ppa1 libvpl2=1:2.16.0-1~24.04~ppa1 \
-    libze-intel-gpu1=26.31.39395.13-1~24.04~ppa1 libze1=1.32.0-1~24.04~ppa1 intel-opencl-icd=26.31.39395.13-1~24.04~ppa1 clinfo=3.0.23.01.25-1build1 \
-    intel-media-va-driver-non-free=26.3.2-1~24.04~ppa1 libmfx-gen1.2=26.3.2-1~24.04~ppa1 libvpl-tools=1.5.0-1~24.04~ppa1 libva-glx2=2.24.1-1~24.04~ppa2 va-driver-all=2.24.1-1~24.04~ppa2 vainfo=2.24.0-1~24.04~ppa1 && \
+    intel-metrics-discovery=1.16.196-1~24.04~ppa1 intel-gsc=1.3.1-1~24.04~ppa2 libvpl2=1:2.17.0-1~24.04~ppa1 \
+    libze-intel-gpu1=26.40.40196.15-1~24.04~ppa1 libze1=1.34.0-1~24.04~ppa1 intel-opencl-icd=26.40.40196.15-1~24.04~ppa1 clinfo=3.0.23.01.25-1build1 \
+    intel-media-va-driver-non-free=26.4.1-1~24.04~ppa1 libmfx-gen1.2=26.4.1-1~24.04~ppa1 libvpl-tools=1.6.0-1~24.04~ppa1 libva-glx2=2.24.1-1~24.04~ppa2 va-driver-all=2.24.1-1~24.04~ppa2 vainfo=2.24.0-1~24.04~ppa1 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -84,7 +84,7 @@ WORKDIR /tmp/npu_deps
 
 RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.38.0/linux-npu-driver-v1.38.0.20260910-34487311128-ubuntu2404.tar.gz && \
     tar -xf linux-npu-driver-v1.38.0.20260910-34487311128-ubuntu2404.tar.gz && \
-    curl -LO https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260830T100000Z/pool/main/l/level-zero-loader/libze1_1.32.0-1~24.04~ppa1_amd64.deb && \
+    curl -LO https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20261117T100000Z/pool/main/l/level-zero-loader/libze1_1.32.0-1~24.04~ppa1_amd64.deb && \
     apt-get update && \
     apt-get install -y --no-install-recommends ./intel-*.deb && \
     apt-get clean && \
@@ -545,12 +545,12 @@ RUN \
     apt-get install -y --no-install-recommends software-properties-common=0.99.49.4 && \
     add-apt-repository -y ppa:kobuk-team/intel-graphics && \
     apt-get update && \
-    echo "Snapshot: 20260916T030400Z" >> /etc/apt/sources.list.d/kobuk-team-ubuntu-intel-graphics-noble.sources && \
+    echo "Snapshot: 20261117T100000Z" >> /etc/apt/sources.list.d/kobuk-team-ubuntu-intel-graphics-noble.sources && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-    intel-metrics-discovery=1.14.188-1~24.04~ppa1 intel-gsc=1.2.0-1~24.04~ppa1 libvpl2=1:2.16.0-1~24.04~ppa1 \
-    libze-intel-gpu1=26.31.39395.13-1~24.04~ppa1 libze1=1.32.0-1~24.04~ppa1 intel-opencl-icd=26.31.39395.13-1~24.04~ppa1 clinfo=3.0.23.01.25-1build1 \
-    intel-media-va-driver-non-free=26.3.2-1~24.04~ppa1 libmfx-gen1.2=26.3.2-1~24.04~ppa1 libvpl-tools=1.5.0-1~24.04~ppa1 libva-glx2=2.24.1-1~24.04~ppa2 va-driver-all=2.24.1-1~24.04~ppa2 vainfo=2.24.0-1~24.04~ppa1 && \
+    intel-metrics-discovery=1.16.196-1~24.04~ppa1 intel-gsc=1.3.1-1~24.04~ppa2 libvpl2=1:2.17.0-1~24.04~ppa1 \
+    libze-intel-gpu1=26.40.40196.15-1~24.04~ppa1 libze1=1.34.0-1~24.04~ppa1 intel-opencl-icd=26.40.40196.15-1~24.04~ppa1 clinfo=3.0.23.01.25-1build1 \
+    intel-media-va-driver-non-free=26.4.1-1~24.04~ppa1 libmfx-gen1.2=26.4.1-1~24.04~ppa1 libvpl-tools=1.6.0-1~24.04~ppa1 libva-glx2=2.24.1-1~24.04~ppa2 va-driver-all=2.24.1-1~24.04~ppa2 vainfo=2.24.0-1~24.04~ppa1 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -559,7 +559,7 @@ WORKDIR /tmp/npu_deps
 
 RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.38.0/linux-npu-driver-v1.38.0.20260910-34487311128-ubuntu2404.tar.gz && \
     tar -xf linux-npu-driver-v1.38.0.20260910-34487311128-ubuntu2404.tar.gz && \
-    curl -LO https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260830T100000Z/pool/main/l/level-zero-loader/libze1_1.32.0-1~24.04~ppa1_amd64.deb && \
+    curl -LO https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20261117T100000Z/pool/main/l/level-zero-loader/libze1_1.32.0-1~24.04~ppa1_amd64.deb && \
     apt-get update && \
     apt-get install -y --no-install-recommends ./intel-*.deb && \
     apt-get clean && \
