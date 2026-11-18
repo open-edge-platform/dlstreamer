@@ -28,7 +28,7 @@ inline int font_size(const Text &text) {
 inline cv::Size get_text_size_compat(const Text &text, int *baseline) {
     cv::FontFace face("sans");
     const cv::Rect bounds = cv::getTextSize(cv::Size(), text.text, cv::Point(), face, font_size(text),
-                                                font_weight(text), cv::PUT_TEXT_ALIGN_LEFT);
+                                            font_weight(text), cv::PUT_TEXT_ALIGN_LEFT);
     const int base_line = bounds.y + bounds.height;
     if (baseline)
         *baseline = base_line;
@@ -37,8 +37,7 @@ inline cv::Size get_text_size_compat(const Text &text, int *baseline) {
 
 inline void put_text_compat(cv::Mat &image, const Text &text, cv::Point org, const cv::Scalar &color) {
     cv::FontFace face("sans");
-    cv::putText(image, text.text, org, color, face, font_size(text), font_weight(text),
-                    cv::PUT_TEXT_ALIGN_LEFT);
+    cv::putText(image, text.text, org, color, face, font_size(text), font_weight(text), cv::PUT_TEXT_ALIGN_LEFT);
 }
 
 } // namespace render
