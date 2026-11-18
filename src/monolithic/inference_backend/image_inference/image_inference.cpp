@@ -11,6 +11,8 @@
 #include "image_inference_async_d3d12.h"
 #else
 #include "image_inference_async/image_inference_async.h"
+#include <cstdlib>
+#include <string>
 #include <unistd.h>
 #endif
 
@@ -26,6 +28,20 @@ ImagePreprocessorType getPreProcType(const std::map<std::string, std::string> &b
 }
 
 #ifndef _WIN32
+// Whether ROIs of VA surfaces are cropped and scaled by VaRoiGpuPreproc (an OpenCL kernel writing the batched model
+// input) instead of one VPP call per ROI. Only for GPU inference on ROIs: the backend gets img-width 0 for ROI-list
+// inference. Opt-in with DLS_VA_ROI_GPU_PREPROC=1 while it is being validated.
+bool useVaRoiGpuPreproc(const InferenceConfig &config) {
+    const char *env = std::getenv("DLS_VA_ROI_GPU_PREPROC");
+    if (!env || std::string(env) != "1")
+        return false;
+    const auto &base_config = config.at(KEY_BASE);
+    if (base_config.at(KEY_DEVICE).find("GPU") == std::string::npos)
+        return false;
+    const auto it = base_config.find("img-width");
+    return it == base_config.end() || it->second == "0";
+}
+
 // Checks whether the NPU can consume the zero-copy DMA-BUF that VPP renders into. The VPP output is
 // scaled to the model's image input size; for dynamic-shape models that size is resolved by the
 // backend into KEY_RESHAPE_WIDTH/HEIGHT, so that is used first and the model's static input shape is
@@ -133,6 +149,7 @@ ImageInference::Ptr ImageInference::createImageInferenceInstance(MemoryType inpu
 
     // Determine the memory type to be used for inference
     MemoryType memory_type_to_use = MemoryType::ANY;
+    bool va_roi_gpu_preproc = false;
 
 #ifndef _WIN32
     // Determine if the device is an NPU
@@ -189,6 +206,13 @@ ImageInference::Ptr ImageInference::createImageInferenceInstance(MemoryType inpu
         case ImagePreprocessorType::VAAPI_SURFACE_SHARING:
             // Use VAAPI memory for VAAPI_SURFACE_SHARING preprocessor type
             memory_type_to_use = MemoryType::VAAPI;
+#ifndef _WIN32
+            // ROIs pre-processed on the GPU by OpenVinoImageInference itself: no VPP, so no ImageInferenceAsync.
+            if (input_image_memory_type == MemoryType::VAAPI && useVaRoiGpuPreproc(config)) {
+                va_roi_gpu_preproc = true;
+                async_mode = false;
+            }
+#endif
             break;
         default:
             throw std::runtime_error("Incorrect pre-process-backend, should be vaapi or vaapi-surface-sharing");
@@ -239,7 +263,10 @@ ImageInference::Ptr ImageInference::createImageInferenceInstance(MemoryType inpu
     }
 
     // Create an OpenVinoImageInference instance with the determined memory type
-    auto ov_inference = std::make_shared<OpenVinoImageInference>(config, allocator, context, callback, error_handler,
+    InferenceConfig ov_config = config;
+    if (va_roi_gpu_preproc)
+        ov_config[KEY_BASE][KEY_VA_ROI_GPU_PREPROC] = "1";
+    auto ov_inference = std::make_shared<OpenVinoImageInference>(ov_config, allocator, context, callback, error_handler,
                                                                  memory_type_to_use);
 
     ImageInference::Ptr result_inference;

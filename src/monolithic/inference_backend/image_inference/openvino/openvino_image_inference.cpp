@@ -27,6 +27,9 @@
 #include "inference_backend/pre_proc.h"
 
 #include "openvino_blob_wrapper.h"
+#ifndef _WIN32
+#include "va_roi_gpu_preproc.h"
+#endif
 #include "safe_arithmetic.hpp"
 #include "utils.h"
 
@@ -116,6 +119,9 @@ OpenVinoImageInference::OpenVinoImageInference(const InferenceBackend::Inference
             free_slots_.Release(inference_slot.get());
         }
 
+        if (cfg_helper.VaRoiGpuPreproc())
+            SetUpVaRoiGpuPreproc(cfg_helper, remote_context);
+
         if (pp_type == InferenceBackend::ImagePreprocessorType::OPENCV ||
             pp_type == InferenceBackend::ImagePreprocessorType::D3D11 ||
             pp_type == InferenceBackend::ImagePreprocessorType::D3D12) {
@@ -128,6 +134,50 @@ OpenVinoImageInference::OpenVinoImageInference(const InferenceBackend::Inference
     } catch (const std::exception &e) {
         std::throw_with_nested(std::runtime_error("Failed to construct OpenVinoImageInference"));
     }
+}
+
+void OpenVinoImageInference::SetUpVaRoiGpuPreproc(const ConfigHelper &config,
+                                                  const std::shared_ptr<dlstreamer::OpenVINOContext> &remote_context) {
+#ifdef _WIN32
+    (void)config;
+    (void)remote_context;
+    throw std::runtime_error("GPU pre-processing of VA surface ROIs is not supported on Windows");
+#else
+    if (!remote_context)
+        throw std::runtime_error("GPU pre-processing of VA surface ROIs requires a GPU device and a VA display");
+    const std::string &model_format = config.ModelFormat();
+    if (model_format != "BGR" && model_format != "RGB")
+        throw std::runtime_error("GPU pre-processing of VA surface ROIs supports BGR and RGB models, not '" +
+                                 model_format + "'");
+    if (prepared_model_.model->inputs().size() != 1)
+        throw std::runtime_error("GPU pre-processing of VA surface ROIs supports models with one input only");
+
+    auto *cl_ctx = static_cast<cl_context>(remote_context->handle(dlstreamer::OpenVINOContext::key::cl_context));
+    auto *va_display = context_ ? context_->handle(dlstreamer::BaseContext::key::va_display) : nullptr;
+    // The image input after pre-processing setup: [N, H, W, 3] u8, as the ROI kernel writes it.
+    const ov::Shape shape = compiled_model_.input(image_layer_).get_shape();
+    if (shape.size() != 4 || shape[3] != 3)
+        throw std::runtime_error("GPU pre-processing of VA surface ROIs: unexpected image input shape " +
+                                 shape.to_string());
+
+    va_roi_preproc_ = std::make_unique<InferenceBackend::VaRoiGpuPreproc>(
+        cl_ctx, va_display, safe_convert<uint32_t>(shape[2]), safe_convert<uint32_t>(shape[1]), model_format == "RGB");
+    auto cl_remote_context = remote_context->remote_context<ov::intel_gpu::ocl::ClContext>();
+    for (auto &inference_slot : inference_slots_) {
+        cl_mem buffer = va_roi_preproc_->CreateBatchBuffer(shape[0]);
+        inference_slot->infer_request.set_tensor(image_layer_,
+                                                 cl_remote_context.create_tensor(ov::element::u8, shape, buffer));
+        inference_slot->gpu_input = buffer;
+    }
+    GVA_INFO("GPU pre-processing of VA surface ROIs enabled, input %s", shape.to_string().c_str());
+#endif
+}
+
+void OpenVinoImageInference::FinishGpuPreprocessing() {
+#ifndef _WIN32
+    if (va_roi_preproc_)
+        va_roi_preproc_->Finish();
+#endif
 }
 
 OpenVinoImageInference::~OpenVinoImageInference() {
@@ -258,7 +308,10 @@ void OpenVinoImageInference::Flush() {
                 // When software preprocessing is used, frames are written directly into the infer-request-owned
                 // batched tensor, so any unfilled tail slots in the last partial batch already contain data from
                 // a previous request reuse.
-                if (batch_size_ > 1 && !DoNeedImagePreProcessing(nullptr)) {
+                // GPU ROI pre-processing writes into the bound input buffer as software pre-processing does.
+                const bool writes_bound_input =
+                    DoNeedImagePreProcessing(nullptr) || inference_slot->gpu_input != nullptr;
+                if (batch_size_ > 1 && !writes_bound_input) {
                     size_t input_idx = 0;
                     for (auto &input_vec : inference_slot->in_tensors) {
                         for (int i = input_vec.size(); i < batch_size_; i++)
@@ -269,6 +322,7 @@ void OpenVinoImageInference::Flush() {
                     }
                 }
 
+                FinishGpuPreprocessing();
                 inference_slot->StartAsync();
             } catch (const std::exception &e) {
                 GVA_ERROR("Couldn't start inference on flush: %s", e.what());

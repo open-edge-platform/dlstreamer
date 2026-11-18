@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2018-2025 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -7,6 +7,7 @@
 set (TARGET_NAME "va_api_wrapper")
 
 find_package(PkgConfig)
+find_package(OpenCL REQUIRED)
 pkg_search_module(VA va libva REQUIRED)
 if(UNIX)
     pkg_search_module(VADRM va-drm libva-drm REQUIRED)
@@ -38,6 +39,7 @@ PUBLIC
         opencv_pre_proc
         utils
         ${VA_LIBRARIES}
+        OpenCL::OpenCL
 PRIVATE
         ${VADRM_LIBRARIES}
         utils

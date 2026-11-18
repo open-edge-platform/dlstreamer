@@ -9,6 +9,9 @@
 // the batch is full. See Flush() in openvino_image_inference.cpp for how a partly filled batch is started.
 
 #include "openvino_image_inference.h"
+#ifndef _WIN32
+#include "va_roi_gpu_preproc.h"
+#endif
 
 #include "openvino_blob_wrapper.h"
 
@@ -103,6 +106,23 @@ void OpenVinoImageInference::SubmitImageProcessing(const std::string &input_name
             std::throw_with_nested(std::runtime_error("Failed while software frame preprocessing"));
         }
     }
+}
+
+void OpenVinoImageInference::EnqueueGpuPreprocessing(
+    InferSlot *inference_slot, IFrameBase &frame,
+    const std::map<std::string, InferenceBackend::InputLayerDesc::Ptr> &input_preprocessors) {
+    ITT_TASK(__FUNCTION__);
+#ifdef _WIN32
+    (void)inference_slot;
+    (void)frame;
+    (void)input_preprocessors;
+    throw std::runtime_error("GPU pre-processing of VA surface ROIs is not supported on Windows");
+#else
+    // The frame is the next element of the slot's batch
+    va_roi_preproc_->Enqueue(*frame.GetImage(), static_cast<cl_mem>(inference_slot->gpu_input),
+                             inference_slot->buffers.size(), GetImagePreProcInfo(input_preprocessors),
+                             frame.GetImageTransformationParams());
+#endif
 }
 
 void OpenVinoImageInference::BypassImageProcessing(const std::string &input_name, InferSlot *inference_slot,
@@ -227,7 +247,9 @@ void OpenVinoImageInference::SubmitImage(
         prev_tensors.push_back(in_vec.size());
 
     try {
-        if (DoNeedImagePreProcessing(frame->GetImage())) {
+        if (inference_slot->gpu_input) {
+            EnqueueGpuPreprocessing(inference_slot, *frame, input_preprocessors);
+        } else if (DoNeedImagePreProcessing(frame->GetImage())) {
             SubmitImageProcessing(
                 image_layer_, inference_slot, *frame->GetImage(),
                 GetImagePreProcInfo(input_preprocessors), // contain operations order for Custom Image PreProcessing
@@ -257,6 +279,7 @@ void OpenVinoImageInference::SubmitImage(
         // start inference asynchronously if enough buffers for batching
         if (inference_slot->buffers.size() >= safe_convert<size_t>(batch_size_)) {
             current_slot_ = nullptr;
+            FinishGpuPreprocessing();
             inference_slot->StartAsync();
         }
     } catch (const std::exception &e) {

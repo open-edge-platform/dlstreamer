@@ -309,13 +309,19 @@ void ConfigureImageInput(Preparation &p, const ConfigHelper &config, ov::preproc
         pp_type == ImagePreprocessorType::D3D11_SURFACE_SHARING ||
         pp_type == ImagePreprocessorType::D3D12_SURFACE_SHARING || pp_type == ImagePreprocessorType::IE) {
 
+        // With VaRoiGpuPreproc the input is a GPU buffer that the ROI kernel already fills in the model's color order,
+        // so neither a surface input nor a color conversion is needed.
+        const bool va_roi_gpu_preproc =
+            pp_type == ImagePreprocessorType::VAAPI_SURFACE_SHARING && config.VaRoiGpuPreproc();
+
         // Surface sharing and IE assume input tensors in NHWC format
-        const auto color_format_pair = GetOvColorFormat(config.ImageFormat());
+        const auto color_format_pair =
+            GetOvColorFormat(va_roi_gpu_preproc ? config.ModelFormat() : config.ImageFormat());
         input.tensor().set_color_format(color_format_pair.first, color_format_pair.second);
         input.tensor().set_layout("NHWC");
 
         // Surface sharing pre-processor requires NV12 input surface in GPU memory
-        if (pp_type == ImagePreprocessorType::VAAPI_SURFACE_SHARING) {
+        if (pp_type == ImagePreprocessorType::VAAPI_SURFACE_SHARING && !va_roi_gpu_preproc) {
             assert(p.memory_type == MemoryType::VAAPI);
             assert(color_format_pair.first == ov::preprocess::ColorFormat::NV12_TWO_PLANES);
             input.tensor().set_memory_type(ov::intel_gpu::memory_type::surface);

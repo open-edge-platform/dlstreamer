@@ -23,14 +23,16 @@ class VaApiConverter {
     // each converter has its own context, so different converters do not wait for each other.
     std::mutex _convert_mutex;
 
-  protected:
-    void SetupPipelineRegionsWithCustomParams(const InputImageLayerDesc::Ptr &pre_proc_info, uint16_t src_width,
-                                              uint16_t src_height, uint16_t dst_width, uint16_t dst_height,
-                                              VARectangle &src_surface_region, VARectangle &dst_surface_region,
-                                              VAProcPipelineParameterBuffer &pipeline_param,
-                                              const ImageTransformationParams::Ptr &image_transform_info);
-
   public:
+    // Source and destination regions, and background color, of a VPP crop/resize under the model-proc pre-processing
+    // parameters; records the transformations in image_transform_info. Also used by VaRoiGpuPreproc, which
+    // pre-processes on the GPU with the same regions.
+    static void SetupPipelineRegionsWithCustomParams(const InputImageLayerDesc::Ptr &pre_proc_info, uint16_t src_width,
+                                                     uint16_t src_height, uint16_t dst_width, uint16_t dst_height,
+                                                     VARectangle &src_surface_region, VARectangle &dst_surface_region,
+                                                     VAProcPipelineParameterBuffer &pipeline_param,
+                                                     const ImageTransformationParams::Ptr &image_transform_info);
+
     explicit VaApiConverter(VaApiContext *context);
     ~VaApiConverter() = default;
 

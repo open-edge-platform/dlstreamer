@@ -51,6 +51,12 @@
 #include "openvino_image_to_tensor_converter.h"
 #include "openvino_prepared_model.h"
 
+#ifndef _WIN32
+namespace InferenceBackend {
+class VaRoiGpuPreproc;
+}
+#endif
+
 class OpenVinoImageInference : public InferenceBackend::ImageInference {
   public:
     OpenVinoImageInference(const InferenceBackend::InferenceConfig &config, InferenceBackend::Allocator *allocator,
@@ -94,6 +100,8 @@ class OpenVinoImageInference : public InferenceBackend::ImageInference {
         ov::InferRequest infer_request;
         std::vector<IFrameBase::Ptr> buffers;
         std::vector<ov::TensorVector> in_tensors;
+        // With VaRoiGpuPreproc: the cl_mem the ROI kernel writes this slot's batch into, bound as the image input.
+        void *gpu_input = nullptr;
 
         void StartAsync() {
             return infer_request.start_async();
@@ -128,6 +136,10 @@ class OpenVinoImageInference : public InferenceBackend::ImageInference {
     std::atomic<InferSlot *> current_slot_{nullptr};
 
     std::unique_ptr<InferenceBackend::ImagePreprocessor> pre_processor_;
+#ifndef _WIN32
+    // ROIs of VA surfaces cropped and scaled on the GPU instead of by VPP (KEY_VA_ROI_GPU_PREPROC)
+    std::unique_ptr<InferenceBackend::VaRoiGpuPreproc> va_roi_preproc_;
+#endif
 
     // Threading
     std::mutex requests_mutex_;
@@ -144,6 +156,14 @@ class OpenVinoImageInference : public InferenceBackend::ImageInference {
                                const InferenceBackend::ImageTransformationParams::Ptr image_transform_info);
     void BypassImageProcessing(const std::string &input_name, InferSlot *inference_slot,
                                const InferenceBackend::Image &src_img, size_t batch_size);
+    void SetUpVaRoiGpuPreproc(const InferenceBackend::OpenVino::ConfigHelper &config,
+                              const std::shared_ptr<dlstreamer::OpenVINOContext> &remote_context);
+    // Crops and scales the frame's ROI into the slot's input buffer on the GPU; does not wait for it.
+    void
+    EnqueueGpuPreprocessing(InferSlot *inference_slot, IFrameBase &frame,
+                            const std::map<std::string, InferenceBackend::InputLayerDesc::Ptr> &input_preprocessors);
+    // Waits for the GPU pre-processing of the frames already in a slot, before its inference starts.
+    void FinishGpuPreprocessing();
     void SetCompletionCallback(InferSlot *inference_slot);
     void
     ApplyInputPreprocessors(InferSlot *inference_slot,

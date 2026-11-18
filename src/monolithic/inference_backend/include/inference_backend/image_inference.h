@@ -189,6 +189,8 @@ __DECLARE_CONFIG_KEY(CAPS_FEATURE);
 __DECLARE_CONFIG_KEY(VAAPI_THREAD_POOL_SIZE);
 __DECLARE_CONFIG_KEY(VAAPI_FAST_SCALE_LOAD_FACTOR);
 __DECLARE_CONFIG_KEY(D3D11_THREAD_POOL_SIZE);
+// "1": with va-surface-sharing on ROIs, crop and scale with an OpenCL kernel instead of VPP (see VaRoiGpuPreproc)
+__DECLARE_CONFIG_KEY(VA_ROI_GPU_PREPROC);
 // 'mean' parameter for OpenVINO™ (gets subtracted from input values prior to division)
 // 'scale' parameter for OpenVINO™ (divides pixel values)
 __DECLARE_CONFIG_KEY(PIXEL_VALUE_MEAN);

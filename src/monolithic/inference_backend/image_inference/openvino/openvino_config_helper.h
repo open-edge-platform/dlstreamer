@@ -168,6 +168,11 @@ struct ConfigHelper {
         return {BaseGetOr(KEY_RESHAPE_WIDTH, 0), BaseGetOr(KEY_RESHAPE_HEIGHT, 0)};
     }
 
+    // Crop and scale ROIs of VA surfaces with VaRoiGpuPreproc instead of VPP (set by createImageInferenceInstance)
+    bool VaRoiGpuPreproc() const {
+        return BaseGetOr(KEY_VA_ROI_GPU_PREPROC, 0) != 0;
+    }
+
     std::pair<size_t, size_t> ImageSize() const {
         return {BaseGetOr("img-width", 0), BaseGetOr("img-height", 0)};
     }
