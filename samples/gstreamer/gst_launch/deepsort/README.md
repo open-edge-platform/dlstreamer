@@ -46,17 +46,14 @@ The pipeline uses the following elements:
 
 * DL Streamer installed (or run via the DL Streamer Docker image), with GStreamer VA-API plugins for GPU encoding
 * Intel Core Ultra 3 processor (or any Intel system with integrated GPU); the script falls back to CPU automatically if `/dev/dri` is not present
-* `curl` (to download the default sample video, if needed)
-
 ### Models
 
-The script expects the following pre-converted OpenVINO IR models under the fixed models
-directory set by `MODELS_DIR` in the script:
+The example uses the following pre-converted OpenVINO IR models under `MODELS_DIR`:
 
 * **YOLO26m** (detection) — any precision `.xml`/`.bin` under `yolo26m/FP16/`
 * **Mars-Small-128** (re-identification) — `mars-small128/FP32/mars_small128_fp32.xml` (+ matching `.bin`)
 
-If the models are missing, generate them with the repository's model conversion scripts in
+These are example models; compatible object-detection and re-identification models can be substituted by updating the model paths and pipeline configuration. If the example models are missing, prepare them with the repository's general model conversion scripts in
 [`scripts/download_models`](../../../../scripts/download_models). See
 [`scripts/download_models/README.md`](../../../../scripts/download_models/README.md) for setup,
 usage, and exact commands for the Ultralytics (YOLO26m) and other-models (Mars-Small-128)
@@ -64,9 +61,7 @@ conversion flows.
 
 ### Video
 
-If no input video is given, the script downloads a default sample clip to `videos/people.mp4`
-from Pexels (`https://www.pexels.com/download/video/39182823/?fps=24.0&h=720&w=1280`) on first
-run. You can also pass any local video file instead.
+The input video path is required. Use any local video supported by GStreamer that contains people; the example path below is illustrative.
 
 ## Running the Sample
 
@@ -75,8 +70,8 @@ run. You can also pass any local video file instead.
 ```
 
 ```bash
-# Default: videos/people.mp4, GPU, annotated MP4 output
-./people_detection_tracking.sh
+# Example: local video, GPU, annotated MP4 output
+./people_detection_tracking.sh /path/to/people.mp4
 
 # Custom video, CPU inference
 ./people_detection_tracking.sh /path/to/video.mp4 CPU
@@ -101,7 +96,7 @@ Show usage help:
 
 | Argument   | Position | Default              | Description |
 |------------|----------|-----------------------|--------------|
-| `INPUT`    | 1        | `videos/people.mp4`  | Path to the input video file. Downloaded automatically if the default path doesn't exist. |
+| `INPUT`    | 1        | required              | Path to an existing local input video file. |
 | `DEVICE`   | 2        | `GPU`                 | Inference device for `gvadetect`/`gvainference`/`gvatrack`. Supported: `CPU`, `GPU`. Falls back to `CPU` if no GPU (`/dev/dri`) is available. |
 | `OUTPUT`   | 3        | `mp4`                 | Output artifact: `mp4` (annotated video), `json` (detection metadata), or `frames` (annotated PNG frames). |
 | `INTERVAL` | 4        | `1`                   | Only used when `OUTPUT=frames`. Saves roughly every Nth processed frame as a PNG (1 = save all). Detection/tracking still runs on every frame; `INTERVAL` only thins out the saved PNGs via a `videorate` stage placed right before `pngenc`. |

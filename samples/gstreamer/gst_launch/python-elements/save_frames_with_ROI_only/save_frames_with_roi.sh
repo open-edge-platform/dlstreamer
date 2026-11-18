@@ -7,15 +7,24 @@
 
 set -e
 
-INPUT=${1:-https://github.com/intel-iot-devkit/sample-videos/raw/master/head-pose-face-detection-female-and-male.mp4}
+INPUT=${1:-}
+if [[ -z "$INPUT" ]]; then
+  echo "Error: provide an input video path, stream URL, or camera device as the first argument." >&2
+  exit 2
+fi
 DEVICE=${2:-GPU}
 OUTPUT=${3:-fps} # Supported values: display, fps
 
 SCRIPTDIR="$(dirname "$(realpath "$0")")"
 
-# --- Prepare models (download from HuggingFace and convert to OpenVINO IR) ---
-echo "Preparing models..."
-eval "$(python3 "${SCRIPTDIR}/prepare_models.py")"
+MODEL_NAME="arnabdhar_YOLOv8-Face-Detection"
+MODELS_ROOT="${MODELS_PATH:-${SCRIPTDIR}/models}"
+DETECT_MODEL_PATH="${DETECT_MODEL_PATH:-${MODELS_ROOT}/public/${MODEL_NAME}/FP16/${MODEL_NAME}.xml}"
+if [[ ! -s "$DETECT_MODEL_PATH" ]]; then
+  echo "Detection model not found: $DETECT_MODEL_PATH" >&2
+  echo "Prepare it with scripts/download_models/download_ultralytics_models.py --model arnabdhar/YOLOv8-Face-Detection --outdir \"${MODELS_ROOT}/public/${MODEL_NAME}/FP16\" --half" >&2
+  exit 1
+fi
 
 if [[ $OUTPUT == "display" ]] || [[ -z $OUTPUT ]]; then
   SINK_ELEMENT="gvawatermark ! videoconvert ! gvafpscounter ! autovideosink sync=false"
@@ -34,8 +43,6 @@ elif [[ $INPUT == *"://"* ]]; then
 else
   SOURCE_ELEMENT="filesrc location=${INPUT}"
 fi
-
-DETECT_MODEL_PATH=${DETECT_MODEL_PATH:?Detection model not prepared}
 
 echo Running sample with the following parameters:
 echo GST_PLUGIN_PATH="${GST_PLUGIN_PATH}"

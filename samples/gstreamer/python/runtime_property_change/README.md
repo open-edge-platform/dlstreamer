@@ -49,41 +49,13 @@ uv pip install -r requirements.txt
 
 ## Prepare Video and Models (One-Time Setup)
 
-### Download Video
+### Video input
 
-The sample works with any video that has objects the model knows. This one shows traffic on a highway
-(1280x720, 60 fps). It is rewound at the start of each phase, so it needs to be only as long as one phase.
-
-```bash
-mkdir -p videos && curl -L -o videos/highway.mp4 \
-    -H "Referer: https://www.pexels.com/" \
-    -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" \
-    "https://videos.pexels.com/video-files/2103099/2103099-hd_1280_720_60fps.mp4"
-```
-
-This sample uses Pexels video #2103099 (a police highway scene), as in the
-[heterogeneous systems guide](../../../../docs/user-guide/dev_guide/heterogeneous_systems_guide.md).
+Use any local video supported by the installed GStreamer plugins that contains objects detected by the selected model. A highway clip is one useful example. The input is rewound at the start of each phase, so it only needs to be as long as one phase.
 
 ## Models
 
-This sample expects one OpenVINO IR model: `yolo11s` in FP16 precision from Ultralytics, for object detection.
-
-Use the model conversion scripts in [scripts/download_models/](../../../../scripts/download_models/README.md) to
-prepare it. Before running them, create and activate the dedicated model-download virtual environment described in
-[scripts/download_models/README.md](../../../../scripts/download_models/README.md). Then, from that folder:
-
-```bash
-python download_ultralytics_models.py --model yolo11s.pt --half --outdir "$HOME/models/public/yolo11s/FP16"
-```
-
-Set the `MODELS_PATH` environment variable to the main directory the models are downloaded to, so that the model is
-found at `$MODELS_PATH/public/yolo11s/FP16/yolo11s.xml`:
-
-```bash
-export MODELS_PATH="$HOME/models"
-```
-
-To use another detection model, give its `.xml` file with `--model`.
+The example uses the YOLO11s FP16 OpenVINO IR model. Any compatible object-detection model can be passed through `--model`. Prepare it with the general [Ultralytics conversion helper](../../../../scripts/download_models/README.md#2-ultralytics-conversion); see the helper README for supported models and environment setup. When using the default model path, set `MODELS_PATH` to the root containing `public/yolo11s/FP16/yolo11s.xml`.
 
 ## Running the Sample
 

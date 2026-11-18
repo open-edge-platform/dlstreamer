@@ -45,6 +45,30 @@ GST_DEBUG_CATEGORY_STATIC(gst_g3d_lidar_src_debug);
 #define HOST_TS_MAX_AGE_NS (10 * GST_SECOND)
 #define HOST_TS_MAX_FUTURE_NS (1 * GST_SECOND)
 
+/* ntp-sync=false: how long ago a frame was captured, from the backend's host
+ * wall-clock capture time. Sampling the pipeline clock and the wall clock back to
+ * back keeps this independent of the wall clock's absolute value.
+ * running_time = clock_time - base_time (without subtracting base_time the PTS
+ * would be e.g. CLOCK_MONOTONIC since boot). Returns FALSE if the element has no
+ * clock. *valid tells whether the timestamp is a recent host wall-clock time;
+ * a value outside that window cannot be the capture time of a frame we just
+ * dequeued (e.g. a backend not following the ABI contract). */
+static gboolean host_capture_age(GstElement *element, double timestamp, GstClockTime *running_now, gint64 *age_ns,
+                                 gboolean *valid) {
+    GstClock *clock = gst_element_get_clock(element);
+    if (!clock)
+        return FALSE;
+    const GstClockTime now = gst_clock_get_time(clock);
+    const gint64 wall_now_ns = g_get_real_time() * (gint64)GST_USECOND;
+    const GstClockTime base = gst_element_get_base_time(element);
+    gst_object_unref(clock);
+
+    *running_now = (now > base) ? (now - base) : 0;
+    *age_ns = wall_now_ns - (gint64)(timestamp * GST_SECOND);
+    *valid = timestamp > 0.0 && *age_ns >= -(gint64)HOST_TS_MAX_FUTURE_NS && *age_ns <= (gint64)HOST_TS_MAX_AGE_NS;
+    return TRUE;
+}
+
 /* Property IDs */
 enum { PROP_0, PROP_CONFIG, PROP_NTP_SYNC, PROP_TIMEOUT, PROP_STREAM_ID };
 
@@ -630,6 +654,21 @@ static GstFlowReturn gst_g3d_lidar_src_create(GstPushSrc *src, GstBuffer **buf) 
         }
 
         if (cloud && cloud->point_count > 0) {
+            /* ntp-sync=false: a frame captured before the pipeline reached
+             * PLAYING has no running time. Such frames are a backlog queued
+             * while the pipeline was still starting (e.g. while another source
+             * was opening its device), so drop them instead of pushing a burst
+             * of stale frames all stamped with running time 0. */
+            GstClockTime running_now;
+            gint64 age_ns;
+            gboolean valid;
+            if (!self->ntp_sync &&
+                host_capture_age(GST_ELEMENT(self), cloud->timestamp, &running_now, &age_ns, &valid) && valid &&
+                age_ns > 0 && (GstClockTime)age_ns > running_now) {
+                GST_DEBUG_OBJECT(self, "Dropping frame captured %.3f ms before the pipeline reached PLAYING",
+                                 (double)((GstClockTime)age_ns - running_now) / GST_MSECOND);
+                continue;
+            }
             break;
         }
 
@@ -676,24 +715,16 @@ static GstFlowReturn gst_g3d_lidar_src_create(GstPushSrc *src, GstBuffer **buf) 
          * In this mode the backend runs with use_lidar_clock=0 and reports the
          * capture time on the host wall clock (Unix epoch). Convert it by
          * measuring its age against the wall clock now and subtracting that age
-         * from the current running time; sampling both clocks back-to-back keeps
-         * the conversion independent of the wall clock's absolute value.
-         * running_time = clock_time - base_time (without subtracting base_time
-         * the PTS would be e.g. CLOCK_MONOTONIC since boot). */
-        GstClock *clock = gst_element_get_clock(GST_ELEMENT(self));
-        if (clock) {
-            const GstClockTime now = gst_clock_get_time(clock);
-            const gint64 wall_now_ns = g_get_real_time() * (gint64)GST_USECOND;
-            const GstClockTime base = gst_element_get_base_time(GST_ELEMENT(self));
-            gst_object_unref(clock);
-            const GstClockTime running_now = (now > base) ? (now - base) : 0;
-            const gint64 age_ns = wall_now_ns - (gint64)(cloud->timestamp * GST_SECOND);
-
+         * from the current running time. */
+        GstClockTime running_now;
+        gint64 age_ns;
+        gboolean valid;
+        if (host_capture_age(GST_ELEMENT(self), cloud->timestamp, &running_now, &age_ns, &valid)) {
             frame_ts = running_now;
-            if (cloud->timestamp > 0.0 && age_ns >= -(gint64)HOST_TS_MAX_FUTURE_NS &&
-                age_ns <= (gint64)HOST_TS_MAX_AGE_NS) {
-                /* Small negative ages (clock-offset estimation noise) map to "now";
-                 * captures that started before PLAYING clamp to 0. */
+            if (valid) {
+                /* Small negative ages (clock-offset estimation noise) map to "now".
+                 * Captures that started before PLAYING were dropped above; the
+                 * clamp to 0 only guards against a race with that check. */
                 if (age_ns > 0)
                     frame_ts = ((GstClockTime)age_ns < running_now) ? running_now - (GstClockTime)age_ns : 0;
                 GST_DEBUG_OBJECT(self,

@@ -10,7 +10,7 @@ in samples/gstreamer/gst_launch/g3dbevfusion/, and a GPU. Tests are skipped when
 they are missing.
 
   G3DBEVFUSION_CONFIG  runtime config (default: the last <sample>/bevfusion_ov_model_*/g3dbevfusion.json)
-  G3DBEVFUSION_SCENE   converted scene (default: <sample>/nuscenes_mini_seq/scene-0103)
+  G3DBEVFUSION_SCENE   converted scene (default: <sample>/nuscenes_mini_seq_12Hz/scene-0103)
 
 Detections are read back through the element's G3DBEVFUSION_DUMP_DIR debug
 output: one boxes_<frame>.npy per inferred frame, float32 [N, 11].
@@ -37,7 +37,7 @@ SAMPLE_DIR = os.path.join(DLSTREAMER_ROOT, "samples", "gstreamer", "gst_launch",
 CONFIG = os.environ.get("G3DBEVFUSION_CONFIG") or next(
     reversed(sorted(glob.glob(os.path.join(SAMPLE_DIR, "bevfusion_ov_model_*", "g3dbevfusion.json")))),
     os.path.join(SAMPLE_DIR, "bevfusion_ov_model_<openvino-version>", "g3dbevfusion.json"))
-SCENE = os.environ.get("G3DBEVFUSION_SCENE", os.path.join(SAMPLE_DIR, "nuscenes_mini_seq", "scene-0103"))
+SCENE = os.environ.get("G3DBEVFUSION_SCENE", os.path.join(SAMPLE_DIR, "nuscenes_mini_seq_12Hz", "scene-0103"))
 CAMERAS = ["CAM_FRONT", "CAM_FRONT_RIGHT", "CAM_FRONT_LEFT", "CAM_BACK", "CAM_BACK_LEFT", "CAM_BACK_RIGHT"]
 SCORE_THRESHOLD = 0.3
 
@@ -93,11 +93,30 @@ class TestG3DBevFusion(unittest.TestCase):
         if config:
             props += f" config={config}"
         return ("gvastreammux name=mux output-mode=container sync-mode=first-pts max-wait-time=5000000000 ! "
-                f"g3dbevfusion {props} ! fakesink")
+                f"g3dbevfusion {props} ! fakesink name=sink")
+
+    def _calibration(self, edit):
+        """A copy of the scene's calibration.json, changed by edit(dict)."""
+        with open(os.path.join(SCENE, "calibration.json")) as f:
+            calibration = json.load(f)
+        edit(calibration)
+        path = os.path.join(self.dump_dir, "calibration_edited.json")
+        with open(path, "w") as f:
+            json.dump(calibration, f)
+        return path
 
     @staticmethod
-    def _run(pipeline, timeout_s=180):
+    def _frames_table():
+        with open(os.path.join(SCENE, "calibration.json")) as f:
+            return json.load(f).get("frames", [])
+
+    @staticmethod
+    def _run(pipeline, timeout_s=180, pts=None):
+        """Runs to EOS; with pts=[], collects the PTS of every buffer reaching the sink."""
         gst_pipeline = Gst.parse_launch(pipeline)
+        if pts is not None:
+            gst_pipeline.get_by_name("sink").get_static_pad("sink").add_probe(
+                Gst.PadProbeType.BUFFER, lambda pad, info: pts.append(info.get_buffer().pts) or Gst.PadProbeReturn.OK)
         bus = gst_pipeline.get_bus()
         errors = []
         if gst_pipeline.set_state(Gst.State.PLAYING) == Gst.StateChangeReturn.FAILURE:
@@ -155,13 +174,16 @@ class TestG3DBevFusion(unittest.TestCase):
         # The same frame twice in one pipeline must give the same detections: the
         # camera branch's BEV pool must not carry anything over from the frame before.
         repeat = "start-index=0 stop-index=0 loop=true num-buffers=2"
+        # The second read of file 0 is lidar frame 1, which the frames table
+        # describes differently; leave the table out.
+        calibration = self._calibration(lambda c: c.pop("frames", None))
         cameras = " ".join(
             f"multifilesrc location={SCENE}/{name}/%06d.jpg {repeat} "
             "caps=image/jpeg,framerate=2/1 ! jpegparse ! jpegdec ! videoconvert ! "
             f"video/x-raw,format=BGR ! queue ! mux.sink_{pad}" for pad, name in enumerate(CAMERAS))
         lidar = (f"multifilesrc location={SCENE}/LIDAR_TOP/%06d.bin {repeat} "
                  "caps=application/octet-stream ! g3dlidarparse frame-rate=2 ! queue ! mux.sink_6")
-        errors = self._run(f"{cameras} {lidar} {self._bevfusion(os.path.join(SCENE, 'calibration.json'))}")
+        errors = self._run(f"{cameras} {lidar} {self._bevfusion(calibration)}")
         self.assertEqual(errors, [])
         dumped = self._dumped_frames()
         self.assertEqual(len(dumped), 2)
@@ -170,6 +192,28 @@ class TestG3DBevFusion(unittest.TestCase):
         self.assertEqual(len(first), len(second), "the repeated frame gave a different number of boxes")
         for a, b in zip(sorted(first), sorted(second)):
             self.assertTrue(all(abs(x - y) < 1e-2 for x, y in zip(a, b)), f"repeated frame differs: {a} vs {b}")
+
+    def test_frames_table_sets_recorded_timestamps(self):
+        table = self._frames_table()
+        if not table:
+            self.skipTest("the scene's calibration.json has no frames table")
+        frames, pts = 3, []
+        errors = self._run(f"{self._camera_branches(frames)} {self._lidar_branch(frames)} "
+                           f"{self._bevfusion(os.path.join(SCENE, 'calibration.json'))}", pts=pts)
+        self.assertEqual(errors, [])
+        self.assertEqual(pts, [table[i]["timestamp_us"] * 1000 for i in range(frames)])
+
+    def test_frames_table_out_of_step_is_an_error(self):
+        if not self._frames_table():
+            self.skipTest("the scene's calibration.json has no frames table")
+
+        def edit(calibration):
+            calibration["frames"][0]["lidar"]["points"] += 1
+            calibration["frames"][0]["lidar"].pop("sweeps", None)
+
+        errors = self._run(f"{self._lidar_branch(1)} {self._bevfusion(self._calibration(edit))}")
+        self.assertNotEqual(errors, [])
+        self.assertIn("does not match the calibration's frames table", "\n".join(errors))
 
     def test_too_few_cameras_is_an_error(self):
         with open(os.path.join(SCENE, "calibration.json")) as f:

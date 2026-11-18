@@ -8,7 +8,7 @@
 **Hardware-accelerated video analytics pipelines — CPU, GPU and NPU, from a single line of code to production-grade edge AI**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-[![Ubuntu](https://img.shields.io/badge/Ubuntu-22.04%20%7C%2024.04-orange?logo=ubuntu)](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/system_requirements.html)
+[![Ubuntu](https://img.shields.io/badge/Ubuntu-22.04%20%7C%2024.04%20%7C%2026.04-orange?logo=ubuntu)](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/system_requirements.html)
 [![Windows](https://img.shields.io/badge/Windows-11-blue?logo=windows)](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/system_requirements.html)
 [![OpenVINO](https://img.shields.io/badge/OpenVINO-powered-blue)](https://docs.openvino.ai)
 [![GStreamer](https://img.shields.io/badge/GStreamer-based-brightgreen)](https://gstreamer.freedesktop.org)
@@ -66,7 +66,7 @@ chmod +x DLS_install_prerequisites.sh
 ./DLS_install_prerequisites.sh
 ```
 
-> This script detects your Intel GPU/NPU, installs the correct drivers for Ubuntu 22.04 or 24.04, and adds your user to the required groups. Use `--reinstall-npu-driver=yes` to force-reinstall the NPU driver. Run `./DLS_install_prerequisites.sh --help` for all options.
+> This script detects your Intel GPU/NPU, installs the correct drivers for Ubuntu 22.04, 24.04 or 26.04, and adds your user to the required groups. Use `--reinstall-npu-driver=yes` to force-reinstall the NPU driver. Run `./DLS_install_prerequisites.sh --help` for all options.
 
 ### Step 2 — Install DL Streamer
 
@@ -97,13 +97,17 @@ sudo bash -c 'echo "deb [signed-by=/usr/share/keyrings/intel-gpg-archive-keyring
 sudo apt update && sudo apt-get install -y intel-dlstreamer
 ```
 
+> For **Ubuntu 26.04**, replace `ubuntu24` with `ubuntu26` in both the DL Streamer and OpenVINO repository lines above. For **Ubuntu 22.04**, use `ubuntu22`.
+
 Full installation guide: [Install Guide for Ubuntu](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/install/install_guide_ubuntu.html) | [Windows](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/install/install_guide_windows.html)
 
 ---
 
 ## Quick Start - Run Your Pipeline
 
-**Step 1 — Set up models and environment** (inside the container or on a native install):
+**Step 1 — Set up model, input video and environment** (inside the container or on a native install):
+
+Download the model you want to use. The code below downloads the `yolo11n` model as an example; you can use any model that meets your needs.
 
 ```bash
 cd ~
@@ -120,11 +124,20 @@ source /opt/intel/dlstreamer/scripts/setup_dls_env.sh
 
 For INT8 export, `--data` selects the dataset YAML used for calibration. If omitted, Ultralytics uses its default dataset.
 
+Prepare an input video. Use any local video file and set the `INPUT_VIDEO` environment variable to its full path.
+The example below downloads a free Pexels video for demo purposes:
+
+```bash
+cd ~
+curl -L -o input_video.mp4 https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4
+export INPUT_VIDEO=$PWD/input_video.mp4
+```
+
 **Step 2 — Run the pipeline.** Change `device=GPU` to `device=CPU` or `device=NPU` — no other code changes needed.
 
 ```bash
 gst-launch-1.0 \
-  urisourcebin buffer-size=4096 uri=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 ! \
+  filesrc location=$INPUT_VIDEO ! \
   decodebin3 ! \
   gvadetect model=~/models/yolo11n/yolo11n.xml device=GPU ! \
   queue ! \
@@ -137,7 +150,7 @@ Output to JSON (works everywhere, including headless Docker):
 
 ```bash
 gst-launch-1.0 \
-  urisourcebin buffer-size=4096 uri=https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 ! \
+  filesrc location=$INPUT_VIDEO ! \
   decodebin3 ! \
   gvadetect model=~/models/yolo11n/yolo11n.xml device=GPU ! \
   queue ! \
@@ -148,7 +161,7 @@ gst-launch-1.0 \
 
 ### Python API
 
-Create a file `detect.py`:
+Create a file `detect.py` and set a path to your input video file:
 
 ```python
 import gi
@@ -158,10 +171,10 @@ import os
 
 Gst.init([])
 
-video_url = "https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4"
+video_path = "/path/to/file.mp4"
 model = os.path.expanduser("~/models/yolo11n/yolo11n.xml")
 pipeline = Gst.parse_launch(f"""
-    urisourcebin buffer-size=4096 uri={video_url} !
+    filesrc location={video_path} !
     decodebin3 !
     gvadetect model={model} device=GPU !
     queue !
@@ -229,7 +242,7 @@ cat output_from_python.json
 | Intel Arc discrete GPU (Alchemist, Battlemage) | — | ✅ | — |
 | 11th–13th Gen Intel Core | ✅ | ✅ | — |
 
-Operating systems: **Ubuntu 22.04 / 24.04**, **Windows 11**.
+Operating systems: **Ubuntu 22.04 / 24.04 / 26.04**, **Windows 11**.
 
 [Full system requirements →](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/system_requirements.html)
 

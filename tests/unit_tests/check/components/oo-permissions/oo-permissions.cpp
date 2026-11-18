@@ -13,7 +13,7 @@
 #include "common/post_processor.h"
 #include "glib.h"
 #include "gvaclassify/classification_history.h"
-#include "openvino/safe_queue.h"
+#include "openvino/infer_slot_pool.h"
 #include "post_processor/frame_wrapper.h"
 #include "tracker_factory.h"
 #include "vas/common.h"
@@ -57,7 +57,8 @@ GENERATE(startTimeSet);
 GENERATE(audio_base_inference);
 GENERATE(sliding_samples);
 
-GENERATE(queue_);
+GENERATE(free_);
+GENERATE(closed_);
 GENERATE(mutex_);
 GENERATE(condition_);
 
@@ -139,11 +140,12 @@ TEST(oo_permissions_test, audio_infer_impl_test) {
     ASSERT_EQ(is_visiblesliding_samples(&aii), false);
 }
 
-TEST(oo_permissions_test, safe_queue_test) {
-    SafeQueue<std::shared_ptr<int>> sq;
-    ASSERT_EQ(is_visiblequeue_(&sq), false);
-    ASSERT_EQ(is_visiblemutex_(&sq), false);
-    ASSERT_EQ(is_visiblecondition_(&sq), false);
+TEST(oo_permissions_test, infer_slot_pool_test) {
+    InferSlotPool<int *> pool;
+    ASSERT_EQ(is_visiblefree_(&pool), false);
+    ASSERT_EQ(is_visibleclosed_(&pool), false);
+    ASSERT_EQ(is_visiblemutex_(&pool), false);
+    ASSERT_EQ(is_visiblecondition_(&pool), false);
 }
 
 TEST(oo_permissions_test, classification_history_test) {

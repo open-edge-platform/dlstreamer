@@ -12,7 +12,7 @@ if [ $# -gt 0 ] && ([ "$1" = "--help" ] || [ "$1" = "-h" ]); then
   echo "Usage: $0 [INPUT] [DEVICE] [OUTPUT]"
   echo ""
   echo "Arguments:"
-  echo "  INPUT     - Input source (default: Pexels video URL)"
+  echo "  INPUT     - Required input video path, stream URL, or camera device"
   echo "  DEVICE    - Device (default: GPU). Supported: CPU, GPU"
   echo "  OUTPUT    - Output type (default: fps). Supported: display, display-async, fps, json, display-and-json, file"
   echo ""
@@ -27,7 +27,11 @@ else
 fi
 
 # Command-line parameters
-INPUT=${1:-https://github.com/open-edge-platform/edge-ai-resources/raw/main/videos/ParkingVideo.mp4}
+INPUT=${1:-}
+if [[ -z "$INPUT" ]]; then
+  echo "Error: provide an input video path, stream URL, or camera device as the first argument." >&2
+  exit 2
+fi
 DEVICE=${2:-GPU}     # Device for decode and inference in OpenVINO(TM) format, examples: AUTO, CPU, GPU, GPU.0
 OUTPUT=${3:-fps}     # Output type, valid values: display, fps, json, display-and-json, file
 

@@ -3,7 +3,7 @@
 This sample demonstrates how to build a simple Network Video Recorder (NVR) with custom video analytics using DLStreamer elements.
 It detects line-hogging events—vehicles driving in outer lanes without a neighboring vehicle—which may be illegal in certain jurisdictions.
 
-> Note: This sample uses free stock video from [Pexels](https://www.pexels.com).
+> Note: Supply a local video containing people or vehicles; the sample does not bundle media.
 
 ![Sample Output](smart_nvr_output.jpg)
 
@@ -67,14 +67,9 @@ installed DL Streamer natively and skipped them, see
 [Step 9: Install Python dependencies](../../../../docs/user-guide/dev_guide/advanced_install/advanced_install_guide_compilation.md#step-9-install-python-dependencies-optional)
 in the Advanced Install Guide. The Docker image already includes them.
 
-### Download Video
+### Video Input
 
-Download example video file:
-
-```sh
-curl -L -o 2431853-hd_1920_1080_25fps.mp4 \
-    "https://videos.pexels.com/video-files/2431853/2431853-hd_1920_1080_25fps.mp4"
-```
+Use any local video supported by GStreamer that contains people or vehicles. The input path below is only an example; obtain a suitable clip from a source available to you.
 
 ### Prepare Model
 
@@ -85,7 +80,7 @@ Use the [Hugging Face model conversion](../../../../scripts/download_models/READ
 
 ```sh
 python3 smart_nvr.py \
-    --input 2431853-hd_1920_1080_25fps.mp4 \
+    --input /path/to/video.mp4 \
     --model models/public/PekingU_rtdetr_v2_r50vd/FP16/PekingU_rtdetr_v2_r50vd.xml
 ```
 
@@ -136,7 +131,7 @@ Outputs `output.json` in JSON Lines format, one record per frame.
 ### DLStreamer Pipeline Construction
 
 The application creates a GStreamer `pipeline` object that combines predefined GStreamer and DLStreamer elements with custom Python elements. 
-The pipeline is configured with the downloaded video file and detection model, and uses GPU inference by default.
+The pipeline uses the supplied video file and detection model, with GPU inference by default.
 
 ```code
 pipeline = Gst.parse_launch(

@@ -5,7 +5,7 @@
 # ==============================================================================
 
 param(
-    [string]$InputSource = "https://github.com/intel-iot-devkit/sample-videos/raw/master/person-bicycle-car-detection.mp4",
+    [string]$InputSource = "",
     [int]$DetectionInterval = 3,
     [string]$Device = "AUTO",
     [string]$OutputType = "display",
@@ -19,7 +19,7 @@ if ($InputSource -eq "--help" -or $InputSource -eq "-h") {
     Write-Host "Usage: vehicle_pedestrian_tracking.ps1 [-InputSource <path>] [-DetectionInterval <interval>] [-Device <device>] [-OutputType <type>] [-TrackingType <type>] [-JsonFile <file>] [-FrameLimiter <element>]"
     Write-Host ""
     Write-Host "Parameters:"
-    Write-Host "  -InputSource        Input source (default: GitHub sample video URL)"
+    Write-Host "  -InputSource        Required input video file path or URL"
     Write-Host "  -DetectionInterval  Object detection interval (default: 3). 1 means detection every frame, 2 means every second frame, etc."
     Write-Host "  -Device             Device (default: AUTO). Supported: AUTO, CPU, GPU, NPU"
     Write-Host "  -OutputType         Output type (default: display). Supported: display, display-async, fps, json, display-and-json, file"
@@ -28,6 +28,11 @@ if ($InputSource -eq "--help" -or $InputSource -eq "-h") {
     Write-Host "  -FrameLimiter       Optional GStreamer element to add after decode (e.g., ' ! identity eos-after=1000')"
     Write-Host ""
     exit 0
+}
+
+if ([string]::IsNullOrWhiteSpace($InputSource)) {
+    Write-Host "ERROR: Input source is required. Pass -InputSource with a local video path or URL." -ForegroundColor Red
+    exit 1
 }
 
 # Check MODELS_PATH

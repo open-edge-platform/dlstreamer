@@ -7,8 +7,7 @@ It combines four pipelines. By default, the first two streams run on NPU [IntelÂ
 This sample utilizes GStreamer command-line tool `gst-launch-1.0` which can build and run GStreamer pipeline described in a string format.
 The string contains a list of GStreamer elements separated by exclamation mark `!`, each element may have properties specified in the format `property`=`value`.
 
-> **NOTE**: Before running, download the required models to `$MODELS_PATH/public/{model_name}/FP16/`.
-Please follow instruction: [Detection with Yolo](../detection_with_yolo/README.md) how to download YOLO models.
+The model names below are examples supported by this sample. Prepare compatible OpenVINO IR files under `$MODELS_PATH/public/{model_name}/FP16/`; see the general [model conversion guide](../../../../scripts/download_models/README.md) for available helpers and setup. Update the model names and paths in the sample arguments when choosing different models.
 
 This sample builds for GStreamer a pipeline of the following elements:
 * `filesrc`

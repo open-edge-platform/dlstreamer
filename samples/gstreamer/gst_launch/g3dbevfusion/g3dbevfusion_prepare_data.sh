@@ -8,7 +8,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-OUT_DIR="${NUSCENES_SEQ_DIR:-${SCRIPT_DIR}/nuscenes_mini_seq}"
+OUT_DIR="${NUSCENES_SEQ_DIR:-${SCRIPT_DIR}/nuscenes_mini_seq_12Hz}"
 NUSCENES_MINI_URL="${NUSCENES_MINI_URL:-https://www.nuscenes.org/data/v1.0-mini.tgz}"
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
@@ -16,13 +16,16 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
 Usage:
   ./g3dbevfusion_prepare_data.sh
 
-Prepares nuscenes_mini_seq/<scene>/, the nuScenes v1.0-mini scenes converted
-for multifilesrc by nuscenes_to_sequence.py: numbered camera images and LiDAR
-point clouds per sensor, the calibration, and the ground-truth boxes. The
-downloaded archive and the extracted dataset are temporary and removed at the end.
+Prepares nuscenes_mini_seq_12Hz/<scene>/, the nuScenes v1.0-mini scenes
+converted for multifilesrc by nuscenes_to_sequence.py: every lidar turn on
+which all six cameras fired (about 12 Hz), as numbered camera images and
+point clouds of ten accumulated lidar sweeps, with the calibration and its
+per-frame table, and the ground-truth boxes of the 2 Hz key frames. That is
+about 11 GB. The downloaded archive and the extracted dataset are temporary and
+removed at the end.
 
 Environment:
-  NUSCENES_ROOT       Existing nuScenes root (holding samples/ and v1.0-mini/) to
+  NUSCENES_ROOT       Existing nuScenes root (holding samples/, sweeps/ and v1.0-mini/) to
                       convert instead of downloading v1.0-mini; left untouched.
   NUSCENES_VERSION    nuScenes version folder under NUSCENES_ROOT (default: v1.0-mini)
   NUSCENES_MINI_URL   Where to download v1.0-mini.tgz from
@@ -59,12 +62,11 @@ if [[ -z "${NUSCENES_ROOT:-}" ]]; then
   command -v curl >/dev/null 2>&1 || fail "Required command not found: curl"
   log "Downloading ${NUSCENES_MINI_URL} (about 4 GB)"
   curl -fL --retry 3 -o "${WORK_DIR}/v1.0-mini.tgz" "${NUSCENES_MINI_URL}"
-  # Only the key frames and the metadata tables are converted; sweeps/ and
-  # maps/ are not needed.
+  # maps/ is not needed.
   log "Extracting"
   NUSCENES_ROOT="${WORK_DIR}/nuscenes"
   mkdir -p "${NUSCENES_ROOT}"
-  tar -xzf "${WORK_DIR}/v1.0-mini.tgz" -C "${NUSCENES_ROOT}" samples v1.0-mini
+  tar -xzf "${WORK_DIR}/v1.0-mini.tgz" -C "${NUSCENES_ROOT}" samples sweeps v1.0-mini
   rm -f "${WORK_DIR}/v1.0-mini.tgz"
 fi
 
@@ -72,6 +74,8 @@ log "Converting nuScenes scenes from ${NUSCENES_ROOT}"
 "$PYTHON" "${SCRIPT_DIR}/nuscenes_to_sequence.py" --nuscenes-root "${NUSCENES_ROOT}" \
   --version "${NUSCENES_VERSION:-v1.0-mini}" --out "${WORK_DIR}/nuscenes_mini_seq"
 rmdir "${OUT_DIR}" 2>/dev/null || true
+# The images are hard links into the extracted dataset when it is in WORK_DIR,
+# so they survive its removal.
 mv "${WORK_DIR}/nuscenes_mini_seq" "${OUT_DIR}"
 
 log "Prepared ${OUT_DIR}"

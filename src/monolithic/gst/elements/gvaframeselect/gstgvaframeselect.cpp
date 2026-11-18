@@ -33,13 +33,17 @@ enum {
     PROP_OUTPUT_DIR
 };
 
+// Samples frames per block and gives every sampled frame the same ROI (the union of the target
+// detections), so gvaroiscale crops the same area throughout the selection block.
 struct GstGvaFrameSelect {
     GstBaseTransform parent;
     guint sub_stream_frames;
     guint frame_budget;
     gdouble confidence_threshold;
     guint roi_padding;
+    // Position in the sampling block; reset on DISCONT.
     guint frame_index;
+    // Counts every input frame, selected or not; not reset on DISCONT.
     guint64 stream_frame_number;
     gchar *target_classes_csv;
     GArray *target_classes;
@@ -60,6 +64,7 @@ static GstStaticPadTemplate src_template =
 
 namespace {
 
+// Union of accepted boxes in pixels; right/bottom are exclusive.
 struct RoiBounds {
     bool valid = false;
     gint64 left = 0;
@@ -68,6 +73,7 @@ struct RoiBounds {
     gint64 bottom = 0;
 };
 
+// Selected frames are held here until the shared ROI is known.
 struct GstGvaFrameSelectRuntime {
     GstVideoInfo video_info;
     gboolean video_info_valid = FALSE;
@@ -221,6 +227,7 @@ static gboolean gst_gva_frame_select_set_caps(GstBaseTransform *transform, GstCa
     return TRUE;
 }
 
+// Failures only warn; the frame is still forwarded.
 static void save_jpeg(GstGvaFrameSelect *self, GstBuffer *buffer, const gchar *output_dir, guint64 frame_number) {
     if (g_mkdir_with_parents(output_dir, 0755) != 0) {
         GST_ELEMENT_WARNING(self, RESOURCE, OPEN_WRITE, ("Could not create output directory '%s'", output_dir), (NULL));
@@ -269,6 +276,7 @@ static bool is_target_class(GQuark label, const GArray *target_classes) {
     return std::find(labels, labels + target_classes->len, label) != labels + target_classes->len;
 }
 
+// Grows the shared ROI from this frame's target detections; it is attached in push_pending_frames().
 static void collect_frame_rois(GstGvaFrameSelect *self, GstGvaFrameSelectRuntime *runtime, GstBuffer *buffer) {
     GstAnalyticsRelationMeta *relation_meta = gst_buffer_get_analytics_relation_meta(buffer);
     if (!relation_meta || !runtime->video_info_valid)
@@ -317,6 +325,7 @@ static void collect_frame_rois(GstGvaFrameSelect *self, GstGvaFrameSelectRuntime
     g_array_unref(target_classes);
 }
 
+// Attaches the padded shared ROI (full frame if none) to every pending frame, then pushes them.
 static GstFlowReturn push_pending_frames(GstGvaFrameSelect *self, GstGvaFrameSelectRuntime *runtime) {
     if (runtime->pending_frames.empty())
         return GST_FLOW_OK;
@@ -376,6 +385,7 @@ static GstFlowReturn push_pending_frames(GstGvaFrameSelect *self, GstGvaFrameSel
     return flow;
 }
 
+// Matches only the recorder's "event" tag, not any classification labeled "stop".
 static bool buffer_has_event_stop(GstBuffer *buffer) {
     GstAnalyticsRelationMeta *relation_meta = gst_buffer_get_analytics_relation_meta(buffer);
     if (!relation_meta)
@@ -395,6 +405,15 @@ static bool buffer_has_event_stop(GstBuffer *buffer) {
     return false;
 }
 
+// For each input frame:
+//   1. Is its position in the block selected?
+//        yes -> cache the frame and extend the ROI union
+//        no  -> nothing is cached
+//   2. Is the cache full, the block over, or is this an event stop?
+//        yes -> attach the shared ROI to all cached frames and push them
+//        no  -> wait for the next frame
+//   3. The input buffer itself is always dropped; only cached frames are pushed.
+// DISCONT and EOS also flush the cache.
 static GstFlowReturn gst_gva_frame_select_transform_ip(GstBaseTransform *transform, GstBuffer *buffer) {
     auto *self = reinterpret_cast<GstGvaFrameSelect *>(transform);
     auto *runtime = static_cast<GstGvaFrameSelectRuntime *>(self->priv);
@@ -403,6 +422,7 @@ static GstFlowReturn gst_gva_frame_select_transform_ip(GstBaseTransform *transfo
 
     const bool event_stop = buffer_has_event_stop(buffer);
     if (GST_BUFFER_FLAG_IS_SET(buffer, GST_BUFFER_FLAG_DISCONT)) {
+        // Flush the previous selection first so its ROI is not merged with the new window.
         const GstFlowReturn flow = push_pending_frames(self, runtime);
         if (flow != GST_FLOW_OK)
             return flow;
@@ -425,15 +445,18 @@ static GstFlowReturn gst_gva_frame_select_transform_ip(GstBaseTransform *transfo
     }
 
     const bool block_complete = self->frame_index == 0;
+    // Event stop flushes the cache even when this frame itself was not selected.
     if (runtime->pending_frames.size() >= selected.size() || event_stop || block_complete) {
         const GstFlowReturn flow = push_pending_frames(self, runtime);
         if (flow != GST_FLOW_OK)
             return flow;
     }
 
+    // Frames are pushed explicitly in push_pending_frames(); drop the original buffer.
     return GST_BASE_TRANSFORM_FLOW_DROPPED;
 }
 
+// EOS flushes the pending selection, flush events discard it, STREAM_START resets numbering.
 static gboolean gst_gva_frame_select_sink_event(GstBaseTransform *transform, GstEvent *event) {
     auto *self = reinterpret_cast<GstGvaFrameSelect *>(transform);
     auto *runtime = static_cast<GstGvaFrameSelectRuntime *>(self->priv);

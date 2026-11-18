@@ -8,7 +8,6 @@
 set -euo pipefail
 
 # Default values
-DEFAULT_SOURCE="https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4"
 DEFAULT_DEVICE="CPU"
 DEFAULT_PROMPT="Describe what you see in this video."
 DEFAULT_FRAME_RATE="1"
@@ -33,7 +32,7 @@ show_usage() {
     echo "Video Summarization with MiniCPM-V, Phi-4-multimodal-instruct or Gemma 3 model using gvagenai element"
     echo ""
     echo "Options:"
-    echo "  -S, --source FILE/URL/CAMERA      Input source (file path, URL or web camera)"
+    echo "  -S, --source FILE/URL/CAMERA      Required input source (file path, URL or web camera)"
     echo "  -D, --device DEVICE               Inference device (CPU, GPU, NPU, or indexed GPU like GPU.0)"
     echo "  -P, --prompt TEXT                 Text prompt for the model"
     echo "  -F, --frame-rate RATE             Frame sampling rate (fps)"
@@ -73,20 +72,20 @@ show_usage() {
     echo ""
     echo "Examples:"
     echo "  $0 --source video.mp4 --device GPU"
-    echo "  $0 --chunk-size 1 --frame-rate 10"
-    echo "  $0 --prompt \"Describe what do you see in this video?\""
-    echo "  $0 --resolution 320x240 --metrics --max-tokens 200"
-    echo "  $0 --vision-mode video --chunk-size 16 --frame-rate 2"
-    echo "  $0 --device NPU --pipeline-config NPU.MAX_PROMPT_LEN=2048,NPU.MIN_RESPONSE_LEN=512"
-    echo "  $0 --scheduler-config enable_prefix_caching=true --output results.json"
-    echo "  $0 --trigger-obj-classes person --frame-rate 0   # event-driven: VLM only when a person is detected"
-    echo "  $0 --trigger-obj-classes car --frame-rate 2       # hybrid: fixed-rate sampling plus car-triggered frames"
-    echo "  $0 --backend openai-http --http-server-url http://localhost:8000/v1 --trigger-obj-classes person"
+    echo "  $0 --source video.mp4 --chunk-size 1 --frame-rate 10"
+    echo "  $0 --source video.mp4 --prompt \"Describe what do you see in this video?\""
+    echo "  $0 --source video.mp4 --resolution 320x240 --metrics --max-tokens 200"
+    echo "  $0 --source video.mp4 --vision-mode video --chunk-size 16 --frame-rate 2"
+    echo "  $0 --source video.mp4 --device NPU --pipeline-config NPU.MAX_PROMPT_LEN=2048,NPU.MIN_RESPONSE_LEN=512"
+    echo "  $0 --source video.mp4 --scheduler-config enable_prefix_caching=true --output results.json"
+    echo "  $0 --source video.mp4 --trigger-obj-classes person --frame-rate 0   # event-driven"
+    echo "  $0 --source video.mp4 --trigger-obj-classes car --frame-rate 2       # hybrid sampling"
+    echo "  $0 --source video.mp4 --backend openai-http --http-server-url http://localhost:8000/v1 --trigger-obj-classes person"
     echo ""
 }
 
 # Initialize variables with defaults
-INPUT="$DEFAULT_SOURCE"
+INPUT=""
 DEVICE="$DEFAULT_DEVICE"
 PROMPT="$DEFAULT_PROMPT"
 FRAME_RATE="$DEFAULT_FRAME_RATE"
@@ -188,6 +187,11 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Validate arguments
+if [[ -z "$INPUT" ]]; then
+    echo "ERROR - input source is required; pass --source with a video path, stream URL, or camera." >&2
+    exit 2
+fi
+
 if [[ ! "$DEVICE" =~ ^(CPU|NPU|GPU(\.[0-9]+)?)$ ]]; then
     echo "ERROR - Invalid device: $DEVICE. Use CPU, GPU, NPU, or an indexed GPU device like GPU.0." >&2
     exit 1

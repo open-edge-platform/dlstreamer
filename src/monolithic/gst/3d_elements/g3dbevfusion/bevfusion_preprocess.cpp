@@ -165,32 +165,40 @@ void pack_geometry(const std::array<Mat4, kNumCameras> &aug, const std::array<Ca
     }
 }
 
-int pack_points(const float *points, size_t num_points, size_t point_stride, float *out) {
-    const int n = static_cast<int>(std::min<size_t>(num_points, kMaxPoints));
-    std::fill(out, out + static_cast<size_t>(kMaxPoints) * kPointDims, 0.0f);
+int pack_points(const float *points, size_t num_points, size_t point_stride, const std::vector<LidarSweep> &sweeps,
+                int max_points, float *out, int stale_rows) {
+    const int n = static_cast<int>(std::min<size_t>(num_points, static_cast<size_t>(std::max(max_points, 0))));
+    size_t sweep = 0, sweep_end = sweeps.empty() ? 0 : sweeps[0].points;
     for (int i = 0; i < n; i++) {
+        while (sweep < sweeps.size() && static_cast<size_t>(i) >= sweep_end)
+            if (++sweep < sweeps.size())
+                sweep_end += sweeps[sweep].points;
         const float *p = points + static_cast<size_t>(i) * point_stride;
         float *o = out + static_cast<size_t>(i) * kPointDims;
         o[0] = p[0];
         o[1] = p[1];
         o[2] = p[2];
         o[3] = p[3];
-        o[4] = 0.0f; // key frame: no sweep time offset
+        o[4] = sweep < sweeps.size() ? sweeps[sweep].time_lag : 0.0f;
     }
+    if (stale_rows > n)
+        std::fill(out + static_cast<size_t>(n) * kPointDims, out + static_cast<size_t>(stale_rows) * kPointDims, 0.0f);
     return n;
 }
 
-int unpack_voxels(const float *result, float *features, int32_t *coords) {
-    std::fill(features, features + static_cast<size_t>(kMaxVoxels) * 5, 0.0f);
-    std::fill(coords, coords + static_cast<size_t>(kMaxVoxels) * 4, 0);
-    const int n = std::min(static_cast<int>(result[0]), kMaxVoxels);
+int unpack_voxels(const float *result, int max_voxels, float *features, int32_t *coords, int stale_rows) {
+    const int n = std::max(std::min(static_cast<int>(result[0]), max_voxels), 0);
+    if (stale_rows > n) {
+        std::fill(features + static_cast<size_t>(n) * 5, features + static_cast<size_t>(stale_rows) * 5, 0.0f);
+        std::fill(coords + static_cast<size_t>(n) * 4, coords + static_cast<size_t>(stale_rows) * 4, 0);
+    }
     for (int i = 0; i < n; i++) {
         const float *row = result + static_cast<size_t>(i + 1) * kVoxelColumns;
         std::memcpy(features + static_cast<size_t>(i) * 5, row, 5 * sizeof(float));
         for (int j = 0; j < 4; j++)
             coords[static_cast<size_t>(i) * 4 + j] = static_cast<int32_t>(row[5 + j]);
     }
-    return std::max(n, 0);
+    return n;
 }
 
 std::vector<Box3D> decode(const HeadOutputs &head, const ModelParams &params, float score_threshold) {

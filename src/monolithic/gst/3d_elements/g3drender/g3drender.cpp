@@ -224,6 +224,7 @@ static void gst_g3d_render_init(GstG3DRender *self) {
     self->frame_duration = GST_SECOND / 10;
     self->frame_count = 0;
     self->input_is_batch = FALSE;
+    gst_video_info_init(&self->out_info);
     self->forward_axis = 0;
     for (gint i = 0; i < G3D_RENDER_MAX_CAMERAS; ++i) {
         self->cam_has_calib[i] = FALSE;
@@ -460,8 +461,12 @@ static gboolean gst_g3d_render_set_caps(GstBaseTransform *trans, GstCaps *incaps
     GstG3DRender *self = GST_G3D_RENDER(trans);
     GstStructure *s = gst_caps_get_structure(incaps, 0);
     self->input_is_batch = (g_strcmp0(gst_structure_get_name(s), "multistream/x-analytics-batch") == 0);
-    gst_structure_get_int(gst_caps_get_structure(outcaps, 0), "width", &self->width);
-    gst_structure_get_int(gst_caps_get_structure(outcaps, 0), "height", &self->height);
+    if (!gst_video_info_from_caps(&self->out_info, outcaps)) {
+        GST_ERROR_OBJECT(self, "Invalid output caps %" GST_PTR_FORMAT, outcaps);
+        return FALSE;
+    }
+    self->width = GST_VIDEO_INFO_WIDTH(&self->out_info);
+    self->height = GST_VIDEO_INFO_HEIGHT(&self->out_info);
     gint fps_n = 0, fps_d = 1;
     gboolean have_fps = gst_structure_get_fraction(gst_caps_get_structure(outcaps, 0), "framerate", &fps_n, &fps_d);
     gboolean fps_valid = have_fps && fps_n > 0 && fps_d > 0;
@@ -478,7 +483,7 @@ static GstFlowReturn gst_g3d_render_prepare_output_buffer(GstBaseTransform *tran
     (void)inbuf;
     GstG3DRender *self = GST_G3D_RENDER(trans);
 
-    gsize frame_size = static_cast<gsize>(self->width) * self->height * 3;
+    gsize frame_size = GST_VIDEO_INFO_SIZE(&self->out_info);
     *outbuf = gst_buffer_new_allocate(nullptr, frame_size, nullptr);
     if (!*outbuf) {
         GST_ERROR_OBJECT(self, "Failed to allocate output buffer (%zu bytes)", frame_size);
@@ -701,47 +706,72 @@ cv::Scalar box_color(const GstG3DRender *self, const GstAnalytics3DODMtd &mtd, b
     return kColorUnmatched;
 }
 
-/* Projects 3D box corners through a synthetic perspective camera and draws the 12 box edges.
- * Boxes behind the camera (center_depth <= 0.5) are skipped. */
-void draw_detection_boxes_perspective(cv::Mat &canvas, GstBuffer *inbuf, const GstG3DRender *self, const cv::Mat &rvec,
-                                      const cv::Mat &tvec, const cv::Mat &K, const cv::Mat &dist_coeffs,
-                                      const cv::Mat &cam_pos, const cv::Mat &zaxis, int roi_w, int roi_h,
-                                      const std::unordered_set<guint> &assoc_ids) {
-    double zx = zaxis.at<double>(0), zy = zaxis.at<double>(1), zz = zaxis.at<double>(2);
-    double cpx = cam_pos.at<double>(0), cpy = cam_pos.at<double>(1), cpz = cam_pos.at<double>(2);
+/* Depth (metres along the view axis) of the near plane shared by points and box edges. */
+constexpr double kNearPlane = 0.5;
 
+/* Clips the camera-frame segment a-b to depth >= kNearPlane. Returns false when the
+ * whole segment lies behind the near plane. Projecting a point at or behind the camera
+ * mirrors it through the image centre, so an unclipped box edge that crosses the
+ * camera plane becomes a long line across the frame. */
+bool clip_to_near_plane(cv::Vec3d &a, cv::Vec3d &b) {
+    const bool a_in = a[2] >= kNearPlane, b_in = b[2] >= kNearPlane;
+    if (!a_in && !b_in)
+        return false;
+    if (a_in != b_in) {
+        cv::Vec3d &out = a_in ? b : a;
+        const cv::Vec3d &in = a_in ? a : b;
+        const double t = (kNearPlane - in[2]) / (out[2] - in[2]);
+        out = in + t * (out - in);
+        out[2] = kNearPlane;
+    }
+    return true;
+}
+
+/* Projects 3D box corners through a synthetic perspective camera and draws the 12 box
+ * edges, each clipped to the near plane so boxes crossing the camera draw only their
+ * visible part. */
+void draw_detection_boxes_perspective(cv::Mat &canvas, GstBuffer *inbuf, const GstG3DRender *self, const cv::Mat &rvec,
+                                      const cv::Mat &tvec, const cv::Mat &K,
+                                      const std::unordered_set<guint> &assoc_ids) {
     GstAnalyticsRelationMeta *rmeta = gst_buffer_get_analytics_relation_meta(inbuf);
     if (!rmeta)
         return;
+
+    cv::Matx33d R;
+    cv::Rodrigues(rvec, R);
+    const cv::Vec3d t(tvec.at<double>(0), tvec.at<double>(1), tvec.at<double>(2));
+    const double fx = K.at<double>(0, 0), fy = K.at<double>(1, 1), px = K.at<double>(0, 2), py = K.at<double>(1, 2);
+    auto project = [&](const cv::Vec3d &c) { return cv::Point2d(fx * c[0] / c[2] + px, fy * c[1] / c[2] + py); };
 
     GstAnalyticsMtdType type = gst_analytics_3d_od_mtd_get_mtd_type();
     GstAnalytics3DODMtd mtd;
     gpointer state = nullptr;
     while (gst_analytics_relation_meta_iterate(rmeta, &state, type, reinterpret_cast<GstAnalyticsMtd *>(&mtd))) {
-        gfloat bcx, bcy, bcz, length, width, height, yaw, pitch, roll;
-        gst_analytics_3d_od_mtd_get_location(&mtd, &bcx, &bcy, &bcz, &length, &width, &height, &yaw, &pitch, &roll);
         const std::array<cv::Point3f, 8> box = box_corners(mtd);
-        const std::vector<cv::Point3f> corners(box.begin(), box.end());
-
-        double center_depth = zx * (bcx - cpx) + zy * (bcy - cpy) + zz * (bcz - cpz);
-        if (center_depth <= 0.5)
-            continue;
-
-        std::vector<cv::Point2f> img_corners;
-        cv::projectPoints(corners, rvec, tvec, K, dist_coeffs, img_corners);
+        std::array<cv::Vec3d, 8> cam;
+        for (size_t i = 0; i < box.size(); ++i)
+            cam[i] = R * cv::Vec3d(box[i].x, box[i].y, box[i].z) + t;
 
         bool matched = assoc_ids.count(mtd.id) > 0;
         cv::Scalar color = box_color(self, mtd, matched);
-        int thickness = 1;
+        const cv::Size2l frame(canvas.cols, canvas.rows);
         for (auto &e : kBoxEdges) {
-            int a = e[0], b = e[1];
-            cv::line(canvas, cv::Point(static_cast<int>(img_corners[a].x), static_cast<int>(img_corners[a].y)),
-                     cv::Point(static_cast<int>(img_corners[b].x), static_cast<int>(img_corners[b].y)), color,
-                     thickness, cv::LINE_AA);
+            cv::Vec3d a = cam[e[0]], b = cam[e[1]];
+            if (!clip_to_near_plane(a, b))
+                continue;
+            /* At depth >= kNearPlane the projection stays far inside int64, but can
+             * still exceed int, so clip to the canvas before handing it to cv::line.
+             * Truncate rather than round, as before, so boxes fully in front of the
+             * camera keep their exact pixels. */
+            const cv::Point2d pa = project(a), pb = project(b);
+            cv::Point2l la(static_cast<int64>(pa.x), static_cast<int64>(pa.y));
+            cv::Point2l lb(static_cast<int64>(pb.x), static_cast<int64>(pb.y));
+            if (!cv::clipLine(frame, la, lb))
+                continue;
+            cv::line(canvas, cv::Point(static_cast<int>(la.x), static_cast<int>(la.y)),
+                     cv::Point(static_cast<int>(lb.x), static_cast<int>(lb.y)), color, 1, cv::LINE_AA);
         }
     }
-    (void)roi_w;
-    (void)roi_h;
 }
 
 /* Renders the point cloud and 3D detection boxes from a configurable synthetic 3D camera viewpoint.
@@ -823,7 +853,7 @@ void draw_perspective(cv::Mat &canvas, const float *points, guint count, GstBuff
             continue;
         float depth =
             static_cast<float>(zx * (obj_pts[i].x - cx) + zy * (obj_pts[i].y - cy) + zz * (obj_pts[i].z - cz));
-        if (depth <= 0.5f)
+        if (depth <= kNearPlane)
             continue;
         visible.push_back({p, depth, z_vals[i]});
     }
@@ -928,8 +958,7 @@ void draw_perspective(cv::Mat &canvas, const float *points, guint count, GstBuff
         }
     }
 
-    draw_detection_boxes_perspective(canvas, inbuf, self, rvec, tvec, K, dist_coeffs, cam_pos, zaxis, roi_w, roi_h,
-                                     assoc_ids);
+    draw_detection_boxes_perspective(canvas, inbuf, self, rvec, tvec, K, assoc_ids);
 }
 
 /* Overlays 3D bounding box footprints onto the BEV canvas.
@@ -1422,8 +1451,10 @@ static GstFlowReturn gst_g3d_render_transform(GstBaseTransform *trans, GstBuffer
         return GST_FLOW_ERROR;
     }
 
-    cv::Mat canvas(self->height, self->width, CV_8UC3, out_map.data);
-    canvas.setTo(cv::Scalar(15, 15, 15));
+    cv::Mat canvas(self->height, self->width, CV_8UC3, out_map.data,
+                   static_cast<size_t>(GST_VIDEO_INFO_PLANE_STRIDE(&self->out_info, 0)));
+    /* The background is (15, 15, 15), so one memset paints it and clears the row padding too. */
+    std::memset(out_map.data, 15, out_map.size);
 
     // ── Layout ──────────────────────────────────────────────────────────────
     // cam-proj mode: projection fills the full canvas; no separate camera panel.

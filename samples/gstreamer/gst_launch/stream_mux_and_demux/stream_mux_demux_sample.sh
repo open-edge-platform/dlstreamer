@@ -9,8 +9,6 @@ set -euo pipefail
 
 # Default values
 DEFAULT_SOURCE="rtsp"
-DEFAULT_INPUT1="rtsp://localhost:8554/stream"
-DEFAULT_INPUT2="rtsp://localhost:8555/stream"
 DEFAULT_DEVICE="GPU"
 DEFAULT_MAX_FPS="0"
 DEFAULT_SYNC_MODE="none"
@@ -36,10 +34,8 @@ show_usage() {
     echo "  -m, --model PATH        Path to inference model XML file"
     echo "                          (required for video-only/PASSTHROUGH mode; ignored with --lidar)"
     echo "  -s, --source TYPE       Source type: file or rtsp (default: ${DEFAULT_SOURCE})"
-    echo "  -i, --input1 URI        First input source URI"
-    echo "                          Default (rtsp): ${DEFAULT_INPUT1}"
-    echo "  -j, --input2 URI        Second input source URI"
-    echo "                          Default (rtsp): ${DEFAULT_INPUT2}"
+    echo "  -i, --input1 URI        First input source URI (required)"
+    echo "  -j, --input2 URI        Second input source URI (required)"
     echo "      --demux             Enable gvastreamdemux for per-source output"
     echo "      --max-fps FPS       Set max-fps (for local file sources only, default: ${DEFAULT_MAX_FPS})"
     echo "      --sync-mode MODE    PTS normalization across pads: none|first-pts|segment|pipeline|ntp"
@@ -83,8 +79,8 @@ show_usage() {
 
 # Initialize variables
 SOURCE_TYPE="${DEFAULT_SOURCE}"
-INPUT1="${DEFAULT_INPUT1}"
-INPUT2="${DEFAULT_INPUT2}"
+INPUT1=""
+INPUT2=""
 DEVICE="${DEFAULT_DEVICE}"
 MAX_FPS="${DEFAULT_MAX_FPS}"
 SYNC_MODE="${DEFAULT_SYNC_MODE}"
@@ -151,6 +147,12 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+if [ -z "${INPUT1}" ] || [ -z "${INPUT2}" ]; then
+    echo "ERROR: Both input sources are required. Use --input1 and --input2." >&2
+    show_usage
+    exit 1
+fi
 
 # A lidar source makes the inputs heterogeneous: the mux is set to CONTAINER
 # output (output-mode=container, multistream/x-analytics-batch). A container

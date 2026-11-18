@@ -17,8 +17,7 @@ Key elements in the pipeline:
 
 ## Models
 
-The sample uses YOLOv8n (resolved via `MODELS_PATH`) or other supported object detection model. The necessary conversion to the OpenVINO™ format can be performed by `scripts/download_models/download_ultralytics_models.py`.
-
+The script defaults to the YOLOv8n example model at `$MODELS_PATH/public/yolov8n/<PRECISION>/yolov8n.xml`. You can supply another compatible OpenVINO XML with `--model`; prepare it using the general Ultralytics conversion helper described in [`scripts/download_models/README.md`](../../../../scripts/download_models/README.md#2-ultralytics-conversion).
 
 ## Usage
 
@@ -29,7 +28,7 @@ The sample uses YOLOv8n (resolved via `MODELS_PATH`) or other supported object d
 ```
 
 - `--device`: Choose `GPU` (VA memory path) or `CPU` (system memory). Default: `GPU`.
-- `--source` / `--src`: Local file path or URI (e.g., `rtsp://`, `http://`, `https://`). Default: sample HTTPS video.
+- `--source` / `--src`: Required local file path or URI (e.g., `rtsp://`, `http://`, `https://`).
 - `--model`: Path to OpenVINO XML model for `gvadetect`. If omitted, it uses `MODELS_PATH/public/yolov8n/<PRECISION>/yolov8n.xml`.
 - `--precision`: Model precision subfolder (`FP32`, `FP16`, `INT8`). Default: `FP32`.
 - `--output`: `json` (default) writes `output.json` or `display` shows annotated video with watermark.
@@ -37,10 +36,10 @@ The sample uses YOLOv8n (resolved via `MODELS_PATH`) or other supported object d
 
 ## Examples
 
-- GPU path with default source and model, JSON output:
+- GPU path with a local source and the example model, JSON output:
 ```sh
 export MODELS_PATH="$HOME/models"
-./gvamotiondetect_demo.sh --device GPU --output json
+./gvamotiondetect_demo.sh --device GPU --source /path/to/video.mp4 --output json
 ```
 - CPU path with local file, display output, and custom motion detector options:
 ```sh

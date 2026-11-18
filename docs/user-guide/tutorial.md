@@ -97,7 +97,7 @@ drivers — needed to accelerate inference on `device=GPU` and `device=NPU`. The
 installed so you can use `device=NPU` later. We'll keep everything for this
 tutorial in a single folder, `~/dlstreamer_demo`.
 
-First, make sure `git`, `wget`, Python venv and VLC Media Player\* are up to date:
+First, make sure `git`, `wget`, Python venv and VLC Media Player\* are installed:
 
 ```bash
 sudo apt update
@@ -140,7 +140,7 @@ sudo apt-get install -y intel-dlstreamer
 **That's it — DL Streamer is installed!** This single package also pulls in
 everything it needs, including the OpenVINO™ toolkit and GStreamer.
 
-> **Other systems?** For Windows\*, WSL2\*, Docker\*, or Ubuntu 22.04, see the
+> **Other systems?** For Windows\*, Docker\*, Ubuntu 26.04 or Ubuntu 22.04, see the
 > full [Install Guide](./install/install_guide_index.md). (Docker is also covered
 > in [Step 5](#step-5---run-in-docker-gpunpu-passthrough) of this tutorial.)
 
@@ -168,7 +168,9 @@ export MODELS_PATH="$HOME/dlstreamer_demo/models"
 
 ### 2.2 Download the demo videos
 
-We'll use five short, freely licensed clips from [Pexels\*](https://www.pexels.com/),
+Any local video files can be used to run this tutorial.
+
+For demonstrative purposes, we'll use five short, freely licensed clips from [Pexels\*](https://www.pexels.com/),
 downloaded in **Full HD (1080p)**. Copy/paste to download all five:
 
 ```bash
@@ -193,8 +195,8 @@ wget -O ${VIDEOS_PATH}/girl_dog.mp4   "https://www.pexels.com/download/video/751
 
 ### 2.3 Download the AI models
 
-We'll use three **YOLO11** models from Ultralytics\* and convert them to the
-OpenVINO™ format DL Streamer uses.
+We'll use three **YOLO11** models and one **YOLOE** model from Ultralytics\* and
+convert them to the OpenVINO™ format DL Streamer uses.
 
 **Good news — you don't need to clone anything.** The conversion scripts ship
 with DL Streamer at `/opt/intel/dlstreamer/scripts/download_models/`. We just
@@ -204,11 +206,10 @@ need a small Python environment for the one-time conversion:
 curl -LsSf https://astral.sh/uv/install.sh | sh
 uv venv ~/dlstreamer_demo/.dls-venv
 source ~/dlstreamer_demo/.dls-venv/bin/activate
-uv install --upgrade pip
-uv install -r /opt/intel/dlstreamer/scripts/download_models/requirements_download_ultralytics_models.txt
+uv pip install -r /opt/intel/dlstreamer/scripts/download_models/requirements_download_ultralytics_models.txt
 ```
 
-Now download and convert the three models into `~/dlstreamer_demo/models`. Each
+Now download and convert the four models into `~/dlstreamer_demo/models`. Each
 `--model` reference is pinned with `@v8.4.0`, a released Ultralytics weights tag,
 so the exact same weights are downloaded every time. The `--outdir` for each
 model points directly at its precision-specific folder, since the script exports
@@ -400,8 +401,8 @@ dog and everything else stay sharp — no manual editing required.
 
 This is where the ready-made samples shine. This step runs the **prompt-based
 detection sample** that ships with DL Streamer — it uses an *open-vocabulary*
-model with a built-in 4,585-class vocabulary: describe what to find in plain
-English and it detects only that. Our skateboard clip has a dog wandering in —
+model exported with the classes `dog`, `person` and `backpack`: describe what to
+find in plain English and it detects only that. Our skateboard clip has a dog wandering in —
 let's find it.
 
 Now run the sample. `MODELS_PATH` is already set from [Step 2.1](#21-activate-dl-streamer-in-your-terminal),
@@ -442,7 +443,7 @@ gst-launch-1.0 \
   filesrc location=${VIDEOS_PATH}/skateboard.mp4 ! decodebin3 ! \
   gvadetect model=${MODELS_PATH}/yolo11s/FP16/yolo11s.xml device=GPU ! queue ! \
   gvametaconvert format=json ! \
-  gvametapublish method=file file-path=${HOME}/dlstreamer_demo/results.json ! \
+  gvametapublish method=file file-format=json-lines file-path=${HOME}/dlstreamer_demo/results.json ! \
   fakesink sync=false
 ```
 
