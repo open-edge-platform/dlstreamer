@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -13,12 +13,15 @@
 #include "vaapi_utils.h"
 
 #include <memory>
+#include <mutex>
 
 namespace InferenceBackend {
 
 class VaApiConverter {
-    static std::mutex _convert_mutex;
     VaApiContext *_context;
+    // Serializes the picture sequence submitted on _context. A VA context must not be used by two threads at once;
+    // each converter has its own context, so different converters do not wait for each other.
+    std::mutex _convert_mutex;
 
   protected:
     void SetupPipelineRegionsWithCustomParams(const InputImageLayerDesc::Ptr &pre_proc_info, uint16_t src_width,
