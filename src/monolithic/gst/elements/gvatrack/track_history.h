@@ -11,7 +11,6 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <stdexcept>
 #include <unordered_map>
 
 // Remembers first/last seen timestamps per track id and publishes track loss as GstAnalyticsTrackingMtd
@@ -55,7 +54,7 @@ class TrackHistory {
         if (!relation_meta || !gst_analytics_relation_meta_add_tracking_mtd(relation_meta, id, times.first_seen, &mtd) ||
             !gst_analytics_tracking_mtd_update_last_seen(&mtd, times.last_seen) ||
             !gst_analytics_tracking_mtd_set_lost(&mtd)) {
-            throw std::runtime_error("Failed to add lost tracking metadata");
+            GST_WARNING("Failed to add lost tracking metadata for track %" G_GUINT64_FORMAT, id);
         }
     }
 
