@@ -1,0 +1,13 @@
+diff --git a/cmake/OpenCVGenConfig.cmake b/cmake/OpenCVGenConfig.cmake
+--- a/cmake/OpenCVGenConfig.cmake
++++ b/cmake/OpenCVGenConfig.cmake
+@@ -134,3 +134,3 @@
+-if((CMAKE_HOST_SYSTEM_NAME MATCHES "Linux" OR UNIX) AND NOT ANDROID)
++if(TRUE)
+   ocv_gen_config("${CMAKE_BINARY_DIR}/unix-install" "" "")
+ endif()
+@@ -145,3 +145,3 @@
+-if(WIN32)
++if(FALSE)
+   if(CMAKE_HOST_SYSTEM_NAME MATCHES Windows AND NOT OPENCV_SKIP_CMAKE_ROOT_CONFIG)
+     ocv_gen_config("${CMAKE_BINARY_DIR}/win-install"

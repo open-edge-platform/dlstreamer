@@ -81,7 +81,6 @@ done
 %files
 %license LICENSE
 /opt/intel/dlstreamer/
-/opt/opencv/
 /opt/rdkafka/
 /opt/ffmpeg/
 /opt/librealsense/

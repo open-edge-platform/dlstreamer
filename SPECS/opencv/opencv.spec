@@ -1,6 +1,6 @@
 %define debug_package %{nil}
 Name:           opencv
-Version:        4.13.0
+Version:        5.1.0
 Release:        1%{?dist}
 Summary:        OpenCV build
 
@@ -45,8 +45,8 @@ ninja -j "$(nproc)"
 rm -rf %{buildroot}
 cd build
 env DESTDIR=%{buildroot} ninja install
-mkdir -p %{buildroot}/usr/local/lib/cmake/opencv4/
-cp -r %{_builddir}/%{name}-%{version}/cmake/* %{buildroot}/usr/local/lib/cmake/opencv4/
+mkdir -p %{buildroot}/usr/local/lib/cmake/opencv5/
+cp -r %{_builddir}/%{name}-%{version}/cmake/* %{buildroot}/usr/local/lib/cmake/opencv5/
 
 # Remove RPATH for all binaries/libs
 find %{buildroot} -type f \( -name "*.so*" -o -perm -111 \) | while read -r file; do
@@ -78,10 +78,12 @@ rm -rf %{buildroot}
 %files devel
 %defattr(-,root,root,-)
 /usr/local/include  
-/usr/local/lib/cmake/opencv4/*  
-/usr/local/lib64/cmake/opencv4/*
+/usr/local/lib/cmake/opencv5/*
+/usr/local/lib64/cmake/opencv5/*
 
 %changelog
+* Mon Nov 09 2026 OpenCV build - 5.1.0-1
+- Update OpenCV version
 * Tue Mar 03 2026 OpenCV build - 4.13.0-1
 - Update OpenCV version
 * Wed Dec 02 2025 OpenCV build - 4.12.0-1

@@ -155,7 +155,7 @@ bool ObjectFuser::project_radar_box_to_image(const Box3D &box, const CameraCalib
     /* Radar point (x, y) on the ground plane -> pixel via H. The 3D box has no
      * explicit footprint; we approximate with a box of width/length in metres. */
     auto project_point = [&](float x, float y, cv::Point2f &p) -> bool {
-        cv::Mat src = (cv::Mat_<float>(3, 1) << x, y, 1.f);
+        cv::Mat src(cv::Matx<float, 3, 1>(x, y, 1.f));
         cv::Mat dst = H * src;
         float w = dst.at<float>(2, 0);
         if (std::fabs(w) < 1e-6f)
