@@ -483,8 +483,6 @@ RUN \
     cp -a /usr/local/lib/libopencv*.so* /deb-pkg/opt/intel/dlstreamer/opencv/lib/ && \
     cp -r /usr/local/include/opencv5 /deb-pkg/opt/intel/dlstreamer/opencv/include/ && \
     cp -r /usr/local/lib/cmake/opencv5 /deb-pkg/opt/intel/dlstreamer/opencv/lib/cmake/ && \
-    cp /usr/local/lib/pkgconfig/opencv5.pc /deb-pkg/opt/intel/dlstreamer/opencv/lib/pkgconfig/ && \
-    sed -i 's|^prefix=.*|prefix=/opt/intel/dlstreamer/opencv|' /deb-pkg/opt/intel/dlstreamer/opencv/lib/pkgconfig/opencv5.pc && \
     cp -a /usr/local/lib/librdkafka*.so* /deb-pkg/opt/rdkafka/ && \
     cp -a /usr/local/lib/librealsense* /deb-pkg/opt/librealsense/ && \
     rm -rf /deb-pkg/opt/intel/dlstreamer/archived && \
