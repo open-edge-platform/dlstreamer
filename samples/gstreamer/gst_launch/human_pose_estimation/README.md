@@ -17,10 +17,7 @@ This sample builds GStreamer pipeline of the following elements
 
 ## Models
 
-The sample is configured with the `yolo26s-pose` example model from Ultralytics. Prepare a compatible OpenVINO IR pose model using the general Ultralytics conversion helper; see [`scripts/download_models/README.md`](../../../../scripts/download_models/README.md) for supported models and setup.
-*   __yolo26s-pose__ generates poses keypoints
-
-The listed pose model is an example for the current pipeline configuration. Prepare a compatible pose model before running; use the general helpers in [`scripts/download_models`](../../../../scripts/download_models/README.md) if conversion is needed. When substituting the model, update its path and matching model-proc configuration.
+The sample script requires the `yolo26s-pose` model; the model name and path are hard-coded as `$MODELS_PATH/public/yolo26s-pose/FP16/yolo26s-pose.xml`. Prepare it with the `download_ultralytics_models.py` helper from [`scripts/download_models`](../../../../scripts/download_models/README.md#2-ultralytics-conversion). The models used to validate this sample are listed in [Validation](#validation).
 
 The sample contains `model_proc` subfolder with .json files for each model with description of model input/output formats and post-processing rules for classification models.
 
@@ -51,6 +48,13 @@ The sample
 * prints gst-launch-1.0 full command line into console
 * starts the command and either visualizes video with people's skeleton
 or prints out fps if you set SINK_ELEMENT = fps
+
+## Validation
+
+This sample was validated with:
+
+- Model: `yolo26s-pose` (FP16)
+- Video: [`face-demographics-walking.mp4`](https://github.com/intel-iot-devkit/sample-videos/raw/master/face-demographics-walking.mp4)
 
 ## See also
 * [Samples overview](../../../README.md)

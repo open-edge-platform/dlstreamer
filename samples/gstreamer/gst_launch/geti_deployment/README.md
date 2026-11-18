@@ -97,6 +97,13 @@ Example deployment of Geti™ instance segmentation model (MaskRCNN, RTMDet or R
 ./geti_sample.sh instance-segmentation geti-segmentation/FP16/openvino.xml CPU opencv /path/to/video.mp4 json
 ```
 
+## Validation
+
+This sample was validated with:
+
+- Models: Geti-trained `geti-segmentation` and `geti-classification-multi` (FP16)
+- Video: [`1192116-sd_640_360_30fps.mp4`](https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4)
+
 ## See also
 
 * [Samples overview](../../../README.md)

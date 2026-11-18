@@ -182,3 +182,9 @@ static       450-599        4      2.7%
   for ~1.5 s to rebuild quality; the VA encoders in constant-QP mode do not.
 * **Constant-bitrate (CBR) streams** pad quiet frames up to the target bitrate, which hides the
   size signal. Prefer VBR or constant-QP streams.
+
+## Validation
+
+This sample was validated with:
+
+- Model: none

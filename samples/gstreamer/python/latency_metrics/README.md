@@ -74,3 +74,10 @@ Frame latency includes the time frames wait in queues. In
 the source is not live and produces frames faster than the sink plays them at 30 fps, so
 the queue fills up and every frame waits in it. The frame latency grows to about 650 ms,
 while the frame rate stays at 30 fps.
+
+## Validation
+
+This sample was validated with:
+
+- Model: none
+- Input: `videotestsrc`

@@ -73,8 +73,8 @@ Use any local video supported by GStreamer that contains people or vehicles. The
 
 ### Prepare Model
 
-This sample expects `PekingU/rtdetr_v2_r50vd` in FP16 precision from Hugging Face for vehicle detection.
-Use the [Hugging Face model conversion](../../../../scripts/download_models/README.md#1-hugging-face-conversion) to prepare the model.
+A compatible vehicle detection model in OpenVINO™ IR format is needed; pass its path with `--model`. The expected layout is `$MODELS_PATH/public/<model_name>/<precision>/<model_name>.xml`.
+Prepare models with the general helpers in [scripts/download_models](../../../../scripts/download_models/README.md). The models used to validate this sample are listed in [Validation](#validation).
 
 ## Run Sample Application
 
@@ -174,6 +174,13 @@ The `buffer_probe` callback collects object categories detected by upstream elem
 The `event_probe` callback handles end-of-stream events to store metadata for the last video segment. 
 
 The `format_location_callback` is invoked when a new video segment starts. It writes the accumulated metadata to a file associated with that segment.
+
+## Validation
+
+This sample was validated with:
+
+- Model: `PekingU_rtdetr_v2_r50vd` (FP16)
+- Video: [`2431853-hd_1920_1080_25fps.mp4`](https://videos.pexels.com/video-files/2431853/2431853-hd_1920_1080_25fps.mp4)
 
 ## See also
 * [Samples overview](../../../README.md)

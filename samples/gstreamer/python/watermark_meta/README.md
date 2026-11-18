@@ -134,3 +134,10 @@ Attaches a circle. Use `thickness=-1` for a filled circle.
 Attaches a text label. `font_type` values correspond to OpenCV `cv::HersheyFonts`:
 `0`=SIMPLEX, `1`=PLAIN, `2`=DUPLEX, `3`=COMPLEX, `4`=TRIPLEX.
 `draw_bg=True` draws an opaque background behind the text.
+
+## Validation
+
+This sample was validated with:
+
+- Model: none
+- Video: [`1192116-sd_640_360_30fps.mp4`](https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4)

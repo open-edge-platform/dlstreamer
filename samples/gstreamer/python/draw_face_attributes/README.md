@@ -11,13 +11,13 @@ Note that this sample doesn't contain .json files with post-processing rules as 
 
 ## Models
 
-The sample is configured with example models from different sources. `centerface` is converted from the upstream CenterFace project; the `dima806/*` models are from Hugging Face. The general model-preparation helpers convert them to OpenVINO IR; see [`scripts/download_models/README.md`](../../../../scripts/download_models/README.md).
-*   __centerface__ is primary detection network for finding faces and generates facial landmark points
-*   __dima806/facial_age_image_detection__ ageestimation on detected faces
-*   __dima806/fairface_gender_image_detection__ gender estimation on detected faces
-*   __dima806/face_emotions_image_detection__ emotions recognition
+The sample script requires specific models in OpenVINO™ IR format; `draw_face_attributes.sh` hard-codes their paths and the callback post-processing is written for their outputs:
+*   __centerface__ — face detection with facial landmark points, loaded from `$MODELS_PATH/public/centerface/FP16/centerface.xml`; prepare it with `download_other_models.py`
+*   __dima806_facial_age_image_detection__ — age estimation, loaded from `$MODELS_PATH/public/dima806_facial_age_image_detection/FP16/dima806_facial_age_image_detection.xml`
+*   __dima806_fairface_gender_image_detection__ — gender estimation, loaded from `$MODELS_PATH/public/dima806_fairface_gender_image_detection/FP16/dima806_fairface_gender_image_detection.xml`
+*   __dima806_face_emotions_image_detection__ — emotion recognition, loaded from `$MODELS_PATH/public/dima806_face_emotions_image_detection/FP16/dima806_face_emotions_image_detection.xml`
 
-The listed models are examples used by this sample. Prepare compatible OpenVINO IR models before running; use the general helpers in [`scripts/download_models`](../../../../scripts/download_models/README.md) if conversion is needed. Changing models may require updating the paths and model-specific post-processing settings.
+Prepare the `dima806_*` models with `download_hf_models.py`. See [scripts/download_models](../../../../scripts/download_models/README.md) for the helper scripts. `MODELS_PATH` must be set before running the sample. The models used to validate this sample are listed in [Validation](#validation).
 
 ## Running
 
@@ -36,6 +36,13 @@ The command-line parameter INPUT_VIDEO allows to change input video and supports
 The sample
 * prints GStreamer pipeline string as passed to function `gst_parse_launch`
 * starts the pipeline and visualizes video with bounding boxes around detected faces, facial landmarks points, head pose, and text with classification results (age/gender, emotion) for each detected face
+
+## Validation
+
+This sample was validated with:
+
+- Models: `centerface` (FP16), `dima806_facial_age_image_detection`, `dima806_fairface_gender_image_detection`, `dima806_face_emotions_image_detection` (FP16)
+- Video: [`head-pose-face-detection-female-and-male.mp4`](https://github.com/intel-iot-devkit/sample-videos/raw/master/head-pose-face-detection-female-and-male.mp4)
 
 ## See also
 * [Samples overview](../../../README.md)

@@ -27,7 +27,7 @@ The pipeline created by the example script is displayed for inspection before th
 
 ## Models
 
-The examples use the Ultralytics segmentation models `yolo26s-seg` and `yolo11s-seg`; any compatible instance-segmentation model can be selected with `--model` when its OpenVINO IR is available. Prepare an example model with the general [`download_ultralytics_models.py`](../../../../scripts/download_models/README.md#2-ultralytics-conversion) helper, selecting `yolo26s-seg.pt` or `yolo11s-seg.pt`.
+The `--model` option only accepts a model from the script's supported list: `yolo26s-seg` (default) or `yolo11s-seg`. The model is loaded from `$MODELS_PATH/public/<model>/FP16/<model>.xml`; prepare it with the `download_ultralytics_models.py` helper from [`scripts/download_models`](../../../../scripts/download_models/README.md#2-ultralytics-conversion). The models used to validate this sample are listed in [Validation](#validation).
 
 ## Running
 
@@ -60,6 +60,13 @@ The script's output is determined by the --output parameter value:
 * json - the model's output is stored in a JSON file
 * display-and-json - the results are both displayed on the screen and saved in a JSON file
 * fps - the script measures and displays the frames per second without saving any visual output
+
+## Validation
+
+This sample was validated with:
+
+- Models: `yolo26s-seg`, `yolo11s-seg`
+- Video: [`1192116-sd_640_360_30fps.mp4`](https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4)
 
 ## See also
 * [Samples overview](../../../README.md)

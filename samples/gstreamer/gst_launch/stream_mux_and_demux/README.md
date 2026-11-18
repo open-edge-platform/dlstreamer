@@ -105,7 +105,7 @@ The sample script supports two source types:
 
 ### 3. Prepare an Inference Model
 
-Provide an OpenVINO IR model (`.xml` + `.bin`).
+Provide a compatible OpenVINO IR object-detection model (`.xml` + `.bin`) and pass it with `--model`. Use the general helpers in [`scripts/download_models`](../../../../scripts/download_models/README.md) to prepare one. The models used to validate this sample are listed in [Validation](#validation).
 
 ## Running the Sample
 
@@ -255,3 +255,10 @@ set them to the streams you want to process.
 | Low FPS with GPU inference | Set `pre-process-backend=va-surface-sharing` and increase `nireq` on `gvadetect`. |
 | `could not link ... gvadetect` with a lidar source | In CONTAINER mode the mux outputs a batch container, not raw video. Put `gvastreamdemux` directly after the mux and attach `gvadetect`/`g3dinference` on the demuxed branches instead. |
 | Lidar branch produces only one frame / never pairs | A single static file yields one frame then EOS. Use a multi-file sequence (`%06d.pcd` or `%06d.bin`) with `start-index`, set `g3dlidarparse frame-rate=...`, and choose a `sync-mode` so lidar PTS align with video. |
+
+## Validation
+
+This sample was validated with:
+
+- Model: OpenVINO IR detection model passed with `--model`
+- Input: two H.265 RTSP streams

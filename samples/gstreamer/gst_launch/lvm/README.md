@@ -22,7 +22,7 @@ This sample builds a GStreamer pipeline of the following elements:
 
 ## Model
 
-The sample currently supports these CLIP image encoders: [`openai/clip-vit-large-patch14`](https://huggingface.co/openai/clip-vit-large-patch14), [`openai/clip-vit-base-patch16`](https://huggingface.co/openai/clip-vit-base-patch16), and [`openai/clip-vit-base-patch32`](https://huggingface.co/openai/clip-vit-base-patch32). Prepare one of these examples with the general [`download_hf_models.py`](../../../../scripts/download_models/README.md#1-hugging-face-conversion) helper; see its README for supported models and setup. The helper converts the Hugging Face ID to the model directory name used by this sample, such as `openai_clip-vit-large-patch14`.
+The `MODEL` argument only accepts a CLIP image encoder from the script's supported list: `openai_clip-vit-large-patch14` (default), `openai_clip-vit-base-patch16` or `openai_clip-vit-base-patch32` (from the Hugging Face models `openai/clip-vit-large-patch14`, `openai/clip-vit-base-patch16` and `openai/clip-vit-base-patch32`). The model is loaded from `$MODELS_PATH/public/<MODEL>/FP16/<MODEL>.xml`; prepare it with the `download_hf_models.py` helper from [`scripts/download_models`](../../../../scripts/download_models/README.md#1-hugging-face-conversion), which converts the Hugging Face ID to the directory name used by this sample. The models used to validate this sample are listed in [Validation](#validation).
 
 ## Running
 
@@ -62,6 +62,13 @@ The sample:
 
 * prints the `gst-launch-1.0` full command line into the console
 * starts the command and either publishes metadata to a file or prints out FPS if you set OUTPUT=fps
+
+## Validation
+
+This sample was validated with:
+
+- Models: `openai_clip-vit-large-patch14`, `openai_clip-vit-base-patch16`, `openai_clip-vit-base-patch32` (FP16)
+- Video: [`1192116-sd_640_360_30fps.mp4`](https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4)
 
 ## See also
 

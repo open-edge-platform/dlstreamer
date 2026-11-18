@@ -12,9 +12,8 @@ inference entirely on the iGPU with zero-copy pipelining.
 
 Use any local H.264 video supported by the installed decoder and any compatible
 Ultralytics/OpenVINO object-detection IR; the model directory must contain the
-IR saved as `yolo26s.xml`/`yolo26s.bin`. The examples use a people video and
-YOLO26s INT8. Both video and model are required command-line inputs; the sample
-does not download either asset automatically.
+IR saved as `yolo26s.xml`/`yolo26s.bin`. Both video and model are required
+command-line inputs; the sample does not download either asset automatically.
 
 ## What DL Streamer does differently
 
@@ -90,9 +89,10 @@ flowchart LR
 
 ## Example run
 
-The example uses a YOLO26s INT8 model. Prepare any compatible OpenVINO model using the general
-Ultralytics conversion helper described in [`scripts/download_models/README.md`](../../../scripts/download_models/README.md#2-ultralytics-conversion).
-The benchmark expects the model directory passed to `--model` to follow the sample's documented layout.
+Prepare a compatible Ultralytics object-detection model as OpenVINO IR using the general
+helpers in [`scripts/download_models`](../../../scripts/download_models/README.md#2-ultralytics-conversion).
+The directory passed to `--model` must contain the IR saved as `yolo26s.xml`/`yolo26s.bin`.
+The models used to validate this sample are listed in [Validation](#validation).
 
 Run the benchmark with any compatible local H.264 video. An optional example is
 [`people.mp4`](https://storage.openvinotoolkit.org/repositories/openvino_notebooks/data/data/video/people.mp4);
@@ -173,3 +173,10 @@ flowchart LR
     E --> F["gvadetect\nGPU, va-surface-sharing\nnireq=4"]
     F --> G["queue\n2 x nireq"] --> H[fakesink]
 ```
+
+## Validation
+
+This sample was validated with:
+
+- Model: `yolo26s` (INT8)
+- Video: [`people.mp4`](https://storage.openvinotoolkit.org/repositories/openvino_notebooks/data/data/video/people.mp4)

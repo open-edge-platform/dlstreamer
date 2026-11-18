@@ -13,7 +13,7 @@ The sample builds a GStreamer pipeline using:
 
 ## Models
 
-The sample examples use the Ultralytics segmentation models `yolo26s-seg` and `yolo11s-seg`; any compatible instance-segmentation model can be used by selecting it with `-Model` and providing its OpenVINO IR. Prepare the example models with the general [`download_ultralytics_models.py`](../../../../../scripts/download_models/README.md#2-ultralytics-conversion) helper, selecting `yolo26s-seg.pt` or `yolo11s-seg.pt`.
+`instance_segmentation.ps1` only accepts the Ultralytics segmentation models `yolo26s-seg` and `yolo11s-seg` (selected with `-Model`), loaded from `%MODELS_PATH%\public\<model>\FP16\<model>.xml` (no model-proc file needed). Prepare them with `download_ultralytics_models.py` (see [Model Conversion Scripts](../../../../../scripts/download_models/README.md)). The models used to validate this sample are listed in [Validation](#validation).
 
 ## Environment Variables
 
@@ -173,6 +173,13 @@ graph LR
 2. **GPU device** provides best performance
 3. **Lower input resolution** reduces processing time
 4. **Preprocessing backend**: `d3d12-surface-sharing` for GPU, `d3d12` for NPU, `opencv` for CPU
+
+## Validation
+
+This sample was validated with:
+
+- Model: `yolo26s-seg` (FP16)
+- Video: [`1192116-sd_640_360_30fps.mp4`](https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4)
 
 ## See also
 * [Windows Samples overview](../../../../README.md)

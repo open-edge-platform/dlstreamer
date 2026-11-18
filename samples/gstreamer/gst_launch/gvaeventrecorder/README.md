@@ -36,7 +36,7 @@ The complete PRE/EVENT/POST sequence is saved to disk as video clips in `event-c
 
 ## Input video and model
 
-The sample needs a video with people and a YOLOv8s detection model. The script does not download either of them; you must provide both.
+The sample needs a video with people and a compatible object-detection model that includes the `person` class. The script does not download either of them; you must provide both.
 
 ### Video
 
@@ -44,12 +44,9 @@ Use any local video supported by GStreamer that contains people, and pass its pa
 
 ### Model
 
-This sample expects the `yolov8s` model in FP16 precision from Ultralytics, converted to OpenVINO IR.
+Prepare a compatible OpenVINO IR object-detection model with a `person` class using the general helpers in [scripts/download_models/](../../../../scripts/download_models/README.md).
 
-Use the model conversion scripts in [scripts/download_models/](../../../../scripts/download_models/README.md) to prepare it.
-Before running them, create and activate the dedicated model-download virtual environment described in [scripts/download_models/README.md](../../../../scripts/download_models/README.md).
-
-Pass the resulting OpenVINO IR model XML to the script with `--model`. Keep its matching `.bin` weights file alongside it.
+Pass the resulting OpenVINO IR model XML to the script with `--model`. Keep its matching `.bin` weights file alongside it. The models used to validate this sample are listed in [Validation](#validation).
 
 ## Usage
 
@@ -86,6 +83,13 @@ Run with your own video, model and output directory:
 The full PRE/EVENT/POST clips are written to disk. Their video buffers also continue through `gvametapublish` to the next pipeline element, `fakesink` in this sample. No EVENT-only files are created. Overlapping recording windows share one downstream stream without duplicate frames.
 
 Clip filenames follow `event_<class>_<timestamp>_<counter>.mp4`.
+
+## Validation
+
+This sample was validated with:
+
+- Model: `yolov8s` (FP16)
+- Video: [`people-detection.mp4`](https://github.com/intel-iot-devkit/sample-videos/raw/master/people-detection.mp4)
 
 ## See Also
 

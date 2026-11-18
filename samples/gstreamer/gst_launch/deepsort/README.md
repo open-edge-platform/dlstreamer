@@ -48,16 +48,12 @@ The pipeline uses the following elements:
 * Intel Core Ultra 3 processor (or any Intel system with integrated GPU); the script falls back to CPU automatically if `/dev/dri` is not present
 ### Models
 
-The example uses the following pre-converted OpenVINO IR models under `MODELS_DIR`:
+The sample script requires these OpenVINO IR models; the model names and the `${HOME}/models` root are hard-coded:
 
-* **YOLO26m** (detection) — any precision `.xml`/`.bin` under `yolo26m/FP16/`
-* **Mars-Small-128** (re-identification) — `mars-small128/FP32/mars_small128_fp32.xml` (+ matching `.bin`)
+* **YOLO26m** (detection) — first `.xml` found under `${HOME}/models/public/yolo26m/FP16/`, prepared with `download_ultralytics_models.py`
+* **Mars-Small-128** (re-identification) — `${HOME}/models/public/mars-small128/FP32/mars_small128_fp32.xml` (+ matching `.bin`), prepared with `download_other_models.py`
 
-These are example models; compatible object-detection and re-identification models can be substituted by updating the model paths and pipeline configuration. If the example models are missing, prepare them with the repository's general model conversion scripts in
-[`scripts/download_models`](../../../../scripts/download_models). See
-[`scripts/download_models/README.md`](../../../../scripts/download_models/README.md) for setup,
-usage, and exact commands for the Ultralytics (YOLO26m) and other-models (Mars-Small-128)
-conversion flows.
+Both helpers are described in [`scripts/download_models/README.md`](../../../../scripts/download_models/README.md). The models used to validate this sample are listed in [Validation](#validation).
 
 ### Video
 
@@ -111,3 +107,10 @@ Results are written to the `results/` directory, named after the device and inpu
 * `results/people_detection_tracking-<DEVICE>_<video>_frames/frame_NNNNN.png` — annotated PNG frames (`OUTPUT=frames`)
 
 The script also prints the resolved model paths, the full `gst-launch-1.0` pipeline string, and the output location before running.
+
+## Validation
+
+This sample was validated with:
+
+- Models: `yolo26m` (FP16), `mars-small128` (FP32)
+- Video: [`Pexels video 39182823`](https://www.pexels.com/download/video/39182823/?fps=24.0&h=720&w=1280)

@@ -18,19 +18,11 @@ This sample builds GStreamer pipeline of the following elements
 
 ## Models
 
-The sample is configured with these example pre-trained models:
-*   __centerface__ is the primary detection network for finding faces and generates facial landmark points
-*   __dima806/facial_age_image_detection__ age estimation on detected faces
-*   __dima806/fairface_gender_image_detection__ gender estimation on detected faces
-*   __dima806/face_emotions_image_detection__ emotions recognition
+The sample script requires these models; their names and paths are hard-coded as `$MODELS_PATH/public/<model_name>/FP16/<model_name>.xml`:
+*   `centerface` - face detection with facial landmark points, prepared with `download_other_models.py`
+*   `dima806_facial_age_image_detection`, `dima806_fairface_gender_image_detection`, `dima806_face_emotions_image_detection` - age, gender and emotion classification, prepared with `download_hf_models.py`
 
-Compatible models may be substituted by updating their paths in the sample script.
-
-These models are not from Open Model Zoo:
-*   `centerface` is prepared by [`download_other_models.py`](../../../../scripts/download_models/download_other_models.py)
-*   `dima806/*` models are prepared from Hugging Face via [`download_hf_models.py`](../../../../scripts/download_models/download_hf_models.py)
-
-The listed models are examples for the current pipeline configuration. Prepare compatible models before running; use the general helpers in [`scripts/download_models`](../../../../scripts/download_models/README.md) if conversion is needed. If you substitute models, update the paths and ensure their outputs match the classification stages.
+Both helpers are described in [`scripts/download_models`](../../../../scripts/download_models/README.md). The models used to validate this sample are listed in [Validation](#validation).
 
 ## Running
 
@@ -59,6 +51,13 @@ The sample
 * prints gst-launch-1.0 full command line into console
 * starts the command and either visualizes video with bounding boxes around detected faces, facial landmarks points and text with classification results (age/gender, emotion) for each detected face or
 prints out fps if you set SINK_ELEMENT = fps
+
+## Validation
+
+This sample was validated with:
+
+- Models: `centerface` (FP16), `dima806_facial_age_image_detection`, `dima806_fairface_gender_image_detection`, `dima806_face_emotions_image_detection` (FP16)
+- Video: [`head-pose-face-detection-female-and-male.mp4`](https://github.com/intel-iot-devkit/sample-videos/raw/master/head-pose-face-detection-female-and-male.mp4)
 
 ## See also
 * [Samples overview](../../../README.md)

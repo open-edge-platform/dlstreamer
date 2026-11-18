@@ -120,7 +120,7 @@ cd /opt/intel/dlstreamer/samples/gstreamer/gst_launch/python-elements/loitering_
 
 ### Prepare Model
 
-The example uses `yolo11s` in FP16 precision; any compatible detector and matching loitering configuration can be used. Prepare the example model with the general [Ultralytics conversion helper](../../../../../scripts/download_models/README.md#2-ultralytics-conversion), selecting `yolo11s.pt`.
+A compatible object detection model in OpenVINO™ IR format is needed; pass its path as `MODEL` or place it at `$MODELS_PATH/public/<model_name>/<precision>/<model_name>.xml`. The loitering configuration file must match the classes produced by the detector. Prepare models with the general helpers in [scripts/download_models](../../../../../scripts/download_models/README.md). The models used to validate this sample are listed in [Validation](#validation).
 
 ### Execution
 
@@ -174,6 +174,13 @@ Author: Sangmin Oh, Anthony Hoogs, Amitha Perera, Naresh Cuntoor, Chia-Chih Chen
 Source: https://viratdata.org/
 License: https://data.kitware.com/#collection/56f56db28d777f753209ba9f/folder/56f57e748d777f753209bed6
 ```
+
+## Validation
+
+This sample was validated with:
+
+- Model: `yolo11s` (FP16)
+- Video: [`VIRAT_S_000101.mp4`](https://github.com/open-edge-platform/edge-ai-resources/raw/refs/heads/main/videos/VIRAT_S_000101.mp4)
 
 ## See also
 * [Samples overview](../../../../README.md)
