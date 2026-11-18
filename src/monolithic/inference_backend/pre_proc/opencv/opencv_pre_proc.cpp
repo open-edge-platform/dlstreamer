@@ -43,7 +43,7 @@ int UnalignedNV12RoiToMat(const Image &src, cv::Mat &dst) {
         throw std::logic_error("Requested rectangle is out of image boundaries.");
 
     Image region = src;
-    region.rect = Rectangle<uint32_t>(x0, y0, x1 - x0, y1 - y0);
+    region.rect = InferenceBackend::Rectangle<uint32_t>(x0, y0, x1 - x0, y1 - y0);
     region = ApplyCrop(region);
 
     cv::Mat bgr;
