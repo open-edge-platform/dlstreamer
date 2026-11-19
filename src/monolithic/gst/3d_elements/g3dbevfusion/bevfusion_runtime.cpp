@@ -109,6 +109,23 @@ ov::Tensor host_tensor(ov::element::Type type, const ov::Shape &shape, void *dat
     return ov::Tensor(type, shape, data);
 }
 
+// The sparse encoder extension opens its own OpenCL context, at its first
+// inference, on the GPU whose UUID BEVFUSION_OPENCL_DEVICE_UUID gives (patch
+// 0007), or on the first Intel GPU without it. Point it at the GPU the rest of
+// the model runs on; OpenVINO reports the same UUID as OpenCL does.
+void select_sparse_encoder_gpu(ov::Core &core, const std::string &gpu) {
+    static std::mutex env_mutex;
+    const ov::device::UUID uuid = core.get_property(gpu, ov::device::uuid);
+    static const char *hex = "0123456789abcdef";
+    std::string text;
+    for (const uint8_t b : uuid.uuid) {
+        text += hex[b >> 4];
+        text += hex[b & 15];
+    }
+    std::lock_guard<std::mutex> lock(env_mutex);
+    setenv("BEVFUSION_OPENCL_DEVICE_UUID", text.c_str(), 1);
+}
+
 } // namespace
 
 struct Runtime::Impl {
@@ -255,10 +272,10 @@ struct Runtime::Impl {
     }
 
     // Binds the camera branch and both inputs of the head to device tensors,
-    // once. Only valid when the dense models share the default GPU context
-    // with voxelize and bev_pool, i.e. device is "GPU".
-    void bind_device_tensors() {
-        ov::RemoteContext ctx = core.get_default_context("GPU");
+    // once. Only valid when the dense models run on the same GPU as voxelize
+    // and bev_pool, and so share its default context.
+    void bind_device_tensors(const std::string &gpu) {
+        ov::RemoteContext ctx = core.get_default_context(gpu);
         const ov::AnyMap usm_device{ov::intel_gpu::shared_mem_type(ov::intel_gpu::SharedMemType::USM_DEVICE_BUFFER)};
         auto make = [&](const ov::Output<const ov::Node> &port) {
             return ctx.create_tensor(port.get_element_type(), port.get_shape(), usm_device);
@@ -354,21 +371,27 @@ Runtime::Runtime(const std::string &config_path, const std::string &device) : im
     ov::Core &core = impl_->core;
     for (const auto &ext : cfg.at("extensions"))
         core.add_extension(resolve(base, ext.get<std::string>()).string());
-    // voxelize and bev_pool are GPU custom layers: their kernels are described
-    // by this file, and they always run on the GPU.
-    core.set_property(
-        "GPU", ov::AnyMap{{"CONFIG_FILE", resolve(base, cfg.at("gpu_custom_layers").get<std::string>()).string()}});
 
+    // voxelize, bev_pool and the sparse encoder's OpenCL kernels are GPU-only.
+    // They run on the dense networks' GPU ("GPU" or "GPU.<n>"), so that every
+    // stage of a frame stays on one device; with device=CPU, on the default GPU.
     const bool on_gpu = device.rfind("GPU", 0) == 0;
+    const std::string custom_gpu = on_gpu ? device : "GPU";
+    select_sparse_encoder_gpu(core, custom_gpu);
+
     ov::AnyMap dense_cfg{ov::hint::performance_mode(ov::hint::PerformanceMode::LATENCY)};
     if (on_gpu)
         dense_cfg.emplace(ov::hint::inference_precision.name(), ov::element::f16);
-    const ov::AnyMap custom_cfg{ov::hint::performance_mode(ov::hint::PerformanceMode::LATENCY)};
+    // The custom layers' kernels are described by this file. Given at compile
+    // time, it applies to whichever GPU the model is compiled for.
+    const ov::AnyMap custom_cfg{
+        ov::hint::performance_mode(ov::hint::PerformanceMode::LATENCY),
+        {"CONFIG_FILE", resolve(base, cfg.at("gpu_custom_layers").get<std::string>()).string()}};
     auto compile = [&](const char *name, const std::string &dev, const ov::AnyMap &props) {
         return core.compile_model((model_dir / (std::string(name) + ".xml")).string(), dev, props)
             .create_infer_request();
     };
-    impl_->voxelize = compile("voxelize", "GPU", custom_cfg);
+    impl_->voxelize = compile("voxelize", custom_gpu, custom_cfg);
     // The scatter needs an accumulator that holds zeros on entry. As its own
     // output it could get a reused GPU pool buffer holding another layer's
     // data, so the model takes it as an input instead. Checked before
@@ -383,7 +406,7 @@ Runtime::Runtime(const std::string &config_path, const std::string &device) : im
         throw std::runtime_error(bev_pool_xml.string() + " has no bev_accumulator input; export the model again with "
                                                          "g3dbevfusion_prepare_model.sh");
     const ov::Shape accumulator_shape = accumulator->get_shape();
-    impl_->bev_pool = core.compile_model(bev_pool_model, "GPU", custom_cfg).create_infer_request();
+    impl_->bev_pool = core.compile_model(bev_pool_model, custom_gpu, custom_cfg).create_infer_request();
     impl_->bev_accumulator.assign(ov::shape_size(accumulator_shape), 0);
     impl_->bev_pool.set_tensor("bev_accumulator",
                                host_tensor(ov::element::i32, accumulator_shape, impl_->bev_accumulator.data()));
@@ -404,8 +427,8 @@ Runtime::Runtime(const std::string &config_path, const std::string &device) : im
     impl_->geometry = compile("geometry", device, dense_cfg);
     impl_->camera_encoder = compile("camera_encoder_b6", device, dense_cfg);
     impl_->full_detection = compile("full_detection", device, dense_cfg);
-    if (device == "GPU")
-        impl_->bind_device_tensors();
+    if (on_gpu)
+        impl_->bind_device_tensors(custom_gpu);
 }
 
 void Runtime::set_calibration(const std::array<CameraCalibration, kNumCameras> &cameras) {

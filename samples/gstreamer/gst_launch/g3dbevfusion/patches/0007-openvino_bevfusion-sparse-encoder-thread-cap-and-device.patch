@@ -1,0 +1,137 @@
+openvino_bevfusion: cap the sparse encoder's OpenMP team, and let it run on a chosen GPU.
+
+The sparse encoder builds CPU neighbour maps and scatters its output into
+the dense BEV grid with OpenMP loops. Without OMP_NUM_THREADS, OpenMP starts
+one thread per core, and these loops are short and memory bound: on a
+128-thread two-socket Xeon the scatter took about 1.1 s per frame, against
+about 0.1 s with four threads. Run both loops with at most four threads
+unless OMP_NUM_THREADS is set.
+
+The encoder also opened its OpenCL context on the first Intel GPU, so with
+several GPUs it could run on a different one from the rest of the model.
+BEVFUSION_OPENCL_DEVICE_UUID now picks the GPU by its UUID
+(CL_DEVICE_UUID_KHR, the same 32 hex digits OpenVINO reports as a GPU's
+DEVICE_UUID); unset keeps the first Intel GPU. It is read at the first
+inference, as the context is process-wide.
+
+Remove this patch once openvino_contrib carries an equivalent change.
+
+diff --git a/modules/openvino_bevfusion/openvino_extensions/sparse_encoder/sparse_encoder_op.cpp b/modules/openvino_bevfusion/openvino_extensions/sparse_encoder/sparse_encoder_op.cpp
+index 649622f..3d777cf 100644
+--- a/modules/openvino_bevfusion/openvino_extensions/sparse_encoder/sparse_encoder_op.cpp
++++ b/modules/openvino_bevfusion/openvino_extensions/sparse_encoder/sparse_encoder_op.cpp
+@@ -14,6 +14,7 @@
+ #include <openvino/core/shape.hpp>
+ 
+ #include <CL/cl.h>
++#include <CL/cl_ext.h>
+ #include <dlfcn.h>
+ #include <cstdlib>
+ #include <fstream>
+@@ -21,6 +22,7 @@
+ #include <cstring>
+ #include <cmath>
+ #include <algorithm>
++#include <cctype>
+ #include <vector>
+ #include <iostream>
+ #include <chrono>
+@@ -32,6 +34,24 @@
+ 
+ namespace BEVFusionExtension {
+ 
++// ============================================================
++// OpenMP team size
++//
++// The OpenMP loops here are short and memory bound. OpenMP's default team of
++// one thread per core costs far more in wake-ups and cross-socket traffic than
++// it saves: about 1 s per frame on a 128-thread two-socket Xeon, against a few
++// ms with four threads. So the team is capped unless OMP_NUM_THREADS sets it.
++// ============================================================
++static int omp_team_size() {
++#ifdef _OPENMP
++    static const int n = std::getenv("OMP_NUM_THREADS") ? omp_get_max_threads()
++                                                        : std::min(omp_get_max_threads(), 4);
++    return n;
++#else
++    return 1;
++#endif
++}
++
+ // ============================================================
+ // Diagnostic output
+ //
+@@ -286,7 +306,31 @@ static void gpu_f32_to_f16(cl_mem f32, cl_mem f16, int total) {
+ // ============================================================
+ // OpenCL Initialization
+ // ============================================================
++// The GPU to run on, as the 32 hex digits of its UUID (CL_DEVICE_UUID_KHR,
++// which OpenVINO reports as the GPU device's DEVICE_UUID), from
++// BEVFUSION_OPENCL_DEVICE_UUID. Empty: the first Intel GPU. Read once, at the
++// first inference.
++static std::string requested_device_uuid() {
++    const char* v = std::getenv("BEVFUSION_OPENCL_DEVICE_UUID");
++    std::string uuid = v ? v : "";
++    for (auto& c : uuid) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
++    return uuid;
++}
++
++static std::string device_uuid(cl_device_id d) {
++    cl_uchar uuid[CL_UUID_SIZE_KHR] = {};
++    if (clGetDeviceInfo(d, CL_DEVICE_UUID_KHR, sizeof(uuid), uuid, nullptr) != CL_SUCCESS) return "";
++    static const char* hex = "0123456789abcdef";
++    std::string s;
++    for (cl_uchar b : uuid) {
++        s += hex[b >> 4];
++        s += hex[b & 15];
++    }
++    return s;
++}
++
+ static void init_opencl() {
++    const std::string wanted_uuid = requested_device_uuid();
+     cl_int err;
+     cl_uint npf;
+     err = clGetPlatformIDs(0, nullptr, &npf);
+@@ -305,6 +349,7 @@ static void init_opencl() {
+             char vendor[256];
+             clGetDeviceInfo(d, CL_DEVICE_VENDOR, sizeof(vendor), vendor, nullptr);
+             if (std::string(vendor).find("Intel") == std::string::npos) continue;
++            if (!wanted_uuid.empty() && device_uuid(d) != wanted_uuid) continue;
+             g_device = d;
+             g_context = clCreateContext(nullptr, 1, &g_device, nullptr, nullptr, &err);
+             CL_CHECK(err);
+@@ -503,10 +548,12 @@ static void init_opencl() {
+ 
+             char name[256];
+             clGetDeviceInfo(d, CL_DEVICE_NAME, sizeof(name), name, nullptr);
+-            log_out() << "[sparse_encoder_ext] Using: " << name << std::endl;
++            log_out() << "[sparse_encoder_ext] Using: " << name << " (UUID " << device_uuid(d) << ")" << std::endl;
+             return;
+         }
+     }
++    if (!wanted_uuid.empty())
++        throw std::runtime_error("No Intel GPU with UUID " + wanted_uuid + " (BEVFUSION_OPENCL_DEVICE_UUID)");
+     throw std::runtime_error("No Intel GPU found");
+ }
+ 
+@@ -548,7 +595,7 @@ static std::vector<int> build_nmap(const int* coords, int N, int X, int Y, int Z
+         ht.insert(key, i);
+     }
+     std::vector<int> nmap(N * 27, -1);
+-    #pragma omp parallel for schedule(dynamic, 256)
++    #pragma omp parallel for schedule(dynamic, 256) num_threads(omp_team_size())
+     for (int i = 0; i < N; i++) {
+         int x = coords[i*4+1], y = coords[i*4+2], z = coords[i*4+3];
+         int k = 0;
+@@ -1883,8 +1930,8 @@ bool SparseEncoderOp::evaluate(
+         std::memset(bev_out, 0, bev_bytes);
+ 
+         // Scatter with OpenMP: each voxel writes to independent BEV positions
+-        // Thread count controlled by OMP_NUM_THREADS env var (4 threads optimal on 16-core PTL)
+-        #pragma omp parallel for schedule(static)
++        // (team size: see omp_team_size)
++        #pragma omp parallel for schedule(static) num_threads(omp_team_size())
+         for (int idx = 0; idx < cur_N; idx++) {
+             int x = coords[idx * 4 + 1];
+             int y = coords[idx * 4 + 2];

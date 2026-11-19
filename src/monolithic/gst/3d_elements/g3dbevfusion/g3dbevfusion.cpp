@@ -623,8 +623,9 @@ static void gst_g3d_bevfusion_class_init(GstG3DBevFusionClass *klass) {
     g_object_class_install_property(gobject_class, PROP_DEVICE,
                                     g_param_spec_string("device", "Device",
                                                         "Device for the dense networks (camera encoder, geometry, "
-                                                        "detection head); the custom voxelize/bev_pool ops always run "
-                                                        "on the GPU",
+                                                        "detection head). The GPU-only voxelize, BEV-pool and sparse "
+                                                        "encoder ops run on the same GPU (GPU or GPU.<n>), or on GPU "
+                                                        "when this is CPU",
                                                         DEFAULT_DEVICE, flags));
     g_object_class_install_property(gobject_class, PROP_SCORE_THRESHOLD,
                                     g_param_spec_float("score-threshold", "Score threshold",
