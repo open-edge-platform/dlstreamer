@@ -188,3 +188,4 @@ static       450-599        4      2.7%
 This sample was validated with:
 
 - Model: none
+- Video: none (`videotestsrc` by default)

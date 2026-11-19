@@ -48,3 +48,4 @@ The `test_gvafpsthrottle.sh` script provides usage examples and instructions for
 This sample was validated with:
 
 - Model: none
+- Video: none (`videotestsrc` by default)
