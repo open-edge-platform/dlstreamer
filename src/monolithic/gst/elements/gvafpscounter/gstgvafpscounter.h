@@ -32,6 +32,7 @@ struct _GstGvaFpscounter {
     gchar *read_pipe;
     gboolean print_std_dev;
     gboolean print_latency;
+    gboolean silent;
 };
 
 struct _GstGvaFpscounterClass {

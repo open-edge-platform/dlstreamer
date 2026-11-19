@@ -20,7 +20,15 @@
 
 static std::map<std::string, std::shared_ptr<FpsCounter>> fps_counters;
 static std::mutex channels_mutex;
-static FILE *output = stdout;
+static FILE *active_output = stdout;
+static FILE *null_output = nullptr;
+static FILE *output = active_output;
+
+#ifdef _WIN32
+static constexpr char NULL_DEVICE_NAME[] = "NUL";
+#else
+static constexpr char NULL_DEVICE_NAME[] = "/dev/null";
+#endif
 //////////////////////////////////////////////////////////////////////////
 // C interface
 void fps_counter_create_iterative(const char *intervals, bool print_std_dev, bool print_latency) {
@@ -110,8 +118,31 @@ void fps_counter_eos(const char *element_name) {
 }
 
 void fps_counter_set_output(FILE *out) {
-    if (out != nullptr)
-        output = out;
+    if (out == nullptr)
+        return;
+
+    std::lock_guard<std::mutex> lock(channels_mutex);
+    active_output = out;
+    // keep the currently used output in sync unless we're silenced
+    if (output != null_output)
+        output = active_output;
+}
+
+void fps_counter_set_silent(bool silent) {
+    std::lock_guard<std::mutex> lock(channels_mutex);
+    if (!silent) {
+        output = active_output;
+        return;
+    }
+
+    if (null_output == nullptr) {
+        null_output = fopen(NULL_DEVICE_NAME, "w");
+        if (null_output == nullptr) {
+            GVA_ERROR("Failed to open %s, fpscounter output will not be silenced", NULL_DEVICE_NAME);
+            return;
+        }
+    }
+    output = null_output;
 }
 
 gboolean fps_counter_validate_intervals(const char *intervals_string) {
