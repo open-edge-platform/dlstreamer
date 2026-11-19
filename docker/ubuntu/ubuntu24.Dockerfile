@@ -335,7 +335,7 @@ RUN cp -a /usr/local/lib/librdkafka* ./
 # ==============================================================================
 FROM builder AS realsense-builder
 
-ARG REALSENSE_VERSION=v2.58.4
+ARG REALSENSE_VERSION=v2.59.2
 
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
