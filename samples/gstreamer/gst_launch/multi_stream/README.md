@@ -7,7 +7,7 @@ It combines four pipelines. By default, the first two streams run on NPU [IntelÂ
 This sample utilizes GStreamer command-line tool `gst-launch-1.0` which can build and run GStreamer pipeline described in a string format.
 The string contains a list of GStreamer elements separated by exclamation mark `!`, each element may have properties specified in the format `property`=`value`.
 
-The model names below are examples supported by this sample. Prepare compatible OpenVINO IR files under `$MODELS_PATH/public/{model_name}/FP16/`; see the general [model conversion guide](../../../../scripts/download_models/README.md) for available helpers and setup. Update the model names and paths in the sample arguments when choosing different models.
+The `MODEL_1` and `MODEL_2` arguments only accept models from the supported list below; each is loaded from `$MODELS_PATH/public/<model_name>/FP16/<model_name>.xml`, with a model-proc file for `yolox-tiny`, `yolox_s` and `yolov7`. Prepare them with the general helpers in [`scripts/download_models`](../../../../scripts/download_models/README.md): `download_other_models.py` for `yolox-tiny`, `yolox_s` and `yolov7`, and `download_ultralytics_models.py` for the others. The models used to validate this sample are listed in [Validation](#validation).
 
 This sample builds for GStreamer a pipeline of the following elements:
 * `filesrc`
@@ -102,6 +102,13 @@ gvaclassify model=${CLASSIFICATION_MODEL_1} device=GPU model-instance-id=inf1 ni
 gvaclassify model=${CLASSIFICATION_MODEL_2} device=GPU model-instance-id=inf2 nireq=4 batch-size=8 ie-config=PERFORMANCE_HINT=THROUGHPUT pre-process-backend=va-surface-sharing ! queue ! \
 gvawatermark ! gvafpscounter ! vah264enc ! h264parse ! mp4mux ! filesink location=${OUTPUT_VIDEO_FILE_2}
 ```
+
+## Validation
+
+This sample was validated with:
+
+- Models: `yolov8s`, `yolov9c`, `yolo11s`, `yolo26s` (FP16)
+- Video: [`1192116-sd_640_360_30fps.mp4`](https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4)
 
 ## See also
 * [Samples overview](../../../README.md)

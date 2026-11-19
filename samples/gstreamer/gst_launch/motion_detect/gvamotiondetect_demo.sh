@@ -7,8 +7,8 @@
 # Demonstration script for gvamotiondetect element with optional YOLOv8 detection.
 # Provides GPU (VA surface memory) and CPU (system memory) pipeline variants.
 #
-# Default model: yolov8n (precision FP32) resolved via MODELS_PATH:
-#   $MODELS_PATH/public/yolov8n/FP32/yolov8n.xml
+# Default model: yolov8n (precision FP16) resolved via MODELS_PATH:
+#   $MODELS_PATH/public/yolov8n/FP16/yolov8n.xml
 #
 # The motion detector publishes ROIs; gvadetect uses inference-region=1 to
 # restrict object detection over those motion ROIs only (region id 1).

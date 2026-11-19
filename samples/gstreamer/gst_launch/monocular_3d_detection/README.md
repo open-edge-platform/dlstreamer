@@ -57,18 +57,12 @@ described above unless reprojected as this sample does.
 
 ## Model
 
-The MonoDETR OpenVINO IR is **not** downloaded automatically. Create a virtual
-environment with the conversion dependencies, then export the IR once:
-
-```bash
-python3 -m venv .monodetr-venv
-source .monodetr-venv/bin/activate
-pip install -r ../../../../scripts/download_models/requirements_convert_monodetr.txt
-python3 ../../../../scripts/download_models/convert_monodetr.py --outdir .
-```
-
-Then pass its path as the first argument (or place it at
-`${MODELS_PATH}/public/monodetr/FP16/monodetr.xml`).
+The sample needs a MonoDETR-compatible OpenVINO IR model, which is **not**
+downloaded automatically. Export it with the `convert_monodetr.py` helper in
+[`scripts/download_models`](../../../../scripts/download_models/README.md)
+(dependencies in `requirements_convert_monodetr.txt`), then pass its path as the
+first argument (or place it at `${MODELS_PATH}/public/monodetr/FP16/monodetr.xml`).
+The models used to validate this sample are listed in [Validation](#validation).
 
 ## Run
 
@@ -100,3 +94,10 @@ Examples:
 This sample uses data from PandaSet by Hesai and Scale AI, licensed under
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The data is retrieved
 on demand and is not redistributed as part of DL Streamer.
+
+## Validation
+
+This sample was validated with:
+
+- Model: `monodetr` (FP16)
+- Input: PandaSet sequence `001`

@@ -25,13 +25,11 @@ Overall this sample builds GStreamer pipeline of the following elements
 
 ## Models
 
-The sample is configured with these example pre-trained models:
-*   __yolo26s__ is the primary detection network for detecting persons, vehicles, and bikes
-*   __dima806_vehicle_10_types_image_detection__ classifies vehicle types
+The sample script requires these models; their names and paths are hard-coded as `$MODELS_PATH/public/<model_name>/FP16/<model_name>.xml`:
+*   `yolo26s` - detection of persons, vehicles, and bikes, prepared with `download_ultralytics_models.py`
+*   `dima806_vehicle_10_types_image_detection` - vehicle type classification, prepared with `download_hf_models.py`
 
-Compatible models may be substituted by updating the model paths in the sample script; the vehicle classifier must support the configured object classes.
-
-The listed models are examples for the current pipeline configuration. Prepare compatible detection and classification models before running; use the general helpers in [`scripts/download_models`](../../../../scripts/download_models/README.md) if conversion is needed. Substituting models requires updating their paths, and the classifier must support the configured object classes.
+Both helpers are described in [`scripts/download_models`](../../../../scripts/download_models/README.md). The models used to validate this sample are listed in [Validation](#validation).
 
 ## Running
 
@@ -65,6 +63,13 @@ Use any local video, supported stream URL, or camera source. A clip containing p
 The sample
 * prints gst-launch command line into console
 * starts the command and visualizes video with bounding boxes around detected objects and text with classification results (color, type and others) for each detected object or prints out fps if you set SINK_ELEMENT = fps
+
+## Validation
+
+This sample was validated with:
+
+- Models: `yolo26s`, `dima806_vehicle_10_types_image_detection`
+- Video: [`person-bicycle-car-detection.mp4`](https://github.com/intel-iot-devkit/sample-videos/raw/master/person-bicycle-car-detection.mp4)
 
 ## See also
 * [Samples overview](../../../README.md)

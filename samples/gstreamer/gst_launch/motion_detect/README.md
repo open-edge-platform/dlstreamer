@@ -17,7 +17,7 @@ Key elements in the pipeline:
 
 ## Models
 
-The script defaults to the YOLOv8n example model at `$MODELS_PATH/public/yolov8n/<PRECISION>/yolov8n.xml`. You can supply another compatible OpenVINO XML with `--model`; prepare it using the general Ultralytics conversion helper described in [`scripts/download_models/README.md`](../../../../scripts/download_models/README.md#2-ultralytics-conversion).
+The sample needs a compatible OpenVINO IR object-detection model, passed with `--model` (see [Usage](#usage) for the path used when it is omitted). Prepare it with the general helpers in [`scripts/download_models`](../../../../scripts/download_models/README.md). The models used to validate this sample are listed in [Validation](#validation).
 
 ## Usage
 
@@ -30,7 +30,7 @@ The script defaults to the YOLOv8n example model at `$MODELS_PATH/public/yolov8n
 - `--device`: Choose `GPU` (VA memory path) or `CPU` (system memory). Default: `GPU`.
 - `--source` / `--src`: Required local file path or URI (e.g., `rtsp://`, `http://`, `https://`).
 - `--model`: Path to OpenVINO XML model for `gvadetect`. If omitted, it uses `MODELS_PATH/public/yolov8n/<PRECISION>/yolov8n.xml`.
-- `--precision`: Model precision subfolder (`FP32`, `FP16`, `INT8`). Default: `FP32`.
+- `--precision`: Model precision subfolder (`FP32`, `FP16`, `INT8`). Default: `FP16`.
 - `--output`: `json` (default) writes `output.json` or `display` shows annotated video with watermark.
 - `--md-opts`: Extra properties for `gvamotiondetect`, space-separated (e.g., `"motion-threshold=0.07 min-persistence=2"`).
 
@@ -71,3 +71,10 @@ Tip: Start with `motion-threshold=0.07` and `min-persistence=2`, then adjust bas
 
 - JSON mode: writes metadata to `output.json` (JSON Lines) and prints FPS via `gvafpscounter`.
 - Display mode: overlays bounding boxes and labels using `gvawatermark` and renders via `autovideosink`.
+
+## Validation
+
+This sample was validated with:
+
+- Model: `yolov8n` (FP16)
+- Video: [`1192116-sd_640_360_30fps.mp4`](https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4)

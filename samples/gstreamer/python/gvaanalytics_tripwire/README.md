@@ -123,7 +123,7 @@ The property accepts a comma-separated list of object class names returned by th
 
 ### Setup
 
-The sample requires a video file and an object detection model. Use any local video supported by GStreamer with the relevant object classes. The shell script uses YOLO11n as its example default; it also accepts a compatible model XML path as its second argument. Prepare a model with the general [Ultralytics conversion helper](../../../../scripts/download_models/README.md#2-ultralytics-conversion); see the helper README for supported models and setup.
+The sample requires a video file and a compatible object detection model in OpenVINO™ IR format whose class labels include the counted vehicle types. Use any local video supported by GStreamer with the relevant object classes. Pass the model XML path as the second argument; by default the shell script looks for it under `$MODELS_PATH/public/<model_name>/<precision>/<model_name>.xml`. Prepare models with the general helpers in [scripts/download_models](../../../../scripts/download_models/README.md). The models used to validate this sample are listed in [Validation](#validation).
 
 ### Execution
 
@@ -210,6 +210,13 @@ Modify the `tracking-type` property in `vehicle_counter.py`
 ### Filter by Object Type
 
 Extend the probe callback to check object categories and count only specific vehicle types (cars, trucks, etc.)
+
+## Validation
+
+This sample was validated with:
+
+- Model: `yolo11n` (FP16)
+- Video: [`1192116-sd_640_360_30fps.mp4`](https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4)
 
 ## See Also
 

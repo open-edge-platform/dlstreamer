@@ -1,6 +1,6 @@
 # Using VLM Models With gvagenai Element
 
-This directory contains a script demonstrating how to use the `gvagenai` element with MiniCPM-V 2.6, Phi-4-multimodal-instruct or Gemma 3 for video summarization.
+This directory contains a script demonstrating how to use the `gvagenai` element with a visual language model (VLM) for video summarization.
 
 The `gvagenai` element integrates OpenVINO™ GenAI capabilities into video processing pipelines. It supports visual language models like MiniCPM-V, Phi-4-multimodal-instruct or Gemma 3 for video content description and analysis.
 
@@ -21,18 +21,12 @@ This sample builds GStreamer pipeline of the following elements:
 
 ## Model Preparation
 
-Use any model supported by `gvagenai` and the installed OpenVINO GenAI runtime; the models below are examples, not required choices. A pre-converted compatible model may be used, or a supported Hugging Face model can be prepared with the general [`download_hf_models.py`](../../../../scripts/download_models/README.md#1-hugging-face-conversion) helper. Follow its README for supported models, setup, and export options.
+The sample needs a VLM compatible with `gvagenai` and the installed OpenVINO GenAI runtime. Use a pre-converted compatible model, or prepare a supported Hugging Face model with the general helpers in [`scripts/download_models`](../../../../scripts/download_models/README.md#1-hugging-face-conversion). The models used to validate this sample are listed in [Validation](#validation).
 
 > [!NOTE]
 > The helper only exports supported model architectures; check its limitations and set up its dependencies as described in the linked guide. Gated Hugging Face models require repository access. DL Streamer currently depends on OpenVINO™ GenAI 2026.3.1.
 
-| Example model | Hugging Face model ID |
-|---------------|-----------------------|
-| MiniCPM-V 2.6 | `openbmb/MiniCPM-V-2_6` |
-| Phi-4-multimodal-instruct | `microsoft/Phi-4-multimodal-instruct` |
-| Gemma 3 | `google/gemma-3-4b-it` |
-
-After preparing the model, set `GENAI_MODEL_PATH` to its directory.
+After preparing the model, set `GENAI_MODEL_PATH` to its directory. The optional `--trigger-obj-classes` mode additionally needs a compatible object-detection model (see `DETECTION_MODEL` below).
 
 ## Running the Sample
 
@@ -208,6 +202,13 @@ Video preprocessing isn't implemented for this model. Pass frames as independent
 ```
 - **Cause:** `--vision-mode video` was used with a model that does not support video input (e.g. MiniCPM-V, Phi-4-multimodal, Gemma 3 are image-only)
 - **Solution:** Use `--vision-mode image` (the default), or switch to a video-capable model such as Qwen2/2.5/3-VL or LLaVA-NeXT-Video
+
+## Validation
+
+This sample was validated with:
+
+- Model: `openbmb/MiniCPM-V-2_6`
+- Video: [`1192116-sd_640_360_30fps.mp4`](https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4)
 
 ## See also
 * [Samples overview](../../../README.md)

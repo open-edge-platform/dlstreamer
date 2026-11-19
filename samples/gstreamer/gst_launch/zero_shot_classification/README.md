@@ -6,9 +6,8 @@ image encoder and a post-processing converter (`clip_zeroshot`) scores the resul
 image embedding by cosine similarity against text-label embeddings supplied at runtime.
 
 For images, CLIP classifies the full frame. For video, `gvadetect` first detects faces
-with [arnabdhar/YOLOv8-Face-Detection](https://huggingface.co/arnabdhar/YOLOv8-Face-Detection),
+with a compatible face-detection model supplied through `DETECTION_MODEL`,
 and CLIP then classifies every detected face ROI.
-That detector is an example; a compatible face-detection OpenVINO model can be supplied through `DETECTION_MODEL`.
 
 The class list lives outside the model: to change the classes you edit `labels.txt` and
 regenerate the embeddings file, with no retraining and no change to the model.
@@ -32,14 +31,16 @@ regenerate the embeddings file, with no retraining and no change to the model.
 
 ## Prepare the models
 
-Prepare a compatible CLIP image encoder and its text-label embeddings with the general
-[`download_hf_models.py`](../../../../scripts/download_models/README.md#1-hugging-face-conversion)
-helper and `clip_text_embeddings.py`. Use the same CLIP model for both artifacts; for example,
-`openai/clip-vit-base-patch32`. The helper documentation describes setup and supported models.
+Prepare a compatible CLIP image encoder (exported with the `clip-zeroshot` variant) and its
+text-label embeddings with the general helpers in
+[`scripts/download_models`](../../../../scripts/download_models/README.md#1-hugging-face-conversion)
+(`download_hf_models.py` and `clip_text_embeddings.py`). Both artifacts must come from the same
+CLIP model so the image and text embeddings share one space.
 
-Video input additionally needs a compatible face detector. For example,
-`arnabdhar/YOLOv8-Face-Detection` can be prepared with the general Ultralytics conversion helper.
-Image input does not require this detector.
+Video input additionally needs a compatible face-detection model, prepared with the same general
+helpers. Image input does not require this detector.
+
+The models used to validate this sample are listed in [Validation](#validation).
 
 Optionally add `--unknown-threshold 0.2` to `clip_text_embeddings.py` to label weak
 matches as `unknown` (the threshold is a top-1 cosine similarity; tune per model and label set).
@@ -86,3 +87,10 @@ Edit `labels.txt` (one label per line), regenerate `labels.safetensors` with
   `model_type=clip_token` is now rejected when paired with an embeddings file.
 - Only the CLIP image encoder runs on the device; the similarity, softmax and top-k run on
   the host CPU. The model graph stays a fixed-shape vision encoder, which suits NPU execution.
+
+## Validation
+
+This sample was validated with:
+
+- Models: `openai_clip-vit-base-patch32`, `arnabdhar_YOLOv8-Face-Detection` (FP16)
+- Video: [`7504884-hd_1280_720_25fps.mp4`](https://videos.pexels.com/video-files/7504884/7504884-hd_1280_720_25fps.mp4)

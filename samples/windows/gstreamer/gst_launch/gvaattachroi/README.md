@@ -40,7 +40,7 @@ graph LR
 
 ## Models
 
-Use any video supported by the installed GStreamer plugins and any compatible YOLO detector. The example uses `yolov8s` with `C:\videos\traffic.mp4`; this model/video pair is illustrative. Prepare YOLO models with the general [`download_ultralytics_models.py`](../../../../../scripts/download_models/README.md#2-ultralytics-conversion) helper; for example, use the model name `yolo11s.pt` for the alternative shown below.
+Use any video supported by the installed GStreamer plugins. The sample needs a compatible object-detection model in OpenVINO IR format that `gvadetect` can run without a model-proc file. The script loads the model selected with `-Model` from `%MODELS_PATH%\public\<model>\<precision>\<model>.xml`. Prepare models with the general helpers described in [Model Conversion Scripts](../../../../../scripts/download_models/README.md). The models used to validate this sample are listed in [Validation](#validation).
 
 ## ROI Definition
 
@@ -82,7 +82,7 @@ Use a JSON file to define multiple ROIs. See the example `roi_list.json` file in
 | -OutputType | display | Output type: display, json, fps, display-and-json |
 | -RoiCoords | (empty) | ROI coordinates: x_top_left,y_top_left,x_bottom_right,y_bottom_right |
 | -Model | yolov8s | Model name (from MODELS_PATH/public/) |
-| -Precision | FP32 | Model precision: FP32, FP16, INT8 |
+| -Precision | FP16 | Model precision: FP32, FP16, INT8 |
 | -FrameLimiter | (empty) | Optional GStreamer element to insert after decode (e.g., " ! identity eos-after=1000") |
 
 Notes:
@@ -200,6 +200,13 @@ Monitor only the road area, ignoring sidewalks and buildings:
 
 ### 2. Retail Analytics
 Monitor checkout counters, ignoring aisles. Define multiple ROIs in `roi_list.json` for different counter areas.
+
+## Validation
+
+This sample was validated with:
+
+- Model: `yolov8s` (FP16)
+- Video: [`1192116-sd_640_360_30fps.mp4`](https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4)
 
 ## See also
 

@@ -163,3 +163,10 @@ The pipeline automatically stops after capturing the specified number of frames 
 - **Frame limit:** Use `--eos-frame` to control the number of frames captured
 - **File naming:** Files are named with a 6-digit sequential number (e.g., RS-frame_000000.pcd, RS-frame_000001.pcd, ...)
 - **FPS monitoring:** The script uses gvafpscounter to display frame rate information during capture
+
+## Validation
+
+This sample was validated with:
+
+- Model: none
+- Input: Intel RealSense depth camera

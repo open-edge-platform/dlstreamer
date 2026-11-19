@@ -28,16 +28,7 @@ Key features:
 
 ## Models
 
-Use any video supported by the installed GStreamer plugins; the examples use `C:\videos\test.mp4`. The YOLO models listed below are supported examples, not mandatory choices. Prepare Ultralytics models with the general [`download_ultralytics_models.py`](../../../../../scripts/download_models/README.md#2-ultralytics-conversion) helper (for example, `yolo11s.pt`), and prepare `yolox-tiny`, `yolox_s`, or `yolov7` with `download_other_models.py`.
-
-Supported example models:
-- **yolox-tiny** - Very fast, lower accuracy
-- **yolox_s** - Balanced speed/accuracy
-- **yolov7** - Accurate, moderate speed
-- **yolov8s** (default) - Latest YOLO, excellent balance
-- **yolov9c** - Advanced architecture
-- **yolo11s** - Newest YOLO variant
-- **yolo26s** - Latest generation
+Use any video supported by the installed GStreamer plugins; the examples use `C:\videos\test.mp4`. The sample needs a compatible object-detection model in OpenVINO™ IR format; the script loads each model name passed with `-Model`, `-Model1` or `-Model2` from `%MODELS_PATH%\public\<model>\<precision>\<model>.xml`. A model-proc file is added automatically only for `yolox-tiny`, `yolox_s` (`yolo-x.json`) and `yolov7` (`yolo-v7.json`); any other model must work with `gvadetect` without a model-proc file. Prepare models with the general helpers described in [Model Conversion Scripts](../../../../../scripts/download_models/README.md). The models used to validate this sample are listed in [Validation](#validation).
 
 ## Usage
 
@@ -171,6 +162,13 @@ Input Video → Stream 1: decode → gvadetect(Device, Model, shared_model) → 
 ```
 
 All N streams use the same device and model, sharing one model instance.
+
+## Validation
+
+This sample was validated with:
+
+- Model: `yolov8s` (FP16)
+- Video: [`1192116-sd_640_360_30fps.mp4`](https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4)
 
 ## See also
 

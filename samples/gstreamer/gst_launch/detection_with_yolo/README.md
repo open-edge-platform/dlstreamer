@@ -21,42 +21,34 @@ This sample builds a GStreamer pipeline from the following elements:
 
 ## Models
 
-The samples use YOLO models from different repositories as listed in a table below. The model preparation and conversion method depends on the model source.
-The instructions assume DL Streamer framework is installed on the local system along with OpenVINO™ model downloader and converter tools,
-as described here: [Tutorial](../../../../docs/user-guide/tutorial.md#setup).
+The `yolo_detect.sh` script only accepts a `MODEL` value from the fixed supported list in the table below; it loads the model from `$MODELS_PATH/public/<MODEL>/<PRECISION>/<MODEL>.xml` (for `yolo26s-cls`, both `yolo26s` and `yolo26s-cls` from the same layout).
+Prepare the models with the general helpers in [`scripts/download_models`](../../../../scripts/download_models/README.md): `download_ultralytics_models.py` for Ultralytics models and `download_other_models.py` for `yolox-tiny`, `yolox_s` and `yolov7`.
+The models used to validate this sample are listed in [Validation](#validation).
 
-For yolov5nu, yolov8s (8n-obb, 8n-seg), yolov9c, yolov10s, yolo11s (yolo11s-seg, yolo11s-obb, yolo11s-pose), yolo26 variants, and yolo26s-cls it is also necessary to install the ultralytics python package:
-
-```sh
-uv pip install ultralytics
-```
-
-The samples demonstrate deployment and inference with GStreamer command line tool `gst-launch-1.0` and DL Streamer components for the following set of models:
-
-| Model        | Model Preparation                                                                                         | Model pipeline (model-proc)       |
-| ------------ | --------------------------------------------------------------------------------------------------------- | ----------------------------------|
-| yolox-tiny   | omz_downloader and omz_converter                                                                          | gvadetect model-proc=yolo-x.json  |
-| yolox_s      | OpenVINO™ model from [YOLOX repository](https://github.com/Megvii-BaseDetection/YOLOX)                    | gvadetect model-proc=yolo-x.json  |
-| yolov5nu     | Ultralytics python exporter from [Ultralytics repository](https://github.com/ultralytics)                 | gvadetect \<model-proc not needed\> |
-| yolov7       | Pytorch -> ONNX -> OpenVINO™ converter from [YOLOv7 repository](https://github.com/WongKinYiu/yolov7.git) | gvadetect model-proc=yolo-v7.json |
-| yolov8s      | Ultralytics python exporter from [Ultralytics repository](https://github.com/ultralytics)                 | gvadetect \<model-proc not needed\> |
-| yolov8n-obb  | Ultralytics python exporter from [Ultralytics repository](https://github.com/ultralytics)                 | gvadetect \<model-proc not needed\> |
-| yolov8n-seg  | Ultralytics python exporter from [Ultralytics repository](https://github.com/ultralytics)                 | gvadetect \<model-proc not needed\> |
-| yolov9c      | Ultralytics python exporter from [Ultralytics repository](https://github.com/ultralytics)                 | gvadetect \<model-proc not needed\> |
-| yolov10s     | Ultralytics python exporter from [Ultralytics repository](https://github.com/ultralytics)                 | gvadetect \<model-proc not needed\> |
-| yolo11s      | Ultralytics python exporter from [Ultralytics repository](https://github.com/ultralytics)                 | gvadetect \<model-proc not needed\> |
-| yolo11s-seg  | Ultralytics python exporter from [Ultralytics repository](https://github.com/ultralytics)                 | gvadetect \<model-proc not needed\> |
-| yolo11s-obb  | Ultralytics python exporter from [Ultralytics repository](https://github.com/ultralytics)                 | gvadetect \<model-proc not needed\> |
-| yolo11s-pose | Ultralytics python exporter from [Ultralytics repository](https://github.com/ultralytics)                 | gvadetect \<model-proc not needed\> |
-| yolo26n      | Ultralytics python exporter from [Ultralytics repository](https://github.com/ultralytics)                 | gvadetect \<model-proc not needed\> |
-| yolo26s      | Ultralytics python exporter from [Ultralytics repository](https://github.com/ultralytics)                 | gvadetect \<model-proc not needed\> |
-| yolo26m      | Ultralytics python exporter from [Ultralytics repository](https://github.com/ultralytics)                 | gvadetect \<model-proc not needed\> |
-| yolo26l      | Ultralytics python exporter from [Ultralytics repository](https://github.com/ultralytics)                 | gvadetect \<model-proc not needed\> |
-| yolo26x      | Ultralytics python exporter from [Ultralytics repository](https://github.com/ultralytics)                 | gvadetect \<model-proc not needed\> |
-| yolo26s-obb  | Ultralytics python exporter from [Ultralytics repository](https://github.com/ultralytics)                 | gvadetect \<model-proc not needed\> |
-| yolo26s-seg  | Ultralytics python exporter from [Ultralytics repository](https://github.com/ultralytics)                 | gvadetect \<model-proc not needed\> |
-| yolo26s-pose | Ultralytics python exporter from [Ultralytics repository](https://github.com/ultralytics)                 | gvadetect \<model-proc not needed\> |
-| yolo26s-cls  | Ultralytics python exporter from [Ultralytics repository](https://github.com/ultralytics)                 | gvadetect `yolo26s` + gvaclassify `yolo26s-cls` |
+| Model        | Model Preparation                  | Model pipeline (model-proc)       |
+| ------------ | ---------------------------------- | ----------------------------------|
+| yolox-tiny   | `download_other_models.py`         | gvadetect model-proc=yolo-x.json  |
+| yolox_s      | `download_other_models.py`         | gvadetect model-proc=yolo-x.json  |
+| yolov5nu     | `download_ultralytics_models.py`   | gvadetect \<model-proc not needed\> |
+| yolov7       | `download_other_models.py`         | gvadetect model-proc=yolo-v7.json |
+| yolov8s      | `download_ultralytics_models.py`   | gvadetect \<model-proc not needed\> |
+| yolov8n-obb  | `download_ultralytics_models.py`   | gvadetect \<model-proc not needed\> |
+| yolov8n-seg  | `download_ultralytics_models.py`   | gvadetect \<model-proc not needed\> |
+| yolov9c      | `download_ultralytics_models.py`   | gvadetect \<model-proc not needed\> |
+| yolov10s     | `download_ultralytics_models.py`   | gvadetect \<model-proc not needed\> |
+| yolo11s      | `download_ultralytics_models.py`   | gvadetect \<model-proc not needed\> |
+| yolo11s-seg  | `download_ultralytics_models.py`   | gvadetect \<model-proc not needed\> |
+| yolo11s-obb  | `download_ultralytics_models.py`   | gvadetect \<model-proc not needed\> |
+| yolo11s-pose | `download_ultralytics_models.py`   | gvadetect \<model-proc not needed\> |
+| yolo26n      | `download_ultralytics_models.py`   | gvadetect \<model-proc not needed\> |
+| yolo26s      | `download_ultralytics_models.py`   | gvadetect \<model-proc not needed\> |
+| yolo26m      | `download_ultralytics_models.py`   | gvadetect \<model-proc not needed\> |
+| yolo26l      | `download_ultralytics_models.py`   | gvadetect \<model-proc not needed\> |
+| yolo26x      | `download_ultralytics_models.py`   | gvadetect \<model-proc not needed\> |
+| yolo26s-obb  | `download_ultralytics_models.py`   | gvadetect \<model-proc not needed\> |
+| yolo26s-seg  | `download_ultralytics_models.py`   | gvadetect \<model-proc not needed\> |
+| yolo26s-pose | `download_ultralytics_models.py`   | gvadetect \<model-proc not needed\> |
+| yolo26s-cls  | `download_ultralytics_models.py`   | gvadetect `yolo26s` + gvaclassify `yolo26s-cls` |
 
 ## Samples
 
@@ -114,6 +106,14 @@ Sample output for `yolo11s-seg` model:
 ![Sample Output](yolo11s-seg_sample_output.jpeg)
 
 Please examine `yolo_detect.sh` script to see how to source data from input camera and how to generate other types of the output.
+
+## Validation
+
+This sample was validated with:
+
+- Models: `yolox_s` (default), `yolo11s`, `yolo11s-seg`, `yolov8n-seg`, `yolo26n`, `yolo26s`, `yolo26m`, `yolo26l`, `yolo26x`, `yolo26s-seg` (FP32, FP16 or INT8)
+- Video: [`1192116-sd_640_360_30fps.mp4`](https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4)
+- Model `yolo11s-obb` (FP32) with video: [`3150382-sd_640_338_25fps.mp4`](https://videos.pexels.com/video-files/3150382/3150382-sd_640_338_25fps.mp4)
 
 ## See also
 

@@ -142,6 +142,13 @@ A standard `make install` places the backend under `lib/`, which `scripts/setup_
 **`Unsupported vendor` / `Unsupported transport`**
 - The config `vendor` must be `robosense` and `transport.type` must be `udp` (the only implemented paths today).
 
+## Validation
+
+This sample was validated with:
+
+- Model: none
+- Input: RoboSense LiDAR sensor
+
 ## See also
 * [Samples overview](../../../README.md)
 * [g3dlidarsrc element documentation](../../../../docs/user-guide/elements/g3dlidarsrc.md)

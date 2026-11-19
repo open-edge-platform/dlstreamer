@@ -23,7 +23,7 @@ The use case is **License Plate Recognition (LPR)**:
 - **DL Streamer pipeline**: YOLOv8 license plate detector → PP-OCRv4 text recognizer
 - **DeepStream pipeline**: TrafficCamNet (vehicle detection) → LPDNet (plate detection) → LPRNet (plate recognition)
 
-These are example model pairs for the benchmark. The pipeline uses these model paths/configurations; changing models also requires updating the corresponding pipeline configuration. Both pipelines run inside Docker containers.
+These model pairs are hard-coded in the benchmark pipelines. Both pipelines run inside Docker containers.
 
 ## Requirements
 
@@ -35,7 +35,7 @@ These are example model pairs for the benchmark. The pipeline uses these model p
   - NVIDIA GPU with CUDA support
 - `lspci`, `lscpu` available on the host
 - `DISPLAY` environment variable set (X11 forwarding for Docker)
-- Prepare models compatible with the selected platform before running the benchmark. The LPR model paths below are examples for the current pipelines; substituting models requires updating their pipeline paths/configuration. Remote input streams and pulling container images may also require internet access.
+- Prepare the models required by the selected platform before running the benchmark (see [Model Preparation](#model-preparation)). Remote input streams and pulling container images may also require internet access.
 
 ## Files
 
@@ -143,7 +143,7 @@ The benchmark does not download models or clone model repositories. Prepare the 
 
 ### DL Streamer models
 
-The example DL Streamer pipeline uses `yolov8_license_plate_detector` and `ch_PP-OCRv4_rec_infer`. Prepare compatible models with the general [`download_other_models.py`](../../../../scripts/download_models/README.md) helper; its README describes setup and supported models. Replacing these models may require updating the pipeline paths and configuration.
+The DL Streamer pipeline requires `yolov8_license_plate_detector` and `ch_PP-OCRv4_rec_infer` (FP32); their paths are hard-coded in `utils.sh`, which loads them from `./public/` in the current working directory (mounted as `/working_dir` in the container). Prepare them with `download_other_models.py` from [scripts/download_models](../../../../scripts/download_models/README.md). The models used to validate this sample are listed in [Validation](#validation).
 
 | Model | Purpose | Saved to |
 |---|---|---|
@@ -199,3 +199,9 @@ Run DL Streamer (N) and DeepStream (M) containers in parallel now? [y/N]
 > selection. The pipeline builders in `utils.sh` expand `${SOURCE_DLS}` / `${SOURCE_DS}` when
 > called, not at source time.
 
+## Validation
+
+This sample was validated with:
+
+- Models (DL Streamer): `yolov8_license_plate_detector`, `ch_PP-OCRv4_rec_infer` (FP32)
+- Models (DeepStream): TrafficCamNet, LPDNet, LPRNet

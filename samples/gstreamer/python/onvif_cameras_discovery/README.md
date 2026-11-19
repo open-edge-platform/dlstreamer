@@ -387,3 +387,10 @@ SPDX-License-Identifier: MIT
 
 [Deep Learning Streamer (DL Streamer) Python Samples](../README.md)
 [Samples overview](../../../README.md)
+
+## Validation
+
+This sample was validated with:
+
+- Model: none
+- Input: ONVIF camera

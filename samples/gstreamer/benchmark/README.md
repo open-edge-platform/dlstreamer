@@ -13,11 +13,11 @@ The `gvafpscounter` inserted at the end of each stream pipeline and measures FPS
 
 The command-line parameters allow to select decode and inference devices (ex, CPU, GPU).
 
-The model paths in these examples refer to example configurations. Prepare a compatible OpenVINO IR model before running; use the general helpers in [`scripts/download_models`](../../../scripts/download_models/README.md) if you need to convert a model. Alternative models can be supplied through the `MODEL_PATH` arguments.
+The sample needs compatible OpenVINO IR model(s), passed through the `MODEL_PATH` / `MODEL1_PATH` / `MODEL2_PATH` arguments. Use the general helpers in [`scripts/download_models`](../../../scripts/download_models/README.md) to prepare them. The models used to validate this sample are listed in [Validation](#validation).
 
 ## Input video
 
-Use any local video supported by the installed GStreamer plugins. For face-detection examples, choose a clip containing faces; the sample uses `centerface` as its example model. Prepare the video yourself and pass its local path. An optional example is [`head-pose-face-detection-female-and-male.mp4`](https://raw.githubusercontent.com/intel-iot-devkit/sample-videos/master/head-pose-face-detection-female-and-male.mp4).
+Use any local video supported by the installed GStreamer plugins. For face-detection models, choose a clip containing faces. Prepare the video yourself and pass its local path. An optional example is [`head-pose-face-detection-female-and-male.mp4`](https://raw.githubusercontent.com/intel-iot-devkit/sample-videos/master/head-pose-face-detection-female-and-male.mp4).
 
 ## Running
 
@@ -48,13 +48,20 @@ The sample `benchmark_one_model.sh` takes one to eight command-line parameters (
 8. [INFERENCE_ELEMENT] DL Streamer pipeline element to perform the inference, default is `gvainference`
 9. [SINK_ELEMENT] sink element (or pipeline of elements in gst-launch format), default is `fakesink async=false`
 
-The sample `benchmark_one_model.sh` has similar parameters with additional parameter for second model.
+The sample `benchmark_two_models.sh` has similar parameters with additional parameter for second model.
 
 ## Sample Output
 
 The sample
 * prints gst-launch command line into console
 * reports FPS every second and average FPS on exit
+
+## Validation
+
+This sample was validated with:
+
+- Models: `centerface` (FP16); `dima806_fairface_gender_image_detection` (FP16) as the second model in `benchmark_two_models.sh`
+- Video: [`head-pose-face-detection-female-and-male.mp4`](https://github.com/intel-iot-devkit/sample-videos/raw/master/head-pose-face-detection-female-and-male.mp4)
 
 ## See also
 * [Samples overview](../../README.md)

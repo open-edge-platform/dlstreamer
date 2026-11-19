@@ -214,6 +214,13 @@ GST_DEBUG=*:3,g3dradarprocess:5 ./radar_process_sample.sh
 - **Frame Rate Control**: Use `--frame-rate` to throttle processing and match real-time requirements
 - **oneAPI**: The element leverages Intel oneAPI for optimized signal processing
 
+## Validation
+
+This sample was validated with:
+
+- Model: none
+- Input: raw radar data files (`000559.bin`, ...)
+
 ## See also
 * [Samples overview](../../../README.md)
 * [g3dradarprocess element documentation](../../../../docs/user-guide/elements/g3dradarprocess.md)

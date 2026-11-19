@@ -36,12 +36,12 @@ The pipeline uses the `gvaclassify` element with the `custom-postproc-lib` param
 
 ## Models
 
-The example pipeline uses these pre-trained models:
+The sample script requires these models (names and paths are hard-coded):
 
-* **centerface** - primary detection network for finding faces
-* **hsemotion** - emotion classification on detected faces with custom post-processing
+* **centerface** - face detection, loaded from `$MODELS_PATH/public/centerface/FP16/centerface.xml`
+* **hsemotion** - emotion classification, loaded from `$MODELS_PATH/public/hsemotion/FP16/hsemotion.xml`; the custom post-processing library parses its output
 
-Prepare compatible models using the general [`download_other_models.py`](../../../../../scripts/download_models/README.md) helper; `centerface` and `hsemotion` are examples. The classification model must provide outputs compatible with this sample's custom post-processing library. Set `MODELS_PATH` to the prepared model directory.
+Prepare both with the `download_other_models.py` helper from [`scripts/download_models`](../../../../../scripts/download_models/README.md) and set `MODELS_PATH` to the same root. The models used to validate this sample are listed in [Validation](#validation).
 
 These instructions assume that the DLStreamer framework is installed on your local system, along with the OpenVINO™ model downloader and converter tools, as described in this [tutorial](../../../../../docs/user-guide/tutorial.md#setup).
 
@@ -72,7 +72,7 @@ The sample takes three positional parameters; `INPUT_VIDEO` is required, so `DEV
 Examples:
 
 ```sh
-# Run with the example models, GPU device, and a local video
+# Run on GPU with file output and a local video
 ./build_and_run.sh GPU file /path/to/video.mp4
 
 # Run on CPU with display output
@@ -180,6 +180,13 @@ The library:
 * Tensors are always passed in **unbatched** format (batch dimension = 1) regardless of pipeline batch-size setting
 * The library supports **classification** tasks with `GstAnalyticsClsMtd` metadata for emotion recognition
 * Classification results are attached to detected face regions from the detection stage
+
+## Validation
+
+This sample was validated with:
+
+- Models: `centerface`, `hsemotion` (FP16)
+- Video: [`head-pose-face-detection-female-and-male.mp4`](https://github.com/intel-iot-devkit/sample-videos/raw/master/head-pose-face-detection-female-and-male.mp4)
 
 ## See also
 

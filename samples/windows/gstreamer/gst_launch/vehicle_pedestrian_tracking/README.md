@@ -17,7 +17,12 @@ The pre-processing backend is `d3d12-surface-sharing` on GPU and `d3d12` on NPU 
 
 ## Models
 
-The example uses `yolo26s` for object detection and `dima806/vehicle_10_types_image_detection` for vehicle-type classification. They are examples, not required choices; compatible detection and classification models can be substituted by updating their paths and matching model-proc configuration. Prepare the example models with the general helpers documented in [`scripts/download_models/README.md`](../../../../../scripts/download_models/README.md): `download_ultralytics_models.py` with `yolo26s.pt` and `download_hf_models.py` with `dima806/vehicle_10_types_image_detection`.
+`vehicle_pedestrian_tracking.ps1` requires the following models, each loaded from `%MODELS_PATH%\public\<model>\FP16\<model>.xml` (no model-proc files needed):
+
+* `yolo26s` (object detection), prepared with `download_ultralytics_models.py`
+* `dima806_vehicle_10_types_image_detection` (vehicle-type classification), prepared with `download_hf_models.py` from the `dima806/vehicle_10_types_image_detection` Hugging Face model ID
+
+See [Model Conversion Scripts](../../../../../scripts/download_models/README.md) for the helpers. The models used to validate this sample are listed in [Validation](#validation).
 
 Use any video supported by the installed GStreamer plugins; the traffic-video paths in the examples are illustrative. A clip containing people and vehicles is useful for checking the output.
 
@@ -174,6 +179,13 @@ graph LR
     R4C --> R5C[gvafpscounter]
     R5C --> R6C[autovideosink<br/>sync=false]
 ```
+
+## Validation
+
+This sample was validated with:
+
+- Models: `yolo26s`, `dima806_vehicle_10_types_image_detection`
+- Video: [`person-bicycle-car-detection.mp4`](https://github.com/intel-iot-devkit/sample-videos/raw/master/person-bicycle-car-detection.mp4)
 
 ## See also
 * [Windows Samples overview](../../../../README.md)

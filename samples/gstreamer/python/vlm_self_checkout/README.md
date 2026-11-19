@@ -99,11 +99,13 @@ Use any local video supported by GStreamer that shows a checkout interaction; th
 
 ## Prepare Models
 
-This sample expects two OpenVINO IR models:
+This sample needs two compatible OpenVINO IR models:
 
-* `yolo26s` in INT8 precision from Ultralytics for object detection
-* `openbmb/MiniCPM-V-4_5` from Hugging Face for VLM classification — or any other
-  image-text-to-text model supported by optimum-intel
+* an object detection model, passed with `--detect-model-path`
+* an image-text-to-text VLM supported by optimum-intel for item classification, passed with
+  `--vlm-model-path`
+
+The models used to validate this sample are listed in [Validation](#validation).
 
 Use the model conversion scripts in
 [scripts/download_models/](../../../../scripts/download_models/README.md) to prepare both models:
@@ -127,8 +129,8 @@ export MODELS_PATH="$HOME/models"
 ```
 
 Exporting into `$MODELS_PATH` places both models in the layout shared with the other DL Streamer
-samples, which is where the sample looks for them by default: `$MODELS_PATH/public/yolo26s/INT8/yolo26s.xml`
-for `--detect-model-path` and `$MODELS_PATH/public/openbmb_MiniCPM-V-4_5/` for `--vlm-model-path`.
+samples: `$MODELS_PATH/public/<model_name>/<precision>/<model_name>.xml` for the detection model and
+`$MODELS_PATH/public/<org>_<name>/` for the VLM.
 A relative model path is looked up in the current directory and then in `$MODELS_PATH`, so a model
 exported elsewhere can also be passed as a plain or absolute path.
 
@@ -210,3 +212,10 @@ Results are written to the `results/` directory next to `vlm_self_checkout.py`, 
 - `vlm_self_checkout-<video>.mp4` — annotated output video with watermarked detections and VLM results
 - `vlm_self_checkout-<video>.jsonl` — structured JSON Lines with VLM classification metadata (or the file given by `--output-json`)
 - `vlm_self_checkout-<video>-*.jpeg` — snapshot images of frames sent to the VLM
+
+## Validation
+
+This sample was validated with:
+
+- Models: `yolo26s` (INT8), `openbmb/MiniCPM-V-4_5`
+- Video: [`Pexels video 35256160`](https://www.pexels.com/download/video/35256160)

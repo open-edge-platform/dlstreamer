@@ -55,7 +55,7 @@ Use any local video supported by the installed GStreamer plugins that contains o
 
 ## Models
 
-The example uses the YOLO11s FP16 OpenVINO IR model. Any compatible object-detection model can be passed through `--model`. Prepare it with the general [Ultralytics conversion helper](../../../../scripts/download_models/README.md#2-ultralytics-conversion); see the helper README for supported models and environment setup. When using the default model path, set `MODELS_PATH` to the root containing `public/yolo11s/FP16/yolo11s.xml`.
+A compatible object detection model in OpenVINO™ IR format is needed; pass its path with `--model`. Without `--model`, the sample looks under `$MODELS_PATH/public/<model_name>/<precision>/<model_name>.xml`. Prepare models with the general helpers in [scripts/download_models](../../../../scripts/download_models/README.md). The models used to validate this sample are listed in [Validation](#validation).
 
 ## Running the Sample
 
@@ -231,3 +231,9 @@ for what applies when elements share a model.
 The sample writes no files. It prints the changes with their status while it runs, and the table of phases at the end.
 It exits with `0` when the pipeline finishes and `1` on a pipeline error.
 
+## Validation
+
+This sample was validated with:
+
+- Model: `yolo11s` (FP16)
+- Video: [`2103099-hd_1280_720_60fps.mp4`](https://videos.pexels.com/video-files/2103099/2103099-hd_1280_720_60fps.mp4)

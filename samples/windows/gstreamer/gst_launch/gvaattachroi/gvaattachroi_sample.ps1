@@ -26,7 +26,7 @@ if ($InputSource -eq "--help" -or $InputSource -eq "-h") {
     Write-Host "                  Example: '100,150,200,300'"
     Write-Host "                  If not specified, uses roi_list.json file"
     Write-Host "  -Model          Model name (default: yolov8s)"
-    Write-Host "  -Precision      Model precision (default: FP16). Supported: FP16, FP16, INT8"
+    Write-Host "  -Precision      Model precision (default: FP16). Supported: FP32, FP16, INT8"
     Write-Host "  -FrameLimiter   Optional GStreamer element to add after decode (e.g., ' ! identity eos-after=1000')"
     Write-Host ""
     exit 0

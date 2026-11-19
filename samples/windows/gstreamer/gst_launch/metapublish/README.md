@@ -37,7 +37,12 @@ graph LR
 
 ## Models
 
-The sample currently uses `centerface` for detection, `dima806/facial_age_image_detection` for age, and `dima806/fairface_gender_image_detection` for gender. These are examples: compatible face models can be substituted by updating the model paths and matching model-proc configuration. Prepare the example models with the general helpers documented in [`scripts/download_models/README.md`](../../../../../scripts/download_models/README.md): `download_other_models.py centerface` and `download_hf_models.py` with the listed Hugging Face IDs.
+`metapublish.ps1` requires the following models, each loaded from `%MODELS_PATH%\public\<model>\FP16\<model>.xml`:
+
+* `centerface` (face detection), prepared with `download_other_models.py`
+* `dima806_facial_age_image_detection` and `dima806_fairface_gender_image_detection` (age and gender classification), prepared with `download_hf_models.py` from the corresponding `dima806/...` Hugging Face model IDs
+
+See [Model Conversion Scripts](../../../../../scripts/download_models/README.md) for the helpers. The models used to validate this sample are listed in [Validation](#validation).
 
 Use any video or stream supported by the installed GStreamer plugins. The commands below use `C:\videos\test.mp4` as an example input.
 
@@ -103,6 +108,13 @@ This sample takes an input source and optional output parameters. With `-Method 
 The sample
 * prints gst-launch command line into console
 * starts the command and emits inference events that include the evaluated age and gender for each face detected within video input frames
+
+## Validation
+
+This sample was validated with:
+
+- Models: `centerface` (FP16), `dima806_facial_age_image_detection`, `dima806_fairface_gender_image_detection` (FP16)
+- Video: [`head-pose-face-detection-female-and-male.mp4`](https://github.com/intel-iot-devkit/sample-videos/raw/master/head-pose-face-detection-female-and-male.mp4)
 
 ## See also
 

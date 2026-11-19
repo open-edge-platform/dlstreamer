@@ -53,7 +53,7 @@ graph LR
 
 ## Models
 
-Use any video supported by the installed GStreamer plugins; the examples use `C:\path\to\video.mp4`. The model can be any compatible OpenVINO object detector. The sample defaults to `yolov8n`; prepare it or another Ultralytics example model with the general [`download_ultralytics_models.py`](../../../../../scripts/download_models/README.md#2-ultralytics-conversion) helper, selecting `yolov8n.pt`. A custom compatible OpenVINO model path can also be passed with `-Model`.
+Use any video supported by the installed GStreamer plugins; the examples use `C:\path\to\video.mp4`. The sample needs a compatible object-detection model in OpenVINO™ IR format that `gvadetect` can run without a model-proc file; pass its `.xml` path with `-Model`. If `-Model` is omitted, the script loads `%MODELS_PATH%\public\yolov8n\<precision>\yolov8n.xml`. Prepare models with the general helpers described in [Model Conversion Scripts](../../../../../scripts/download_models/README.md). The models used to validate this sample are listed in [Validation](#validation).
 
 ## Usage
 
@@ -68,7 +68,7 @@ Use any video supported by the installed GStreamer plugins; the examples use `C:
 | -Device | CPU | Inference device: CPU, GPU, NPU |
 | -InputSource | (required) | Local file path or URI |
 | -Model | (auto) | Optional OpenVINO XML model path. Leave empty to use yolov8n from MODELS_PATH |
-| -Precision | FP32 | Model precision: FP32, FP16, INT8 |
+| -Precision | FP16 | Model precision: FP32, FP16, INT8 |
 | -PreprocessBackend | per device | Pre-process backend for gvadetect: ie, opencv, d3d11, d3d11-surface-sharing, d3d12, d3d12-surface-sharing. Defaults to opencv on CPU, d3d12-surface-sharing on GPU and d3d12 on NPU |
 | -OutputType | display | Output type: display, json |
 | -MotionDetectOptions | (empty) | Extra properties for gvamotiondetect (e.g., "threshold=0.5") |
@@ -121,3 +121,10 @@ Tip: Start with `motion-threshold=0.07` and `min-persistence=2`, then adjust bas
 
 - JSON mode: writes metadata to `output.json` (JSON Lines) and prints FPS via `gvafpscounter`.
 - Display mode: renders via `autovideosink`.
+
+## Validation
+
+This sample was validated with:
+
+- Model: `yolov8n` (FP16)
+- Video: [`1192116-sd_640_360_30fps.mp4`](https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4)

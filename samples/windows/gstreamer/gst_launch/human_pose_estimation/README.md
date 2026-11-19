@@ -14,7 +14,7 @@ The sample builds a GStreamer pipeline using:
 
 ## Models
 
-The example uses the Ultralytics `yolo26s-pose` single-person pose model. Any compatible pose-estimation model can be used if its path and any required model-proc configuration are set accordingly. Prepare the example model with the general [`download_ultralytics_models.py`](../../../../../scripts/download_models/README.md#2-ultralytics-conversion) helper, selecting `yolo26s-pose.pt`.
+`human_pose_estimation.ps1` requires the Ultralytics `yolo26s-pose` model, loaded from `%MODELS_PATH%\public\yolo26s-pose\FP16\yolo26s-pose.xml` (no model-proc file needed). Prepare it with `download_ultralytics_models.py` (see [Model Conversion Scripts](../../../../../scripts/download_models/README.md)). The models used to validate this sample are listed in [Validation](#validation).
 
 ## Environment Variables
 
@@ -157,6 +157,13 @@ graph LR
   - Preprocessing backend: `opencv` for CPU, `d3d12-surface-sharing` for GPU, `d3d12` for NPU
 - The `sync=false` property in video sink runs pipeline as fast as possible
 - For real-time playback, change to `sync=true`
+
+## Validation
+
+This sample was validated with:
+
+- Model: `yolo26s-pose` (FP16)
+- Video: [`face-demographics-walking.mp4`](https://github.com/intel-iot-devkit/sample-videos/raw/master/face-demographics-walking.mp4)
 
 ## See also
 * [Windows Samples overview](../../../../README.md)

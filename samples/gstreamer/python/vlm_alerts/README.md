@@ -58,13 +58,11 @@ four-stream scenario (**`--stream-groups`**).
 
 ## Prepare Model
 
-This sample expects one OpenVINO IR model: any image-text-to-text model supported by
-optimum-intel. Smaller models (1B-4B parameters) are recommended for edge deployment, for example
-`OpenGVLab/InternVL3_5-2B`, which is what `--model-path` resolves to by default.
+This sample needs one compatible OpenVINO IR model: an image-text-to-text model supported by
+optimum-intel. The models used to validate this sample are listed in [Validation](#validation).
 
 Use the Hugging Face model conversion script in
-[scripts/download_models/](../../../../scripts/download_models/README.md#1-hugging-face-conversion)
-to export the model. Before running it, create and activate the dedicated model-download virtual
+[scripts/download_models/](../../../../scripts/download_models/README.md) to export the model. Before running it, create and activate the dedicated model-download virtual
 environment described in
 [scripts/download_models/README.md](../../../../scripts/download_models/README.md), and install
 the script's `requirements_download_hf_models.txt`. The conversion script automatically selects
@@ -82,9 +80,8 @@ export MODELS_PATH="$HOME/models"
 ```
 
 Exporting into `$MODELS_PATH/public` keeps the model in the layout shared with the other DL
-Streamer samples, where `--model-path` finds it by default. To use a different model, pass its
-exported directory explicitly: a relative path is looked up in the current directory and then in
-`$MODELS_PATH`.
+Streamer samples (`$MODELS_PATH/public/<org>_<name>/`). Pass the exported model directory with
+`--model-path`: a relative path is looked up in the current directory and then in `$MODELS_PATH`.
 
 ## Pipeline Architecture
 
@@ -239,3 +236,10 @@ To display all available arguments and defaults:
 ```code
 python3 vlm_alerts.py --help
 ```
+
+## Validation
+
+This sample was validated with:
+
+- Model: `OpenGVLab/InternVL3_5-2B`
+- Video: [`2103099-hd_1280_720_60fps.mp4`](https://videos.pexels.com/video-files/2103099/2103099-hd_1280_720_60fps.mp4)

@@ -65,19 +65,12 @@ Configurable element properties (via gst-launch-1.0):
 
 ## Models
 
-This sample uses pre-trained models from [Hugging Face](https://huggingface.co/), converted to OpenVINO™ IR format:
-* __[arnabdhar/YOLOv8-Face-Detection](https://huggingface.co/arnabdhar/YOLOv8-Face-Detection)__ — face detection (used by `gvadetect`)
-  * Prepare with [Ultralytics conversion](../../../../../scripts/download_models/README.md#2-ultralytics-conversion)
-* __[dima806/fairface_age_image_detection](https://huggingface.co/dima806/fairface_age_image_detection)__ — age estimation (used by the first `gvaclassify`)
-  * Prepare with [Hugging Face model conversion](../../../../../scripts/download_models/README.md#1-hugging-face-conversion)
-* __[dima806/fairface_gender_image_detection](https://huggingface.co/dima806/fairface_gender_image_detection)__ — gender classification (used by the second `gvaclassify`)
-  * Prepare with [Hugging Face model conversion](../../../../../scripts/download_models/README.md#1-hugging-face-conversion)
+The sample script requires specific models in OpenVINO™ IR format; the model paths are hard-coded and cannot be changed via arguments:
+* `arnabdhar_YOLOv8-Face-Detection` — face detection (used by `gvadetect`), loaded from `$MODELS_PATH/public/arnabdhar_YOLOv8-Face-Detection/FP16/arnabdhar_YOLOv8-Face-Detection.xml`; prepare it with `download_ultralytics_models.py`.
+* `dima806_fairface_age_image_detection` — age estimation (used by the first `gvaclassify`), loaded from `$MODELS_PATH/public/dima806_fairface_age_image_detection/FP16/dima806_fairface_age_image_detection.xml`; prepare it with `download_hf_models.py`.
+* `dima806_fairface_gender_image_detection` — gender classification (used by the second `gvaclassify`), loaded from `$MODELS_PATH/public/dima806_fairface_gender_image_detection/FP16/dima806_fairface_gender_image_detection.xml`; prepare it with `download_hf_models.py`.
 
-### Model storage location
-
-The sample reads models from `$MODELS_PATH/public/<org>_<model>/FP16/<org>_<model>.xml`,
-the same layout produced by the conversion scripts above. `MODELS_PATH` must be set
-before running the sample.
+See [scripts/download_models](../../../../../scripts/download_models/README.md) for the helper scripts. `MODELS_PATH` must be set before running the sample. The models used to validate this sample are listed in [Validation](#validation).
 
 ## Prerequisites
 
@@ -155,6 +148,13 @@ The sample:
 * Prints gst-launch-1.0 full command line into console
 * Starts the command and either visualizes video with bounding boxes and age + gender labels or prints FPS
 * Logs detected ages to `/tmp/age_log.txt`
+
+## Validation
+
+This sample was validated with:
+
+- Models: `arnabdhar_YOLOv8-Face-Detection`, `dima806_fairface_age_image_detection`, `dima806_fairface_gender_image_detection` (FP16)
+- Video: [`head-pose-face-detection-female-and-male.mp4`](https://github.com/intel-iot-devkit/sample-videos/raw/master/head-pose-face-detection-female-and-male.mp4)
 
 ## See also
 * [Samples overview](../../../../README.md)

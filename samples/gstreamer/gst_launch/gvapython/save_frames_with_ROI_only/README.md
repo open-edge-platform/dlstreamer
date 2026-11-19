@@ -26,7 +26,7 @@ Configuration options in the Python script:
 
 ## Models
 
-The sample is configured with `centerface`, converted from the upstream CenterFace project by the general `download_other_models.py` helper. It is an example, not a required model: any compatible OpenVINO IR face detector can be used by changing the model path in the sample script. See the general [`scripts/download_models/README.md`](../../../../../scripts/download_models/README.md) for helper setup.
+The sample script requires the `centerface` face detector; the model name and path are hard-coded as `$MODELS_PATH/public/centerface/FP16/centerface.xml`. Prepare it with the `download_other_models.py` helper from [`scripts/download_models`](../../../../../scripts/download_models/README.md). The models used to validate this sample are listed in [Validation](#validation).
 
 ## Running
 
@@ -79,6 +79,13 @@ Saved: saved_frames/frame_00002.jpg (format: NV12, shape: (1080, 1920))
 ```
 
 The saved frames are numbered sequentially and include all detected objects with their bounding boxes and labels.
+
+## Validation
+
+This sample was validated with:
+
+- Model: `centerface` (FP16)
+- Video: [`head-pose-face-detection-female-and-male.mp4`](https://github.com/intel-iot-devkit/sample-videos/raw/master/head-pose-face-detection-female-and-male.mp4)
 
 ## See also
 * [Samples overview](../../../../README.md)

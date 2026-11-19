@@ -90,13 +90,12 @@ The D3D backends require a GPU or NPU device.
 
 ## Models
 
-Use any video that the installed GStreamer plugins can decode. Choose a clip containing the objects you want to detect; examples below use `C:\videos\test.mp4`. The model can be any compatible detector from the supported list, prepared in the expected OpenVINO format. The examples use `yolox_s` and `yolo11s`; these are examples, not required model choices.
+Use any video that the installed GStreamer plugins can decode. Choose a clip containing the objects you want to detect; examples below use `C:\videos\test.mp4`.
 
-Prepare models with the general helpers documented in [`scripts/download_models/README.md`](../../../../../scripts/download_models/README.md): use `download_ultralytics_models.py` for Ultralytics models such as `yolo11s.pt`, `download_other_models.py` for `yolox-tiny`, `yolox_s`, and `yolov7`, or `download_hf_models.py` for supported Hugging Face models.
+`yolo_detect.ps1` only accepts the models listed in [Supported Models](#supported-models) below, plus the Ultralytics `yolo26n`, `yolo26s`, `yolo26m`, `yolo26l`, `yolo26x`, `yolo26s-obb`, `yolo26s-seg` and `yolo26s-pose` models (model-proc not needed). The selected `-Model` is loaded from `%MODELS_PATH%\public\<model>\<precision>\<model>.xml`. Prepare models with the general helpers `download_ultralytics_models.py` or `download_other_models.py` as indicated in the table (see [Model Conversion Scripts](../../../../../scripts/download_models/README.md)). The models used to validate this sample are listed in [Validation](#validation).
 
 ### Supported Models
 
-| Model        | Model Preparation                | Model pipeline (model-proc)       |
 | Model        | General model helper                                      | Model pipeline (model-proc)       |
 | ------------ | --------------------------------------------------------- | --------------------------------- |
 | yolox-tiny   | `download_other_models.py yolox-tiny`                    | gvadetect model-proc=yolo-x.json  |
@@ -224,6 +223,13 @@ The sample:
   - Saves output to MP4 file
   - Prints FPS metrics
   - Outputs JSON metadata
+
+## Validation
+
+This sample was validated with:
+
+- Models: `yolo11s`, `yolov8s` (FP32)
+- Video: [`1192116-sd_640_360_30fps.mp4`](https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4)
 
 ## See also
 
