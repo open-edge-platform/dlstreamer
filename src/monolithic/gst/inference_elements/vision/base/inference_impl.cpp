@@ -1473,7 +1473,7 @@ void InferenceImpl::DrainOutput(GvaBaseInference *element) {
 
 void InferenceImpl::UpdateObjectClasses(const gchar *obj_classes_str) {
     // Lock mutex to avoid data race in case of shared inference instance in multichannel mode
-    std::unique_lock<std::mutex> lock(_mutex);
+    std::unique_lock<FairMutex> lock(_mutex);
 
     if (obj_classes_str && obj_classes_str[0])
         object_classes = Utils::splitString(obj_classes_str, ',');
@@ -1824,7 +1824,7 @@ GstFlowReturn InferenceImpl::TransformFrameIp(GvaBaseInference *gva_base_inferen
     // Completed frames of this element that the completion thread could not push (output blocked) are delivered
     // by this thread, before it takes the instance mutex: a paced sink then throttles only its own stream.
     DrainOutput(gva_base_inference);
-    std::unique_lock<std::mutex> lock(_mutex);
+    std::unique_lock<FairMutex> lock(_mutex);
 
     assert(gva_base_inference != nullptr && "Expected a valid pointer to gva_base_inference");
     assert(gva_base_inference->info != nullptr && "Expected a valid pointer to GstVideoInfo");

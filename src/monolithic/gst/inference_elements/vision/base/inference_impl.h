@@ -6,6 +6,7 @@
 #pragma once
 
 #include "classification_history.h"
+#include "fair_mutex.h"
 #include "gstgvaclassify.h"
 #include "gva_base_inference.h"
 #include "input_model_preproc.h"
@@ -82,7 +83,9 @@ class InferenceImpl {
 
     std::vector<std::string> object_classes;
 
-    mutable std::mutex _mutex;
+    // Serializes frame submission of all elements sharing this instance, in arrival order: when the device is
+    // saturated every stream gets its turn, instead of whichever thread wins the race for a plain mutex.
+    mutable FairMutex _mutex;
     Model model;
     std::shared_ptr<InferenceBackend::Allocator> allocator;
 
