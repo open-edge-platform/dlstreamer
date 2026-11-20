@@ -14,6 +14,7 @@
 
 #include <gst/video/video.h>
 
+#include <chrono>
 #include <gst/analytics/analytics.h>
 #include <list>
 #include <memory>
@@ -87,6 +88,7 @@ class InferenceImpl {
         uint64_t inference_count;
         GvaBaseInference *filter;
         std::vector<std::shared_ptr<InferenceFrame>> inference_rois;
+        std::chrono::steady_clock::time_point queued_at;
     };
 
     std::list<OutputFrame> output_frames;

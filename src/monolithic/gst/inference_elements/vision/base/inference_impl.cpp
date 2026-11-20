@@ -30,7 +30,9 @@
 #include "utils.h"
 #include "video_frame.h"
 
+#include <algorithm>
 #include <assert.h>
+#include <chrono>
 #include <cmath>
 #include <cstring>
 #include <exception>
@@ -59,6 +61,9 @@ namespace {
 
 const int DEFAULT_GPU_DRM_ID = 128;          // -> /dev/dri/renderD128
 const int MAX_STREAMS_SHARING_VADISPLAY = 4; // Maximum number of streams sharing the same VADisplay context
+// How long a frame may wait at the head of output_frames for its inference request before the element fails
+// (model compilation happens before the first frame; a single inference takes milliseconds to a few seconds)
+constexpr std::chrono::seconds kStuckInferenceTimeout{30};
 
 inline std::shared_ptr<Allocator> CreateAllocator(const char *const allocator_name) {
     std::shared_ptr<Allocator> allocator;
@@ -1899,8 +1904,30 @@ GstFlowReturn InferenceImpl::TransformFrameIp(GvaBaseInference *gva_base_inferen
             return GST_FLOW_OK;
         }
 
-        InferenceImpl::OutputFrame output_frame = {
-            .buffer = buffer, .inference_count = inference_count, .filter = gva_base_inference, .inference_rois = {}};
+        // Frames leave output_frames strictly in order, so a frame whose inference request never completes blocks
+        // the head while every later frame (of every stream sharing the instance) is still accepted here without
+        // back-pressure. Each of them pins a decoded surface, which under multi-stream load grows into a host OOM
+        // within minutes (issue #1240: a lost NPU request). No inference takes anywhere near this long, so fail the
+        // element with a clear message instead.
+        const auto pending = std::find_if(output_frames.begin(), output_frames.end(),
+                                          [](const OutputFrame &f) { return f.inference_count != 0; });
+        if (pending != output_frames.end()) {
+            const auto waited = std::chrono::steady_clock::now() - pending->queued_at;
+            if (waited > kStuckInferenceTimeout) {
+                const auto waited_s = std::chrono::duration_cast<std::chrono::seconds>(waited).count();
+                throw std::runtime_error(
+                    "Inference request of element '" + std::string(GST_ELEMENT_NAME(pending->filter)) +
+                    "' has not completed for " + std::to_string(waited_s) + " s; " +
+                    std::to_string(output_frames.size()) + " frames are waiting in model instance '" +
+                    std::string(gva_base_inference->model_instance_id) + "' (stuck inference request)");
+            }
+        }
+
+        InferenceImpl::OutputFrame output_frame = {.buffer = buffer,
+                                                   .inference_count = inference_count,
+                                                   .filter = gva_base_inference,
+                                                   .inference_rois = {},
+                                                   .queued_at = std::chrono::steady_clock::now()};
         output_frames.push_back(output_frame);
 
         // No need to unref buffer copy further
