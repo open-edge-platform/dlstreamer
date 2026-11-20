@@ -251,7 +251,7 @@ Script: `download_other_models.py`
 
 Dependencies file: `requirements_download_other_models.txt`
 
-This script downloads/converts a fixed set of helper models (for example, `centerface`, `hsemotion`, `deeplabv3`, `mars-small128`) into the `MODELS_PATH/public/...` layout. It runs on Linux and Windows.
+This script downloads/converts a fixed set of helper models (for example, `deeplabv3`, `aclnet`) into the `MODELS_PATH/public/...` layout. It runs on Linux and Windows.
 
 `yolox-tiny` and `deeplabv3` are converted with the OpenVINO Model Zoo tools
 (`openvino-dev` 2024.6.0), which require Python 3.12 or older. With a newer
@@ -303,8 +303,8 @@ export MODELS_PATH=~/models  # On Windows (PowerShell): $env:MODELS_PATH = "$HOM
 # Download all supported "other" models
 python download_other_models.py all
 
-# Download only mars-small128
-python download_other_models.py mars-small128
+# Download only aclnet
+python download_other_models.py aclnet
 
 # Download several models
 python download_other_models.py yolov8_license_plate_detector,ch_PP-OCRv4_rec_infer

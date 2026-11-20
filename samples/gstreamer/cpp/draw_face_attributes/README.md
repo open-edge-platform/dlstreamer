@@ -12,7 +12,7 @@ Note that this sample doesn't contain .json files with post-processing rules as 
 ## Models
 
 The sample requires these models; the application searches `$MODELS_PATH` recursively for the hard-coded file names (preferring a path containing `FP16`) and its callback converts their outputs by model name:
-*   `centerface.xml` - face detection with facial landmark points, prepared with `download_other_models.py`
+*   `centerface.xml` - face detection with facial landmark points
 *   `dima806_facial_age_image_detection.xml`, `dima806_fairface_gender_image_detection.xml`, `dima806_face_emotions_image_detection.xml` - age, gender and emotion classification, prepared with `download_hf_models.py`
 
 Both helpers are described in [`scripts/download_models`](../../../../scripts/download_models/README.md); use `$MODELS_PATH` as their output root. The models used to validate this sample are listed in [Validation](#validation).

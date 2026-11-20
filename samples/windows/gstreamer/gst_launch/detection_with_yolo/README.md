@@ -99,9 +99,7 @@ Use any video that the installed GStreamer plugins can decode. Choose a clip con
 | Model        | General model helper                                      | Model pipeline (model-proc)       |
 | ------------ | --------------------------------------------------------- | --------------------------------- |
 | yolox-tiny   | `download_other_models.py yolox-tiny`                    | gvadetect model-proc=yolo-x.json  |
-| yolox_s      | `download_other_models.py yolox_s`                       | gvadetect model-proc=yolo-x.json  |
 | yolov5nu     | `download_ultralytics_models.py --model yolov5nu.pt`      | gvadetect (model-proc not needed) |
-| yolov7       | `download_other_models.py yolov7`                        | gvadetect model-proc=yolo-v7.json |
 | yolov8s      | `download_ultralytics_models.py --model yolov8s.pt`       | gvadetect (model-proc not needed) |
 | yolov8n-obb  | `download_ultralytics_models.py --model yolov8n-obb.pt`   | gvadetect (model-proc not needed) |
 | yolov8n-seg  | `download_ultralytics_models.py --model yolov8n-seg.pt`   | gvadetect (model-proc not needed) |
@@ -134,7 +132,7 @@ $set MODELS_PATH = "C:\models"
 
 | Parameter          | Default          | Description                                                                             |
 | ------------------ | ---------------- | --------------------------------------------------------------------------------------- |
-| -Model             | yolox_s          | Model name (see supported models above)                                                 |
+| -Model             | yolo11s          | Model name (see supported models above)                                                 |
 | -Device            | GPU              | Inference device: CPU, GPU, NPU                                                         |
 | -InputSource       | (required)       | Input video file or URL                                                                 |
 | -OutputType        | display          | Output type: file, display, fps, json, display-and-json                                 |
@@ -144,7 +142,7 @@ $set MODELS_PATH = "C:\models"
 
 ### Examples
 
-Run with yolox_s, GPU inference, and display output:
+Run with yolo11s, GPU inference, and display output:
 
 ```PowerShell
 .\yolo_detect.ps1 -InputSource C:\videos\test.mp4

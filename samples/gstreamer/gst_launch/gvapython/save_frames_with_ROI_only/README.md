@@ -26,7 +26,7 @@ Configuration options in the Python script:
 
 ## Models
 
-The sample script requires the `centerface` face detector; the model name and path are hard-coded as `$MODELS_PATH/public/centerface/FP16/centerface.xml`. Prepare it with the `download_other_models.py` helper from [`scripts/download_models`](../../../../../scripts/download_models/README.md). The models used to validate this sample are listed in [Validation](#validation).
+The sample script requires the `centerface` face detector; the model name and path are hard-coded as `$MODELS_PATH/public/centerface/FP16/centerface.xml`. The models used to validate this sample are listed in [Validation](#validation).
 
 ## Running
 

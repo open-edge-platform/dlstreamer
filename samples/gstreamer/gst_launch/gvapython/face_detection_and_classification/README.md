@@ -14,7 +14,7 @@ In this sample the `gvapython` element is used three times.
 ## Models
 
 The sample script requires these models; their names and paths are hard-coded as `$MODELS_PATH/public/<model_name>/FP16/<model_name>.xml`:
-*   `centerface` - face detection, prepared with `download_other_models.py`
+*   `centerface` - face detection
 *   `dima806_facial_age_image_detection`, `dima806_fairface_gender_image_detection` - age and gender classification, prepared with `download_hf_models.py`
 
 Both helpers are described in [`scripts/download_models`](../../../../../scripts/download_models/README.md). The models used to validate this sample are listed in [Validation](#validation).

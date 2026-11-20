@@ -49,7 +49,7 @@ graph LR
 
 `face_detection_and_classification.ps1` requires the following models, each loaded from `%MODELS_PATH%\public\<model>\FP32\<model>.xml`:
 
-* `centerface` (face detection), prepared with `download_other_models.py`
+* `centerface` (face detection)
 * `dima806_facial_age_image_detection`, `dima806_fairface_gender_image_detection` and `dima806_face_emotions_image_detection` (classification), prepared with `download_hf_models.py` from the corresponding `dima806/...` Hugging Face model IDs
 
 See [Model Conversion Scripts](../../../../../scripts/download_models/README.md) for the helpers. The models used to validate this sample are listed in [Validation](#validation).

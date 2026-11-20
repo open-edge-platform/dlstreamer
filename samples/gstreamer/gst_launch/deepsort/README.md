@@ -51,7 +51,7 @@ The pipeline uses the following elements:
 The sample script requires these OpenVINO IR models; the model names and the `${HOME}/models` root are hard-coded:
 
 * **YOLO26m** (detection) — first `.xml` found under `${HOME}/models/public/yolo26m/FP16/`, prepared with `download_ultralytics_models.py`
-* **Mars-Small-128** (re-identification) — `${HOME}/models/public/mars-small128/FP32/mars_small128_fp32.xml` (+ matching `.bin`), prepared with `download_other_models.py`
+* **Mars-Small-128** (re-identification) — `${HOME}/models/public/mars-small128/FP32/mars_small128_fp32.xml` (+ matching `.bin`)
 
 Both helpers are described in [`scripts/download_models/README.md`](../../../../scripts/download_models/README.md). The models used to validate this sample are listed in [Validation](#validation).
 

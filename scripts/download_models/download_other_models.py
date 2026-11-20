@@ -31,7 +31,6 @@ if TYPE_CHECKING:
     import openvino as ov
 
 
-SCRIPT_DIR = Path(__file__).resolve().parent
 MAX_OMZ_PYTHON_VERSION = (3, 12)
 USER_AGENT = "dlstreamer-download-models"
 TORCH_CPU_INDEX = "https://download.pytorch.org/whl/cpu"
@@ -176,23 +175,6 @@ def extract_zip(archive: Path, destination: Path) -> None:
     archive.unlink()
 
 
-def git_clone(url: str, destination: Path) -> None:
-    remove_path(destination)
-    run([
-        "git", "-c", "core.autocrlf=false", "-c", "core.longpaths=true",
-        "clone", "--depth", "1", url, destination,
-    ])
-
-
-def patch_file(path: Path, old: str, new: str) -> None:
-    """In-place string replacement (equivalent of `sed -i s/old/new/g`)."""
-    content = path.read_text(encoding="utf-8")
-    if old not in content:
-        log(f"[WARN] Patch pattern not found in {path}: {old}")
-        return
-    path.write_text(content.replace(old, new), encoding="utf-8")
-
-
 def read_model(xml_path: Path) -> ov.Model:
     """Read an IR fully into memory so its files can be deleted afterwards (needed on Windows)."""
     import openvino as ov  # pylint: disable=import-outside-toplevel,redefined-outer-name
@@ -278,55 +260,6 @@ def download_yolox_tiny(models_path: Path) -> None:
             remove_path(entry)
 
 
-def download_yolox_s(models_path: Path) -> None:
-    model_name = "yolox_s"
-    model_dir = models_path / "public" / model_name
-    fp16_xml = model_dir / "FP16" / f"{model_name}.xml"
-    fp32_xml = model_dir / "FP32" / f"{model_name}.xml"
-    if all_exist(fp16_xml, fp32_xml):
-        report_cached(model_dir)
-        return
-
-    onnx_path = model_dir / "yolox_s.onnx"
-    download_file(
-        "https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_s.onnx",
-        onnx_path,
-    )
-    onnx_to_ir(onnx_path, [(fp16_xml, True), (fp32_xml, False)])
-    onnx_path.unlink()
-
-
-def download_yolov7(models_path: Path) -> None:
-    model_name = "yolov7"
-    model_dir = models_path / "public" / model_name
-    fp16_xml = model_dir / "FP16" / f"{model_name}.xml"
-    fp32_xml = model_dir / "FP32" / f"{model_name}.xml"
-    if all_exist(fp16_xml, fp32_xml):
-        report_cached(model_dir)
-        return
-
-    log(f"Downloading and converting: {model_dir}")
-    repo = model_dir / "yolov7"
-    git_clone("https://github.com/WongKinYiu/yolov7.git", repo)
-
-    # Patch for PyTorch 2.6+ compatibility (weights_only parameter)
-    patch_file(
-        repo / "models" / "experimental.py",
-        "torch.load(w, map_location=map_location)",
-        "torch.load(w, map_location=map_location, weights_only=False)",
-    )
-    # Use the legacy ONNX exporter because the YOLOv7 graph is incompatible with Dynamo.
-    patch_file(repo / "export.py", "opset_version=12, input_names=", "opset_version=12, dynamo=False, input_names=")
-
-    # yolov7's attempt_download() queries the GitHub "latest release" API (returns 404 for this repo)
-    # and then falls back to `git tag`, which is empty in a shallow clone. Fetch the weights directly.
-    download_file("https://github.com/WongKinYiu/yolov7/releases/download/v0.1/yolov7.pt", repo / "yolov7.pt")
-
-    run([sys.executable, "export.py", "--weights", "yolov7.pt", "--grid", "--dynamic-batch"], cwd=repo)
-    onnx_to_ir(repo / "yolov7.onnx", [(fp16_xml, True), (fp32_xml, False)])
-    remove_path(repo)
-
-
 def download_license_plate_reader_model(
     models_path: Path, model_name: str, source_subdir: str, source_stem: str
 ) -> None:
@@ -347,70 +280,6 @@ def download_license_plate_reader_model(
         fp32_dir.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source_dir / f"{source_stem}.bin", fp32_dir / f"{model_name}.bin")
         shutil.copyfile(source_dir / f"{source_stem}.xml", fp32_dir / f"{model_name}.xml")
-
-
-def download_centerface(models_path: Path) -> None:
-    import openvino as ov  # pylint: disable=import-outside-toplevel,redefined-outer-name
-
-    model_name = "centerface"
-    model_dir = models_path / "public" / model_name
-    if all_exist(model_dir / "FP16" / f"{model_name}.xml", model_dir / "FP32" / f"{model_name}.xml"):
-        report_cached(model_dir)
-        return
-
-    log(f"Downloading and converting: {model_dir}")
-    with staging_dir(model_dir) as tmp:
-        repo = tmp / "CenterFace"
-        git_clone("https://github.com/Star-Clouds/CenterFace.git", repo)
-
-        # Intermediate IR keeps the `ovc` CLI default (FP16-compressed weights), as in the shell script.
-        intermediate_xml = tmp / f"{model_name}.xml"
-        onnx_to_ir(repo / "models" / "onnx" / "centerface.onnx", [(intermediate_xml, True)], [1, 3, 768, 1280])
-
-        ov_model = read_model(intermediate_xml)
-        ov_model.output(0).set_names({"heatmap"})
-        ov_model.output(1).set_names({"scale"})
-        ov_model.output(2).set_names({"offset"})
-        ov_model.output(3).set_names({"landmarks"})
-
-        ov_model.set_rt_info("centerface", ["model_info", "model_type"])
-        ov_model.set_rt_info("0.55", ["model_info", "confidence_threshold"])
-        ov_model.set_rt_info("0.5", ["model_info", "iou_threshold"])
-
-        ov.save_model(ov_model, str(model_dir / "FP32" / f"{model_name}.xml"), compress_to_fp16=False)
-        ov.save_model(ov_model, str(model_dir / "FP16" / f"{model_name}.xml"), compress_to_fp16=True)
-        del ov_model
-
-
-def download_hsemotion(models_path: Path) -> None:
-    import openvino as ov  # pylint: disable=import-outside-toplevel,redefined-outer-name
-
-    model_name = "hsemotion"
-    model_dir = models_path / "public" / model_name
-    if all_exist(model_dir / "FP16" / f"{model_name}.xml"):
-        report_cached(model_dir)
-        return
-
-    log(f"Downloading and converting: {model_dir}")
-    with staging_dir(model_dir) as tmp:
-        repo = tmp / "face-emotion-recognition"
-        git_clone("https://github.com/av-savchenko/face-emotion-recognition.git", repo)
-
-        intermediate_xml = tmp / f"{model_name}.xml"
-        onnx_path = repo / "models" / "affectnet_emotions" / "onnx" / "enet_b0_8_va_mtl.onnx"
-        onnx_to_ir(onnx_path, [(intermediate_xml, True)], [16, 3, 224, 224])
-
-        ov_model = read_model(intermediate_xml)
-        ov_model.set_rt_info(
-            "anger contempt disgust fear happiness neutral sadness surprise", ["model_info", "labels"]
-        )
-        ov_model.set_rt_info("label", ["model_info", "model_type"])
-        ov_model.set_rt_info("True", ["model_info", "output_raw_scores"])
-        ov_model.set_rt_info("fit_to_window_letterbox", ["model_info", "resize_type"])
-        ov_model.set_rt_info("255", ["model_info", "scale_values"])
-
-        ov.save_model(ov_model, str(model_dir / "FP16" / f"{model_name}.xml"))
-        del ov_model
 
 
 def download_deeplabv3(models_path: Path) -> None:
@@ -506,25 +375,6 @@ def download_ppocr_v5(models_path: Path, model_name: str) -> None:
         shutil.copyfile(paddle_dir / "config.json", fp16_dir / "config.json")
 
 
-def download_mars_small128(models_path: Path) -> None:
-    model_name = "mars-small128"
-    model_dir = models_path / "public" / model_name
-    targets = {"FP32": "mars_small128_fp32", "INT8": "mars_small128_int8"}
-    if all_exist(*(model_dir / precision / f"{stem}.xml" for precision, stem in targets.items())):
-        report_cached(model_dir)
-        return
-
-    log(f"Downloading and converting: {model_dir}")
-    model_dir.mkdir(parents=True, exist_ok=True)
-    converter = SCRIPT_DIR / "convert_mars_deepsort.py"
-    run([sys.executable, converter, "--output-dir", model_dir, "--precision", "both"], retries=3, retry_delay=30)
-
-    for precision, stem in targets.items():
-        (model_dir / precision).mkdir(parents=True, exist_ok=True)
-        for extension in (".xml", ".bin"):
-            os.replace(model_dir / f"{stem}{extension}", model_dir / precision / f"{stem}{extension}")
-
-
 def download_pallet_defect_detection(models_path: Path) -> None:
     model_name = "pallet_defect_detection"
     model_dir = models_path / "public" / model_name
@@ -589,8 +439,6 @@ def download_pointpillars(models_path: Path) -> None:
 
 MODEL_HANDLERS: dict[str, tuple[str, Callable[[Path], None]]] = {
     "yolox-tiny": ("YOLOx-TINY", download_yolox_tiny),
-    "yolox_s": ("YOLOx-S", download_yolox_s),
-    "yolov7": ("YOLOv7", download_yolov7),
     "yolov8_license_plate_detector": (
         "YOLOv8 License Plate Detector",
         functools.partial(
@@ -600,8 +448,6 @@ MODEL_HANDLERS: dict[str, tuple[str, Callable[[Path], None]]] = {
             source_stem="yolov8n_retrained",
         ),
     ),
-    "centerface": ("CenterFace", download_centerface),
-    "hsemotion": ("HSEmotion", download_hsemotion),
     "deeplabv3": ("DeepLabv3", download_deeplabv3),
     "aclnet": ("AclNet", download_aclnet),
     "ch_PP-OCRv4_rec_infer": (
@@ -621,7 +467,6 @@ MODEL_HANDLERS: dict[str, tuple[str, Callable[[Path], None]]] = {
         "PaddlePaddle PP-OCRv5_mobile_rec",
         functools.partial(download_ppocr_v5, model_name="PP-OCRv5_mobile_rec"),
     ),
-    "mars-small128": ("Mars-Small128", download_mars_small128),
     "pallet_defect_detection": ("Pallet Defect Detection", download_pallet_defect_detection),
     "colorcls2": ("Colorcls2", download_colorcls2),
     "pointpillars": ("PointPillars", download_pointpillars),
