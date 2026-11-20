@@ -305,7 +305,8 @@ void RunBatch(const std::vector<Roi> &rois, int w, int h, bool rgb) {
     for (int pass = 0; pass < 2; pass++) {
         for (size_t i = 0; i < rois.size(); i++) {
             const cv::Rect &r = rois[i].rect;
-            rois[i].frame->rect = Rectangle<uint32_t>(r.x, r.y, r.width, r.height);
+            // Qualified: on Windows, wingdi.h declares a Rectangle() function.
+            rois[i].frame->rect = InferenceBackend::Rectangle<uint32_t>(r.x, r.y, r.width, r.height);
             preproc.Add(batch, i, rois[i].frame, nullptr, nullptr);
         }
         preproc.Finish(batch);
