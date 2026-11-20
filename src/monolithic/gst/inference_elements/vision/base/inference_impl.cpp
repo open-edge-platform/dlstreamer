@@ -40,6 +40,7 @@
 #include <openvino/runtime/core.hpp>
 #include <openvino/runtime/properties.hpp>
 #include <regex>
+#include <set>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -1444,9 +1445,35 @@ void InferenceImpl::FlushOutputs() {
     PushOutput();
 }
 
+// True while output_frames holds a completed (inference_count == 0) frame of this element that has not been pushed.
+bool InferenceImpl::HasReadyOutput(GvaBaseInference *element) {
+    std::lock_guard<std::mutex> guard(output_frames_mutex);
+    for (const auto &frame : output_frames) {
+        if (frame.filter != element)
+            continue;
+        // frames of one element are delivered in order: the first one decides
+        return frame.inference_count == 0;
+    }
+    return false;
+}
+
+// PushOutput() skips frames whose downstream queue is full instead of blocking the completion thread, so the frames
+// of a slow consumer stay in output_frames. The element's own streaming thread pushes them from here, blocking only
+// itself.
+void InferenceImpl::DrainOutput(GvaBaseInference *element) {
+    GstObject *src = &element->base_transform.element.object;
+    while (HasReadyOutput(element)) {
+        if (CheckSrcPadBlocked(src)) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+            continue;
+        }
+        PushOutput();
+    }
+}
+
 void InferenceImpl::UpdateObjectClasses(const gchar *obj_classes_str) {
     // Lock mutex to avoid data race in case of shared inference instance in multichannel mode
-    std::unique_lock<std::mutex> lock(_mutex);
+    std::unique_lock<FairMutex> lock(_mutex);
 
     if (obj_classes_str && obj_classes_str[0])
         object_classes = Utils::splitString(obj_classes_str, ',');
@@ -1593,11 +1620,20 @@ void InferenceImpl::PushOutput() {
 
     // track output queues that are full
     std::map<std::string, bool> output_full;
+    // elements with an earlier, not yet completed frame: their later frames must wait to keep per-stream order
+    std::set<GvaBaseInference *> elements_pending;
 
     auto frame = output_frames.begin();
     while (frame != output_frames.end()) {
         if ((*frame).inference_count != 0) {
-            break; // inference not completed yet
+            // not completed yet: holds back only this element's later frames, not the other streams
+            elements_pending.insert((*frame).filter);
+            frame++;
+            continue;
+        }
+        if (elements_pending.count((*frame).filter)) {
+            frame++;
+            continue;
         }
 
         for (const std::shared_ptr<InferenceFrame> &inference_roi : (*frame).inference_rois) {
@@ -1666,17 +1702,24 @@ bool InferenceImpl::CheckSrcPadBlocked(GstObject *src) {
     const gchar *factory_name = factory ? gst_plugin_feature_get_name(GST_PLUGIN_FEATURE(factory)) : nullptr;
 
     if (factory_name && strcmp(factory_name, "queue") == 0) {
-        guint buf_cnt = 0;
-        GstState state, pending;
+        guint buf_cnt = 0, max_buf = 0, bytes = 0, max_bytes = 0;
+        guint64 time = 0, max_time = 0;
+        g_object_get(dst, "current-level-buffers", &buf_cnt, "max-size-buffers", &max_buf, "current-level-bytes",
+                     &bytes, "max-size-bytes", &max_bytes, "current-level-time", &time, "max-size-time", &max_time,
+                     NULL);
 
-        g_object_get(dst, "current-level-buffers", &buf_cnt, NULL);
-
-        // use timeout instead of GST_CLOCK_TIME_NONE to avoid blocking
-        // NOTE: buf_cnt and state not queried atomically - acceptable as heuristic
-        gst_element_get_state(GST_ELEMENT(dst), &state, &pending, 10 * GST_MSECOND);
-
-        if ((buf_cnt > 1) && (state == GST_STATE_PAUSED)) {
-            blocked = true;
+        // The queue blocks its sink pad when one more buffer would exceed any of its limits. A blocked
+        // gst_pad_push from the completion thread would stall every stream sharing this instance
+        // (output_frames_mutex and _mutex are held across it), so the completion thread skips such a
+        // frame and the stream's own thread delivers it (DrainOutput) once there is room. Per-buffer
+        // size/duration are estimated from the queue's current contents.
+        if (buf_cnt > 0) {
+            const guint avg_bytes = bytes / buf_cnt;
+            const guint64 avg_time = time / buf_cnt;
+            if ((max_buf > 0 && buf_cnt + 1 >= max_buf) || (max_bytes > 0 && bytes + avg_bytes > max_bytes) ||
+                (max_time > 0 && time + avg_time > max_time)) {
+                blocked = true;
+            }
         }
     }
 
@@ -1778,7 +1821,10 @@ const InferenceImpl::Model &InferenceImpl::GetModel() const {
 
 GstFlowReturn InferenceImpl::TransformFrameIp(GvaBaseInference *gva_base_inference, GstBuffer *buffer) {
     ITT_TASK(__FUNCTION__);
-    std::unique_lock<std::mutex> lock(_mutex);
+    // Completed frames of this element that the completion thread could not push (output blocked) are delivered
+    // by this thread, before it takes the instance mutex: a paced sink then throttles only its own stream.
+    DrainOutput(gva_base_inference);
+    std::unique_lock<FairMutex> lock(_mutex);
 
     assert(gva_base_inference != nullptr && "Expected a valid pointer to gva_base_inference");
     assert(gva_base_inference->info != nullptr && "Expected a valid pointer to GstVideoInfo");

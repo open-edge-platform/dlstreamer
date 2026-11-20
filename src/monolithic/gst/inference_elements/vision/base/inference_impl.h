@@ -6,6 +6,7 @@
 #pragma once
 
 #include "classification_history.h"
+#include "fair_mutex.h"
 #include "gstgvaclassify.h"
 #include "gva_base_inference.h"
 #include "input_model_preproc.h"
@@ -39,6 +40,10 @@ class InferenceImpl {
     GstFlowReturn TransformFrameIp(GvaBaseInference *element, GstBuffer *buffer);
     void FlushOutputs();
     void FlushInference();
+    // Deliver this element's completed frames that PushOutput() left behind because the output was blocked, waiting
+    // for downstream to drain. Called from the element's streaming thread; must run before an EOS/FLUSH_STOP event
+    // passes the element.
+    void DrainOutput(GvaBaseInference *element);
     const Model &GetModel() const;
 
     void UpdateObjectClasses(const gchar *obj_classes_str);
@@ -78,7 +83,9 @@ class InferenceImpl {
 
     std::vector<std::string> object_classes;
 
-    mutable std::mutex _mutex;
+    // Serializes frame submission of all elements sharing this instance, in arrival order: when the device is
+    // saturated every stream gets its turn, instead of whichever thread wins the race for a plain mutex.
+    mutable FairMutex _mutex;
     Model model;
     std::shared_ptr<InferenceBackend::Allocator> allocator;
 
@@ -99,6 +106,7 @@ class InferenceImpl {
 #endif
     void PushOutput();
     bool CheckSrcPadBlocked(GstObject *src);
+    bool HasReadyOutput(GvaBaseInference *element);
     void PushBufferToSrcPad(OutputFrame &output_frame);
     void PushFramesIfInferenceFailed(std::vector<std::shared_ptr<InferenceBackend::ImageInference::IFrameBase>> frames);
     void InferenceCompletionCallback(std::map<std::string, InferenceBackend::OutputBlob::Ptr> blobs,
