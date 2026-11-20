@@ -7,7 +7,7 @@ It combines four pipelines. By default, the first two streams run on NPU [IntelÂ
 This sample utilizes GStreamer command-line tool `gst-launch-1.0` which can build and run GStreamer pipeline described in a string format.
 The string contains a list of GStreamer elements separated by exclamation mark `!`, each element may have properties specified in the format `property`=`value`.
 
-The `MODEL_1` and `MODEL_2` arguments only accept models from the supported list below; each is loaded from `$MODELS_PATH/public/<model_name>/FP16/<model_name>.xml`, with a model-proc file for `yolox-tiny`, `yolox_s` and `yolov7`. Prepare them with the general helpers in [`scripts/download_models`](../../../../scripts/download_models/README.md): `download_other_models.py` for `yolox-tiny`, `yolox_s` and `yolov7`, and `download_ultralytics_models.py` for the others. The models used to validate this sample are listed in [Validation](#validation).
+The `MODEL_1` and `MODEL_2` arguments only accept models from the supported list below; each is loaded from `$MODELS_PATH/public/<model_name>/FP16/<model_name>.xml`, with a model-proc file for `yolox-tiny`. Prepare them with the general helpers in [`scripts/download_models`](../../../../scripts/download_models/README.md): `download_other_models.py` for `yolox-tiny`, and `download_ultralytics_models.py` for the others. The models used to validate this sample are listed in [Validation](#validation).
 
 This sample builds for GStreamer a pipeline of the following elements:
 * `filesrc`
@@ -17,7 +17,7 @@ This sample builds for GStreamer a pipeline of the following elements:
 * [gvawatermark](../../../../docs/user-guide/elements/gvawatermark.md) for points and visualization of their connections
 * `autovideosink` for rendering output video into screen
 
-**Supported models**: yolox-tiny, yolox_s, yolov7, yolov8s, yolov9c, yolo11s, yolo26s
+**Supported models**: yolox-tiny, yolov8s, yolov9c, yolo11s, yolo26s
 
 > **NOTE**: Each of the two pipelines can run on CPU or GPU or NPU.
 > **NOTE**: `sync=false` property in `autovideosink` element disables real-time synchronization so pipeline runs as fast as possible

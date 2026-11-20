@@ -41,7 +41,7 @@ The sample script requires these models (names and paths are hard-coded):
 * **centerface** - face detection, loaded from `$MODELS_PATH/public/centerface/FP16/centerface.xml`
 * **hsemotion** - emotion classification, loaded from `$MODELS_PATH/public/hsemotion/FP16/hsemotion.xml`; the custom post-processing library parses its output
 
-Prepare both with the `download_other_models.py` helper from [`scripts/download_models`](../../../../../scripts/download_models/README.md) and set `MODELS_PATH` to the same root. The models used to validate this sample are listed in [Validation](#validation).
+Both models must be available under the same `MODELS_PATH` root. The models used to validate this sample are listed in [Validation](#validation).
 
 These instructions assume that the DLStreamer framework is installed on your local system, along with the OpenVINO™ model downloader and converter tools, as described in this [tutorial](../../../../../docs/user-guide/tutorial.md#setup).
 

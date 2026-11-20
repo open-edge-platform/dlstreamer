@@ -22,15 +22,13 @@ This sample builds a GStreamer pipeline from the following elements:
 ## Models
 
 The `yolo_detect.sh` script only accepts a `MODEL` value from the fixed supported list in the table below; it loads the model from `$MODELS_PATH/public/<MODEL>/<PRECISION>/<MODEL>.xml` (for `yolo26s-cls`, both `yolo26s` and `yolo26s-cls` from the same layout).
-Prepare the models with the general helpers in [`scripts/download_models`](../../../../scripts/download_models/README.md): `download_ultralytics_models.py` for Ultralytics models and `download_other_models.py` for `yolox-tiny`, `yolox_s` and `yolov7`.
+Prepare the models with the general helpers in [`scripts/download_models`](../../../../scripts/download_models/README.md): `download_ultralytics_models.py` for Ultralytics models and `download_other_models.py` for `yolox-tiny`.
 The models used to validate this sample are listed in [Validation](#validation).
 
 | Model        | Model Preparation                  | Model pipeline (model-proc)       |
 | ------------ | ---------------------------------- | ----------------------------------|
 | yolox-tiny   | `download_other_models.py`         | gvadetect model-proc=yolo-x.json  |
-| yolox_s      | `download_other_models.py`         | gvadetect model-proc=yolo-x.json  |
 | yolov5nu     | `download_ultralytics_models.py`   | gvadetect \<model-proc not needed\> |
-| yolov7       | `download_other_models.py`         | gvadetect model-proc=yolo-v7.json |
 | yolov8s      | `download_ultralytics_models.py`   | gvadetect \<model-proc not needed\> |
 | yolov8n-obb  | `download_ultralytics_models.py`   | gvadetect \<model-proc not needed\> |
 | yolov8n-seg  | `download_ultralytics_models.py`   | gvadetect \<model-proc not needed\> |
@@ -111,7 +109,7 @@ Please examine `yolo_detect.sh` script to see how to source data from input came
 
 This sample was validated with:
 
-- Models: `yolox_s` (default), `yolo11s`, `yolo11s-seg`, `yolov8n-seg`, `yolo26n`, `yolo26s`, `yolo26m`, `yolo26l`, `yolo26x`, `yolo26s-seg` (FP32, FP16 or INT8)
+- Models: `yolo11s` (default), `yolo11s-seg`, `yolov8n-seg`, `yolo26n`, `yolo26s`, `yolo26m`, `yolo26l`, `yolo26x`, `yolo26s-seg` (FP32, FP16 or INT8)
 - Video: [`1192116-sd_640_360_30fps.mp4`](https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4)
 - Model `yolo11s-obb` (FP32) with video: [`3150382-sd_640_338_25fps.mp4`](https://videos.pexels.com/video-files/3150382/3150382-sd_640_338_25fps.mp4)
 

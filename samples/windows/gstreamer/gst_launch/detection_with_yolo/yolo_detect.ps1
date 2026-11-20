@@ -8,7 +8,7 @@
 # ==============================================================================
 
 param(
-    [string]$Model = "yolox_s",
+    [string]$Model = "yolo11s",
     [string]$Device = "GPU",
     [string]$InputSource = "",
     [string]$OutputType = "display",
@@ -22,7 +22,7 @@ if ($Model -eq "--help" -or $Model -eq "-h") {
     Write-Host "Usage: yolo_detect.ps1 [-Model <model>] [-Device <device>] [-InputSource <path>] [-OutputType <type>] [-PreprocessBackend <backend>] [-Precision <precision>] [-FrameLimiter <element>]"
     Write-Host ""
     Write-Host "Parameters:"
-    Write-Host "  -Model              Model name (default: yolox_s)"
+    Write-Host "  -Model              Model name (default: yolo11s)"
     Write-Host "                      Supported: yolox-tiny, yolox_s, yolov5nu, yolov7, yolov8s,"
     Write-Host "                                 yolov8n-obb, yolov8n-seg, yolov9c, yolov10s, yolo11s,"
     Write-Host "                                 yolo11s-seg, yolo11s-obb, yolo11s-pose, yolo26n, yolo26s,"

@@ -11,7 +11,7 @@ The `gvafpscounter` inserted at the end of each stream pipeline and measures FPS
 
 The command-line parameters allow to select inference device (ex, CPU, GPU).
 
-> **NOTE**: `benchmark.bat` requires the `centerface` face-detection model, loaded from `%MODELS_PATH%\public\centerface\FP32\centerface.xml`. Prepare it with `download_other_models.py` (see [Model Conversion Scripts](../../../../scripts/download_models/README.md)). The models used to validate this sample are listed in [Validation](#validation).
+> **NOTE**: `benchmark.bat` requires the `centerface` face-detection model, loaded from `%MODELS_PATH%\public\centerface\FP32\centerface.xml`. The models used to validate this sample are listed in [Validation](#validation).
 
 ## Environment Variables
 

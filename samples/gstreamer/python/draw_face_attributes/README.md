@@ -12,7 +12,7 @@ Note that this sample doesn't contain .json files with post-processing rules as 
 ## Models
 
 The sample script requires specific models in OpenVINO™ IR format; `draw_face_attributes.sh` hard-codes their paths and the callback post-processing is written for their outputs:
-*   __centerface__ — face detection with facial landmark points, loaded from `$MODELS_PATH/public/centerface/FP16/centerface.xml`; prepare it with `download_other_models.py`
+*   __centerface__ — face detection with facial landmark points, loaded from `$MODELS_PATH/public/centerface/FP16/centerface.xml`
 *   __dima806_facial_age_image_detection__ — age estimation, loaded from `$MODELS_PATH/public/dima806_facial_age_image_detection/FP16/dima806_facial_age_image_detection.xml`
 *   __dima806_fairface_gender_image_detection__ — gender estimation, loaded from `$MODELS_PATH/public/dima806_fairface_gender_image_detection/FP16/dima806_fairface_gender_image_detection.xml`
 *   __dima806_face_emotions_image_detection__ — emotion recognition, loaded from `$MODELS_PATH/public/dima806_face_emotions_image_detection/FP16/dima806_face_emotions_image_detection.xml`

@@ -28,7 +28,7 @@ Key features:
 
 ## Models
 
-Use any video supported by the installed GStreamer plugins; the examples use `C:\videos\test.mp4`. The sample needs a compatible object-detection model in OpenVINO™ IR format; the script loads each model name passed with `-Model`, `-Model1` or `-Model2` from `%MODELS_PATH%\public\<model>\<precision>\<model>.xml`. A model-proc file is added automatically only for `yolox-tiny`, `yolox_s` (`yolo-x.json`) and `yolov7` (`yolo-v7.json`); any other model must work with `gvadetect` without a model-proc file. Prepare models with the general helpers described in [Model Conversion Scripts](../../../../../scripts/download_models/README.md). The models used to validate this sample are listed in [Validation](#validation).
+Use any video supported by the installed GStreamer plugins; the examples use `C:\videos\test.mp4`. The sample needs a compatible object-detection model in OpenVINO™ IR format; the script loads each model name passed with `-Model`, `-Model1` or `-Model2` from `%MODELS_PATH%\public\<model>\<precision>\<model>.xml`. A model-proc file is added automatically only for `yolox-tiny` (`yolo-x.json`); any other model must work with `gvadetect` without a model-proc file. Prepare models with the general helpers described in [Model Conversion Scripts](../../../../../scripts/download_models/README.md). The models used to validate this sample are listed in [Validation](#validation).
 
 ## Usage
 

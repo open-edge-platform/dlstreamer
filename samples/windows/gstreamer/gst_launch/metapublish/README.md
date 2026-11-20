@@ -39,7 +39,7 @@ graph LR
 
 `metapublish.ps1` requires the following models, each loaded from `%MODELS_PATH%\public\<model>\FP16\<model>.xml`:
 
-* `centerface` (face detection), prepared with `download_other_models.py`
+* `centerface` (face detection)
 * `dima806_facial_age_image_detection` and `dima806_fairface_gender_image_detection` (age and gender classification), prepared with `download_hf_models.py` from the corresponding `dima806/...` Hugging Face model IDs
 
 See [Model Conversion Scripts](../../../../../scripts/download_models/README.md) for the helpers. The models used to validate this sample are listed in [Validation](#validation).

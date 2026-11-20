@@ -8,7 +8,7 @@
 Standalone MonoDETR -> OpenVINO converter (starts from the ORIGINAL upstream repo).
 
 What it does, end to end:
-  1. Clones https://github.com/ZrrSkywalker/MonoDETR (once) into --repo.
+  1. Uses a local clone of the official upstream MonoDETR repository (--repo).
   2. Applies -- at runtime, without editing any upstream file -- the minimal
      changes this fork needs to trace MonoDETR without CUDA under torch 2.x:
        a. a dummy `MultiScaleDeformableAttention` module + a pure-PyTorch
@@ -28,32 +28,24 @@ Run the produced IR with EXECUTION_MODE_HINT=ACCURACY (DLStreamer:
 everything to f16 and re-overflows the backbone to NaN.
 
 Example:
-    python convert_monodetr.py --ckpt checkpoint_best.pth --outdir ./models
+    python convert_monodetr.py --repo ./MonoDETR --ckpt checkpoint_best.pth --outdir ./models
 
-If --ckpt is omitted, the upstream checkpoint is downloaded from Google Drive
-(requires `gdown`). Run this OUTSIDE an existing MonoDETR checkout so
-`import lib/` resolves to the freshly cloned upstream tree.
+Both --repo (official MonoDETR checkout) and --ckpt (its pretrained checkpoint)
+must be provided; nothing is downloaded. Run this OUTSIDE the MonoDETR checkout so
+`import lib/` resolves to the tree given with --repo.
 """
 
-# Imports are intentionally deferred until the cloned upstream MonoDETR repo is
+# Imports are intentionally deferred until the upstream MonoDETR repo is
 # on sys.path (and heavy deps are loaded lazily), so allow function-level imports.
 # pylint: disable=import-outside-toplevel
 
 import argparse
 import os
-import subprocess
 import sys
 import types
 
 import numpy as np
 import torch
-
-UPSTREAM_URL = "https://github.com/ZrrSkywalker/MonoDETR.git"
-
-# Upstream-hosted checkpoint (Google Drive) used when --ckpt is omitted; this is
-# the first "newer results" row from the upstream README.
-_DEFAULT_CKPT_GDRIVE_ID = "1d8fbAt-CQF-IN8UEHuw3NimmfONhH6iA"
-_DEFAULT_CKPT_NAME = "monodetr_upstream.pth"
 
 # ImageNet normalization + network canvas (matches MonoDETR KITTI preprocessing).
 _MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
@@ -67,40 +59,18 @@ _DEFAULT_WH = np.array([1242.0, 375.0], dtype=np.float32)  # KITTI original (W, 
 
 
 # ---------------------------------------------------------------------------
-# 1. clone upstream
+# 1. locate upstream
 # ---------------------------------------------------------------------------
-def clone_upstream(repo, ref=None):
-    """Clone (or reuse) the upstream MonoDETR repo, optionally at a given git ref."""
-    if not os.path.isdir(os.path.join(repo, ".git")):
-        print(f"[info] cloning {UPSTREAM_URL} -> {repo}")
-        subprocess.run(["git", "clone", "--depth", "1", UPSTREAM_URL, repo], check=True)
-    else:
-        print(f"[info] using existing clone at {repo}")
-    if ref:
-        subprocess.run(["git", "-C", repo, "fetch", "--depth", "1", "origin", ref], check=True)
-        subprocess.run(["git", "-C", repo, "checkout", ref], check=True)
-    return os.path.abspath(repo)
-
-
-def download_checkpoint(dest):
-    """Fetch the upstream MonoDETR checkpoint from Google Drive (cached)."""
-    if os.path.exists(dest) and os.path.getsize(dest) > 1_000_000:
-        print(f"[info] using cached checkpoint {dest}")
-        return dest
-    try:
-        import gdown  # pylint: disable=import-outside-toplevel
-    except ImportError as exc:
+def locate_upstream(repo):
+    """Return the absolute path of a local official MonoDETR checkout, or exit if it is not one."""
+    repo = os.path.abspath(repo)
+    if not (os.path.isdir(os.path.join(repo, "lib"))
+            and os.path.isfile(os.path.join(repo, "configs", "monodetr.yaml"))):
         raise SystemExit(
-            "Downloading the default checkpoint requires gdown "
-            "(`pip install gdown`), or pass --ckpt with a local .pth.") from exc
-    os.makedirs(os.path.dirname(os.path.abspath(dest)) or ".", exist_ok=True)
-    print(f"[info] downloading MonoDETR checkpoint from Google Drive -> {dest}")
-    gdown.download(id=_DEFAULT_CKPT_GDRIVE_ID, output=dest, quiet=False)
-    if not (os.path.exists(dest) and os.path.getsize(dest) > 1_000_000):
-        raise SystemExit(
-            "Checkpoint download failed (Google Drive quota / bad id?). "
-            "Download it manually from the upstream README and pass --ckpt.")
-    return dest
+            f"{repo} is not an official MonoDETR checkout (expected lib/ and configs/monodetr.yaml). "
+            "Clone the official MonoDETR repository and pass its path with --repo.")
+    print(f"[info] using MonoDETR checkout at {repo}")
+    return repo
 
 
 # ---------------------------------------------------------------------------
@@ -466,11 +436,9 @@ def export_mixed_ir(model, out_path, images, calibs, img_sizes, sanity=True):  #
 def parse_args():
     """Parse command-line arguments."""
     p = argparse.ArgumentParser(description=__doc__.strip().splitlines()[0])
-    p.add_argument("--ckpt", default=None,
-                   help="MonoDETR checkpoint .pth (default: download from upstream Google Drive)")
+    p.add_argument("--ckpt", required=True, help="pretrained MonoDETR checkpoint .pth")
     p.add_argument("--outdir", default=".", help="output directory for monodetr.xml (and .bin)")
-    p.add_argument("--repo", default="MonoDETR_upstream", help="where to clone upstream")
-    p.add_argument("--ref", default=None, help="git ref (commit/tag/branch) to check out")
+    p.add_argument("--repo", required=True, help="path to a local clone of the official MonoDETR repository")
     p.add_argument("--image", default=None, help="example image for tracing (optional)")
     p.add_argument("--calib", default=None, help="KITTI .txt calibration for tracing (optional)")
     p.add_argument("--no-sanity", action="store_true", help="skip the CPU sanity inference")
@@ -478,10 +446,12 @@ def parse_args():
 
 
 def main():
-    """Clone upstream, patch it for CPU tracing, build the model and export the IR."""
+    """Patch a local upstream MonoDETR checkout for CPU tracing, build the model and export the IR."""
     args = parse_args()
-    repo = clone_upstream(args.repo, args.ref)
-    ckpt = args.ckpt or download_checkpoint(os.path.join(repo, "chkpts", _DEFAULT_CKPT_NAME))
+    repo = locate_upstream(args.repo)
+    ckpt = args.ckpt
+    if not os.path.isfile(ckpt):
+        raise SystemExit(f"Checkpoint not found: {ckpt}")
 
     sys.path.insert(0, repo)          # upstream lib/ + utils/ take precedence
     install_import_shims()            # torch-2.x / no-CUDA import fixes

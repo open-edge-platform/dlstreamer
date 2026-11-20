@@ -22,7 +22,7 @@ if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]]; then
   echo "Usage: $0 [MODEL] [DEVICE] [INPUT] [OUTPUT] [PPBKEND] [PRECISION] [OUTPUT_DIRECTORY] [EOS_LIMIT_ELEMENT]"
   echo ""
   echo "Arguments:"
-  echo "  MODEL     - Model name (default: yolox_s)"
+  echo "  MODEL     - Model name (default: yolo11s)"
   echo "            Supported: yolo_all, yolox-tiny, yolox_s, yolov7, yolov8s, yolov8n-obb, yolov8n-seg, yolov9c, yolov10s, yolo11s, yolo11s-obb, yolo11s-seg, yolo11s-pose, yolo26n, yolo26s, yolo26m, yolo26l, yolo26x, yolo26s-obb, yolo26s-seg, yolo26s-pose, yolo26s-cls"
   echo "  DEVICE    - Device (default: GPU). Supported: CPU, GPU, NPU"
   echo "  INPUT     - Required input video path, stream URL, or camera device"
@@ -35,7 +35,7 @@ if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]]; then
   exit 0
 fi
 
-MODEL=${1:-"yolox_s"}   # Supported values: yolo_all, yolox-tiny, yolox_s, yolov7, yolov8s, yolov8n-obb, yolov8n-seg, yolov9c, yolov10s, yolo11s, yolo11s-obb, yolo11s-seg, yolo11s-pose, yolo26n, yolo26s, yolo26m, yolo26l, yolo26x, yolo26s-obb, yolo26s-seg, yolo26s-pose, yolo26s-cls
+MODEL=${1:-"yolo11s"}   # Supported values: yolo_all, yolox-tiny, yolox_s, yolov7, yolov8s, yolov8n-obb, yolov8n-seg, yolov9c, yolov10s, yolo11s, yolo11s-obb, yolo11s-seg, yolo11s-pose, yolo26n, yolo26s, yolo26m, yolo26l, yolo26x, yolo26s-obb, yolo26s-seg, yolo26s-pose, yolo26s-cls
 DEVICE=${2:-"GPU"}      # Supported values: CPU, GPU, NPU
 INPUT=${3:-}
 if [[ -z "$INPUT" ]]; then
