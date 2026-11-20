@@ -40,9 +40,7 @@ MonoDETR is trained on KITTI, so it performs best on genuine KITTI imagery — w
 no reprojection, black borders, or domain-gap depth bias. To run on KITTI instead
 of PandaSet:
 
-1. Download the **KITTI 3D Object Detection** data from the official site (free
-   registration required):
-   <https://www.cvlibs.net/datasets/kitti/eval_object.php?obj_benchmark=3d>.
+1. Download the **KITTI 3D Object Detection** data from the official site.
    Get *"left color images of object data set"* and *"camera calibration matrices
    of object data set"*.
 2. Each image (`image_2/NNNNNN.png`, 1242×375) has a calibration file
@@ -58,10 +56,21 @@ described above unless reprojected as this sample does.
 ## Model
 
 The sample needs a MonoDETR-compatible OpenVINO IR model, which is **not**
-downloaded automatically. Export it with the `convert_monodetr.py` helper in
-[`scripts/download_models`](../../../../scripts/download_models/README.md)
-(dependencies in `requirements_convert_monodetr.txt`), then pass its path as the
-first argument (or place it at `${MODELS_PATH}/public/monodetr/FP16/monodetr.xml`).
+downloaded automatically. To create it:
+
+1. Clone the official MonoDETR repository (the one published with the MonoDETR paper) into a directory
+   outside this repository.
+2. Download the pretrained KITTI checkpoint (`.pth`) listed in that repository's README.
+3. Install the converter dependencies from `requirements_convert_monodetr.txt` in
+   [`scripts/download_models`](../../../../scripts/download_models/README.md).
+4. Run the `convert_monodetr.py` helper from `scripts/download_models`, outside the MonoDETR checkout:
+
+   ```bash
+   python convert_monodetr.py --repo /path/to/MonoDETR --ckpt /path/to/checkpoint.pth --outdir ${MODELS_PATH}/public/monodetr/FP16
+   ```
+
+Then pass the resulting `monodetr.xml` path as the first argument (or leave it at
+`${MODELS_PATH}/public/monodetr/FP16/monodetr.xml`).
 The models used to validate this sample are listed in [Validation](#validation).
 
 ## Run
