@@ -1606,28 +1606,41 @@ void InferenceImpl::PushOutput() {
         }
 
         for (const std::shared_ptr<InferenceFrame> &inference_roi : (*frame).inference_rois) {
-            gint meta_id = 0;
-            if (inference_roi->roi.id >= 0) {
-                GMutexLockGuard guard(&inference_roi->gva_base_inference->meta_mutex);
-                GstAnalyticsRelationMeta *relation_meta = gst_buffer_get_analytics_relation_meta(inference_roi->buffer);
-                if (!relation_meta) {
-                    throw std::runtime_error("Failed to find relation meta");
+            try {
+                gint meta_id = 0;
+                if (inference_roi->roi.id >= 0) {
+                    GMutexLockGuard guard(&inference_roi->gva_base_inference->meta_mutex);
+                    GstAnalyticsRelationMeta *relation_meta =
+                        gst_buffer_get_analytics_relation_meta(inference_roi->buffer);
+                    if (!relation_meta) {
+                        throw std::runtime_error("Failed to find relation meta");
+                    }
+
+                    GstAnalyticsODMtd od_mtd;
+                    if (!gst_analytics_relation_meta_get_od_mtd(relation_meta, inference_roi->roi.id, &od_mtd)) {
+                        throw std::runtime_error("Failed to find od metadata");
+                    }
+
+                    if (!post_processing::sameRegion(&od_mtd, &inference_roi->roi)) {
+                        throw std::runtime_error("Roi and od meta are not the same region");
+                    }
+
+                    get_od_id(od_mtd, &meta_id);
                 }
 
-                GstAnalyticsODMtd od_mtd;
-                if (!gst_analytics_relation_meta_get_od_mtd(relation_meta, inference_roi->roi.id, &od_mtd)) {
-                    throw std::runtime_error("Failed to find od metadata");
+                for (const GstStructure *roi_classification : inference_roi->roi_classifications) {
+                    UpdateClassificationHistory(meta_id, (*frame).filter, roi_classification);
                 }
-
-                if (!post_processing::sameRegion(&od_mtd, &inference_roi->roi)) {
-                    throw std::runtime_error("Roi and od meta are not the same region");
-                }
-
-                get_od_id(od_mtd, &meta_id);
-            }
-
-            for (const GstStructure *roi_classification : inference_roi->roi_classifications) {
-                UpdateClassificationHistory(meta_id, (*frame).filter, roi_classification);
+            } catch (const std::exception &e) {
+                // This runs in the inference completion callback, where exceptions are only logged. A frame that is
+                // left at the head of output_frames blocks every later frame of every stream sharing the model
+                // instance (frames leave in order), and each of them pins its decoded surface: under multi-stream
+                // load this ends in a host OOM within minutes (issue #1240). Deliver the frame without the
+                // classification history update for this region instead.
+                GVA_ERROR("Element '%s': region %d of frame %" GST_TIME_FORMAT
+                          " is delivered without classification history update: %s",
+                          GST_ELEMENT_NAME((*frame).filter), inference_roi->roi.id,
+                          GST_TIME_ARGS(GST_BUFFER_PTS((*frame).buffer)), e.what());
             }
         }
 
