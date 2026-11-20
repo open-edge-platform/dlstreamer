@@ -63,11 +63,12 @@ class ImageInferenceAsync : public ImageInference {
 
     ImageInference::Ptr _inference;
 
-    std::unique_ptr<ThreadPool> _thread_pool;
-
-    // The first error of a SubmitInference task, which runs on a worker thread, kept for RethrowSubmitError.
+    // The first error of a SubmitInference task, which runs on a worker thread, kept for RethrowSubmitError. Declared
+    // before _thread_pool so that they outlive it: its destructor waits for the running tasks, which may set them.
     std::exception_ptr _submit_error;
     std::mutex _submit_error_mutex;
+
+    std::unique_ptr<ThreadPool> _thread_pool;
 
     void SubmitInference(VaApiImage *va_api_image, IFrameBase::Ptr frame,
                          const std::map<std::string, InputLayerDesc::Ptr> &input_preprocessors);
