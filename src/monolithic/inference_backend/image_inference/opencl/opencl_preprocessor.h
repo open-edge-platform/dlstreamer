@@ -8,7 +8,8 @@
 //
 // One OpenCL kernel does the color conversion, crop, resize and padding of a frame or ROI and writes the result
 // straight into the model input, u8 NCHW in the model's channel order: OpenVINO™ pre-processing only converts the
-// precision and applies mean/scale. The frames may be VA surfaces or DMA-BUFs (Linux), D3D11 textures (Windows) or
+// precision and applies mean/scale. YUV frames are converted with the color matrix and range of their caps
+// (Image::colorimetry). The frames may be VA surfaces or DMA-BUFs (Linux), D3D11 textures (Windows) or
 // system memory; the inference device may be any:
 //   - GPU inference, frames on that GPU (or in system memory): the kernel runs in OpenVINO™'s OpenCL context and
 //     writes into device memory that the infer request reads in place;
@@ -51,6 +52,7 @@ struct OpenclBatch {
     OpenclSourcePlanesPtr group_planes;          // frame of the entries not launched yet
     uint32_t group_frame_width = 0;
     uint32_t group_frame_height = 0;
+    YuvColorimetry group_colorimetry;            // of that frame, with the default for its size filled in
     std::vector<OpenclSourcePlanesPtr> launched; // frames read by the launched kernels, kept until they completed
 };
 

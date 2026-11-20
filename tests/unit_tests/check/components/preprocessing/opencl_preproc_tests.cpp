@@ -140,9 +140,18 @@ uint8_t Sat(double v) {
     return static_cast<uint8_t>(std::clamp(std::lround(v), 0l, 255l));
 }
 
+// The published YUV -> RGB coefficients of some color matrices, independent of how the backend derives them from Kr
+// and Kb: R = y_scale (Y - y_offset) + r_v (V - 128), G = ... + g_u (U - 128) + g_v (V - 128), B = ... + b_u (U - 128).
+struct YuvCoefficients {
+    double y_scale, y_offset, r_v, g_u, g_v, b_u;
+};
+const YuvCoefficients kBt601Limited = {1.164383, 16, 1.596027, -0.391762, -0.812968, 2.017232};
+const YuvCoefficients kBt709Limited = {1.164383, 16, 1.792741, -0.213249, -0.532909, 2.112402};
+const YuvCoefficients kBt601Full = {1, 0, 1.402, -0.344136, -0.714136, 1.772};
+
 // Planar BGR model input (3 x h x w) of `rect` of a BGR or NV12 frame, stretched.
 std::vector<uint8_t> Reference(const cv::Mat &bgr, const cv::Mat &y_plane, const cv::Mat &uv_plane, cv::Rect rect,
-                               int w, int h) {
+                               int w, int h, const YuvCoefficients &yuv = kBt601Limited) {
     std::vector<uint8_t> out(3 * w * h);
     for (int j = 0; j < h; j++) {
         for (int i = 0; i < w; i++) {
@@ -153,12 +162,12 @@ std::vector<uint8_t> Reference(const cv::Mat &bgr, const cv::Mat &y_plane, const
                 g = Bilinear(bgr, 1, px, py);
                 r = Bilinear(bgr, 2, px, py);
             } else {
-                const double c = Bilinear(y_plane, 0, px, py) - 16;
-                const double d = Bilinear(uv_plane, 0, px / 2, py / 2) - 128;
-                const double e = Bilinear(uv_plane, 1, px / 2, py / 2) - 128;
-                r = 1.164 * c + 1.596 * e;
-                g = 1.164 * c - 0.391 * d - 0.813 * e;
-                b = 1.164 * c + 2.018 * d;
+                const double luma = yuv.y_scale * (Bilinear(y_plane, 0, px, py) - yuv.y_offset);
+                const double u = Bilinear(uv_plane, 0, px / 2, py / 2) - 128;
+                const double v = Bilinear(uv_plane, 1, px / 2, py / 2) - 128;
+                r = luma + yuv.r_v * v;
+                g = luma + yuv.g_u * u + yuv.g_v * v;
+                b = luma + yuv.b_u * u;
             }
             out[j * w + i] = Sat(b);
             out[w * h + j * w + i] = Sat(g);
@@ -176,6 +185,29 @@ cv::Mat TestFrame(int width, int height, int seed) {
     cv::Mat frame;
     cv::resize(small, frame, cv::Size(width, height), 0, 0, cv::INTER_CUBIC);
     return frame;
+}
+
+// A system memory NV12 frame of `bgr` (height a multiple of 4), in `y_plane` and `uv_plane` (interleaved, half
+// resolution), which must outlive it. No colorimetry: the default for the frame size applies.
+ImagePtr Nv12Image(const cv::Mat &bgr, cv::Mat &y_plane, cv::Mat &uv_plane) {
+    cv::Mat i420;
+    cv::cvtColor(bgr, i420, cv::COLOR_BGR2YUV_I420);
+    const int h = bgr.rows, chroma_h = bgr.rows / 2;
+    y_plane = i420.rowRange(0, h).clone();
+    const cv::Mat u = i420.rowRange(h, h + chroma_h / 2).reshape(1, chroma_h);
+    const cv::Mat v = i420.rowRange(h + chroma_h / 2, h + chroma_h).reshape(1, chroma_h);
+    cv::merge(std::vector<cv::Mat>{u, v}, uv_plane);
+
+    auto image = std::make_shared<Image>();
+    image->type = MemoryType::SYSTEM;
+    image->format = FOURCC_NV12;
+    image->width = bgr.cols;
+    image->height = bgr.rows;
+    image->planes[0] = y_plane.data;
+    image->planes[1] = uv_plane.data;
+    image->stride[0] = static_cast<uint32_t>(y_plane.step);
+    image->stride[1] = static_cast<uint32_t>(uv_plane.step);
+    return image;
 }
 
 bool HaveIntelGpu() {
@@ -218,13 +250,8 @@ TEST_F(OpenclPreprocessorTest, BgrAndNv12FramesInOneBatch) {
     constexpr int W = 64, H = 48;
     const cv::Mat bgr = TestFrame(640, 360, 1);
     const cv::Mat bgr2 = TestFrame(640, 360, 2);
-    // NV12 of the second frame: Y plane, then interleaved UV at half resolution.
-    cv::Mat i420;
-    cv::cvtColor(bgr2, i420, cv::COLOR_BGR2YUV_I420);
-    const cv::Mat y_plane = i420.rowRange(0, 360).clone();
-    cv::Mat u = i420.rowRange(360, 450).reshape(1, 180), v = i420.rowRange(450, 540).reshape(1, 180);
-    cv::Mat uv_plane;
-    cv::merge(std::vector<cv::Mat>{u, v}, uv_plane);
+    cv::Mat y_plane, uv_plane;
+    const ImagePtr nv12_image = Nv12Image(bgr2, y_plane, uv_plane);
 
     auto bgr_image = std::make_shared<Image>();
     bgr_image->type = MemoryType::SYSTEM;
@@ -233,16 +260,6 @@ TEST_F(OpenclPreprocessorTest, BgrAndNv12FramesInOneBatch) {
     bgr_image->height = bgr.rows;
     bgr_image->planes[0] = const_cast<uint8_t *>(bgr.data);
     bgr_image->stride[0] = static_cast<uint32_t>(bgr.step);
-
-    auto nv12_image = std::make_shared<Image>();
-    nv12_image->type = MemoryType::SYSTEM;
-    nv12_image->format = FOURCC_NV12;
-    nv12_image->width = bgr2.cols;
-    nv12_image->height = bgr2.rows;
-    nv12_image->planes[0] = const_cast<uint8_t *>(y_plane.data);
-    nv12_image->planes[1] = uv_plane.data;
-    nv12_image->stride[0] = static_cast<uint32_t>(y_plane.step);
-    nv12_image->stride[1] = static_cast<uint32_t>(uv_plane.step);
 
     // Two ROIs of the BGR frame (one launch), then two of the NV12 frame, one of them half out of the frame.
     std::vector<Roi> rois = {{bgr_image, {10, 20, 100, 200}, {}},
@@ -268,14 +285,47 @@ TEST_F(OpenclPreprocessorTest, BgrAndNv12FramesInOneBatch) {
 
     for (int pass = 0; pass < 2; pass++) { // the batch is reused, as an infer request is
         for (size_t i = 0; i < rois.size(); i++) {
-            rois[i].frame->rect =
-                Rectangle<uint32_t>(rois[i].rect.x, rois[i].rect.y, rois[i].rect.width, rois[i].rect.height);
+            // Qualified: on Windows, wingdi.h declares a Rectangle() function too.
+            rois[i].frame->rect = InferenceBackend::Rectangle<uint32_t>(rois[i].rect.x, rois[i].rect.y,
+                                                                        rois[i].rect.width, rois[i].rect.height);
             preproc.Add(batch, i, rois[i].frame, nullptr, nullptr);
         }
         preproc.Finish(batch);
         const auto *out = static_cast<const uint8_t *>(batch.host_memory);
         for (size_t i = 0; i < rois.size(); i++)
             ExpectClose(out + i * 3 * W * H, rois[i].expected, "ROI " + std::to_string(i));
+    }
+}
+
+TEST_F(OpenclPreprocessorTest, Nv12FramesAreConvertedWithTheirColorimetry) {
+    constexpr int W = 64, H = 48;
+    const cv::Mat sd = TestFrame(640, 360, 4);
+    const cv::Mat hd = TestFrame(1280, 720, 5);
+    cv::Mat y_planes[3], uv_planes[3];
+    // In one batch: BT.709 and BT.601 full range, as the caps can give them, and no colorimetry on a frame of 720
+    // lines, which makes it BT.709.
+    const std::vector<ImagePtr> frames = {Nv12Image(sd, y_planes[0], uv_planes[0]),
+                                          Nv12Image(sd, y_planes[1], uv_planes[1]),
+                                          Nv12Image(hd, y_planes[2], uv_planes[2])};
+    frames[0]->colorimetry = {YuvColorimetry::Matrix::BT709, false};
+    frames[1]->colorimetry = {YuvColorimetry::Matrix::BT601, true};
+    const YuvCoefficients *expected[3] = {&kBt709Limited, &kBt601Full, &kBt709Limited};
+
+    OpenclPreprocessor::Settings settings;
+    settings.width = W;
+    settings.height = H;
+    settings.batch_size = frames.size();
+    OpenclPreprocessor preproc(nullptr, nullptr, settings);
+    OpenclBatch &batch = preproc.CreateBatch();
+    for (size_t i = 0; i < frames.size(); i++)
+        preproc.Add(batch, i, frames[i], nullptr, nullptr);
+    preproc.Finish(batch);
+
+    const auto *out = static_cast<const uint8_t *>(batch.host_memory);
+    for (size_t i = 0; i < frames.size(); i++) {
+        const cv::Rect whole(0, 0, static_cast<int>(frames[i]->width), static_cast<int>(frames[i]->height));
+        ExpectClose(out + i * 3 * W * H, Reference({}, y_planes[i], uv_planes[i], whole, W, H, *expected[i]),
+                    "frame " + std::to_string(i));
     }
 }
 

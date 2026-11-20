@@ -154,9 +154,11 @@ precision and applies the mean and scale values.
   with the same rounding. Unlike them, `aspect-ratio-pad` keeps the aspect
   ratio and places the image at the top-left corner, as `opencv` does.
 - **Sampling and color**: bilinear sampling at pixel centers, without
-  anti-aliasing for large downscales (as `cv::resize` with `INTER_LINEAR`), and
-  BT.601 limited-range color conversion for YUV frames, with the coefficients of
-  OpenVINO™'s NV12 conversion.
+  anti-aliasing for large downscales (as `cv::resize` with `INTER_LINEAR`). YUV
+  frames are converted to RGB with the color matrix and range of the
+  `colorimetry` in their caps. If the caps don't specify it, GStreamer's default
+  for the frame size applies: BT.601 up to 576 lines, BT.709 above, and BT.2020
+  from 2160 lines, all limited range.
 
 The backend is never selected automatically. If it is not supported with the
 current settings (for example, with `custom-preproc-lib`, an
