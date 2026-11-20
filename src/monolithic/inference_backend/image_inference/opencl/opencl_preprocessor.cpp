@@ -83,6 +83,9 @@ struct OpenclPreprocessor::Impl {
     Settings settings;
     dlstreamer::ContextPtr app_context;
     bool on_device = false;
+    // Outputs in host memory written through device memory: on a discrete GPU the host memory is across PCIe, where
+    // the kernels' byte writes are slow (100 ms for a 640x640 input on Arc B60), unlike one transfer.
+    bool stage_on_device = false;
 
     cl_context context = nullptr;
     cl_device_id device = nullptr;
@@ -138,11 +141,17 @@ struct OpenclPreprocessor::Impl {
             if (!host_mem_alloc || !mem_free || !set_arg_mem_pointer)
                 throw std::runtime_error("OpenCL pre-processing: cl_intel_unified_shared_memory is not available, "
                                          "needed for inference on a device other than the GPU of the frames");
+            cl_bool unified_memory = CL_TRUE;
+            clGetDeviceInfo(device, CL_DEVICE_HOST_UNIFIED_MEMORY, sizeof(unified_memory), &unified_memory, nullptr);
+            stage_on_device = !unified_memory;
         }
 
         GVA_INFO("OpenCL pre-processing on '%s': %ux%u planar %s, batch %zu, into %s",
                  opencl::DeviceName(device).c_str(), settings.width, settings.height, settings.rgb ? "RGB" : "BGR",
-                 settings.batch_size, on_device ? "device memory of the inference context" : "host memory");
+                 settings.batch_size,
+                 on_device         ? "device memory of the inference context"
+                 : stage_on_device ? "host memory, through device memory"
+                                   : "host memory");
     }
 
     ~Impl() {
@@ -209,10 +218,11 @@ struct OpenclPreprocessor::Impl {
         auto batch = std::make_unique<OpenclBatch>();
         try {
             cl_int err = CL_SUCCESS;
-            if (on_device) {
+            if (on_device || stage_on_device) {
                 batch->device_memory = clCreateBuffer(context, CL_MEM_READ_WRITE, OutputSize(), nullptr, &err);
                 opencl::Check(err, "clCreateBuffer");
-            } else {
+            }
+            if (!on_device) {
                 batch->host_memory = host_mem_alloc(context, nullptr, OutputSize(), 4096, &err);
                 opencl::Check(err == CL_SUCCESS && !batch->host_memory ? CL_OUT_OF_HOST_MEMORY : err,
                               "clHostMemAllocINTEL");
@@ -328,7 +338,7 @@ struct OpenclPreprocessor::Impl {
     }
 
     void SetDstArg(cl_kernel kernel, cl_uint arg, const OpenclBatch &batch) {
-        if (on_device)
+        if (batch.device_memory)
             opencl::Check(clSetKernelArg(kernel, arg, sizeof(cl_mem), &batch.device_memory), "clSetKernelArg");
         else
             opencl::Check(set_arg_mem_pointer(kernel, arg, batch.host_memory), "clSetKernelArgMemPointerINTEL");
@@ -406,6 +416,19 @@ struct OpenclPreprocessor::Impl {
         batch.group_first = batch.num_rois;
     }
 
+    // Copies the batch elements written so far from the device memory to the host memory.
+    void CopyToHost(const OpenclBatch &batch) {
+        size_t elements = 0;
+        for (size_t i = 0; i < batch.num_rois; ++i)
+            elements = (std::max)(elements, static_cast<size_t>(batch.rois[i].index) + 1);
+        if (elements == 0)
+            return;
+        const size_t element_size = 3 * static_cast<size_t>(settings.width) * settings.height;
+        opencl::Check(clEnqueueReadBuffer(queue, batch.device_memory, CL_FALSE, 0, elements * element_size,
+                                          batch.host_memory, 0, nullptr, nullptr),
+                      "clEnqueueReadBuffer");
+    }
+
     void Finish(OpenclBatch &batch) {
         auto reset = [&batch]() {
             batch.group_planes.reset();
@@ -415,6 +438,8 @@ struct OpenclPreprocessor::Impl {
         };
         try {
             Launch(batch);
+            if (!on_device && batch.device_memory)
+                CopyToHost(batch);
             opencl::Check(clFinish(queue), "clFinish");
         } catch (...) {
             clFinish(queue);

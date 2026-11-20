@@ -142,8 +142,9 @@ precision and applies the mean and scale values.
 - **Inference device**: any. With a GPU device, the kernel runs in OpenVINO™'s
   OpenCL context and writes the model input to GPU memory, which the inference
   reads in place. With another device (CPU, NPU, AUTO, ...), the kernel runs on
-  the GPU the frames are on and writes the model input to host memory. GPU
-  frames are therefore accepted with `device=CPU` too.
+  the GPU the frames are on and writes the model input to host memory; on a
+  discrete GPU it writes GPU memory, copied to host memory in one transfer per
+  batch. GPU frames are therefore accepted with `device=CPU` too.
 - **Batches**: the infer request of a batch has one model input, written by
   the kernels. The ROIs of a frame are pre-processed by one kernel launch, so
   `batch-size` greater than 1 also reduces the number of launches in pipelines
