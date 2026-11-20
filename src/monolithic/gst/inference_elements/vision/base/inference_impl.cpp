@@ -387,6 +387,7 @@ bool IsInputSupportedForOpencl(CapsFeature caps, GstVideoInfo *input_video_info)
         return format == GST_VIDEO_FORMAT_NV12;
 #else
     case D3D11_MEMORY_CAPS_FEATURE:
+    case D3D12_MEMORY_CAPS_FEATURE: // read through D3D11 views of copies
         return format == GST_VIDEO_FORMAT_NV12 || format == GST_VIDEO_FORMAT_BGRA || format == GST_VIDEO_FORMAT_RGBA ||
                format == GST_VIDEO_FORMAT_BGRx;
 #endif
@@ -1134,14 +1135,18 @@ dlstreamer::ContextPtr createD3D12Display(GvaBaseInference *gva_base_inference) 
 // device of its own on another adapter, convert on the frames' device into system memory instead.
 void avoidCrossAdapterSurfaceSharing(GvaBaseInference *gva_base_inference, InferenceConfig &ie_config) {
     const auto preproc = static_cast<ImagePreprocessorType>(std::stoi(ie_config[KEY_BASE][KEY_PRE_PROCESSOR_TYPE]));
-    const bool is_d3d12 = preproc == ImagePreprocessorType::D3D12_SURFACE_SHARING;
-    // The OpenCL pre-processing imports the D3D11 frames into OpenVINO's OpenCL context too, if the device is a GPU.
+    bool is_d3d12 = preproc == ImagePreprocessorType::D3D12_SURFACE_SHARING;
+    // The OpenCL pre-processing imports the D3D frames into OpenVINO's OpenCL context too, if the device is a GPU.
     const bool is_opencl = preproc == ImagePreprocessorType::OPENCL;
     if (!is_d3d12 && preproc != ImagePreprocessorType::D3D11_SURFACE_SHARING && !is_opencl)
         return;
-    if (is_opencl &&
-        GetMemoryType(static_cast<CapsFeature>(std::stoi(ie_config[KEY_BASE][KEY_CAPS_FEATURE]))) != MemoryType::D3D11)
-        return;
+    if (is_opencl) {
+        const MemoryType frames =
+            GetMemoryType(static_cast<CapsFeature>(std::stoi(ie_config[KEY_BASE][KEY_CAPS_FEATURE])));
+        if (frames != MemoryType::D3D11 && frames != MemoryType::D3D12)
+            return;
+        is_d3d12 = frames == MemoryType::D3D12;
+    }
     const auto &upstream = is_d3d12 ? gva_base_inference->priv->d3d12_device : gva_base_inference->priv->d3d11_device;
     if (!upstream ||
         (is_d3d12 ? canReuseSharedD3D12Ctx(gva_base_inference) : canReuseSharedD3D11Ctx(gva_base_inference)))

@@ -8,6 +8,8 @@
 
 #include "dlstreamer/d3d11/context.h"
 #include "dlstreamer/d3d11/device_lock.h"
+#include "dlstreamer/d3d12/d3d11_device.h"
+#include "dlstreamer/d3d12/target_pool.h"
 #include "safe_arithmetic.hpp"
 
 #include <stdexcept>
@@ -18,6 +20,26 @@
 using dlstreamer::D3D11DeviceLock;
 
 namespace InferenceBackend {
+
+namespace {
+
+// The video format of a frame in a texture of `format`, for copying it.
+GstVideoFormat VideoFormatOf(DXGI_FORMAT format) {
+    switch (format) {
+    case DXGI_FORMAT_NV12:
+        return GST_VIDEO_FORMAT_NV12;
+    case DXGI_FORMAT_B8G8R8A8_UNORM:
+        return GST_VIDEO_FORMAT_BGRA;
+    case DXGI_FORMAT_R8G8B8A8_UNORM:
+        return GST_VIDEO_FORMAT_RGBA;
+    case DXGI_FORMAT_B8G8R8X8_UNORM:
+        return GST_VIDEO_FORMAT_BGRx;
+    default:
+        return GST_VIDEO_FORMAT_UNKNOWN;
+    }
+}
+
+} // namespace
 
 // Event queries, recycled: one is ended after each frame copy.
 struct ImageInferenceAsyncOpenCL::QueryPool {
@@ -48,16 +70,18 @@ struct ImageInferenceAsyncOpenCL::QueryPool {
 };
 
 // A frame in a texture OpenCL can read: a pooled shared copy of the frame, or the frame's own texture when that is a
-// single shared one already.
+// single shared one already. For a D3D12 frame, the D3D11 view of a pooled D3D12 copy.
 struct ImageInferenceAsyncOpenCL::StagingFrame {
     // The frame's memory, referenced so that the decoder can't recycle the surface while the copy is around, which
     // makes the memory a key for the copy.
     GstMemory *source = nullptr;
     GstMemory *staging = nullptr;
     ID3D11Texture2D *texture = nullptr;
-    // Ended after the D3D11 work on `texture`.
+    // D3D11 frames: ended after the D3D11 work on `texture`.
     Microsoft::WRL::ComPtr<ID3D11Query> written;
     std::shared_ptr<QueryPool> query_pool;
+    // D3D12 frames: `staging` is a GstD3D12Memory, whose fence is the copy.
+    bool d3d12 = false;
     // The worker has seen the copy complete. Only touched by the worker thread.
     bool ready = false;
 
@@ -75,6 +99,21 @@ struct ImageInferenceAsyncOpenCL::StagingFrame {
     }
 };
 
+dlstreamer::ContextPtr ImageInferenceAsyncOpenCL::D3D11ContextFor(const dlstreamer::ContextPtr &frames_context) {
+    if (!frames_context || frames_context->handle(dlstreamer::BaseContext::key::d3d11_device))
+        return frames_context;
+    auto *d3d12_device =
+        static_cast<GstD3D12Device *>(frames_context->handle(dlstreamer::BaseContext::key::d3d12_device));
+    if (!d3d12_device)
+        throw std::invalid_argument("OpenCL pre-processing: the context has no D3D11 or D3D12 device");
+    GstD3D11Device *d3d11_device = dlstreamer::d3d11_device_for(d3d12_device);
+    if (!d3d11_device)
+        throw std::runtime_error("OpenCL pre-processing: cannot create a D3D11 device on the adapter of the D3D12 "
+                                 "frames, through which OpenCL reads them");
+    // Not owned: the device is kept for the process.
+    return std::make_shared<dlstreamer::D3D11Context>(d3d11_device);
+}
+
 ImageInferenceAsyncOpenCL::ImageInferenceAsyncOpenCL(const InferenceConfig &, dlstreamer::ContextPtr d3d11_context,
                                                      ImageInference::Ptr inference, ErrorHandlingFunc error_handler)
     : _device_context_storage(d3d11_context), _inference(std::move(inference)),
@@ -84,6 +123,7 @@ ImageInferenceAsyncOpenCL::ImageInferenceAsyncOpenCL(const InferenceConfig &, dl
     _gst_device = static_cast<GstD3D11Device *>(d3d11_context->handle(dlstreamer::D3D11Context::key::d3d11_device));
     if (!_gst_device)
         throw std::invalid_argument("OpenCL pre-processing: the context has no D3D11 device");
+    g_object_get(_gst_device, "adapter-luid", &_adapter_luid, nullptr);
 
     _submit_queue_max = safe_mul(_inference->GetBatchSize(), _inference->GetNireq());
     if (_submit_queue_max == 0)
@@ -122,6 +162,8 @@ ImageInferenceAsyncOpenCL::~ImageInferenceAsyncOpenCL() {
     }
     _inference.reset();
     DropStagingPool();
+    _d3d12_pools.clear();
+    gst_clear_object(&_d3d12_device_checked);
     if (_fence_event)
         CloseHandle(_fence_event);
 }
@@ -232,9 +274,75 @@ ImageInferenceAsyncOpenCL::GetStagingFrame(const Image &src_image) {
     return frame;
 }
 
+std::shared_ptr<ImageInferenceAsyncOpenCL::StagingFrame>
+ImageInferenceAsyncOpenCL::GetD3D12StagingFrame(const Image &src_image) {
+    auto *src_mem = static_cast<GstMemory *>(src_image.gst_d3d12_memory);
+    if (!src_mem || !gst_is_d3d12_memory(src_mem))
+        throw std::invalid_argument("OpenCL pre-processing: the frame has no GstD3D12Memory");
+    auto *src_dmem = GST_D3D12_MEMORY_CAST(src_mem);
+
+    std::lock_guard<std::mutex> lock(_staging_mutex);
+    // The ROIs of a frame come one after another, and share its copy.
+    if (auto last = _last_staging.lock(); last && last->source == src_mem)
+        return last;
+
+    // The copy is opened on the D3D11 device of the inference, which must be on the frame's adapter.
+    if (src_dmem->device != _d3d12_device_checked) {
+        gint64 luid = 0;
+        g_object_get(src_dmem->device, "adapter-luid", &luid, nullptr);
+        if (luid != _adapter_luid)
+            throw std::runtime_error("OpenCL pre-processing: D3D12 frames on another adapter than the inference "
+                                     "device are not supported");
+        gst_object_replace(reinterpret_cast<GstObject **>(&_d3d12_device_checked), GST_OBJECT(src_dmem->device));
+    }
+
+    ID3D12Resource *resource = gst_d3d12_memory_get_resource_handle(src_dmem);
+    if (!resource)
+        throw std::runtime_error("OpenCL pre-processing: the frame has no D3D12 resource");
+    const D3D12_RESOURCE_DESC desc = resource->GetDesc();
+    const GstVideoFormat format = VideoFormatOf(desc.Format);
+    if (format == GST_VIDEO_FORMAT_UNKNOWN)
+        throw std::invalid_argument("OpenCL pre-processing: unsupported D3D12 texture format " +
+                                    std::to_string(desc.Format));
+    // The frame, which may be smaller than its texture (decoders align the texture size).
+    GstVideoInfo info;
+    if (!gst_video_info_set_format(&info, format, src_image.width, src_image.height))
+        throw std::invalid_argument("OpenCL pre-processing: invalid D3D12 frame size");
+
+    auto &pool = _d3d12_pools[{desc.Width, desc.Height, desc.Format}];
+    if (!pool) {
+        pool = std::make_unique<dlstreamer::D3D12TargetPool>(GST_CAT_DEFAULT);
+        GVA_INFO("OpenCL pre-processing: shareable copies of %llux%u D3D12 textures of format %u",
+                 static_cast<unsigned long long>(desc.Width), desc.Height, desc.Format);
+    }
+
+    auto frame = std::make_shared<StagingFrame>();
+    frame->source = gst_memory_ref(src_mem);
+    frame->d3d12 = true;
+    // Queued on the D3D12 device. The worker waits for it.
+    frame->staging = pool->copy(src_mem, &info);
+    if (!frame->staging)
+        throw std::runtime_error("OpenCL pre-processing: failed to copy the D3D12 frame into a shareable texture");
+    // Opened once per pooled texture: the memory keeps the view.
+    frame->texture = gst_d3d12_memory_get_d3d11_texture(GST_D3D12_MEMORY_CAST(frame->staging),
+                                                        gst_d3d11_device_get_device_handle(_gst_device));
+    if (!frame->texture)
+        throw std::runtime_error("OpenCL pre-processing: failed to open the D3D12 copy of the frame in D3D11");
+
+    _last_staging = frame;
+    return frame;
+}
+
 void ImageInferenceAsyncOpenCL::WaitForStaging(StagingFrame &frame) {
     if (frame.ready)
         return;
+    if (frame.d3d12) {
+        // OpenCL sees no D3D12 fences.
+        if (!gst_d3d12_memory_sync(GST_D3D12_MEMORY_CAST(frame.staging)))
+            throw std::runtime_error("OpenCL pre-processing: waiting for the D3D12 copy failed");
+        frame.ready = true;
+        return;
+    }
     uint64_t value = 0;
     {
         D3D11DeviceLock lock(_gst_device);
@@ -296,25 +404,26 @@ void ImageInferenceAsyncOpenCL::SubmitImage(IFrameBase::Ptr frame,
     if (!frame)
         throw std::invalid_argument("OpenCL pre-processing: null frame");
     const ImagePtr src = frame->GetImage();
-    if (!src || src->type != MemoryType::D3D11)
-        throw std::invalid_argument("OpenCL pre-processing: expected a D3D11 frame");
+    if (!src || (src->type != MemoryType::D3D11 && src->type != MemoryType::D3D12))
+        throw std::invalid_argument("OpenCL pre-processing: expected a D3D11 or D3D12 frame");
 
     std::shared_ptr<StagingFrame> staging;
     try {
-        staging = GetStagingFrame(*src);
+        staging = src->type == MemoryType::D3D12 ? GetD3D12StagingFrame(*src) : GetStagingFrame(*src);
     } catch (const std::exception &e) {
         GVA_ERROR("OpenCL pre-processing: staging the frame failed: %s", e.what());
         std::throw_with_nested(std::runtime_error("Unable to pre-process image using OpenCL"));
     }
 
     // The frame as the pre-processing reads it: the staging texture, with the ROI of this frame (the source image is
-    // shared by the ROIs of the frame and its rect changes per ROI). The texture is not reused while the image is
-    // alive.
+    // shared by the ROIs of the frame and its rect changes per ROI), as a D3D11 frame also for a D3D12 one. The
+    // texture is not reused while the image is alive.
     auto staged = std::shared_ptr<Image>(new Image(*src), [staging](Image *image) { delete image; });
+    staged->type = MemoryType::D3D11;
     staged->d3d11_texture = staging->texture;
     staged->d3d11_subresource_index = 0;
     staged->gst_d3d11_device = _gst_device;
-    staged->gst_d3d11_memory = staging->staging ? staging->staging : staging->source;
+    staged->gst_d3d11_memory = staging->d3d12 ? nullptr : (staging->staging ? staging->staging : staging->source);
     staged->create_cl_buffer = nullptr;
     frame->SetImage(staged);
 

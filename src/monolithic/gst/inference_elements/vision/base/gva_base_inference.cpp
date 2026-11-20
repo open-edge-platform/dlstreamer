@@ -198,18 +198,18 @@ static GstCaps *gva_base_inference_transform_caps(GstBaseTransform *trans, GstPa
     GstCaps *result =
         GST_BASE_TRANSFORM_CLASS(gva_base_inference_parent_class)->transform_caps(trans, direction, caps, filter);
 
-    // If device is CPU, filter out memory:VASurface, memory:VAMemory, memory:DMABuf, except for 'opencl', which
-    // pre-processes GPU frames on the GPU for any device
+    // If device is CPU, filter out memory:VASurface, memory:VAMemory, memory:DMABuf, memory:D3D11Memory and
+    // memory:D3D12Memory, except for 'opencl', which pre-processes GPU frames on the GPU for any device
     const bool gpu_frames_for_any_device = gva_base_inference_takes_gpu_frames_for_any_device(base_inference);
     if (base_inference->device && g_strcmp0(base_inference->device, "CPU") == 0) {
         GstCaps *filtered = gst_caps_copy(result);
         for (gint i = gst_caps_get_size(filtered) - 1; i >= 0; --i) {
             GstCapsFeatures *features = gst_caps_get_features(filtered, i);
-            if ((!gpu_frames_for_any_device && (gst_caps_features_contains(features, "memory:VASurface") ||
-                                                gst_caps_features_contains(features, "memory:VAMemory") ||
-                                                gst_caps_features_contains(features, "memory:DMABuf") ||
-                                                gst_caps_features_contains(features, "memory:D3D11Memory"))) ||
-                (gst_caps_features_contains(features, "memory:D3D12Memory"))) {
+            if (!gpu_frames_for_any_device && (gst_caps_features_contains(features, "memory:VASurface") ||
+                                               gst_caps_features_contains(features, "memory:VAMemory") ||
+                                               gst_caps_features_contains(features, "memory:DMABuf") ||
+                                               gst_caps_features_contains(features, "memory:D3D11Memory") ||
+                                               gst_caps_features_contains(features, "memory:D3D12Memory"))) {
                 gst_caps_remove_structure(filtered, i);
                 GST_WARNING("Filtered out structure %d from caps, it contains unsupported memory type", i);
             }
@@ -223,12 +223,12 @@ static GstCaps *gva_base_inference_transform_caps(GstBaseTransform *trans, GstPa
     // (through an extra GPU copy) otherwise. With auto-selection both are offered, so the
     // decoder picks D3D12Memory when the whole downstream chain supports it. An explicit
     // backend keeps only its own D3D memory type, none for 'opencv' or 'ie', so the
-    // negotiated caps always match it.
+    // negotiated caps always match it. 'opencl' reads both, D3D12 frames through D3D11
+    // views of copies, which saves the decoder's copy into D3D11Memory.
     const gchar *pp = base_inference->pre_proc_type;
     if (pp && *pp) {
-        // 'opencl' imports D3D11 textures into OpenCL; D3D12 resources can't be.
         const bool keep_d3d11 = g_str_has_prefix(pp, "d3d11") || g_str_equal(pp, "opencl");
-        const bool keep_d3d12 = g_str_has_prefix(pp, "d3d12");
+        const bool keep_d3d12 = g_str_has_prefix(pp, "d3d12") || g_str_equal(pp, "opencl");
         GstCaps *filtered = gst_caps_copy(result);
         for (gint i = gst_caps_get_size(filtered) - 1; i >= 0; --i) {
             GstCapsFeatures *features = gst_caps_get_features(filtered, i);
@@ -1441,13 +1441,13 @@ gboolean gva_base_inference_set_caps(GstBaseTransform *trans, GstCaps *incaps, G
 
     // Check if the caps are compatible with the device
     const GstCapsFeatures *in_features = gst_caps_get_features(incaps, 0);
-    if ((base_inference->device && g_strcmp0(base_inference->device, "CPU") == 0 &&
-         ((!gva_base_inference_takes_gpu_frames_for_any_device(base_inference) &&
-           (gst_caps_features_contains(in_features, "memory:VASurface") ||
-            gst_caps_features_contains(in_features, "memory:VAMemory") ||
-            gst_caps_features_contains(in_features, "memory:DMABuf") ||
-            gst_caps_features_contains(in_features, "memory:D3D11Memory"))) ||
-          (gst_caps_features_contains(in_features, "memory:D3D12Memory"))))) {
+    if (base_inference->device && g_strcmp0(base_inference->device, "CPU") == 0 &&
+        !gva_base_inference_takes_gpu_frames_for_any_device(base_inference) &&
+        (gst_caps_features_contains(in_features, "memory:VASurface") ||
+         gst_caps_features_contains(in_features, "memory:VAMemory") ||
+         gst_caps_features_contains(in_features, "memory:DMABuf") ||
+         gst_caps_features_contains(in_features, "memory:D3D11Memory") ||
+         gst_caps_features_contains(in_features, "memory:D3D12Memory"))) {
         GST_ELEMENT_WARNING(base_inference, RESOURCE, SETTINGS,
                             ("Refusing caps other than SYSTEM_MEMORY_CAPS because device is set to CPU"),
                             ("Set device property to a hardware accelerator (e.g., GPU) to enable VA memory types."));
