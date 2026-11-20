@@ -259,14 +259,11 @@ void VaApiImagePool::ReleaseBuffer(VaApiImage *image) {
     if (!image)
         throw std::runtime_error("Received VA-API image is null");
 
-    image->completed = true;
-    _free_image_condition_variable.notify_one();
-}
-
-void VaApiImagePool::Flush() {
-    std::unique_lock<std::mutex> lock(_free_images_mutex);
-    for (auto &image : _images) {
-        if (!image->completed)
-            image->sync.wait();
+    {
+        // Under the mutex: a release between AcquireBuffer's check and its wait would otherwise notify nobody, and
+        // AcquireBuffer would sleep with a free image in the pool.
+        std::lock_guard<std::mutex> lock(_free_images_mutex);
+        image->completed = true;
     }
+    _free_image_condition_variable.notify_one();
 }

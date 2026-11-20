@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -14,7 +14,9 @@
 #include "inference_backend/logger.h"
 #include "inference_backend/pre_proc.h"
 
+#include <condition_variable>
 #include <map>
+#include <mutex>
 
 namespace InferenceBackend {
 
@@ -60,6 +62,12 @@ class ImageInferenceAsync : public ImageInference {
     std::shared_ptr<VaApiImagePool> _va_image_pool;
 
     ImageInference::Ptr _inference;
+
+    // Submit tasks scheduled on _thread_pool that have not finished yet. Flush waits until there are none. Declared
+    // before _thread_pool so that they outlive it: its destructor waits for the running tasks, which update them.
+    size_t _pending_submits = 0;
+    std::mutex _pending_submits_mutex;
+    std::condition_variable _pending_submits_done;
 
     std::unique_ptr<ThreadPool> _thread_pool;
 

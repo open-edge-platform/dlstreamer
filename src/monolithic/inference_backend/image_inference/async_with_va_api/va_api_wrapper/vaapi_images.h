@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2019-2021 Intel Corporation
+ * Copyright (C) 2019-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -13,8 +13,9 @@
 #include "inference_backend/image.h"
 
 #include <algorithm>
-#include <future>
+#include <condition_variable>
 #include <memory>
+#include <mutex>
 #include <vector>
 
 namespace InferenceBackend {
@@ -22,7 +23,7 @@ namespace InferenceBackend {
 struct VaApiImage {
     VaApiContext *context = nullptr;
     Image image = Image();
-    std::future<void> sync;
+    // false while the image is out of its pool. In a pool, read and written under the pool's mutex.
     bool completed = true;
     std::unique_ptr<ImageMap> image_map;
     uint32_t scaling_flags = VA_FILTER_SCALING_DEFAULT;
@@ -75,8 +76,6 @@ class VaApiImagePool {
     };
 
     VaApiImagePool(VaApiContext *context, SizeParams size_params, ImageInfo info);
-
-    void Flush();
 };
 
 } // namespace InferenceBackend
