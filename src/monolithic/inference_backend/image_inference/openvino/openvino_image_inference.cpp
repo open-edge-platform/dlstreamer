@@ -263,8 +263,7 @@ void OpenVinoImageInference::Flush() {
                     for (auto &input_vec : inference_slot->in_tensors) {
                         for (int i = input_vec.size(); i < batch_size_; i++)
                             input_vec.push_back(input_vec.back());
-                        // FIXME: move?
-                        inference_slot->infer_request.set_input_tensors(input_idx, input_vec);
+                        SetBatchedInputTensors(inference_slot, input_idx);
                         input_idx++;
                     }
                 }

@@ -143,14 +143,41 @@ void ImageInferenceAsync::SubmitInference(VaApiImage *va_api_image, IFrameBase::
         }
     };
 
-    auto mapped = va_api_image->Map();
+    Image mapped;
+    try {
+        mapped = va_api_image->Map();
+    } catch (...) {
+        // The frame doesn't own the image yet: give it back here, or the pool loses it.
+        _va_image_pool->ReleaseBuffer(va_api_image);
+        throw;
+    }
     frame->SetImage(std::shared_ptr<Image>(new Image(mapped), deleter));
     _inference->SubmitImage(std::move(frame), input_preprocessors);
+}
+
+// SubmitInference runs on a worker thread, so its exceptions are kept and thrown here, on the thread that calls
+// SubmitImage or Flush. The element then fails with the error, as it does when a synchronous submit throws, instead of
+// losing it.
+void ImageInferenceAsync::RethrowSubmitError() {
+    std::exception_ptr error;
+    {
+        std::lock_guard<std::mutex> lock(_submit_error_mutex);
+        std::swap(error, _submit_error);
+    }
+    if (!error)
+        return;
+    try {
+        std::rethrow_exception(error);
+    } catch (...) {
+        std::throw_with_nested(std::runtime_error("Failed to submit a VA-API pre-processed image to inference"));
+    }
 }
 
 void ImageInferenceAsync::SubmitImage(IFrameBase::Ptr frame,
                                       const std::map<std::string, InputLayerDesc::Ptr> &input_preprocessors) {
     assert(frame && "Expected valid IFrameBase pointer");
+
+    RethrowSubmitError();
 
     VaApiImage *dst_image = _va_image_pool->AcquireBuffer();
 
@@ -165,7 +192,13 @@ void ImageInferenceAsync::SubmitImage(IFrameBase::Ptr frame,
     }
 
     dst_image->sync = _thread_pool->schedule([this, dst_image, f = std::move(frame), input_preprocessors]() {
-        SubmitInference(dst_image, std::move(f), input_preprocessors);
+        try {
+            SubmitInference(dst_image, std::move(f), input_preprocessors);
+        } catch (...) {
+            std::lock_guard<std::mutex> lock(_submit_error_mutex);
+            if (!_submit_error)
+                _submit_error = std::current_exception();
+        }
     });
 }
 
@@ -221,6 +254,7 @@ void ImageInferenceAsync::Flush() {
     if (_inference) {
         _inference->Flush();
     }
+    RethrowSubmitError();
 }
 
 void ImageInferenceAsync::Close() {

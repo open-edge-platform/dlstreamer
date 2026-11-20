@@ -17,6 +17,7 @@
 
 #include <cassert>
 #include <stdexcept>
+#include <string>
 
 using namespace InferenceBackend;
 using namespace InferenceBackend::OpenVino;
@@ -122,10 +123,8 @@ void OpenVinoImageInference::BypassImageProcessing(const std::string &input_name
 
         if (inference_slot->in_tensors.front().size() == batch_size) {
             // FIXME: input name ?
-            for (size_t i = 0; i < inference_slot->in_tensors.size(); i++) {
-                // FIXME: move?
-                inference_slot->infer_request.set_input_tensors(i, inference_slot->in_tensors[i]);
-            }
+            for (size_t i = 0; i < inference_slot->in_tensors.size(); i++)
+                SetBatchedInputTensors(inference_slot, i);
         }
     } else {
         if (ov_tensor.size() == 1) {
@@ -136,6 +135,38 @@ void OpenVinoImageInference::BypassImageProcessing(const std::string &input_name
                 inference_slot->infer_request.set_input_tensor(i, ov_tensor[i]);
             }
         }
+    }
+}
+
+// Binds the tensors gathered for input `input_idx` as one batch, one tensor per batch element.
+// set_input_tensors is optional for OpenVINO plugins: AUTO and MULTI throw "Not Implemented". The first time it fails,
+// switch to copying each tensor into its slice of the request's own input tensor, and copy for the rest of this
+// object's life. Called with requests_mutex_ held.
+void OpenVinoImageInference::SetBatchedInputTensors(InferSlot *inference_slot, size_t input_idx) {
+    const ov::TensorVector &tensors = inference_slot->in_tensors[input_idx];
+    if (!copy_batched_inputs_) {
+        try {
+            inference_slot->infer_request.set_input_tensors(input_idx, tensors);
+            return;
+        } catch (const std::exception &e) {
+            GVA_WARNING("%s: the device does not accept batched input tensors, so each batch is copied into the input "
+                        "tensor instead. OpenVINO said: %s",
+                        model_path_.c_str(), e.what());
+            copy_batched_inputs_ = true;
+        }
+    }
+
+    ov::Tensor dst = inference_slot->infer_request.get_input_tensor(input_idx);
+    const ov::Shape &shape = dst.get_shape();
+    if (shape.empty() || tensors.size() > shape[0])
+        throw std::runtime_error("Cannot copy " + std::to_string(tensors.size()) + " tensors into an input of shape " +
+                                 shape.to_string());
+    ov::Coordinate begin(shape.size(), 0);
+    ov::Coordinate end(shape);
+    for (size_t b = 0; b < tensors.size(); b++) {
+        begin[0] = b;
+        end[0] = b + 1;
+        tensors[b].copy_to(ov::Tensor(dst, begin, end));
     }
 }
 

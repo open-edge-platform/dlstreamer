@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2019-2024 Intel Corporation
+ * Copyright (C) 2019-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -47,9 +47,15 @@ std::future<void> ThreadPool::schedule(const std::function<void()> &callable) {
     std::future<void> future = p->get_future();
     {
         std::unique_lock<std::mutex> lock(_mutex);
+        // A task's exception goes to its future. Letting it escape would end the worker thread for good: once all of
+        // them had died, nothing would run the queued tasks any more.
         _tasks.push([callable, p]() {
-            callable();
-            p->set_value();
+            try {
+                callable();
+                p->set_value();
+            } catch (...) {
+                p->set_exception(std::current_exception());
+            }
         });
     }
 
