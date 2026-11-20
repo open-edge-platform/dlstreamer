@@ -35,6 +35,7 @@
 #include <cstring>
 #include <exception>
 #include <gst/analytics/analytics.h>
+#include <limits>
 #include <map>
 #include <memory>
 #include <openvino/runtime/core.hpp>
@@ -133,6 +134,8 @@ inline std::string ImagePreprocessorTypeToString(ImagePreprocessorType type) {
         return "D3D12";
     case ImagePreprocessorType::D3D12_SURFACE_SHARING:
         return "D3D12_SURFACE_SHARING";
+    case ImagePreprocessorType::OPENCL:
+        return "OPENCL";
     default:
         return "UNKNOWN";
     }
@@ -159,6 +162,8 @@ inline const char *ImagePreprocessorTypeToPropertyValue(ImagePreprocessorType ty
         return "d3d12";
     case ImagePreprocessorType::D3D12_SURFACE_SHARING:
         return "d3d12-surface-sharing";
+    case ImagePreprocessorType::OPENCL:
+        return "opencl";
     default:
         return "unknown";
     }
@@ -176,7 +181,8 @@ ImagePreprocessorType ImagePreprocessorTypeFromString(const std::string &image_p
         {"d3d11", ImagePreprocessorType::D3D11},
         {"d3d11-surface-sharing", ImagePreprocessorType::D3D11_SURFACE_SHARING},
         {"d3d12", ImagePreprocessorType::D3D12},
-        {"d3d12-surface-sharing", ImagePreprocessorType::D3D12_SURFACE_SHARING}};
+        {"d3d12-surface-sharing", ImagePreprocessorType::D3D12_SURFACE_SHARING},
+        {"opencl", ImagePreprocessorType::OPENCL}};
 
     for (auto &elem : preprocessor_types) {
         if (image_preprocessor_name == elem.first)
@@ -348,6 +354,47 @@ bool IsModelProcSupportedForVaapiSurfaceSharing(
     return true;
 }
 
+// The model-proc pre-processing the OpenCL kernels do: any resize except aspect-ratio-multiple-of, crop and padding,
+// into a BGR or RGB model.
+bool IsModelProcSupportedForOpencl(const std::vector<ModelInputProcessorInfo::Ptr> &model_input_processor_info) {
+    for (const auto &it : model_input_processor_info) {
+        if (!it || it->format != "image")
+            continue;
+        auto input_desc = PreProcParamsParser(it->params).parse();
+        if (!input_desc)
+            continue;
+        const auto color_space = input_desc->getTargetColorSpace();
+        if (input_desc->isAspectRatioMultipleOfResize() ||
+            (color_space != PreProcColorSpace::NO && color_space != PreProcColorSpace::BGR &&
+             color_space != PreProcColorSpace::RGB))
+            return false;
+    }
+    return true;
+}
+
+// The memory types and formats the OpenCL pre-processing reads (see opencl/opencl_frame_source.h).
+bool IsInputSupportedForOpencl(CapsFeature caps, GstVideoInfo *input_video_info) {
+    const GstVideoFormat format = GST_VIDEO_INFO_FORMAT(input_video_info);
+    switch (caps) {
+    case SYSTEM_MEMORY_CAPS_FEATURE:
+        return format == GST_VIDEO_FORMAT_NV12 || format == GST_VIDEO_FORMAT_I420 || format == GST_VIDEO_FORMAT_BGRx ||
+               format == GST_VIDEO_FORMAT_BGRA || format == GST_VIDEO_FORMAT_RGBx || format == GST_VIDEO_FORMAT_RGBA ||
+               format == GST_VIDEO_FORMAT_BGR || format == GST_VIDEO_FORMAT_RGB;
+#ifndef _WIN32
+    case VA_SURFACE_CAPS_FEATURE:
+    case VA_MEMORY_CAPS_FEATURE:
+    case DMA_BUF_CAPS_FEATURE:
+        return format == GST_VIDEO_FORMAT_NV12;
+#else
+    case D3D11_MEMORY_CAPS_FEATURE:
+        return format == GST_VIDEO_FORMAT_NV12 || format == GST_VIDEO_FORMAT_BGRA || format == GST_VIDEO_FORMAT_RGBA ||
+               format == GST_VIDEO_FORMAT_BGRx;
+#endif
+    default:
+        return false;
+    }
+}
+
 bool IsPreprocSupported(ImagePreprocessorType preproc,
                         const std::vector<ModelInputProcessorInfo::Ptr> &model_input_processor_info,
                         GstVideoInfo *input_video_info, const std::map<std::string, std::string> base_config) {
@@ -374,6 +421,10 @@ bool IsPreprocSupported(ImagePreprocessorType preproc,
         return !isCustomLib && IsModelProcSupportedForD3D(model_input_processor_info);
     case ImagePreprocessorType::D3D12_SURFACE_SHARING:
         return isSingleGpu && !isCustomLib && IsModelProcSupportedForD3D(model_input_processor_info);
+    case ImagePreprocessorType::OPENCL:
+        return !isCustomLib && IsModelProcSupportedForOpencl(model_input_processor_info) &&
+               IsInputSupportedForOpencl(static_cast<CapsFeature>(std::stoi(base_config.at(KEY_CAPS_FEATURE))),
+                                         input_video_info);
     case ImagePreprocessorType::AUTO:
     default:
         return false;
@@ -481,6 +532,17 @@ void setPreprocessorType(InferenceConfig &config,
             selected_preprocessor = ImagePreprocessorType::D3D12;
             GVA_WARNING("'pre-process-backend=d3d12-surface-sharing' not supported with current settings, falling back "
                         "to 'pre-process-backend=d3d12'");
+        } else if (current == ImagePreprocessorType::OPENCL) {
+            // What would have been selected automatically. VA frames reach a device other than the GPU only with
+            // 'opencl' (the caps of other backends drop them), so they need VPP into system memory.
+            selected_preprocessor =
+                GetPreferredImagePreproc(caps, model_input_processor_info, input_video_info, config[KEY_BASE]);
+            if (selected_preprocessor == ImagePreprocessorType::VAAPI_SURFACE_SHARING &&
+                config[KEY_BASE][KEY_DEVICE].rfind("GPU", 0) != 0)
+                selected_preprocessor = ImagePreprocessorType::VAAPI_SYSTEM;
+            GVA_WARNING("'pre-process-backend=opencl' not supported with current settings, falling back to "
+                        "'pre-process-backend=%s'",
+                        ImagePreprocessorTypeToPropertyValue(selected_preprocessor));
         } else {
             // Throw an error if no suitable fallback is available
             throw std::runtime_error(
@@ -759,10 +821,11 @@ MemoryType GetMemoryType(MemoryType input_image_memory_type, ImagePreprocessorTy
         switch (image_preprocessor_type) {
         case ImagePreprocessorType::OPENCV:
         case ImagePreprocessorType::IE:
+        case ImagePreprocessorType::OPENCL:
             type = MemoryType::SYSTEM;
             break;
         default:
-            throw std::invalid_argument("For system memory only supports ie, opencv image preprocessors");
+            throw std::invalid_argument("For system memory only supports ie, opencv, opencl image preprocessors");
         }
         break;
     }
@@ -775,6 +838,7 @@ MemoryType GetMemoryType(MemoryType input_image_memory_type, ImagePreprocessorTy
             break;
         case ImagePreprocessorType::VAAPI_SURFACE_SHARING:
         case ImagePreprocessorType::VAAPI_SYSTEM:
+        case ImagePreprocessorType::OPENCL:
             type = input_image_memory_type;
             break;
         default:
@@ -1071,7 +1135,12 @@ dlstreamer::ContextPtr createD3D12Display(GvaBaseInference *gva_base_inference) 
 void avoidCrossAdapterSurfaceSharing(GvaBaseInference *gva_base_inference, InferenceConfig &ie_config) {
     const auto preproc = static_cast<ImagePreprocessorType>(std::stoi(ie_config[KEY_BASE][KEY_PRE_PROCESSOR_TYPE]));
     const bool is_d3d12 = preproc == ImagePreprocessorType::D3D12_SURFACE_SHARING;
-    if (!is_d3d12 && preproc != ImagePreprocessorType::D3D11_SURFACE_SHARING)
+    // The OpenCL pre-processing imports the D3D11 frames into OpenVINO's OpenCL context too, if the device is a GPU.
+    const bool is_opencl = preproc == ImagePreprocessorType::OPENCL;
+    if (!is_d3d12 && preproc != ImagePreprocessorType::D3D11_SURFACE_SHARING && !is_opencl)
+        return;
+    if (is_opencl &&
+        GetMemoryType(static_cast<CapsFeature>(std::stoi(ie_config[KEY_BASE][KEY_CAPS_FEATURE]))) != MemoryType::D3D11)
         return;
     const auto &upstream = is_d3d12 ? gva_base_inference->priv->d3d12_device : gva_base_inference->priv->d3d11_device;
     if (!upstream ||
@@ -1088,6 +1157,26 @@ void avoidCrossAdapterSurfaceSharing(GvaBaseInference *gva_base_inference, Infer
                 "'pre-process-backend=%s'",
                 gva_base_inference->device, is_d3d12 ? "d3d12" : "d3d11");
     ie_config[KEY_BASE][KEY_PRE_PROCESSOR_TYPE] = std::to_string(static_cast<int>(fallback));
+}
+#endif
+
+#ifndef _WIN32
+// The OpenCL pre-processing runs its kernels on the GPU the VA frames are on. For inference on another GPU they could
+// not write the model input in OpenVINO's context: fall back to VA surface sharing, which copies between the GPUs.
+void avoidCrossGpuOpencl(GvaBaseInference *gva_base_inference, InferenceConfig &ie_config) {
+    const auto preproc = static_cast<ImagePreprocessorType>(std::stoi(ie_config[KEY_BASE][KEY_PRE_PROCESSOR_TYPE]));
+    const auto caps = static_cast<CapsFeature>(std::stoi(ie_config[KEY_BASE][KEY_CAPS_FEATURE]));
+    const std::string device(gva_base_inference->device);
+    if (preproc != ImagePreprocessorType::OPENCL || GetMemoryType(caps) != MemoryType::VAAPI ||
+        device.rfind("GPU", 0) != 0 || !gva_base_inference->priv->va_display)
+        return;
+    // Any number of streams: the frames can only be read on their display.
+    if (canReuseSharedVADispCtx(gva_base_inference, static_cast<size_t>(std::numeric_limits<long>::max())))
+        return;
+    GVA_WARNING("The frames are on another GPU than %s: falling back to 'pre-process-backend=va-surface-sharing'",
+                device.c_str());
+    ie_config[KEY_BASE][KEY_PRE_PROCESSOR_TYPE] =
+        std::to_string(static_cast<int>(ImagePreprocessorType::VAAPI_SURFACE_SHARING));
 }
 #endif
 
@@ -1287,6 +1376,8 @@ InferenceImpl::Model InferenceImpl::CreateModel(GvaBaseInference *gva_base_infer
     setPreprocessorType(ie_config, model.input_processor_info, gva_base_inference->info);
 #ifdef _WIN32
     avoidCrossAdapterSurfaceSharing(gva_base_inference, ie_config);
+#else
+    avoidCrossGpuOpencl(gva_base_inference, ie_config);
 #endif
     memory_type =
         GetMemoryType(GetMemoryType(static_cast<CapsFeature>(std::stoi(ie_config[KEY_BASE][KEY_CAPS_FEATURE]))),
@@ -1318,7 +1409,11 @@ InferenceImpl::Model InferenceImpl::CreateModel(GvaBaseInference *gva_base_infer
 
     dlstreamer::ContextPtr va_dpy;
     if (memory_type == MemoryType::VAAPI || memory_type == MemoryType::DMA_BUFFER) {
-        va_dpy = createVaDisplay(gva_base_inference);
+        // The OpenCL pre-processing reads the frames in a context on their own VA display, whatever the device.
+        if (preproc_type == ImagePreprocessorType::OPENCL && gva_base_inference->priv->va_display)
+            va_dpy = gva_base_inference->priv->va_display;
+        else
+            va_dpy = createVaDisplay(gva_base_inference);
 
         // Modify IE config for surface sharing
         if (static_cast<ImagePreprocessorType>(std::stoi(ie_config[KEY_BASE][KEY_PRE_PROCESSOR_TYPE])) ==

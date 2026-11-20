@@ -5,11 +5,13 @@
  ******************************************************************************/
 
 // OpenVinoImageInference::SubmitImage and what it needs: taking a free infer request, putting the frame into its input
-// tensor (software pre-processing, or bypass when the frame already fits the model), and starting the request once
-// the batch is full. See Flush() in openvino_image_inference.cpp for how a partly filled batch is started.
+// tensor (software pre-processing, OpenCL pre-processing, or bypass when the frame already fits the model), and
+// starting the request once the batch is full. See Flush() in openvino_image_inference.cpp for how a partly filled
+// batch is started.
 
 #include "openvino_image_inference.h"
 
+#include "opencl_preprocessor.h"
 #include "openvino_blob_wrapper.h"
 
 #include "inference_backend/logger.h"
@@ -227,7 +229,9 @@ void OpenVinoImageInference::SubmitImage(
         prev_tensors.push_back(in_vec.size());
 
     try {
-        if (DoNeedImagePreProcessing(frame->GetImage())) {
+        if (opencl_preproc_) {
+            // The OpenCL kernels take the image last (below): nothing must fail after it is in their batch.
+        } else if (DoNeedImagePreProcessing(frame->GetImage())) {
             SubmitImageProcessing(
                 image_layer_, inference_slot, *frame->GetImage(),
                 GetImagePreProcInfo(input_preprocessors), // contain operations order for Custom Image PreProcessing
@@ -239,6 +243,10 @@ void OpenVinoImageInference::SubmitImage(
         }
 
         ApplyInputPreprocessors(inference_slot, input_preprocessors);
+
+        if (opencl_preproc_)
+            opencl_preproc_->Add(*inference_slot->opencl_batch, inference_slot->buffers.size(), frame->GetImage(),
+                                 GetImagePreProcInfo(input_preprocessors), frame->GetImageTransformationParams());
 
         inference_slot->buffers.push_back(frame);
     } catch (const std::exception &e) {
@@ -257,6 +265,8 @@ void OpenVinoImageInference::SubmitImage(
         // start inference asynchronously if enough buffers for batching
         if (inference_slot->buffers.size() >= safe_convert<size_t>(batch_size_)) {
             current_slot_ = nullptr;
+            if (opencl_preproc_)
+                opencl_preproc_->Finish(*inference_slot->opencl_batch);
             inference_slot->StartAsync();
         }
     } catch (const std::exception &e) {

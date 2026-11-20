@@ -97,6 +97,7 @@ surface sharing is not supported with the current settings (see
 | opencv | All power of OpenCV is leveraged for input image pre-processing. Provides a wide variety of operations that can be performed on image. | System | Yes |
 | <br>va<br><br> | Should be used in pipelines with GPU memory. Performs mapping to the system memory and uses VA pre-processor. | <br>VAMemory<br>and<br>DMABuf<br><br> | Yes |
 | <br>va-surface-sharing<br><br> | Should be used in pipelines with GPU memory and GPU inference device. Doesn’t perform mapping to the system memory. As a pre-processor, it performs image resize, crop, and sets color format to NV12. | <br>VAMemory<br><br> | Partially |
+| <br>opencl<br><br> | One OpenCL kernel on the GPU converts the color, resizes, crops and pads the frame or ROI, and writes the model input directly. Works with any inference device. Used only when selected, see [OpenCL pre-processing backend](#opencl-pre-processing-backend). | <br>VAMemory,<br>DMABuf<br>and System<br><br> | Yes |
 
 ### Windows pre-processing backends
 
@@ -109,6 +110,7 @@ On Windows, the VA backends are replaced by Direct3D backends. `ie` and
 | d3d11-surface-sharing | Converts the frame on the GPU into a BGRA/RGBA texture at model input size and passes it to OpenVINO™ through OpenCL/D3D11 interop. The frame is not copied to system memory. GPU inference device only. | D3D11Memory |
 | d3d12 | Same as `d3d11`, using the GStreamer D3D12 converter. Works with GPU and NPU inference devices. | D3D12Memory |
 | d3d12-surface-sharing | Converts the frame on the GPU into a BGRA/RGBA texture at model input size and copies it into a shared D3D12 buffer. OpenCL imports the buffer through `cl_khr_external_memory`, so the frame is not copied to system memory. GPU inference device only. | D3D12Memory |
+| opencl | One OpenCL kernel on the GPU converts the color, resizes, crops and pads the frame or ROI, and writes the model input directly; D3D11 frames are copied into a shared texture first, once per frame. Works with any inference device. See [OpenCL pre-processing backend](#opencl-pre-processing-backend). | D3D11Memory and System |
 
 Notes:
 
@@ -124,6 +126,52 @@ Notes:
   D3D11Memory and D3D12Memory. D3D12 decoders (used by `decodebin3` on
   Windows 10 and later) then output D3D12Memory. A `d3d11` backend accepts only
   D3D11Memory, and a `d3d12` backend accepts only D3D12Memory.
+
+### OpenCL pre-processing backend
+
+With `pre-process-backend=opencl`, `gvadetect`, `gvaclassify` and `gvainference`
+pre-process frames with one OpenCL kernel on the GPU: color conversion, resize,
+crop and padding in one pass, written straight into the model input (u8, planar,
+in the model's channel order). OpenVINO™ pre-processing only converts the
+precision and applies the mean and scale values.
+
+- **Frames**: VAMemory and DMABuf (NV12) on Linux, D3D11Memory (NV12, BGRA,
+  RGBA, BGRx) on Windows, and system memory (NV12, I420, BGR, BGRx, BGRA) on
+  both. A frame is imported (or uploaded, for system memory) once and shared by
+  all of its ROIs.
+- **Inference device**: any. With a GPU device, the kernel runs in OpenVINO™'s
+  OpenCL context and writes the model input to GPU memory, which the inference
+  reads in place. With another device (CPU, NPU, AUTO, ...), the kernel runs on
+  the GPU the frames are on and writes the model input to host memory. GPU
+  frames are therefore accepted with `device=CPU` too.
+- **Batches**: the infer request of a batch has one model input, written by
+  the kernels. The ROIs of a frame are pre-processed by one kernel launch, so
+  `batch-size` greater than 1 also reduces the number of launches in pipelines
+  with many ROIs per frame.
+- **model-proc**: all resize types except `aspect-ratio-multiple-of`, all crop
+  types, padding, `color_space` BGR or RGB, and range/mean/std normalization
+  (applied by OpenVINO™). The regions are computed as by the `va` backends,
+  with the same rounding. Unlike them, `aspect-ratio-pad` keeps the aspect
+  ratio and places the image at the top-left corner, as `opencv` does.
+- **Sampling and color**: bilinear sampling at pixel centers, without
+  anti-aliasing for large downscales (as `cv::resize` with `INTER_LINEAR`), and
+  BT.601 limited-range color conversion for YUV frames, with the coefficients of
+  OpenVINO™'s NV12 conversion.
+
+The backend is never selected automatically. If it is not supported with the
+current settings (for example, with `custom-preproc-lib`, an
+`aspect-ratio-multiple-of` resize, a grayscale model or an unsupported frame
+format), the element falls back to the backend it would select automatically
+and logs a warning. It also falls back when GPU inference runs on another GPU
+than the one the frames are on: to `va-surface-sharing` on Linux and to `d3d11`
+on Windows. `batch-timeout` is not supported, as with the VA and D3D backends.
+
+```bash
+gst-launch-1.0 filesrc location=${VIDEO_FILE} ! parsebin ! vah264dec ! \
+  gvadetect model=${DETECTION_MODEL} device=GPU pre-process-backend=opencl ! queue ! \
+  gvaclassify model=${CLASSIFICATION_MODEL} device=GPU pre-process-backend=opencl batch-size=8 ! queue ! \
+  gvafpscounter ! fakesink
+```
 
 **Post-processing** uses so called converters to process raw inference results.
 The converters transform the results from raw output

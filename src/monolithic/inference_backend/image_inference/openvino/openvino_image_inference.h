@@ -13,12 +13,14 @@
 //   3. CompileModelForDevice()  PreparedModel -> ov::CompiledModel on the device.
 //   4. One InferSlot per request: an infer request plus the batch of frames being filled for it. A slot is empty (in
 //      the InferSlotPool), being filled (current_slot_) or running inference.
+//   5. pre-process-backend=opencl only: SetUpOpenclPreprocessing() binds a model input written by OpenCL kernels to
+//      every slot (see opencl/opencl_preprocessor.h).
 //
 // Run time:
 //   SubmitImage()        (openvino_image_inference_submit.cpp) takes the current slot, or waits for an empty one;
 //                        puts the frame into the slot's input tensors, by software pre-processing or with
-//                        ImageToTensorConverter, which wraps the image memory without copying it; starts the request
-//                        when the batch is full.
+//                        ImageToTensorConverter, which wraps the image memory without copying it, or with the OpenCL
+//                        kernels; starts the request when the batch is full.
 //   completion callback  (openvino_image_inference.cpp, on an OpenVINO thread) passes the outputs and the frames on to
 //                        the callback, then FreeSlot() returns the slot to the pool.
 //   Flush(), Close()     (openvino_image_inference.cpp) start the partly filled batch and wait until no frame is in
@@ -50,6 +52,11 @@
 #include "infer_slot_pool.h"
 #include "openvino_image_to_tensor_converter.h"
 #include "openvino_prepared_model.h"
+
+namespace InferenceBackend {
+class OpenclPreprocessor;
+struct OpenclBatch;
+} // namespace InferenceBackend
 
 class OpenVinoImageInference : public InferenceBackend::ImageInference {
   public:
@@ -94,6 +101,8 @@ class OpenVinoImageInference : public InferenceBackend::ImageInference {
         ov::InferRequest infer_request;
         std::vector<IFrameBase::Ptr> buffers;
         std::vector<ov::TensorVector> in_tensors;
+        // pre-process-backend=opencl: the model input the kernels write the batch into, bound to infer_request.
+        InferenceBackend::OpenclBatch *opencl_batch = nullptr;
 
         void StartAsync() {
             return infer_request.start_async();
@@ -119,6 +128,8 @@ class OpenVinoImageInference : public InferenceBackend::ImageInference {
     int batch_size_;
     int batch_timeout_;
     int nireq_;
+    // pre-process-backend=opencl. Owns the slots' model inputs, so it is declared before the slots, to outlive them.
+    std::unique_ptr<InferenceBackend::OpenclPreprocessor> opencl_preproc_;
     // All slots live here for as long as the object does; everything else only points to them.
     std::vector<std::unique_ptr<InferSlot>> inference_slots_;
     // Empty slots only. A slot being filled is current_slot_; a slot running inference is in neither.
@@ -144,6 +155,9 @@ class OpenVinoImageInference : public InferenceBackend::ImageInference {
                                const InferenceBackend::ImageTransformationParams::Ptr image_transform_info);
     void BypassImageProcessing(const std::string &input_name, InferSlot *inference_slot,
                                const InferenceBackend::Image &src_img, size_t batch_size);
+    // pre-process-backend=opencl: creates the preprocessor and binds a model input to every slot.
+    void SetUpOpenclPreprocessing(const InferenceBackend::OpenVino::ConfigHelper &config,
+                                  const std::shared_ptr<dlstreamer::OpenVINOContext> &remote_context);
     void SetCompletionCallback(InferSlot *inference_slot);
     void
     ApplyInputPreprocessors(InferSlot *inference_slot,

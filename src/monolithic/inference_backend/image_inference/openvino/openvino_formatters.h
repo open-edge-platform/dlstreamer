@@ -54,6 +54,9 @@ struct fmt::formatter<InferenceBackend::ImagePreprocessorType> : formatter<strin
         case ImagePreprocessorType::D3D12_SURFACE_SHARING:
             name = "D3D12 Surface Sharing";
             break;
+        case ImagePreprocessorType::OPENCL:
+            name = "OpenCL";
+            break;
         }
         return formatter<string_view>::format(name, ctx);
     }
