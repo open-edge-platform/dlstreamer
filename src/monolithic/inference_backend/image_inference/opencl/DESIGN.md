@@ -132,7 +132,7 @@ Non-goals:
 | System memory | uploaded once per frame into pooled images (a buffer for 3-byte pixels) | `CL_R`/`CL_RG` planes, an RGBA image or a buffer |
 | VA surface (Linux) | planes imported, cached per surface (per frame on `i915`) | `CL_R` Y, `CL_RG` UV |
 | DMA-BUF (Linux) | imported into a VA surface, then as above, per frame | same |
-| D3D11 texture (Windows) | GPU copy into a pooled shared texture on the streaming thread, unless the frame already is one | Y/UV planes or an RGBA image of the shared texture |
+| D3D11 texture (Windows) | GPU copy into a pooled shared texture on the streaming thread, unless the frame already is one; for a frame of another D3D11 device, on that device, into a texture shared through an NT handle | Y/UV planes or an RGBA image of the shared texture |
 | D3D12 texture (Windows) | GPU copy into a pooled shareable D3D12 texture on the streaming thread, read through its D3D11 view | same as D3D11 |
 
 Then, in every case:
@@ -179,6 +179,9 @@ sequenceDiagram
     OV-->>S: completion, images released, staging textures back to their pools
 ```
 
+For a D3D11 frame of another device than the inference one, D is the frame's
+device: the copy, the query and the wait are there (section 5.3).
+
 On Linux and for system memory, there is no wrapper: the element's
 `SubmitImage` goes straight to `OpenVinoImageInference`, which adds the frame to
 the batch the same way.
@@ -206,6 +209,20 @@ the batch the same way.
   imports each texture once (both planes for NV12, through
   `cl_intel_d3d11_nv12_media_sharing`) and keeps the import while the texture is
   in use (section 5.10).
+- **D3D11 textures of another device.** The frames may come from another D3D11
+  device on the inference device's adapter: with `share-d3d-ctx=false` each
+  inference element creates a device of its own, and the decoders of several
+  pipelines in one process, which can share a model instance, each have one.
+  Such a frame is never read in place. It is copied on its own device, under
+  that device's lock, into a texture from a pool on that device, created with
+  `D3D11_RESOURCE_MISC_SHARED | D3D11_RESOURCE_MISC_SHARED_NTHANDLE`, and the
+  query is ended there. The inference device opens each pooled texture once
+  (`CreateSharedHandle()`, then `OpenSharedResource1()`) and the opened texture
+  is kept as qdata of the pooled `GstMemory`: every open makes a new texture
+  object, which the OpenCL frame source would import anew. Each other device
+  has its own pools per size and format, and a device that none of the last
+  1024 frames came from is dropped with its pools. Frames on another adapter
+  are refused; the element falls back before that (section 5.11).
 - **D3D12 textures.** The frame is copied on the GPU (`gst_d3d12_buffer_copy_into()`)
   into a texture from a `D3D12TargetPool`: a shared heap, render target and
   simultaneous access, not zeroed (a pool that zeroes new textures can deadlock
@@ -318,6 +335,12 @@ worker signals a D3D11 fence, flushes, and waits on the fence outside the lock.
 Each D3D11 submission costs 220-400 µs of CPU on the test system, under the
 device lock; `End()` costs about 1 µs.
 
+For a frame of another device, the query is ended, checked and waited for on
+that device, under its lock; its decoder submits its immediate context. Textures
+shared between devices without a keyed mutex have no synchronization of their
+own: the CPU wait is what orders the copy on one device before the kernel that
+reads it through the other.
+
 **D3D12 (ordering 1).** OpenCL sees no D3D12 fences. The copy is submitted on
 the D3D12 device's direct queue and becomes the fence of the pooled memory; the
 worker waits for it on the CPU (`gst_d3d12_memory_sync()`) before submitting the
@@ -348,8 +371,10 @@ therefore waits for the pre-processing only, not for the inference in flight.
 | Planes of a frame (`OpenclSourcePlanes`) | the frame source's import cache (VA, D3D11) or the ROI cache, and the batch until `Finish()` | system memory: back to the upload pool once the kernels completed |
 | Model inputs (`OpenclBatch`) | the preprocessor | teardown |
 | Copy pools (D3D11 and D3D12, per size and format) | `ImageInferenceAsyncOpenCL` | unused by the last 1024 frames, or teardown; textures in use go when released |
+| Other D3D11 devices (`CopyDevice`): a reference on the device, its queries, fence and copy pools | `ImageInferenceAsyncOpenCL`, and the copies made there | none of the last 1024 frames came from the device, or teardown; copies in flight keep it |
 | Texture imports | the D3D11 frame source; each import references its texture, so pointer keys stay unique | unused by the last 1024 frames, or teardown, under the device lock |
 | D3D12 copies' D3D11 views | their pooled `GstD3D12Memory`, and the import | with the pooled texture and the import |
+| Other devices' copies, opened on the inference device | their pooled `GstD3D11Memory` (qdata), and the import | with the pooled texture and the import |
 | `cl_context` | OpenVINO™ and the preprocessor | last holder |
 
 An import keeps its texture alive, so a texture whose pool was dropped, or a
@@ -358,7 +383,8 @@ when its import is dropped.
 
 Windows teardown: stop the worker → `Flush()` OpenVINO™ (in-flight images are
 released) → destroy the inference (the preprocessor and its imports) → the
-D3D11 pools (under the device lock) and the D3D12 pools.
+D3D11 pools (under the device lock), the D3D12 pools, and the other devices
+with their pools.
 
 ### 5.11 Element integration
 
@@ -471,8 +497,13 @@ Correctness:
   is copied whole, teardown with frames still in the inference, frames without
   their memory are refused. Also: shared D3D11 frames are read in place,
   D3D12 frames on an instance created for D3D11 frames are read through its
-  device, D3D12 frames of another `GstD3D12Device` object of the adapter are
-  accepted, and D3D11 frames of another device are refused.
+  device, and D3D12 frames of another `GstD3D12Device` object of the adapter are
+  accepted. D3D11 frames of another device on the adapter are copied there:
+  alternating with frames of the inference device at two sizes (a pool per
+  size on each device), each pooled texture opened once on the inference
+  device, the ROIs of a frame sharing one copy, teardown with such frames in
+  the inference, an idle device dropped and set up again for its next frame,
+  and on an instance created for D3D12 frames.
 - Model input checked pixel by pixel with identity models (input → ReLU →
   output) and `gvametaconvert add-tensor-data=true`: for a solid color encoded
   by `videoconvert` with a given colorimetry, the model input is the exact
@@ -490,6 +521,17 @@ Correctness:
   results, and SD and HD streams sharing one get a pool per texture size. The
   watermark renderer, which shares `D3D12TargetPool` and `d3d11_device_for()`,
   still draws on D3D12 frames on the GPU.
+- D3D11 frames of another device, pipelines: with `share-d3d-ctx=false`, D3D11
+  frames (`video/x-raw(memory:D3D11Memory)` after `decodebin3`) and
+  yolo11n → resnet18 per object, each element reads the frames of the
+  decoder's device through a device of its own, and the detections and labels
+  are identical to those with the decoder's device shared (5221 objects in 449
+  HD frames, 1732 in 599 SD frames). Two pipelines in one process sharing a
+  yolo11n instance, each with a decoder on a device of its own, give identical
+  detections to each other and to a single pipeline (5549 objects in 1989 SD
+  frames). A stream of D3D11 frames and one of D3D12 frames with the same
+  `model-instance-id` get an instance each: the element keys the instances by
+  memory type as well.
 
 Throughput against the other backends, with the pipelines of 7.1 plus the
 two-stage one on a 1920×1080 clip. `decodebin3` picks the D3D12 decoder, which
@@ -551,15 +593,42 @@ fps, two-stage 1920×1080 105 and 114 fps). They are higher than in 7.1, which r
 older code on OpenVINO™ 2026.3 with a remote display that kept a third of the
 3D engine busy. Compare within a table only.
 
+Throughput of D3D11 frames of another device: D3D11 frames
+(`video/x-raw(memory:D3D11Memory)` after `decodebin3`) with the decoder's
+device shared, and with `share-d3d-ctx=false`, for `opencl` and, as the
+reference for the same situation, `d3d11-surface-sharing`. Four rounds on the
+next day, the order of the four variants rotating every round, the first 100
+frames skipped, no fallbacks. Median fps, and the median of the per-round
+ratios of the other device to the shared one, with their range:
+
+| Pipeline | `opencl`, shared | `opencl`, other device | ratio | `d3d11-ss`, shared | `d3d11-ss`, other device | ratio |
+|---|---|---|---|---|---|---|
+| `gvadetect` yolo11n, SD | 321.2 | 320.3 | +3.0% (−3.0% to +20.9%) | 293.0 | 303.9 | +3.8% (+0.1% to +6.4%) |
+| yolo11n → resnet18 per object, SD | 230.0 | 232.9 | +1.2% (−14.0% to +2.0%) | 217.5 | 215.6 | −0.2% (−1.2% to +6.6%) |
+| same, HD | 107.0 | 105.7 | −1.3% (−2.9% to +0.4%) | 98.0 | 97.8 | 0.0% (−6.0% to +4.4%) |
+
+Frames of another device cost nothing measurable with either backend. With
+`opencl`, the HD two-stage pipeline lost 1-3% in three rounds of four, which
+would fit the per-frame wait on the decoder's device, but within the run-to-run
+variation. Something else slowed two runs of round 2 (`opencl` detect on the
+shared device at 261 fps against 321-325 in the other rounds, two-stage SD on
+another device at 195 against 231-236), hence the wide ranges. On frames of
+another device too, `opencl` is faster than `d3d11-surface-sharing`, by 6.6%,
+6.9% and 8.1%. GPU memory in the test of section 9 (SD and HD streams sharing a
+yolo11n instance): 279 MB with frames of another device, 274 MB with the
+decoder's device, flat after the first seconds, with one pool per frame size
+in either case.
+
 ## 8. Limitations and risks
 
 - The frames must be on the inference device's adapter (or display): frames on
-  another one make the element fall back. On Windows, D3D11 frames from another
-  D3D11 device on the same adapter (`share-d3d-ctx=false`) are rejected, and so
-  are D3D11 frames on a model instance created for D3D12 frames, which reads
-  through a D3D11 device of its own. D3D12 frames on an instance created for
-  D3D11 frames on their adapter are read through that instance's device (unit
-  tests only, not in pipelines).
+  another one make the element fall back. On Windows, D3D11 frames of another
+  D3D11 device on that adapter cost a CPU wait on that device per frame, and
+  the copy runs on that device's immediate context, under its lock. D3D12
+  frames on an instance created for D3D11 frames are read through that
+  instance's device, and D3D11 frames on one created for D3D12 frames are
+  copied on their device (unit tests only: the element keys model instances by
+  memory type).
 - The model input must be u8 with 3 channels. A model-proc `precision` other
   than U8 on the image input is not supported by the element with any backend:
   it trips an assert in `UpdateConfigWithLayerInfo()` (release builds keep
@@ -588,8 +657,9 @@ older code on OpenVINO™ 2026.3 with a remote display that kept a third of the
 
 Done since the prototype: Linux (VA surfaces and DMA-BUFs), system memory, any
 inference device, one tensor per batch, colorimetry from the caps, model-proc
-normalization and color space, D3D12Memory input, and copy pools per frame size
-with idle pools and imports dropped. Before the last, two streams of D3D11
+normalization and color space, D3D12Memory input, copy pools per frame size
+with idle pools and imports dropped, and D3D11 frames of another device on the
+adapter. Before the copy pools per frame size, two streams of D3D11
 frames of different sizes sharing a model instance recreated the staging pool
 at every frame and kept every old texture through its import: 985 pools and
 5.2 GB of GPU memory in 12 seconds (SD and HD, yolo11n), against 2 pools and
@@ -597,20 +667,18 @@ at every frame and kept every old texture through its import: 985 pools and
 
 1. **No CPU wait**: run the kernel on OpenVINO's queue, or order it against
    inference on the GPU.
-2. **Cross-device frames**: D3D11 frames from another device on the same
-   adapter, through shared NT handles, as `ImageInferenceAsyncD3D11` does.
-3. **VA imports**: check the import cache when the decoder recreates its
+2. **VA imports**: check the import cache when the decoder recreates its
    surfaces (Linux).
-4. **Kernel**: vector stores, an anti-aliased (area) downscale for large ratios
+3. **Kernel**: vector stores, an anti-aliased (area) downscale for large ratios
    (optional, as it changes results compared with `opencv` and `va`), chroma
    siting from the caps.
-5. **Formats**: P010 (10-bit HEVC and AV1), grayscale models.
-6. **Inference on another GPU** than the frames: run the kernel on the frames'
+4. **Formats**: P010 (10-bit HEVC and AV1), grayscale models.
+5. **Inference on another GPU** than the frames: run the kernel on the frames'
    GPU and write host memory, as for CPU and NPU inference.
-7. **Automatic selection** where the backend wins, after a benchmark across
+6. **Automatic selection** where the backend wins, after a benchmark across
    platforms, devices and pipelines.
-8. **Functional tests** of `opencl` pipelines in CI, on both platforms.
-9. **`aspect-ratio-multiple-of`** resize, which needs the model input reshaped
+7. **Functional tests** of `opencl` pipelines in CI, on both platforms.
+8. **`aspect-ratio-multiple-of`** resize, which needs the model input reshaped
    per frame size.
 
 ## 10. Usage

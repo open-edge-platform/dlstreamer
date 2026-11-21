@@ -33,6 +33,7 @@
 #include <future>
 #include <memory>
 #include <mutex>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -812,25 +813,183 @@ TEST_F(OpenclD3D11AsyncInferenceTest, D3D12FramesOnTheAdapter) {
     }
 }
 
+// Frames of a second D3D11 device on the adapter of the inference device, as from a decoder that doesn't share its
+// device: copied on their device into textures shared with the inference device
+class OpenclD3D11OtherDeviceTest : public OpenclD3D11AsyncInferenceTest {
+  protected:
+    D3D11DevicePtr other_device;
+
+    void SetUp() override {
+        OpenclD3D11AsyncInferenceTest::SetUp();
+        if (IsSkipped())
+            return;
+        other_device = CreateD3D11Device();
+        if (!other_device)
+            GTEST_SKIP() << "No second D3D11 device";
+    }
+};
+
+TEST_F(OpenclD3D11OtherDeviceTest, FramesAreCopiedOnTheirDevice) {
+    // Frames of the inference device and of the other one alternate, at two sizes
+    const std::vector<std::pair<uint32_t, uint32_t>> sizes = {{160, 96}, {96, 64}};
+    LogCapture log;
+    auto wrapper = MakeOpenclWrapper();
+    WithTimeout([&] {
+        for (int round = 0; round < 3; round++)
+            for (auto [w, h] : sizes) {
+                SubmitFullFrame(*wrapper, w, h);
+                SubmitFullFrame(*wrapper, w, h, other_device.get());
+            }
+        wrapper->Flush();
+    });
+
+    ASSERT_EQ(inference->ResultCount(), 12u);
+    for (size_t i = 0; i < inference->results.size(); i++) {
+        SCOPED_TRACE("result " + std::to_string(i));
+        const auto [w, h] = sizes[(i / 2) % sizes.size()];
+        EXPECT_EQ(inference->result_types[i], MemoryType::D3D11);
+        ASSERT_EQ(inference->results[i].width, w);
+        ASSERT_EQ(inference->results[i].height, h);
+        ExpectQuadrants(inference->results[i], 0, 0, w, h, 0);
+    }
+    EXPECT_EQ(log.Count("are copied there"), 1u);
+    EXPECT_EQ(log.Count("textures shared from D3D11 device"), sizes.size()) << "a pool per size on the other device";
+    EXPECT_EQ(log.Count("OpenCL pre-processing: staging textures"), sizes.size()) << "and on the inference device";
+    std::lock_guard lk(failed_mutex);
+    EXPECT_TRUE(failed.empty());
+}
+
+TEST_F(OpenclD3D11OtherDeviceTest, PooledTexturesAreOpenedOnce) {
+    // The inference device opens each pooled texture once: an open makes a new texture, which OpenCL would import anew
+    auto wrapper = MakeOpenclWrapper();
+    WithTimeout([&] {
+        for (int i = 0; i < 12; i++) {
+            SubmitFullFrame(*wrapper, 96, 64, other_device.get());
+            wrapper->Flush(); // each copy goes back to the pool before the next frame
+        }
+    });
+
+    ASSERT_EQ(inference->ResultCount(), 12u);
+    const std::set<const void *> textures(inference->result_textures.begin(), inference->result_textures.end());
+    EXPECT_EQ(textures.size(), 1u);
+    EXPECT_EQ(textures.count(nullptr), 0u);
+    ExpectQuadrants(inference->results.back(), 0, 0, 96, 64, 0);
+}
+
+TEST_F(OpenclD3D11OtherDeviceTest, RoisOfFrameShareOneCopy) {
+    auto inference = this->inference;
+    inference->on_submit = [inference](ImageInference::IFrameBase::Ptr frame) {
+        inference->Record(*frame->GetImage());
+        std::lock_guard lk(inference->mutex);
+        inference->held.push_back(std::move(frame));
+    };
+    auto wrapper = MakeOpenclWrapper();
+    auto buffer = D3D11Backend::MakeSource(other_device.get(), 160, 96, QuadrantPattern(0, 0, 160, 96));
+    WithTimeout([&] {
+        for (Roi rect : {Roi{0, 0, 80, 48}, Roi{80, 48, 80, 48}}) {
+            auto frame = std::make_shared<TestFrame>();
+            auto image = D3D11Backend::SourceImage(buffer.get(), other_device.get());
+            image->width = 160;
+            image->height = 96;
+            image->format = FourCC::FOURCC_BGRA;
+            image->rect = rect;
+            frame->SetImage(image);
+            wrapper->SubmitImage(frame, {});
+        }
+        wrapper->Flush();
+    });
+
+    ASSERT_EQ(inference->ResultCount(), 2u);
+    EXPECT_EQ(inference->result_textures[0], inference->result_textures[1]);
+    EXPECT_NE(inference->result_textures[0], D3D11Texture(buffer.get()));
+    ExpectQuadrants(inference->results[1], 0, 0, 160, 96, 0);
+}
+
+TEST_F(OpenclD3D11OtherDeviceTest, DestroyWithFramesInInference) {
+    // The inference holds the copies, and through them the other device's pool, when the element is torn down
+    auto inference = this->inference;
+    inference->on_submit = [inference](ImageInference::IFrameBase::Ptr frame) {
+        std::lock_guard lk(inference->mutex);
+        inference->held.push_back(std::move(frame));
+    };
+    WithTimeout([&] {
+        auto wrapper = MakeOpenclWrapper();
+        for (int i = 0; i < 3; i++)
+            SubmitFullFrame(*wrapper, 160, 96, other_device.get());
+        wrapper.reset();
+    });
+    EXPECT_TRUE(inference->held.empty());
+}
+
+TEST_F(OpenclD3D11OtherDeviceTest, IdleDeviceIsDropped) {
+    // A decoder that went away: its device is released once kPoolIdleFrames frames of others have come, and a frame
+    // of it again starts over
+    LogCapture log;
+    auto inference = this->inference;
+    inference->on_submit = [](ImageInference::IFrameBase::Ptr frame) { frame->SetImage(nullptr); };
+    auto wrapper = MakeOpenclWrapper();
+    WithTimeout([&] {
+        SubmitFullFrame(*wrapper, 64, 48, other_device.get());
+        for (uint64_t i = 0;
+             i < ImageInferenceAsyncOpenCL::kPoolIdleFrames + ImageInferenceAsyncOpenCL::kPoolCheckPeriod; i++)
+            SubmitFullFrame(*wrapper, 64, 48);
+        wrapper->Flush();
+    });
+    EXPECT_EQ(log.Count("dropping the copies on idle D3D11 device"), 1u);
+
+    inference->on_submit = nullptr; // read the images back again
+    WithTimeout([&] {
+        SubmitFullFrame(*wrapper, 64, 48, other_device.get());
+        wrapper->Flush();
+    });
+    EXPECT_EQ(log.Count("are copied there"), 2u);
+    ASSERT_EQ(inference->ResultCount(), 1u);
+    ExpectQuadrants(inference->results[0], 0, 0, 64, 48, 0);
+}
+
 class OpenclD3D12AsyncInferenceTest : public OpenclAsyncInferenceTest<D3D12Backend> {};
 
-TEST_F(OpenclD3D12AsyncInferenceTest, D3D11FramesOfAnotherDeviceAreRejected) {
-    // A model instance created for D3D12 frames reads through a D3D11 device of its own. The frames of any other
-    // D3D11 device would be read across devices: they are refused instead.
+TEST_F(OpenclD3D12AsyncInferenceTest, D3D11FramesOfAnotherDeviceAreCopied) {
+    // A model instance created for D3D12 frames reads through a D3D11 device of its own, shared with a stream of D3D11
+    // frames on the adapter: they are copied on their device
     D3D11DevicePtr d3d11_device = CreateD3D11Device();
     if (!d3d11_device)
         GTEST_SKIP() << "No D3D11 device";
+    gint64 d3d11_luid = 0, d3d12_luid = 0;
+    g_object_get(d3d11_device.get(), "adapter-luid", &d3d11_luid, nullptr);
+    g_object_get(device.get(), "adapter-luid", &d3d12_luid, nullptr);
+    if (d3d11_luid != d3d12_luid)
+        GTEST_SKIP() << "The first D3D11 and D3D12 devices are on different adapters";
+
     auto wrapper = MakeOpenclWrapper();
-    auto buffer = D3D11Backend::MakeSource(d3d11_device.get(), 64, 48, QuadrantPattern(0, 0, 64, 48));
-    auto frame = std::make_shared<TestFrame>();
-    auto image = D3D11Backend::SourceImage(buffer.get(), d3d11_device.get());
-    image->width = 64;
-    image->height = 48;
-    image->format = FourCC::FOURCC_BGRA;
-    frame->SetImage(image);
-    EXPECT_ANY_THROW(wrapper->SubmitImage(frame, {}));
-    wrapper->Flush();
-    EXPECT_EQ(inference->ResultCount(), 0u);
+    WithTimeout([&] {
+        for (int i = 0; i < 4; i++) {
+            if (i % 2 == 0) {
+                SubmitFullFrame(*wrapper, 160, 96);
+                continue;
+            }
+            auto buffer = D3D11Backend::MakeSource(d3d11_device.get(), 96, 64, QuadrantPattern(0, 0, 96, 64));
+            auto frame = std::make_shared<TestFrame>();
+            auto image = D3D11Backend::SourceImage(buffer.get(), d3d11_device.get());
+            image->width = 96;
+            image->height = 64;
+            image->format = FourCC::FOURCC_BGRA;
+            frame->SetImage(image);
+            sources.push_back(std::move(buffer));
+            wrapper->SubmitImage(frame, {});
+        }
+        wrapper->Flush();
+    });
+
+    ASSERT_EQ(inference->ResultCount(), 4u);
+    for (size_t i = 0; i < inference->results.size(); i++) {
+        SCOPED_TRACE("result " + std::to_string(i));
+        const uint32_t width = i % 2 ? 96 : 160, height = i % 2 ? 64 : 96;
+        ASSERT_EQ(inference->results[i].width, width);
+        ExpectQuadrants(inference->results[i], 0, 0, width, height, 0);
+    }
+    std::lock_guard lk(failed_mutex);
+    EXPECT_TRUE(failed.empty());
 }
 
 TEST_F(OpenclD3D12AsyncInferenceTest, FramesFromAnotherDeviceObjectOfTheAdapter) {
