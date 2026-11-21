@@ -298,9 +298,10 @@ void ConfigureImageInput(Preparation &p, const ConfigHelper &config, ov::preproc
     std::string pp_type_string = fmt::format("Pre-processing: {}", pp_type);
     GVA_DEBUG("%s", pp_type_string.c_str());
 
-    // OPENCV and VAAPI pre-processors handle color conversion and scaling, input tensors in NCHW format
+    // OPENCV, VAAPI and OPENCL pre-processors handle color conversion and scaling, input tensors in NCHW format
     if (pp_type == ImagePreprocessorType::OPENCV || pp_type == ImagePreprocessorType::VAAPI_SYSTEM ||
-        pp_type == ImagePreprocessorType::D3D11 || pp_type == ImagePreprocessorType::D3D12) {
+        pp_type == ImagePreprocessorType::D3D11 || pp_type == ImagePreprocessorType::D3D12 ||
+        pp_type == ImagePreprocessorType::OPENCL) {
         input.tensor().set_layout("NCHW");
     }
 

@@ -20,7 +20,9 @@ enum class ImagePreprocessorType : int {
     D3D11,
     D3D11_SURFACE_SHARING,
     D3D12,
-    D3D12_SURFACE_SHARING
+    D3D12_SURFACE_SHARING,
+    // One OpenCL kernel pre-processes the frame (VA, D3D11 or system memory) straight into the model input.
+    OPENCL
 };
 class ImagePreprocessor {
   public:

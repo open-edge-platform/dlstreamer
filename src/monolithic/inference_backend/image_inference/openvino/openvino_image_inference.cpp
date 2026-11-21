@@ -26,9 +26,12 @@
 #include "inference_backend/logger.h"
 #include "inference_backend/pre_proc.h"
 
+#include "opencl_preprocessor.h"
 #include "openvino_blob_wrapper.h"
 #include "safe_arithmetic.hpp"
 #include "utils.h"
+
+#include <dlstreamer/openvino/context.h>
 
 #include <algorithm>
 #include <chrono>
@@ -94,7 +97,9 @@ OpenVinoImageInference::OpenVinoImageInference(const InferenceBackend::Inference
         model_path_ = cfg_helper.ModelPath();
         prepared_model_ = PrepareModel(OpenVinoCore().read_model(model_path_), cfg_helper, memory_type);
 
-        const auto remote_context = CreateRemoteContext(device, memory_type, context);
+        const auto remote_context = pp_type == InferenceBackend::ImagePreprocessorType::OPENCL
+                                        ? CreateOpenclRemoteContext(device, context)
+                                        : CreateRemoteContext(device, memory_type, context);
         img_to_tensor_ = std::make_unique<ImageToTensorConverter>(remote_context);
         compiled_model_ = CompileModelForDevice(prepared_model_, cfg_helper, device, memory_type, remote_context);
 
@@ -116,6 +121,9 @@ OpenVinoImageInference::OpenVinoImageInference(const InferenceBackend::Inference
             free_slots_.Release(inference_slot.get());
         }
 
+        if (pp_type == InferenceBackend::ImagePreprocessorType::OPENCL)
+            SetUpOpenclPreprocessing(cfg_helper, remote_context);
+
         if (pp_type == InferenceBackend::ImagePreprocessorType::OPENCV ||
             pp_type == InferenceBackend::ImagePreprocessorType::D3D11 ||
             pp_type == InferenceBackend::ImagePreprocessorType::D3D12) {
@@ -127,6 +135,53 @@ OpenVinoImageInference::OpenVinoImageInference(const InferenceBackend::Inference
 
     } catch (const std::exception &e) {
         std::throw_with_nested(std::runtime_error("Failed to construct OpenVinoImageInference"));
+    }
+}
+
+void OpenVinoImageInference::SetUpOpenclPreprocessing(
+    const ConfigHelper &config, const std::shared_ptr<dlstreamer::OpenVINOContext> &remote_context) {
+    const std::string &model_format = config.ModelFormat();
+    if (model_format != "BGR" && model_format != "RGB")
+        throw std::runtime_error("OpenCL pre-processing supports BGR and RGB models, not '" + model_format + "'");
+
+    // The image input as prepared for the OpenCL pre-processing: [N, 3, H, W] u8.
+    const auto input = compiled_model_.input(image_layer_);
+    if (input.get_partial_shape().is_dynamic())
+        throw std::runtime_error("OpenCL pre-processing needs a static image input, not " +
+                                 input.get_partial_shape().to_string());
+    const ov::Shape shape = input.get_shape();
+    if (shape.size() != 4 || shape[1] != 3 || input.get_element_type() != ov::element::u8)
+        throw std::runtime_error("OpenCL pre-processing: unexpected image input " + shape.to_string() + " " +
+                                 input.get_element_type().get_type_name());
+
+    OpenclPreprocessor::Settings settings;
+    settings.width = safe_convert<uint32_t>(shape[3]);
+    settings.height = safe_convert<uint32_t>(shape[2]);
+    settings.batch_size = shape[0];
+    settings.rgb = model_format == "RGB";
+
+    // GPU inference: the kernels run in OpenVINO's OpenCL context and write into its device memory. Other devices:
+    // the preprocessor runs on the GPU of the frames and writes into host memory.
+    cl_context device_context = nullptr;
+    std::shared_ptr<dlstreamer::OpenVINOContext> ov_context;
+    if (config.Device().rfind("GPU", 0) == 0) {
+        ov_context = remote_context ? remote_context : std::make_shared<dlstreamer::OpenVINOContext>(compiled_model_);
+        device_context = static_cast<cl_context>(ov_context->handle(dlstreamer::OpenVINOContext::key::cl_context));
+        if (!device_context)
+            throw std::runtime_error("OpenCL pre-processing: no OpenCL context for the GPU inference");
+    }
+    opencl_preproc_ = std::make_unique<OpenclPreprocessor>(device_context, context_, settings);
+
+    for (auto &inference_slot : inference_slots_) {
+        OpenclBatch &batch = opencl_preproc_->CreateBatch();
+        ov::Tensor tensor;
+        if (device_context)
+            tensor = ov_context->remote_context<ov::intel_gpu::ocl::ClContext>().create_tensor(ov::element::u8, shape,
+                                                                                               batch.device_memory);
+        else
+            tensor = ov::Tensor(ov::element::u8, shape, batch.host_memory);
+        inference_slot->infer_request.set_tensor(image_layer_, tensor);
+        inference_slot->opencl_batch = &batch;
     }
 }
 
@@ -258,7 +313,8 @@ void OpenVinoImageInference::Flush() {
                 // When software preprocessing is used, frames are written directly into the infer-request-owned
                 // batched tensor, so any unfilled tail slots in the last partial batch already contain data from
                 // a previous request reuse.
-                if (batch_size_ > 1 && !DoNeedImagePreProcessing(nullptr)) {
+                // The OpenCL pre-processing writes into the bound input as well.
+                if (batch_size_ > 1 && !DoNeedImagePreProcessing(nullptr) && !opencl_preproc_) {
                     size_t input_idx = 0;
                     for (auto &input_vec : inference_slot->in_tensors) {
                         for (int i = input_vec.size(); i < batch_size_; i++)
@@ -269,6 +325,8 @@ void OpenVinoImageInference::Flush() {
                     }
                 }
 
+                if (opencl_preproc_)
+                    opencl_preproc_->Finish(*inference_slot->opencl_batch);
                 inference_slot->StartAsync();
             } catch (const std::exception &e) {
                 GVA_ERROR("Couldn't start inference on flush: %s", e.what());

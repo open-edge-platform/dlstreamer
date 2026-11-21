@@ -29,6 +29,13 @@ namespace OpenVino {
 dlstreamer::OpenVINOContextPtr CreateRemoteContext(const std::string &device, MemoryType memory_type,
                                                    const dlstreamer::ContextPtr &app_context);
 
+// Creates the OpenVINO remote context for the OpenCL pre-processing (pre-process-backend=opencl): for a single GPU
+// device, the context the pre-processing kernels run in as well, sharing the frames of app_context (a VA display or a
+// D3D11 device; may be null for system memory frames). Returns null for other devices, and for a GPU when OpenVINO's
+// default context fits (no app_context).
+dlstreamer::OpenVINOContextPtr CreateOpenclRemoteContext(const std::string &device,
+                                                         const dlstreamer::ContextPtr &app_context);
+
 // Compiles the model on the device, using OpenVINO auto-batching or NPU strided input when the model needs them.
 // remote_context is the result of CreateRemoteContext() and may be null.
 ov::CompiledModel CompileModelForDevice(const PreparedModel &prepared, const ConfigHelper &config,

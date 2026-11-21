@@ -7,6 +7,7 @@
 set (TARGET_NAME "image_inference")
 
 add_subdirectory(openvino)
+add_subdirectory(opencl)
 
 if(${ENABLE_VAAPI} AND NOT(WIN32))
         add_subdirectory(async_with_va_api)
@@ -37,6 +38,7 @@ PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/openvino
         ${CMAKE_CURRENT_SOURCE_DIR}/async_with_va_api
+        ${CMAKE_CURRENT_SOURCE_DIR}/opencl
 )
 
 if(WIN32)
@@ -50,4 +52,5 @@ PUBLIC
         openvino::runtime
         logger
         utils
+        image_inference_opencl
 )

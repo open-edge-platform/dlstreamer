@@ -73,6 +73,10 @@ class OpenVINOContext : public BaseContext {
             _remote_context = core.get_default_context(device);
     }
 
+    explicit OpenVINOContext(ov::RemoteContext remote_context)
+        : BaseContext(MemoryType::OpenVINO), _remote_context(std::move(remote_context)) {
+    }
+
     OpenVINOContext(ov::CompiledModel compiled_model) : BaseContext(MemoryType::OpenVINO) {
         try {
             _remote_context = compiled_model.get_context();
