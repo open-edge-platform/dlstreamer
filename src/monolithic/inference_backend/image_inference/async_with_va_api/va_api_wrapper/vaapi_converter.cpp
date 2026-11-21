@@ -180,8 +180,6 @@ VASurfaceID ConvertDMABuf(VaDpyWrapper display, const Image &src, int rt_format)
 
 } // anonymous namespace
 
-std::mutex VaApiConverter::_convert_mutex;
-
 VaApiConverter::VaApiConverter(VaApiContext *context) : _context(context) {
     if (!context)
         throw std::runtime_error("VaApiContext is null. VaConverter requires not nullptr context.");
@@ -424,9 +422,9 @@ void VaApiConverter::Convert(const Image &src, VaApiImage &va_api_dst, const Inp
                                                            &pipeline_param_buf_id));
 
     {
-        // These operations can't be called asynchronously from different threads
-        // SEGFAULT observed on media driver 21.4.1, 21.2.3, 21.1.3
-        // TODO: investigate further
+        // One picture sequence at a time on this converter's VA context. The lock used to be process-wide (crashes
+        // were seen on media driver 21.x), which made every element wait for the VPP of every other element: on
+        // small ROIs vaEndPicture blocks for ~0.4 ms, so pipelines with several models on many ROIs were capped.
         std::lock_guard<std::mutex> lock(_convert_mutex);
         VA_CALL(_context->Display().drvVtable().vaBeginPicture(context, _context->Id(), dst.va_surface_id));
         VA_CALL(_context->Display().drvVtable().vaRenderPicture(context, _context->Id(), &pipeline_param_buf_id, 1));
