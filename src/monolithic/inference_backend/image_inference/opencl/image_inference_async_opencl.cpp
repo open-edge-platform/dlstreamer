@@ -99,6 +99,47 @@ struct ImageInferenceAsyncOpenCL::StagingFrame {
     }
 };
 
+// Single shared D3D11 textures of one size and format, recycled. OpenCL reads only shared textures correctly (see
+// dlstreamer::D3D11TargetPool).
+struct ImageInferenceAsyncOpenCL::D3D11StagingPool {
+    GstD3D11Device *device; // the wrapper's, which outlives its pools
+    GstD3D11PoolAllocator *allocator = nullptr;
+
+    D3D11StagingPool(GstD3D11Device *device, const D3D11_TEXTURE2D_DESC &src_desc) : device(device) {
+        D3D11_TEXTURE2D_DESC desc = {};
+        desc.Width = src_desc.Width;
+        desc.Height = src_desc.Height;
+        desc.MipLevels = 1;
+        desc.ArraySize = 1;
+        desc.Format = src_desc.Format;
+        desc.SampleDesc.Count = 1;
+        desc.Usage = D3D11_USAGE_DEFAULT;
+        desc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+        desc.MiscFlags = D3D11_RESOURCE_MISC_SHARED;
+        allocator = gst_d3d11_pool_allocator_new(device, &desc);
+        if (!allocator)
+            throw std::runtime_error("OpenCL pre-processing: failed to create the staging texture pool");
+        if (!gst_d3d11_allocator_set_active(GST_D3D11_ALLOCATOR(allocator), TRUE)) {
+            gst_object_unref(allocator);
+            throw std::runtime_error("OpenCL pre-processing: failed to activate the staging texture pool");
+        }
+        GVA_INFO("OpenCL pre-processing: staging textures %ux%u format %u", desc.Width, desc.Height, desc.Format);
+    }
+
+    ~D3D11StagingPool() {
+        {
+            // Frees the idle textures, which must not race with the immediate context. The others go when their
+            // frames release them.
+            D3D11DeviceLock lock(device);
+            gst_d3d11_allocator_set_active(GST_D3D11_ALLOCATOR(allocator), FALSE);
+        }
+        gst_object_unref(allocator);
+    }
+
+    D3D11StagingPool(const D3D11StagingPool &) = delete;
+    D3D11StagingPool &operator=(const D3D11StagingPool &) = delete;
+};
+
 dlstreamer::ContextPtr ImageInferenceAsyncOpenCL::D3D11ContextFor(const dlstreamer::ContextPtr &frames_context) {
     if (!frames_context || frames_context->handle(dlstreamer::BaseContext::key::d3d11_device))
         return frames_context;
@@ -161,50 +202,51 @@ ImageInferenceAsyncOpenCL::~ImageInferenceAsyncOpenCL() {
         GVA_ERROR("OpenCL pre-processing: flush on teardown failed: %s", e.what());
     }
     _inference.reset();
-    DropStagingPool();
+    _staging_pools.clear();
     _d3d12_pools.clear();
     gst_clear_object(&_d3d12_device_checked);
     if (_fence_event)
         CloseHandle(_fence_event);
 }
 
-void ImageInferenceAsyncOpenCL::EnsureStagingPool(const D3D11_TEXTURE2D_DESC &src_desc) {
-    if (_staging_pool && src_desc.Width == _staging_desc.Width && src_desc.Height == _staging_desc.Height &&
-        src_desc.Format == _staging_desc.Format)
-        return;
-
-    DropStagingPool();
-    D3D11_TEXTURE2D_DESC desc = {};
-    desc.Width = src_desc.Width;
-    desc.Height = src_desc.Height;
-    desc.MipLevels = 1;
-    desc.ArraySize = 1;
-    desc.Format = src_desc.Format;
-    desc.SampleDesc.Count = 1;
-    desc.Usage = D3D11_USAGE_DEFAULT;
-    desc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
-    // OpenCL reads only shared textures correctly (see dlstreamer::D3D11TargetPool).
-    desc.MiscFlags = D3D11_RESOURCE_MISC_SHARED;
-    _staging_pool = gst_d3d11_pool_allocator_new(_gst_device, &desc);
-    if (!_staging_pool || !gst_d3d11_allocator_set_active(GST_D3D11_ALLOCATOR(_staging_pool), TRUE)) {
-        DropStagingPool();
-        throw std::runtime_error("OpenCL pre-processing: failed to create the staging texture pool");
-    }
-    _staging_desc = desc;
-    GVA_INFO("OpenCL pre-processing: staging textures %ux%u format %u", desc.Width, desc.Height, desc.Format);
+ImageInferenceAsyncOpenCL::D3D11StagingPool &
+ImageInferenceAsyncOpenCL::StagingPoolFor(const D3D11_TEXTURE2D_DESC &desc) {
+    auto &slot = _staging_pools[{desc.Width, desc.Height, desc.Format}];
+    if (!slot.pool)
+        slot.pool = std::make_unique<D3D11StagingPool>(_gst_device, desc);
+    slot.last_used = _frames_staged;
+    return *slot.pool;
 }
 
-void ImageInferenceAsyncOpenCL::DropStagingPool() {
-    if (!_staging_pool)
-        return;
-    {
-        // Frees the idle textures, which must not race with the immediate context.
-        D3D11DeviceLock lock(_gst_device);
-        gst_d3d11_allocator_set_active(GST_D3D11_ALLOCATOR(_staging_pool), FALSE);
+dlstreamer::D3D12TargetPool &ImageInferenceAsyncOpenCL::D3D12PoolFor(const D3D12_RESOURCE_DESC &desc) {
+    auto &slot = _d3d12_pools[{desc.Width, desc.Height, desc.Format}];
+    if (!slot.pool) {
+        slot.pool = std::make_unique<dlstreamer::D3D12TargetPool>(GST_CAT_DEFAULT);
+        GVA_INFO("OpenCL pre-processing: shareable copies of %llux%u D3D12 textures of format %u",
+                 static_cast<unsigned long long>(desc.Width), desc.Height, desc.Format);
     }
-    gst_object_unref(_staging_pool);
-    _staging_pool = nullptr;
-    _staging_desc = {};
+    slot.last_used = _frames_staged;
+    return *slot.pool;
+}
+
+void ImageInferenceAsyncOpenCL::CountFrame() {
+    if (++_frames_staged % kPoolCheckPeriod != 0)
+        return;
+    // The textures in use stay alive until their frames release them.
+    auto drop_idle = [this](auto &pools, const char *what) {
+        for (auto it = pools.begin(); it != pools.end();) {
+            if (_frames_staged - it->second.last_used <= kPoolIdleFrames) {
+                ++it;
+                continue;
+            }
+            GVA_INFO("OpenCL pre-processing: dropping the idle pool of %s %llux%u format %u", what,
+                     static_cast<unsigned long long>(std::get<0>(it->first)), std::get<1>(it->first),
+                     std::get<2>(it->first));
+            it = pools.erase(it);
+        }
+    };
+    drop_idle(_staging_pools, "staging textures");
+    drop_idle(_d3d12_pools, "shareable D3D12 copies");
 }
 
 std::shared_ptr<ImageInferenceAsyncOpenCL::StagingFrame>
@@ -237,8 +279,8 @@ ImageInferenceAsyncOpenCL::GetStagingFrame(const Image &src_image) {
 
     GstMemory *staging = nullptr;
     if (!readable_in_place) {
-        EnsureStagingPool(src_desc);
-        if (gst_d3d11_pool_allocator_acquire_memory(_staging_pool, &staging) != GST_FLOW_OK || !staging)
+        if (gst_d3d11_pool_allocator_acquire_memory(StagingPoolFor(src_desc).allocator, &staging) != GST_FLOW_OK ||
+            !staging)
             throw std::runtime_error("OpenCL pre-processing: failed to acquire a staging texture");
         frame->staging = staging;
     }
@@ -271,6 +313,7 @@ ImageInferenceAsyncOpenCL::GetStagingFrame(const Image &src_image) {
     gst_memory_unmap(src_mem, &src_map);
 
     _last_staging = frame;
+    CountFrame();
     return frame;
 }
 
@@ -309,18 +352,11 @@ ImageInferenceAsyncOpenCL::GetD3D12StagingFrame(const Image &src_image) {
     if (!gst_video_info_set_format(&info, format, src_image.width, src_image.height))
         throw std::invalid_argument("OpenCL pre-processing: invalid D3D12 frame size");
 
-    auto &pool = _d3d12_pools[{desc.Width, desc.Height, desc.Format}];
-    if (!pool) {
-        pool = std::make_unique<dlstreamer::D3D12TargetPool>(GST_CAT_DEFAULT);
-        GVA_INFO("OpenCL pre-processing: shareable copies of %llux%u D3D12 textures of format %u",
-                 static_cast<unsigned long long>(desc.Width), desc.Height, desc.Format);
-    }
-
     auto frame = std::make_shared<StagingFrame>();
     frame->source = gst_memory_ref(src_mem);
     frame->d3d12 = true;
     // Queued on the D3D12 device. The worker waits for it.
-    frame->staging = pool->copy(src_mem, &info);
+    frame->staging = D3D12PoolFor(desc).copy(src_mem, &info);
     if (!frame->staging)
         throw std::runtime_error("OpenCL pre-processing: failed to copy the D3D12 frame into a shareable texture");
     // Opened once per pooled texture: the memory keeps the view.
@@ -330,6 +366,7 @@ ImageInferenceAsyncOpenCL::GetD3D12StagingFrame(const Image &src_image) {
         throw std::runtime_error("OpenCL pre-processing: failed to open the D3D12 copy of the frame in D3D11");
 
     _last_staging = frame;
+    CountFrame();
     return frame;
 }
 

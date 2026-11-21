@@ -201,16 +201,19 @@ the batch the same way.
   subresource into a texture from a `GstD3D11PoolAllocator` of single
   `D3D11_RESOURCE_MISC_SHARED` textures of the frame's size and format, under
   the device lock, on the streaming thread. If the frame already is a single
-  shared texture without a keyed mutex, it is read in place. The pool is
-  recreated when the frame size or format changes. The OpenCL frame source
+  shared texture without a keyed mutex, it is read in place. There is a pool
+  per size and format, as for D3D12 frames below. The OpenCL frame source
   imports each texture once (both planes for NV12, through
-  `cl_intel_d3d11_nv12_media_sharing`).
+  `cl_intel_d3d11_nv12_media_sharing`) and keeps the import while the texture is
+  in use (section 5.10).
 - **D3D12 textures.** The frame is copied on the GPU (`gst_d3d12_buffer_copy_into()`)
   into a texture from a `D3D12TargetPool`: a shared heap, render target and
   simultaneous access, not zeroed (a pool that zeroes new textures can deadlock
   with the D3D12 queue's completion thread). A pool serves one texture size and
   format, and there is one per size and format, so streams of different sizes
-  sharing a model instance don't make a pool start over. The copy's D3D11 view
+  sharing a model instance don't make a pool start over. A pool that none of
+  the last 1024 frames used is dropped, with its idle textures: the stream
+  stopped or changed its frame size. The copy's D3D11 view
   is opened once per pooled texture, on the inference's D3D11 device, which
   must be on the frame's adapter: for an instance created for D3D12 frames, the
   device `d3d11_device_for()` keeps for that adapter. The view goes to the
@@ -344,13 +347,18 @@ therefore waits for the pre-processing only, not for the inference in flight.
 | Copy of a D3D frame (`StagingFrame`): reference on the frame's `GstMemory`, pooled texture | the images of the frame's ROIs, plus the weak ROI cache | the last of them is destroyed, after its inference |
 | Planes of a frame (`OpenclSourcePlanes`) | the frame source's import cache (VA, D3D11) or the ROI cache, and the batch until `Finish()` | system memory: back to the upload pool once the kernels completed |
 | Model inputs (`OpenclBatch`) | the preprocessor | teardown |
-| Texture imports | the D3D11 frame source; each import references its texture, so pointer keys stay unique | teardown, under the device lock |
-| D3D12 copies' D3D11 views | their pooled `GstD3D12Memory` | with the pooled texture |
+| Copy pools (D3D11 and D3D12, per size and format) | `ImageInferenceAsyncOpenCL` | unused by the last 1024 frames, or teardown; textures in use go when released |
+| Texture imports | the D3D11 frame source; each import references its texture, so pointer keys stay unique | unused by the last 1024 frames, or teardown, under the device lock |
+| D3D12 copies' D3D11 views | their pooled `GstD3D12Memory`, and the import | with the pooled texture and the import |
 | `cl_context` | OpenVINO™ and the preprocessor | last holder |
+
+An import keeps its texture alive, so a texture whose pool was dropped, or a
+decoder texture read in place after the decoder recreated its pool, is freed
+when its import is dropped.
 
 Windows teardown: stop the worker → `Flush()` OpenVINO™ (in-flight images are
 released) → destroy the inference (the preprocessor and its imports) → the
-D3D11 staging pool (under the device lock) and the D3D12 pools.
+D3D11 pools (under the device lock) and the D3D12 pools.
 
 ### 5.11 Element integration
 
@@ -458,9 +466,10 @@ Correctness:
 - Unit tests of `ImageInferenceAsyncOpenCL` ([test_d3d_async_inference.cpp](../../../../../tests/unit_tests/check/components/d3d-pre-proc/test_d3d_async_inference.cpp)),
   with a fake inference that reads back the textures it is handed. For D3D11
   and D3D12 frames: the copy is exact, the ROIs of a frame share one copy,
-  streams of different sizes share an instance, a frame smaller than its
-  texture is copied whole, teardown with frames still in the inference, frames
-  without their memory are refused. Also: shared D3D11 frames are read in place,
+  streams of different sizes share an instance with a pool per size, an idle
+  pool is dropped and comes back when needed, a frame smaller than its texture
+  is copied whole, teardown with frames still in the inference, frames without
+  their memory are refused. Also: shared D3D11 frames are read in place,
   D3D12 frames on an instance created for D3D11 frames are read through its
   device, D3D12 frames of another `GstD3D12Device` object of the adapter are
   accepted, and D3D11 frames of another device are refused.
@@ -552,8 +561,9 @@ older code on OpenVINO™ 2026.3 with a remote display that kept a third of the
   D3D11 frames on their adapter are read through that instance's device (unit
   tests only, not in pipelines).
 - The model input must be u8 with 3 channels. A model-proc `precision` other
-  than U8 on the image input is not checked by the support check: the element
-  selects `opencl` and fails at setup instead of falling back.
+  than U8 on the image input is not supported by the element with any backend:
+  it trips an assert in `UpdateConfigWithLayerInfo()` (release builds keep
+  asserts), before a backend is set up.
 - Supported formats: NV12 for VA and DMA-BUF; NV12, BGRA, RGBA, BGRx for D3D11
   and D3D12; no P010.
 - Chroma is sampled center-sited, while most H.264/HEVC content is co-sited
@@ -564,12 +574,11 @@ older code on OpenVINO™ 2026.3 with a remote display that kept a third of the
   completed. If the decoder's buffer went back to its pool while that reference
   is held, the pool would discard it instead of recycling it. In the tested
   pipelines (detect, detect + classify) no buffer was discarded.
-- Imports are cached until teardown. When the D3D11 frame size changes, the
-  staging pool is recreated and the imports of the old textures are kept; with
-  D3D11 streams of different sizes sharing a model instance this repeats at
-  every alternation. (D3D12 frames have a pool per size.) On Linux the VA
-  imports are cached per surface ID: if the decoder recreated its surfaces with
-  the same IDs, a stale import could be used (not verified).
+- Copy pools and D3D11 imports unused for 1024 frames are dropped, which bounds
+  them by the sizes in use; until then a stream that stopped keeps its pool and
+  imports. On Linux the VA imports are cached per surface ID until teardown: if
+  the decoder recreated its surfaces with the same IDs, a stale import could be
+  used (not verified).
 - D3D12 frames are copied with a submission per frame on the D3D12 device's
   direct queue, and the worker waits for the copy on the CPU.
 - One GPU round trip (the batch's `clFinish`) is still on each infer request's
@@ -579,27 +588,30 @@ older code on OpenVINO™ 2026.3 with a remote display that kept a third of the
 
 Done since the prototype: Linux (VA surfaces and DMA-BUFs), system memory, any
 inference device, one tensor per batch, colorimetry from the caps, model-proc
-normalization and color space, and D3D12Memory input.
+normalization and color space, D3D12Memory input, and copy pools per frame size
+with idle pools and imports dropped. Before the last, two streams of D3D11
+frames of different sizes sharing a model instance recreated the staging pool
+at every frame and kept every old texture through its import: 985 pools and
+5.2 GB of GPU memory in 12 seconds (SD and HD, yolo11n), against 2 pools and
+274 MB now.
 
 1. **No CPU wait**: run the kernel on OpenVINO's queue, or order it against
    inference on the GPU.
 2. **Cross-device frames**: D3D11 frames from another device on the same
    adapter, through shared NT handles, as `ImageInferenceAsyncD3D11` does.
-3. **Imports**: drop the imports of old staging textures, keep a staging pool
-   per frame size for D3D11 too, and check the VA import cache when the decoder
-   recreates its surfaces.
-4. **Support checks**: fall back for a non-U8 image input precision.
-5. **Kernel**: vector stores, an anti-aliased (area) downscale for large ratios
+3. **VA imports**: check the import cache when the decoder recreates its
+   surfaces (Linux).
+4. **Kernel**: vector stores, an anti-aliased (area) downscale for large ratios
    (optional, as it changes results compared with `opencv` and `va`), chroma
    siting from the caps.
-6. **Formats**: P010 (10-bit HEVC and AV1), grayscale models.
-7. **Inference on another GPU** than the frames: run the kernel on the frames'
+5. **Formats**: P010 (10-bit HEVC and AV1), grayscale models.
+6. **Inference on another GPU** than the frames: run the kernel on the frames'
    GPU and write host memory, as for CPU and NPU inference.
-8. **Automatic selection** where the backend wins, after a benchmark across
+7. **Automatic selection** where the backend wins, after a benchmark across
    platforms, devices and pipelines.
-9. **Functional tests** of `opencl` pipelines in CI, on both platforms.
-10. **`aspect-ratio-multiple-of`** resize, which needs the model input reshaped
-    per frame size.
+8. **Functional tests** of `opencl` pipelines in CI, on both platforms.
+9. **`aspect-ratio-multiple-of`** resize, which needs the model input reshaped
+   per frame size.
 
 ## 10. Usage
 

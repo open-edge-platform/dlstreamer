@@ -59,6 +59,12 @@ class ImageInferenceAsyncOpenCL : public ImageInference {
     // one of their adapter for D3D12 frames (dlstreamer::d3d11_device_for()).
     static dlstreamer::ContextPtr D3D11ContextFor(const dlstreamer::ContextPtr &frames_context);
 
+    // The copies of the frames come from a pool per texture size and format, so that streams of different sizes
+    // sharing the instance don't make a pool start over at every frame. A pool that none of the last kPoolIdleFrames
+    // frames used is dropped (checked every kPoolCheckPeriod frames), with its idle textures.
+    static constexpr uint64_t kPoolIdleFrames = 1024;
+    static constexpr uint64_t kPoolCheckPeriod = 64;
+
     ImageInferenceAsyncOpenCL(const ImageInferenceAsyncOpenCL &) = delete;
     ImageInferenceAsyncOpenCL &operator=(const ImageInferenceAsyncOpenCL &) = delete;
 
@@ -80,11 +86,22 @@ class ImageInferenceAsyncOpenCL : public ImageInference {
   private:
     struct StagingFrame;
     struct QueryPool;
+    struct D3D11StagingPool;
+
+    // A pool, with the count of frames when it was last used.
+    template <typename Pool>
+    struct PoolSlot {
+        std::unique_ptr<Pool> pool;
+        uint64_t last_used = 0;
+    };
 
     std::shared_ptr<StagingFrame> GetStagingFrame(const Image &src_image);
     std::shared_ptr<StagingFrame> GetD3D12StagingFrame(const Image &src_image);
-    void EnsureStagingPool(const D3D11_TEXTURE2D_DESC &src_desc);
-    void DropStagingPool();
+    D3D11StagingPool &StagingPoolFor(const D3D11_TEXTURE2D_DESC &src_desc);
+    dlstreamer::D3D12TargetPool &D3D12PoolFor(const D3D12_RESOURCE_DESC &desc);
+    // Counts a frame staged (copied or read in place), and drops the pools idle for kPoolIdleFrames frames. Under
+    // _staging_mutex.
+    void CountFrame();
     void WaitForStaging(StagingFrame &frame);
     void WorkerLoop();
 
@@ -96,13 +113,13 @@ class ImageInferenceAsyncOpenCL : public ImageInference {
     ImageInference::Ptr _inference;
     ErrorHandlingFunc _error_handler;
 
-    // Shared copies of the frames, recycled.
-    GstD3D11PoolAllocator *_staging_pool = nullptr;
-    D3D11_TEXTURE2D_DESC _staging_desc = {};
-    // D3D12 frames: a pool per texture size and format, so that streams of different sizes sharing the instance don't
-    // make it start over at every frame.
+    // Shared copies of D3D11 frames and shareable copies of D3D12 frames, recycled (see kPoolIdleFrames). Guarded by
+    // _staging_mutex, as is the rest of this block.
+    using D3D11PoolKey = std::tuple<UINT, UINT, DXGI_FORMAT>;
+    std::map<D3D11PoolKey, PoolSlot<D3D11StagingPool>> _staging_pools;
     using D3D12PoolKey = std::tuple<UINT64, UINT, DXGI_FORMAT>;
-    std::map<D3D12PoolKey, std::unique_ptr<dlstreamer::D3D12TargetPool>> _d3d12_pools;
+    std::map<D3D12PoolKey, PoolSlot<dlstreamer::D3D12TargetPool>> _d3d12_pools;
+    uint64_t _frames_staged = 0;
     // The copy of the latest frame, for its next ROI.
     std::weak_ptr<StagingFrame> _last_staging;
     std::mutex _staging_mutex;

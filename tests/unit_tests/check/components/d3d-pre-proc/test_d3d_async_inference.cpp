@@ -17,13 +17,16 @@
 #include "dlstreamer/d3d11/context.h"
 #include "dlstreamer/d3d12/context.h"
 #include "inference_backend/image.h"
+#include "inference_backend/logger.h"
 
 #include "utils.h"
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -31,8 +34,14 @@
 #include <memory>
 #include <mutex>
 #include <stdexcept>
+#include <string>
 #include <thread>
+#include <type_traits>
 #include <vector>
+
+// The inference backend's log function by default (logger.cpp)
+void default_log_function(int level, const char *file, const char *function, int line, const char *format,
+                          va_list args);
 
 using namespace InferenceBackend;
 using namespace d3d_test;
@@ -40,6 +49,50 @@ using namespace d3d_test;
 namespace {
 
 using Roi = InferenceBackend::Rectangle<uint32_t>;
+
+std::mutex log_mutex;
+std::vector<std::string> *log_sink = nullptr; // guarded by log_mutex
+
+void CapturingLogFunction(int level, const char *file, const char *function, int line, const char *format,
+                          va_list args) {
+    char message[1024];
+    va_list copy;
+    va_copy(copy, args);
+    std::vsnprintf(message, sizeof(message), format, copy);
+    va_end(copy);
+    {
+        std::lock_guard lk(log_mutex);
+        if (log_sink)
+            log_sink->push_back(message);
+    }
+    default_log_function(level, file, function, line, format, args);
+}
+
+// The messages the inference backend logs, from any thread, while alive
+class LogCapture {
+  public:
+    LogCapture() {
+        std::lock_guard lk(log_mutex);
+        log_sink = &messages_;
+        set_log_function(CapturingLogFunction);
+    }
+    ~LogCapture() {
+        set_log_function(default_log_function);
+        std::lock_guard lk(log_mutex);
+        log_sink = nullptr;
+    }
+    LogCapture(const LogCapture &) = delete;
+    LogCapture &operator=(const LogCapture &) = delete;
+
+    size_t Count(const std::string &text) {
+        std::lock_guard lk(log_mutex);
+        return std::count_if(messages_.begin(), messages_.end(),
+                             [&](const std::string &message) { return message.find(text) != std::string::npos; });
+    }
+
+  private:
+    std::vector<std::string> messages_;
+};
 
 constexpr uint32_t MODEL_WIDTH = 64;
 constexpr uint32_t MODEL_HEIGHT = 64;
@@ -582,8 +635,17 @@ TYPED_TEST(OpenclAsyncInferenceTest, RoisOfFrameShareOneCopy) {
     ExpectQuadrants(inference->results[1], 0, 0, 160, 96, 0);
 }
 
+// The message logged when a pool of copies is created
+template <typename Backend>
+const char *PoolCreatedMessage() {
+    return std::is_same_v<Backend, D3D11Backend> ? "OpenCL pre-processing: staging textures"
+                                                 : "OpenCL pre-processing: shareable copies of";
+}
+
 TYPED_TEST(OpenclAsyncInferenceTest, StreamsOfDifferentSizesShareInstance) {
+    // A pool per size: alternating sizes don't make a pool start over
     const std::vector<std::pair<uint32_t, uint32_t>> sizes = {{160, 96}, {96, 64}, {64, 48}};
+    LogCapture log;
     auto wrapper = this->MakeOpenclWrapper();
     WithTimeout([&] {
         for (int round = 0; round < 4; round++)
@@ -592,6 +654,7 @@ TYPED_TEST(OpenclAsyncInferenceTest, StreamsOfDifferentSizesShareInstance) {
         wrapper->Flush();
     });
 
+    EXPECT_EQ(log.Count(PoolCreatedMessage<TypeParam>()), sizes.size());
     ASSERT_EQ(this->inference->ResultCount(), 4 * sizes.size());
     for (size_t i = 0; i < this->inference->results.size(); i++) {
         SCOPED_TRACE("result " + std::to_string(i));
@@ -601,6 +664,38 @@ TYPED_TEST(OpenclAsyncInferenceTest, StreamsOfDifferentSizesShareInstance) {
         ASSERT_EQ(copy.height, h);
         ExpectQuadrants(copy, 0, 0, w, h, 0);
     }
+}
+
+TYPED_TEST(OpenclAsyncInferenceTest, IdlePoolIsDropped) {
+    // A stream that stopped, or changed its frame size: its pool goes once kPoolIdleFrames frames of other sizes have
+    // come, and a frame of its size gets a new one
+    LogCapture log;
+    auto inference = this->inference;
+    auto released = std::make_shared<std::atomic<size_t>>(0);
+    inference->on_submit = [released](ImageInference::IFrameBase::Ptr frame) {
+        frame->SetImage(nullptr);
+        ++*released;
+    };
+    auto wrapper = this->MakeOpenclWrapper();
+    const uint64_t others = ImageInferenceAsyncOpenCL::kPoolIdleFrames + ImageInferenceAsyncOpenCL::kPoolCheckPeriod;
+    WithTimeout([&] {
+        this->SubmitFullFrame(*wrapper, 96, 64);
+        for (uint64_t i = 0; i < others; i++)
+            this->SubmitFullFrame(*wrapper, 64, 48);
+        wrapper->Flush();
+    });
+    EXPECT_EQ(*released, others + 1);
+    EXPECT_EQ(log.Count("dropping the idle pool"), 1u);
+    EXPECT_EQ(log.Count("96x64"), 2u) << "created, then dropped";
+
+    inference->on_submit = nullptr; // read the images back again
+    WithTimeout([&] {
+        this->SubmitFullFrame(*wrapper, 96, 64);
+        wrapper->Flush();
+    });
+    EXPECT_EQ(log.Count(PoolCreatedMessage<TypeParam>()), 3u);
+    ASSERT_EQ(inference->ResultCount(), 1u);
+    ExpectQuadrants(inference->results[0], 0, 0, 96, 64, 0);
 }
 
 TYPED_TEST(OpenclAsyncInferenceTest, FrameSmallerThanItsTexture) {

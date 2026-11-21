@@ -59,14 +59,48 @@ class D3D11FrameSource : public OpenclFrameSource {
         if (!image || image->type != MemoryType::D3D11 || !image->d3d11_texture)
             throw std::invalid_argument("OpenCL pre-processing: expected a D3D11 texture");
         ID3D11Texture2D *texture = image->d3d11_texture;
-        // The textures come from a fixed pool, and each import holds a reference to its texture, so a key is not
-        // reused by another texture.
-        if (auto it = imports_.find(texture); it != imports_.end())
-            return it->second;
-        return imports_.emplace(texture, Import(texture)).first->second;
+        // The ROIs of a frame come one after another, with its texture.
+        if (texture != last_texture_) {
+            last_texture_ = texture;
+            if (++frames_ % kImportCheckPeriod == 0)
+                DropIdleImports();
+        }
+        // Each import holds a reference to its texture, so a key is not reused by another texture while cached.
+        auto it = imports_.find(texture);
+        if (it == imports_.end())
+            it = imports_.emplace(texture, CachedImport{Import(texture)}).first;
+        it->second.last_used = frames_;
+        return it->second.planes;
     }
 
   private:
+    // An import not used by the last kImportIdleFrames frames is dropped, which releases its texture: it went back to
+    // a pool that is gone (one per frame size, dropped when idle), or the decoder whose texture was read in place
+    // recreated its pool. As ImageInferenceAsyncOpenCL::kPoolIdleFrames.
+    static constexpr uint64_t kImportIdleFrames = 1024;
+    static constexpr uint64_t kImportCheckPeriod = 64;
+
+    struct CachedImport {
+        OpenclSourcePlanesPtr planes;
+        uint64_t last_used = 0;
+    };
+
+    void DropIdleImports() {
+        size_t dropped = 0;
+        for (auto it = imports_.begin(); it != imports_.end();) {
+            if (frames_ - it->second.last_used <= kImportIdleFrames) {
+                ++it;
+                continue;
+            }
+            // Batches still reading the planes keep them until their kernels have completed.
+            it = imports_.erase(it);
+            ++dropped;
+        }
+        if (dropped)
+            GVA_INFO("OpenCL pre-processing: dropped %zu D3D11 imports unused for %llu frames, %zu left", dropped,
+                     static_cast<unsigned long long>(kImportIdleFrames), imports_.size());
+    }
+
     OpenclSourcePlanesPtr Import(ID3D11Texture2D *texture) {
         D3D11_TEXTURE2D_DESC desc = {};
         texture->GetDesc(&desc);
@@ -136,7 +170,10 @@ class D3D11FrameSource : public OpenclFrameSource {
     clCreateFromD3D11Texture2DKHR_fn create_from_texture2d_ = nullptr;
     clEnqueueAcquireD3D11ObjectsKHR_fn acquire_ = nullptr;
     clEnqueueReleaseD3D11ObjectsKHR_fn release_ = nullptr;
-    std::unordered_map<ID3D11Texture2D *, OpenclSourcePlanesPtr> imports_;
+    std::unordered_map<ID3D11Texture2D *, CachedImport> imports_;
+    // Frames seen, counted by texture changes, and the texture of the latest one. Only compared, never dereferenced.
+    uint64_t frames_ = 0;
+    ID3D11Texture2D *last_texture_ = nullptr;
 };
 
 } // namespace
