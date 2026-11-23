@@ -141,22 +141,28 @@ ImageInference::Ptr ImageInference::createImageInferenceInstance(MemoryType inpu
         case MemoryType::DMA_BUFFER:
 #else
         case MemoryType::D3D11:
+        case MemoryType::D3D12:
 #endif
             if (!context)
-                throw std::invalid_argument("Null context provided (the VA display or D3D11 device of the frames is "
+                throw std::invalid_argument("Null context provided (the VA display or D3D device of the frames is "
                                             "expected)");
             break;
         default:
             throw std::invalid_argument("pre-process-backend=opencl does not support this memory type");
         }
-        auto ov_inference = std::make_shared<OpenVinoImageInference>(config, allocator, context, callback,
-                                                                     error_handler, MemoryType::SYSTEM);
 #ifdef _WIN32
-        // D3D11 frames are copied into textures OpenCL can read first.
-        if (input_image_memory_type == MemoryType::D3D11)
-            return std::make_shared<ImageInferenceAsyncOpenCL>(config, context, std::move(ov_inference), error_handler);
+        // D3D frames are copied into textures OpenCL can read first, which it reads through a D3D11 device, also for
+        // D3D12 frames: the inference gets that device.
+        if (input_image_memory_type == MemoryType::D3D11 || input_image_memory_type == MemoryType::D3D12) {
+            auto d3d11_context = ImageInferenceAsyncOpenCL::D3D11ContextFor(context);
+            auto ov_inference = std::make_shared<OpenVinoImageInference>(config, allocator, d3d11_context, callback,
+                                                                         error_handler, MemoryType::SYSTEM);
+            return std::make_shared<ImageInferenceAsyncOpenCL>(config, d3d11_context, std::move(ov_inference),
+                                                               error_handler);
+        }
 #endif
-        return ov_inference;
+        return std::make_shared<OpenVinoImageInference>(config, allocator, context, callback, error_handler,
+                                                        MemoryType::SYSTEM);
     }
 
     // Flag to determine if asynchronous mode is required

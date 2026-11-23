@@ -18,6 +18,8 @@
 #include <array>
 #include <stdexcept>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace InferenceBackend {
 
@@ -55,15 +57,49 @@ cl_float4 Float4(double x, double y, double z, double w) {
     return v;
 }
 
-// Rows of the YUV -> RGB conversion of (Y, U, V, 1), normalized, into [0, 255]: BT.601 limited range, with the
-// coefficients of OpenVINO™'s NV12/I420 conversion, which the VA surface sharing backend uses.
-Rows YuvToRgbRows() {
-    auto row = [](double cy, double cu, double cv) {
-        return Float4(cy * 255.0, cu * 255.0, cv * 255.0, -(cy * 16.0 + (cu + cv) * 128.0));
+// The colorimetry of a frame, with GStreamer's default for the frame height where it has no color matrix (a frame
+// without caps).
+YuvColorimetry ResolveColorimetry(const YuvColorimetry &colorimetry, uint32_t frame_height) {
+    YuvColorimetry resolved = colorimetry;
+    if (resolved.matrix == YuvColorimetry::Matrix::UNKNOWN)
+        resolved.matrix = YuvColorimetry::DefaultMatrix(frame_height);
+    return resolved;
+}
+
+// The luma coefficients Kr and Kb of a color matrix, as gst_video_color_matrix_get_Kr_Kb() gives them.
+std::pair<double, double> LumaCoefficients(YuvColorimetry::Matrix matrix) {
+    switch (matrix) {
+    case YuvColorimetry::Matrix::BT709:
+        return {0.2126, 0.0722};
+    case YuvColorimetry::Matrix::BT2020:
+        return {0.2627, 0.0593};
+    case YuvColorimetry::Matrix::SMPTE240M:
+        return {0.212, 0.087};
+    case YuvColorimetry::Matrix::FCC:
+        return {0.30, 0.11};
+    case YuvColorimetry::Matrix::BT601:
+    case YuvColorimetry::Matrix::UNKNOWN:
+        break;
+    }
+    return {0.299, 0.114};
+}
+
+// Rows of the YUV -> RGB conversion of (Y, U, V, 1), normalized, into [0, 255], for the color matrix and range of
+// `c`. In limited range Y is in [16, 235] and U, V are in [16, 240].
+Rows YuvToRgbRows(const YuvColorimetry &c) {
+    const auto [kr, kb] = LumaCoefficients(c.matrix);
+    const double kg = 1.0 - kr - kb;
+    const double y_scale = c.full_range ? 1.0 : 255.0 / 219.0;
+    const double y_offset = c.full_range ? 0.0 : 16.0;
+    const double c_scale = c.full_range ? 1.0 : 255.0 / 224.0;
+    // channel = y_scale * (255 Y - y_offset) + c_scale * (cu * (255 U - 128) + cv * (255 V - 128))
+    auto row = [&](double cu, double cv) {
+        return Float4(255.0 * y_scale, 255.0 * c_scale * cu, 255.0 * c_scale * cv,
+                      -(y_scale * y_offset + c_scale * (cu + cv) * 128.0));
     };
-    return {row(1.164, 0.0, 1.596),     // R
-            row(1.164, -0.391, -0.813), // G
-            row(1.164, 2.018, 0.0)};    // B
+    return {row(0.0, 2.0 * (1.0 - kr)),                                    // R
+            row(-2.0 * (1.0 - kb) * kb / kg, -2.0 * (1.0 - kr) * kr / kg), // G
+            row(2.0 * (1.0 - kb), 0.0)};                                   // B
 }
 
 // Rows picking R, G and B from (c0, c1, c2, 1), normalized, the channels in source order, into [0, 255].
@@ -101,7 +137,8 @@ struct OpenclPreprocessor::Impl {
     MemBlockingFreeFn mem_free = nullptr;
     SetKernelArgMemPointerFn set_arg_mem_pointer = nullptr;
 
-    Rows yuv_rows = {};
+    // The colorimetries of the YUV frames logged so far, each once: the streams of a shared instance may alternate.
+    std::vector<YuvColorimetry> logged_colorimetries;
 
     std::vector<std::unique_ptr<OpenclBatch>> batches;
     std::unique_ptr<OpenclFrameSource> host_source;
@@ -131,7 +168,6 @@ struct OpenclPreprocessor::Impl {
         opencl::Check(err, "clCreateCommandQueue");
 
         BuildProgram();
-        yuv_rows = YuvToRgbRows();
 
         if (!on_device) {
             host_mem_alloc = opencl::GetExtensionFunction<HostMemAllocFn>(platform, "clHostMemAllocINTEL");
@@ -304,16 +340,19 @@ struct OpenclPreprocessor::Impl {
 
         const OpenclRoiGeometry g = ComputeRoiGeometry(image->width, image->height, image->rect, settings.width,
                                                        settings.height, pre_proc_info, image_transform_info);
+        const YuvColorimetry colorimetry = ResolveColorimetry(image->colorimetry, image->height);
         try {
             OpenclSourcePlanesPtr planes = SourceFor(*image).GetPlanes(image, queue);
-            if (batch.group_planes && (batch.group_planes != planes || batch.group_frame_width != image->width ||
-                                       batch.group_frame_height != image->height))
+            if (batch.group_planes &&
+                (batch.group_planes != planes || batch.group_frame_width != image->width ||
+                 batch.group_frame_height != image->height || batch.group_colorimetry != colorimetry))
                 Launch(batch);
             if (!batch.group_planes) {
                 batch.group_planes = std::move(planes);
                 batch.group_first = batch.num_rois;
                 batch.group_frame_width = image->width;
                 batch.group_frame_height = image->height;
+                batch.group_colorimetry = colorimetry;
             }
         } catch (...) {
             // An upload may read the frame's memory, which the caller can release once this throws.
@@ -384,7 +423,13 @@ struct OpenclPreprocessor::Impl {
             Float4(0.5, 0.5, (batch.group_frame_width + 1) / 2 - 0.5, (batch.group_frame_height + 1) / 2 - 0.5);
         const bool yuv =
             planes.layout == OpenclSourcePlanes::Layout::NV12 || planes.layout == OpenclSourcePlanes::Layout::I420;
-        const Rows rgb_rows = yuv ? yuv_rows : RgbRows(planes.bgr_order);
+        if (yuv && std::find(logged_colorimetries.begin(), logged_colorimetries.end(), batch.group_colorimetry) ==
+                       logged_colorimetries.end()) {
+            logged_colorimetries.push_back(batch.group_colorimetry);
+            GVA_INFO("OpenCL pre-processing: YUV to RGB with %s, %s range", batch.group_colorimetry.MatrixName(),
+                     batch.group_colorimetry.full_range ? "full" : "limited");
+        }
+        const Rows rgb_rows = yuv ? YuvToRgbRows(batch.group_colorimetry) : RgbRows(planes.bgr_order);
         err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &batch.roi_table);
         err |= clSetKernelArg(kernel, arg++, sizeof(cl_uint), &roi_offset);
         opencl::Check(err, "clSetKernelArg");

@@ -110,7 +110,7 @@ On Windows, the VA backends are replaced by Direct3D backends. `ie` and
 | d3d11-surface-sharing | Converts the frame on the GPU into a BGRA/RGBA texture at model input size and passes it to OpenVINO™ through OpenCL/D3D11 interop. The frame is not copied to system memory. GPU inference device only. | D3D11Memory |
 | d3d12 | Same as `d3d11`, using the GStreamer D3D12 converter. Works with GPU and NPU inference devices. | D3D12Memory |
 | d3d12-surface-sharing | Converts the frame on the GPU into a BGRA/RGBA texture at model input size and copies it into a shared D3D12 buffer. OpenCL imports the buffer through `cl_khr_external_memory`, so the frame is not copied to system memory. GPU inference device only. | D3D12Memory |
-| opencl | One OpenCL kernel on the GPU converts the color, resizes, crops and pads the frame or ROI, and writes the model input directly; D3D11 frames are copied into a shared texture first, once per frame. Works with any inference device. See [OpenCL pre-processing backend](#opencl-pre-processing-backend). | D3D11Memory and System |
+| opencl | One OpenCL kernel on the GPU converts the color, resizes, crops and pads the frame or ROI, and writes the model input directly; D3D11 and D3D12 frames are copied into a texture OpenCL can read first, once per frame. Works with any inference device. See [OpenCL pre-processing backend](#opencl-pre-processing-backend). | D3D11Memory, D3D12Memory and System |
 
 Notes:
 
@@ -125,7 +125,8 @@ Notes:
 - If `pre-process-backend` is not set, inference elements accept both
   D3D11Memory and D3D12Memory. D3D12 decoders (used by `decodebin3` on
   Windows 10 and later) then output D3D12Memory. A `d3d11` backend accepts only
-  D3D11Memory, and a `d3d12` backend accepts only D3D12Memory.
+  D3D11Memory, a `d3d12` backend accepts only D3D12Memory, and `opencl` accepts
+  both.
 
 ### OpenCL pre-processing backend
 
@@ -135,10 +136,10 @@ crop and padding in one pass, written straight into the model input (u8, planar,
 in the model's channel order). OpenVINO™ pre-processing only converts the
 precision and applies the mean and scale values.
 
-- **Frames**: VAMemory and DMABuf (NV12) on Linux, D3D11Memory (NV12, BGRA,
-  RGBA, BGRx) on Windows, and system memory (NV12, I420, BGR, BGRx, BGRA) on
-  both. A frame is imported (or uploaded, for system memory) once and shared by
-  all of its ROIs.
+- **Frames**: VAMemory and DMABuf (NV12) on Linux, D3D11Memory and D3D12Memory
+  (NV12, BGRA, RGBA, BGRx) on Windows, and system memory (NV12, I420, BGR, BGRx,
+  BGRA) on both. A frame is imported (uploaded for system memory, copied for
+  D3D11 and D3D12) once and shared by all of its ROIs.
 - **Inference device**: any. With a GPU device, the kernel runs in OpenVINO™'s
   OpenCL context and writes the model input to GPU memory, which the inference
   reads in place. With another device (CPU, NPU, AUTO, ...), the kernel runs on
@@ -155,17 +156,20 @@ precision and applies the mean and scale values.
   with the same rounding. Unlike them, `aspect-ratio-pad` keeps the aspect
   ratio and places the image at the top-left corner, as `opencv` does.
 - **Sampling and color**: bilinear sampling at pixel centers, without
-  anti-aliasing for large downscales (as `cv::resize` with `INTER_LINEAR`), and
-  BT.601 limited-range color conversion for YUV frames, with the coefficients of
-  OpenVINO™'s NV12 conversion.
+  anti-aliasing for large downscales (as `cv::resize` with `INTER_LINEAR`). YUV
+  frames are converted to RGB with the color matrix and range of the
+  `colorimetry` in their caps. If the caps don't specify it, GStreamer's default
+  for the frame size applies: BT.601 up to 576 lines, BT.709 above, and BT.2020
+  from 2160 lines, all limited range.
 
 The backend is never selected automatically. If it is not supported with the
 current settings (for example, with `custom-preproc-lib`, an
 `aspect-ratio-multiple-of` resize, a grayscale model or an unsupported frame
 format), the element falls back to the backend it would select automatically
 and logs a warning. It also falls back when GPU inference runs on another GPU
-than the one the frames are on: to `va-surface-sharing` on Linux and to `d3d11`
-on Windows. `batch-timeout` is not supported, as with the VA and D3D backends.
+than the one the frames are on: to `va-surface-sharing` on Linux, and to `d3d11`
+or `d3d12` (by the frames' memory) on Windows. `batch-timeout` is not supported,
+as with the VA and D3D backends.
 
 ```bash
 gst-launch-1.0 filesrc location=${VIDEO_FILE} ! parsebin ! vah264dec ! \

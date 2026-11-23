@@ -141,12 +141,22 @@ uint8_t Sat(double v) {
     return static_cast<uint8_t>(std::clamp(std::lround(v), 0l, 255l));
 }
 
+// The published YUV -> RGB coefficients of some color matrices, independent of how the backend derives them from Kr
+// and Kb: R = y_scale (Y - y_offset) + r_v (V - 128), G = ... + g_u (U - 128) + g_v (V - 128), B = ... + b_u (U - 128).
+struct YuvCoefficients {
+    double y_scale, y_offset, r_v, g_u, g_v, b_u;
+};
+const YuvCoefficients kBt601Limited = {1.164383, 16, 1.596027, -0.391762, -0.812968, 2.017232};
+const YuvCoefficients kBt709Limited = {1.164383, 16, 1.792741, -0.213249, -0.532909, 2.112402};
+const YuvCoefficients kBt601Full = {1, 0, 1.402, -0.344136, -0.714136, 1.772};
+
 // What the reference reads: B, G, R pixels, or a Y plane with U and V at half resolution (one interleaved plane for
-// NV12, two planes for I420).
+// NV12, two planes for I420), converted with `yuv`.
 struct Source {
     cv::Mat bgr;
     cv::Mat y, u, v;
     int u_channel = 0, v_channel = 0;
+    YuvCoefficients yuv = kBt601Limited;
 };
 
 Source Packed(const cv::Mat &bgr) {
@@ -155,12 +165,13 @@ Source Packed(const cv::Mat &bgr) {
     return s;
 }
 
-Source Nv12(const cv::Mat &y, const cv::Mat &uv) {
+Source Nv12(const cv::Mat &y, const cv::Mat &uv, const YuvCoefficients &yuv = kBt601Limited) {
     Source s;
     s.y = y;
     s.u = uv;
     s.v = uv;
     s.v_channel = 1;
+    s.yuv = yuv;
     return s;
 }
 
@@ -184,12 +195,13 @@ std::vector<uint8_t> Reference(const Source &src, cv::Rect rect, int w, int h, b
                 g = Bilinear(src.bgr, 1, px, py);
                 r = Bilinear(src.bgr, 2, px, py);
             } else {
-                const double c = Bilinear(src.y, 0, px, py) - 16;
-                const double d = Bilinear(src.u, src.u_channel, px / 2, py / 2) - 128;
-                const double e = Bilinear(src.v, src.v_channel, px / 2, py / 2) - 128;
-                r = 1.164 * c + 1.596 * e;
-                g = 1.164 * c - 0.391 * d - 0.813 * e;
-                b = 1.164 * c + 2.018 * d;
+                const YuvCoefficients &yuv = src.yuv;
+                const double luma = yuv.y_scale * (Bilinear(src.y, 0, px, py) - yuv.y_offset);
+                const double u = Bilinear(src.u, src.u_channel, px / 2, py / 2) - 128;
+                const double v = Bilinear(src.v, src.v_channel, px / 2, py / 2) - 128;
+                r = luma + yuv.r_v * v;
+                g = luma + yuv.g_u * u + yuv.g_v * v;
+                b = luma + yuv.b_u * u;
             }
             const double planes[3] = {rgb ? r : b, g, rgb ? b : r};
             for (int p = 0; p < 3; p++)
@@ -344,6 +356,28 @@ TEST_F(OpenclPreprocessorTest, I420FrameIntoAnUnalignedInput) {
               {frame, I420(y, u, v), {37, 53, 101, 77}},
               {frame, I420(y, u, v), {600, 300, 80, 90}}},
              50, 30, false);
+}
+
+TEST_F(OpenclPreprocessorTest, Nv12FramesAreConvertedWithTheirColorimetry) {
+    const cv::Mat sd = TestFrame(640, 360, 9);
+    const cv::Mat hd = TestFrame(1280, 720, 10);
+    const cv::Mat *bgr[3] = {&sd, &sd, &hd};
+    cv::Mat y[3], uv[3];
+    ImagePtr frames[3];
+    for (int i = 0; i < 3; i++) {
+        cv::Mat u, v;
+        ToI420(*bgr[i], y[i], u, v);
+        cv::merge(std::vector<cv::Mat>{u, v}, uv[i]);
+        frames[i] = SystemFrame(FOURCC_NV12, {&y[i], &uv[i]});
+    }
+    // In one batch: BT.709 and BT.601 full range, as the caps can give them, and no colorimetry on a frame of 720
+    // lines, which makes it BT.709.
+    frames[0]->colorimetry = {YuvColorimetry::Matrix::BT709, false};
+    frames[1]->colorimetry = {YuvColorimetry::Matrix::BT601, true};
+    RunBatch({{frames[0], Nv12(y[0], uv[0], kBt709Limited), {0, 0, 640, 360}},
+              {frames[1], Nv12(y[1], uv[1], kBt601Full), {0, 0, 640, 360}},
+              {frames[2], Nv12(y[2], uv[2], kBt709Limited), {0, 0, 1280, 720}}},
+             64, 48, false);
 }
 
 TEST_F(OpenclPreprocessorTest, BgrxAndRgbxFramesInAnRgbModel) {

@@ -33,6 +33,7 @@
 #endif
 #else
 #include <dlstreamer/d3d11/target_pool.h>
+#include <dlstreamer/d3d12/d3d11_device.h>
 #include <dlstreamer/d3d12/target_pool.h>
 #include <dlstreamer/gst/mappers/gst_to_d3d11.h>
 #endif
@@ -52,8 +53,6 @@
 #include <array>
 #include <exception>
 #include <fstream>
-#include <map>
-#include <mutex>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -193,31 +192,6 @@ InferenceBackend::MemoryType memoryTypeFromCaps(GstCaps *caps) {
         return InferenceBackend::MemoryType::ANY;
     }
 }
-
-#if defined(ENABLE_GVAWATERMARK_GPU) && defined(_WIN32)
-/* OpenCL shares D3D11 textures but not D3D12 ones, so the GPU renderer draws
- * D3D12 frames through the D3D11 views of their textures. This is the D3D11
- * device the views are opened on for the adapter of `device`: one per adapter
- * for the whole process, as GStreamer keeps its D3D12 devices, so that streams
- * also share the renderer's OpenCL context. nullptr if it cannot be created. */
-GstD3D11Device *d3d11_device_for(GstD3D12Device *device) {
-    gint64 luid = 0;
-    g_object_get(device, "adapter-luid", &luid, nullptr);
-
-    static std::mutex mutex;
-    static std::map<gint64, GstD3D11Device *> devices;
-    std::lock_guard<std::mutex> lock(mutex);
-    auto [it, created] = devices.try_emplace(luid, nullptr);
-    if (created) {
-        it->second = gst_d3d11_device_new_for_adapter_luid(luid, D3D11_CREATE_DEVICE_BGRA_SUPPORT);
-        if (it->second) // never released, like GStreamer's D3D12 devices: not a leak for leak tracers
-            GST_OBJECT_FLAG_SET(it->second, GST_OBJECT_FLAG_MAY_BE_LEAKED);
-        else
-            GST_WARNING("Cannot create a D3D11 device for D3D12 adapter %" G_GINT64_FORMAT, luid);
-    }
-    return it->second;
-}
-#endif
 
 } // namespace
 
@@ -1098,7 +1072,7 @@ bool Impl::render_gpu(GstD3D12Memory *memory) {
     if (_renderer_gpu_unavailable)
         return false;
 
-    GstD3D11Device *device11 = d3d11_device_for(memory->device);
+    GstD3D11Device *device11 = dlstreamer::d3d11_device_for(memory->device);
     ID3D11Texture2D *texture =
         device11 ? gst_d3d12_memory_get_d3d11_texture(memory, gst_d3d11_device_get_device_handle(device11)) : nullptr;
     if (!texture) {

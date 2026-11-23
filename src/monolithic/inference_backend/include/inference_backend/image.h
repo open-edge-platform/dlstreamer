@@ -64,6 +64,42 @@ struct Rectangle {
     }
 };
 
+// How the values of a YUV frame convert to RGB, as its caps give it: the color matrix and the range of the values.
+struct YuvColorimetry {
+    enum class Matrix { UNKNOWN, BT601, BT709, BT2020, SMPTE240M, FCC };
+
+    Matrix matrix = Matrix::UNKNOWN; // not a YUV frame, or the frame has no caps
+    bool full_range = false;
+
+    bool operator==(const YuvColorimetry &) const = default;
+
+    const char *MatrixName() const {
+        switch (matrix) {
+        case Matrix::BT601:
+            return "BT.601";
+        case Matrix::BT709:
+            return "BT.709";
+        case Matrix::BT2020:
+            return "BT.2020";
+        case Matrix::SMPTE240M:
+            return "SMPTE 240M";
+        case Matrix::FCC:
+            return "FCC";
+        case Matrix::UNKNOWN:
+            break;
+        }
+        return "unknown";
+    }
+
+    // GStreamer's default for a YUV frame whose caps don't give the matrix: BT.601 up to 576 lines, BT.709 above
+    // and BT.2020 from 2160 lines.
+    static Matrix DefaultMatrix(uint32_t frame_height) {
+        if (frame_height >= 2160)
+            return Matrix::BT2020;
+        return frame_height > 576 ? Matrix::BT709 : Matrix::BT601;
+    }
+};
+
 struct Image {
     MemoryType type = MemoryType::ANY;
     static const uint32_t MAX_PLANES_NUMBER = 4;
@@ -105,6 +141,8 @@ struct Image {
     uint32_t stride[MAX_PLANES_NUMBER] = {0, 0, 0, 0};
     uint32_t offsets[MAX_PLANES_NUMBER] = {0, 0, 0, 0};
     Rectangle<uint32_t> rect;
+    // YUV formats: from the caps, for the pre-processing that converts the frame to RGB.
+    YuvColorimetry colorimetry;
 
     // Filled in and used by the USMBufferMapper.
     void *map_context = nullptr;

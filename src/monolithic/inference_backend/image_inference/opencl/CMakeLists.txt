@@ -47,8 +47,10 @@ if(WIN32)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(GSTD3D11 gstreamer-d3d11-1.0>=1.16 REQUIRED)
     target_compile_definitions(${TARGET_NAME} PRIVATE GST_USE_UNSTABLE_API)
-    target_include_directories(${TARGET_NAME} PRIVATE ${GSTD3D11_INCLUDE_DIRS})
-    target_link_libraries(${TARGET_NAME} PUBLIC d3d11 ${GSTD3D11_LIBRARIES})
+    # GSTD3D12_INCLUDE_DIRS / GSTD3D12_LIBRARIES come from the top-level CMakeLists.txt: D3D12 frames are read
+    # through D3D11 views of D3D12 copies.
+    target_include_directories(${TARGET_NAME} PRIVATE ${GSTD3D11_INCLUDE_DIRS} ${GSTD3D12_INCLUDE_DIRS})
+    target_link_libraries(${TARGET_NAME} PUBLIC d3d11 ${GSTD3D11_LIBRARIES} ${GSTD3D12_LIBRARIES})
 elseif(${ENABLE_VAAPI})
     target_link_libraries(${TARGET_NAME} PUBLIC va_api_wrapper)
 endif()

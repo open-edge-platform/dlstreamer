@@ -27,6 +27,7 @@ target_link_libraries(${TARGET_NAME}
 PRIVATE
     image_inference_async_d3d11
     image_inference_async_d3d12
+    image_inference_opencl
     gtest
     OpenCL::OpenCL
     d3d11
