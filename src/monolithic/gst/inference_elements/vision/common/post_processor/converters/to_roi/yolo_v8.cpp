@@ -95,10 +95,10 @@ TensorsTable YOLOv8Converter::convert(const OutputBlobs &output_blobs) {
                     const size_t input_height = model_input_image_info.height;
                     for (size_t b = 0; b < batch_size; ++b)
                         for (const auto &c : candidates[b])
-                            objects_table[b].push_back(DetectedObject(
-                                c.x, c.y, c.w, c.h, 0, c.score, static_cast<size_t>(c.label),
-                                BlobToMetaConverter::getLabelByLabelId(c.label), 1.0f / input_width,
-                                1.0f / input_height, true));
+                            objects_table[b].push_back(DetectedObject(c.x, c.y, c.w, c.h, 0, c.score,
+                                                                      static_cast<size_t>(c.label),
+                                                                      BlobToMetaConverter::getLabelByLabelId(c.label),
+                                                                      1.0f / input_width, 1.0f / input_height, true));
                     return storeObjects(objects_table);
                 }
             }

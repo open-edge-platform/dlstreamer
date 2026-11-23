@@ -39,7 +39,7 @@ struct GpuOutputBuffers {
     // proposal, batch}. The kernel writes it over PCIe and the host reads it in place: no map, no copy command
     void *candidates = nullptr;
     size_t output_bytes = 0;
-    size_t capacity = 0;        // candidates of the whole batch
+    size_t capacity = 0; // candidates of the whole batch
     size_t batch = 0;
     ~GpuOutputBuffers();
 };

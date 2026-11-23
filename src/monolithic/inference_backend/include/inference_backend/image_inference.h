@@ -134,8 +134,8 @@ struct DenseFilterDesc {
     int num_proposals = 0;
     int stride_field = 0;
     int stride_box = 0;
-    int box_offset = 0;   // cx, cy, w, h
-    int cls_offset = 0;   // first class score
+    int box_offset = 0; // cx, cy, w, h
+    int cls_offset = 0; // first class score
     int num_classes = 0;
     int obj_offset = -1;  // objectness (score = obj * best class), -1 = none
     double threshold = 0; // kept: score > threshold, compared like the CPU converters

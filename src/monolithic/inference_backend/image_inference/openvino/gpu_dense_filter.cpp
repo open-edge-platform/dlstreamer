@@ -108,7 +108,8 @@ GpuDenseFilter::GpuDenseFilter(cl_context context) : context_(context) {
     Check(clGetDeviceInfo(device_, CL_DEVICE_PLATFORM, sizeof(platform), &platform, nullptr), "clGetDeviceInfo");
     host_mem_alloc_ = reinterpret_cast<decltype(host_mem_alloc_)>(
         clGetExtensionFunctionAddressForPlatform(platform, "clHostMemAllocINTEL"));
-    mem_free_ = reinterpret_cast<decltype(mem_free_)>(clGetExtensionFunctionAddressForPlatform(platform, "clMemFreeINTEL"));
+    mem_free_ =
+        reinterpret_cast<decltype(mem_free_)>(clGetExtensionFunctionAddressForPlatform(platform, "clMemFreeINTEL"));
     set_arg_mem_pointer_ = reinterpret_cast<decltype(set_arg_mem_pointer_)>(
         clGetExtensionFunctionAddressForPlatform(platform, "clSetKernelArgMemPointerINTEL"));
     if (!host_mem_alloc_ || !mem_free_ || !set_arg_mem_pointer_)
@@ -155,8 +156,8 @@ bool GpuDenseFilter::Run(const GpuOutputBuffers &buffers, size_t floats_per_batc
     int a = 0;
     Check(clSetKernelArg(kernel_, a++, sizeof(cl_mem), &buffers.output), "clSetKernelArg");
     Check(clSetKernelArg(kernel_, a++, sizeof(cl_int), &per_batch_arg), "clSetKernelArg");
-    for (int v : {d.num_proposals, d.stride_field, d.stride_box, d.box_offset, d.cls_offset, d.num_classes,
-                  d.obj_offset})
+    for (int v :
+         {d.num_proposals, d.stride_field, d.stride_box, d.box_offset, d.cls_offset, d.num_classes, d.obj_offset})
         Check(clSetKernelArg(kernel_, a++, sizeof(cl_int), &v), "clSetKernelArg");
     Check(clSetKernelArg(kernel_, a++, sizeof(cl_float), &thr), "clSetKernelArg");
     Check(set_arg_mem_pointer_(kernel_, a++, buffers.candidates), "clSetKernelArgMemPointerINTEL");
@@ -169,7 +170,8 @@ bool GpuDenseFilter::Run(const GpuOutputBuffers &buffers, size_t floats_per_batc
     const bool fits = count >= 0 && static_cast<size_t>(count) <= buffers.capacity;
     host_candidates_.clear();
     if (fits && count > 0) {
-        const auto *cand = reinterpret_cast<const cl_float8 *>(static_cast<const char *>(buffers.candidates) + kHeaderBytes);
+        const auto *cand =
+            reinterpret_cast<const cl_float8 *>(static_cast<const char *>(buffers.candidates) + kHeaderBytes);
         host_candidates_.assign(cand, cand + count);
     }
     if (!fits)
@@ -181,11 +183,12 @@ bool GpuDenseFilter::Run(const GpuOutputBuffers &buffers, size_t floats_per_batc
         const size_t b = static_cast<size_t>(c.s[7]);
         if (b >= batch)
             continue;
-        per_batch[b].push_back({c.s[0], c.s[1], c.s[2], c.s[3], c.s[4], static_cast<int>(c.s[5]),
-                                static_cast<int>(c.s[6])});
+        per_batch[b].push_back(
+            {c.s[0], c.s[1], c.s[2], c.s[3], c.s[4], static_cast<int>(c.s[5]), static_cast<int>(c.s[6])});
     }
     for (auto &v : per_batch)
-        std::sort(v.begin(), v.end(), [](const DenseCandidate &x, const DenseCandidate &y) { return x.index < y.index; });
+        std::sort(v.begin(), v.end(),
+                  [](const DenseCandidate &x, const DenseCandidate &y) { return x.index < y.index; });
     return true;
 }
 

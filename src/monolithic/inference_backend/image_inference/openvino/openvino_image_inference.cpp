@@ -139,7 +139,8 @@ OpenVinoImageInference::OpenVinoImageInference(const InferenceBackend::Inference
         bool gpu_postproc = GpuPostproc() && !proto_device_output && device.rfind("GPU", 0) == 0;
         if (gpu_postproc) {
             for (const auto &out : compiled_model_.outputs())
-                gpu_postproc = gpu_postproc && out.get_element_type() == ov::element::f32 && out.get_partial_shape().is_static();
+                gpu_postproc =
+                    gpu_postproc && out.get_element_type() == ov::element::f32 && out.get_partial_shape().is_static();
             if (!gpu_postproc)
                 GVA_WARNING("GPU post-processing: needs static FP32 outputs, using the CPU");
         }
