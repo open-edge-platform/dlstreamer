@@ -25,8 +25,8 @@ pre-processing only converts the precision and applies mean/scale.
 - **Inference device:** any. For GPU inference the kernel runs in OpenVINO's
   OpenCL context and writes device memory that the infer request reads in
   place. For other devices it runs on the GPU the frames are on and writes host
-  memory, so GPU frames can be inferred on the CPU or NPU without a VPP pass
-  into system memory.
+  memory (through device memory on a discrete GPU, section 5.7), so GPU frames
+  can be inferred on the CPU or NPU without a VPP pass into system memory.
 - **Batches:** each infer request has one model input for its whole batch. The
   ROIs of a frame are pre-processed by one kernel launch.
 - **Model-proc:** all resize types except `aspect-ratio-multiple-of`, all crop
@@ -142,7 +142,7 @@ Then, in every case:
 |---|---|
 | Inference `SubmitImage` (worker or streaming thread) | geometry of the ROI, frame added to the batch of the current infer request |
 | Same, when the frame changes or the batch is full | one kernel launch for the ROIs of the previous frame, writing their batch elements |
-| Batch full | the remaining launch, `clFinish`, `start_async` |
+| Batch full | the remaining launch (and, for host outputs on a discrete GPU, the copy to host memory), `clFinish`, `start_async` |
 | OpenVINO™ pre-processing | u8 → model precision, mean/scale (folded into the GPU plugin's input reorder) |
 
 ## 5. Design
@@ -310,7 +310,7 @@ The program is built once per preprocessor with `-cl-fast-relaxed-math`.
 | Model preparation | image input tensor layout `NCHW`, element type u8, as for the system-memory backends; OpenVINO™ adds only the precision conversion and mean/scale |
 | Remote context (GPU) | Windows: a `cl_context` we create on the frames' D3D11 device with `CL_CONTEXT_INTEROP_USER_SYNC=CL_TRUE`, wrapped as `ov::intel_gpu::ocl::ClContext`. Linux: OpenVINO's VA context for VA frames, its default context otherwise |
 | Model input (GPU) | a `cl_mem` in that context per infer request, as a remote tensor |
-| Model input (other devices) | USM host memory (`clHostMemAllocINTEL`) in a context of the preprocessor's own on the frames' GPU, as a host tensor |
+| Model input (other devices) | USM host memory (`clHostMemAllocINTEL`) in a context of the preprocessor's own on the frames' GPU, as a host tensor. On a GPU without host-unified memory (a discrete GPU), whose stores across PCIe are slow, the kernels write a device buffer, copied into the host memory in one transfer when the batch is finished |
 | `SubmitImage` | `Add()` to the current infer request; `Finish()` before `start_async` |
 
 ### 5.8 Synchronization

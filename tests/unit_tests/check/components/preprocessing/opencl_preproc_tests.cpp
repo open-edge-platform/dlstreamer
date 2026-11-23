@@ -5,7 +5,8 @@
  ******************************************************************************/
 
 // The OpenCL pre-processing backend (pre-process-backend=opencl): the regions it computes from model-proc parameters,
-// and, on a machine with an Intel GPU, the model input its kernels write for system memory frames.
+// and, on a machine with an Intel GPU, the model input its kernels write for system memory frames (BGR, BGRx, RGBx,
+// NV12, I420).
 
 #include "opencl_context.h"
 #include "opencl_preproc_geometry.h"
@@ -149,29 +150,62 @@ const YuvCoefficients kBt601Limited = {1.164383, 16, 1.596027, -0.391762, -0.812
 const YuvCoefficients kBt709Limited = {1.164383, 16, 1.792741, -0.213249, -0.532909, 2.112402};
 const YuvCoefficients kBt601Full = {1, 0, 1.402, -0.344136, -0.714136, 1.772};
 
-// Planar BGR model input (3 x h x w) of `rect` of a BGR or NV12 frame, stretched.
-std::vector<uint8_t> Reference(const cv::Mat &bgr, const cv::Mat &y_plane, const cv::Mat &uv_plane, cv::Rect rect,
-                               int w, int h, const YuvCoefficients &yuv = kBt601Limited) {
+// What the reference reads: B, G, R pixels, or a Y plane with U and V at half resolution (one interleaved plane for
+// NV12, two planes for I420), converted with `yuv`.
+struct Source {
+    cv::Mat bgr;
+    cv::Mat y, u, v;
+    int u_channel = 0, v_channel = 0;
+    YuvCoefficients yuv = kBt601Limited;
+};
+
+Source Packed(const cv::Mat &bgr) {
+    Source s;
+    s.bgr = bgr;
+    return s;
+}
+
+Source Nv12(const cv::Mat &y, const cv::Mat &uv, const YuvCoefficients &yuv = kBt601Limited) {
+    Source s;
+    s.y = y;
+    s.u = uv;
+    s.v = uv;
+    s.v_channel = 1;
+    s.yuv = yuv;
+    return s;
+}
+
+Source I420(const cv::Mat &y, const cv::Mat &u, const cv::Mat &v) {
+    Source s;
+    s.y = y;
+    s.u = u;
+    s.v = v;
+    return s;
+}
+
+// Planar model input (3 x h x w: B, G, R planes, or R, G, B if `rgb`) of `rect` of the frame, stretched.
+std::vector<uint8_t> Reference(const Source &src, cv::Rect rect, int w, int h, bool rgb) {
     std::vector<uint8_t> out(3 * w * h);
     for (int j = 0; j < h; j++) {
         for (int i = 0; i < w; i++) {
             const double px = rect.x + (i + 0.5) * rect.width / w, py = rect.y + (j + 0.5) * rect.height / h;
             double b, g, r;
-            if (!bgr.empty()) {
-                b = Bilinear(bgr, 0, px, py);
-                g = Bilinear(bgr, 1, px, py);
-                r = Bilinear(bgr, 2, px, py);
+            if (!src.bgr.empty()) {
+                b = Bilinear(src.bgr, 0, px, py);
+                g = Bilinear(src.bgr, 1, px, py);
+                r = Bilinear(src.bgr, 2, px, py);
             } else {
-                const double luma = yuv.y_scale * (Bilinear(y_plane, 0, px, py) - yuv.y_offset);
-                const double u = Bilinear(uv_plane, 0, px / 2, py / 2) - 128;
-                const double v = Bilinear(uv_plane, 1, px / 2, py / 2) - 128;
+                const YuvCoefficients &yuv = src.yuv;
+                const double luma = yuv.y_scale * (Bilinear(src.y, 0, px, py) - yuv.y_offset);
+                const double u = Bilinear(src.u, src.u_channel, px / 2, py / 2) - 128;
+                const double v = Bilinear(src.v, src.v_channel, px / 2, py / 2) - 128;
                 r = luma + yuv.r_v * v;
                 g = luma + yuv.g_u * u + yuv.g_v * v;
                 b = luma + yuv.b_u * u;
             }
-            out[j * w + i] = Sat(b);
-            out[w * h + j * w + i] = Sat(g);
-            out[2 * w * h + j * w + i] = Sat(r);
+            const double planes[3] = {rgb ? r : b, g, rgb ? b : r};
+            for (int p = 0; p < 3; p++)
+                out[p * w * h + j * w + i] = Sat(planes[p]);
         }
     }
     return out;
@@ -187,26 +221,40 @@ cv::Mat TestFrame(int width, int height, int seed) {
     return frame;
 }
 
-// A system memory NV12 frame of `bgr` (height a multiple of 4), in `y_plane` and `uv_plane` (interleaved, half
-// resolution), which must outlive it. No colorimetry: the default for the frame size applies.
-ImagePtr Nv12Image(const cv::Mat &bgr, cv::Mat &y_plane, cv::Mat &uv_plane) {
+// Y, U and V planes of a BGR frame.
+void ToI420(const cv::Mat &bgr, cv::Mat &y, cv::Mat &u, cv::Mat &v) {
     cv::Mat i420;
     cv::cvtColor(bgr, i420, cv::COLOR_BGR2YUV_I420);
-    const int h = bgr.rows, chroma_h = bgr.rows / 2;
-    y_plane = i420.rowRange(0, h).clone();
-    const cv::Mat u = i420.rowRange(h, h + chroma_h / 2).reshape(1, chroma_h);
-    const cv::Mat v = i420.rowRange(h + chroma_h / 2, h + chroma_h).reshape(1, chroma_h);
-    cv::merge(std::vector<cv::Mat>{u, v}, uv_plane);
+    const int cw = bgr.cols / 2, ch = bgr.rows / 2;
+    y = i420.rowRange(0, bgr.rows).clone();
+    u = cv::Mat(ch, cw, CV_8UC1, i420.ptr(bgr.rows)).clone();
+    v = cv::Mat(ch, cw, CV_8UC1, i420.ptr(bgr.rows) + cw * ch).clone();
+}
 
+// 4-byte pixels of a BGR frame, in the order of `code` (cv::COLOR_BGR2BGRA or cv::COLOR_BGR2RGBA), with noise in the
+// 4th byte, which the kernels must ignore.
+cv::Mat WithX(const cv::Mat &bgr, int code, int seed) {
+    cv::Mat out;
+    cv::cvtColor(bgr, out, code);
+    cv::Mat noise(bgr.size(), CV_8UC1);
+    cv::RNG rng(seed);
+    rng.fill(noise, cv::RNG::UNIFORM, 0, 256);
+    const int from_to[] = {0, 3};
+    cv::mixChannels(&noise, 1, &out, 1, from_to, 1);
+    return out;
+}
+
+// A system memory frame on `planes`, which must outlive it.
+ImagePtr SystemFrame(int format, const std::vector<const cv::Mat *> &planes) {
     auto image = std::make_shared<Image>();
     image->type = MemoryType::SYSTEM;
-    image->format = FOURCC_NV12;
-    image->width = bgr.cols;
-    image->height = bgr.rows;
-    image->planes[0] = y_plane.data;
-    image->planes[1] = uv_plane.data;
-    image->stride[0] = static_cast<uint32_t>(y_plane.step);
-    image->stride[1] = static_cast<uint32_t>(uv_plane.step);
+    image->format = format;
+    image->width = planes[0]->cols;
+    image->height = planes[0]->rows;
+    for (size_t i = 0; i < planes.size(); i++) {
+        image->planes[i] = const_cast<uint8_t *>(planes[i]->data);
+        image->stride[i] = static_cast<uint32_t>(planes[i]->step);
+    }
     return image;
 }
 
@@ -229,8 +277,8 @@ class OpenclPreprocessorTest : public ::testing::Test {
 
 struct Roi {
     ImagePtr frame;
+    Source source;
     cv::Rect rect;
-    std::vector<uint8_t> expected;
 };
 
 void ExpectClose(const uint8_t *got, const std::vector<uint8_t> &expected, const std::string &what) {
@@ -246,36 +294,13 @@ void ExpectClose(const uint8_t *got, const std::vector<uint8_t> &expected, const
     EXPECT_LT(sum / expected.size(), 0.1) << what;
 }
 
-TEST_F(OpenclPreprocessorTest, BgrAndNv12FramesInOneBatch) {
-    constexpr int W = 64, H = 48;
-    const cv::Mat bgr = TestFrame(640, 360, 1);
-    const cv::Mat bgr2 = TestFrame(640, 360, 2);
-    cv::Mat y_plane, uv_plane;
-    const ImagePtr nv12_image = Nv12Image(bgr2, y_plane, uv_plane);
-
-    auto bgr_image = std::make_shared<Image>();
-    bgr_image->type = MemoryType::SYSTEM;
-    bgr_image->format = FOURCC_BGR;
-    bgr_image->width = bgr.cols;
-    bgr_image->height = bgr.rows;
-    bgr_image->planes[0] = const_cast<uint8_t *>(bgr.data);
-    bgr_image->stride[0] = static_cast<uint32_t>(bgr.step);
-
-    // Two ROIs of the BGR frame (one launch), then two of the NV12 frame, one of them half out of the frame.
-    std::vector<Roi> rois = {{bgr_image, {10, 20, 100, 200}, {}},
-                             {bgr_image, {300, 100, 333, 211}, {}},
-                             {nv12_image, {0, 0, 640, 360}, {}},
-                             {nv12_image, {620, 330, 40, 60}, {}}};
-    for (auto &roi : rois) {
-        const cv::Rect inside = roi.rect & cv::Rect(0, 0, bgr.cols, bgr.rows); // as the backend clamps it
-        roi.expected = roi.frame == bgr_image ? Reference(bgr, {}, {}, inside, W, H)
-                                              : Reference({}, y_plane, uv_plane, inside, W, H);
-    }
-
+// The ROIs in one batch of a w x h model input, compared to the reference. Twice: the batch is reused, as an infer
+// request is.
+void RunBatch(const std::vector<Roi> &rois, int w, int h, bool rgb) {
     OpenclPreprocessor::Settings settings;
-    settings.width = W;
-    settings.height = H;
-    settings.rgb = false;
+    settings.width = w;
+    settings.height = h;
+    settings.rgb = rgb;
     settings.batch_size = rois.size();
     // No device context: the preprocessor's own context, the model input in host memory.
     OpenclPreprocessor preproc(nullptr, nullptr, settings);
@@ -283,62 +308,98 @@ TEST_F(OpenclPreprocessorTest, BgrAndNv12FramesInOneBatch) {
     OpenclBatch &batch = preproc.CreateBatch();
     ASSERT_NE(batch.host_memory, nullptr);
 
-    for (int pass = 0; pass < 2; pass++) { // the batch is reused, as an infer request is
+    std::vector<std::vector<uint8_t>> expected;
+    for (const auto &roi : rois) {
+        // As the backend clamps it.
+        const cv::Rect inside = roi.rect & cv::Rect(0, 0, roi.frame->width, roi.frame->height);
+        expected.push_back(Reference(roi.source, inside, w, h, rgb));
+    }
+    for (int pass = 0; pass < 2; pass++) {
         for (size_t i = 0; i < rois.size(); i++) {
-            // Qualified: on Windows, wingdi.h declares a Rectangle() function too.
-            rois[i].frame->rect = InferenceBackend::Rectangle<uint32_t>(rois[i].rect.x, rois[i].rect.y,
-                                                                        rois[i].rect.width, rois[i].rect.height);
+            const cv::Rect &r = rois[i].rect;
+            // Qualified: on Windows, wingdi.h declares a Rectangle() function.
+            rois[i].frame->rect = InferenceBackend::Rectangle<uint32_t>(r.x, r.y, r.width, r.height);
             preproc.Add(batch, i, rois[i].frame, nullptr, nullptr);
         }
         preproc.Finish(batch);
         const auto *out = static_cast<const uint8_t *>(batch.host_memory);
         for (size_t i = 0; i < rois.size(); i++)
-            ExpectClose(out + i * 3 * W * H, rois[i].expected, "ROI " + std::to_string(i));
+            ExpectClose(out + i * 3 * w * h, expected[i],
+                        "pass " + std::to_string(pass) + ", ROI " + std::to_string(i));
     }
 }
 
+TEST_F(OpenclPreprocessorTest, BgrAndNv12FramesInOneBatch) {
+    const cv::Mat bgr = TestFrame(640, 360, 1);
+    cv::Mat y, u, v, uv;
+    ToI420(TestFrame(640, 360, 2), y, u, v);
+    cv::merge(std::vector<cv::Mat>{u, v}, uv); // NV12: U and V interleaved
+    const auto bgr_frame = SystemFrame(FOURCC_BGR, {&bgr});
+    const auto nv12_frame = SystemFrame(FOURCC_NV12, {&y, &uv});
+
+    // Two ROIs of the BGR frame (one launch), then two of the NV12 frame, one of them half out of the frame.
+    RunBatch({{bgr_frame, Packed(bgr), {10, 20, 100, 200}},
+              {bgr_frame, Packed(bgr), {300, 100, 333, 211}},
+              {nv12_frame, Nv12(y, uv), {0, 0, 640, 360}},
+              {nv12_frame, Nv12(y, uv), {620, 330, 40, 60}}},
+             64, 48, false);
+}
+
+TEST_F(OpenclPreprocessorTest, I420FrameIntoAnUnalignedInput) {
+    cv::Mat y, u, v;
+    ToI420(TestFrame(640, 360, 3), y, u, v);
+    const auto frame = SystemFrame(FOURCC_I420, {&y, &u, &v});
+
+    // The whole frame, an odd origin (chroma between samples) and a ROI half out of the frame. 50 x 30 is not a
+    // multiple of the kernels' 32 x 8 tiles: the work items past the input must not write into the next rows.
+    RunBatch({{frame, I420(y, u, v), {0, 0, 640, 360}},
+              {frame, I420(y, u, v), {37, 53, 101, 77}},
+              {frame, I420(y, u, v), {600, 300, 80, 90}}},
+             50, 30, false);
+}
+
 TEST_F(OpenclPreprocessorTest, Nv12FramesAreConvertedWithTheirColorimetry) {
-    constexpr int W = 64, H = 48;
-    const cv::Mat sd = TestFrame(640, 360, 4);
-    const cv::Mat hd = TestFrame(1280, 720, 5);
-    cv::Mat y_planes[3], uv_planes[3];
+    const cv::Mat sd = TestFrame(640, 360, 9);
+    const cv::Mat hd = TestFrame(1280, 720, 10);
+    const cv::Mat *bgr[3] = {&sd, &sd, &hd};
+    cv::Mat y[3], uv[3];
+    ImagePtr frames[3];
+    for (int i = 0; i < 3; i++) {
+        cv::Mat u, v;
+        ToI420(*bgr[i], y[i], u, v);
+        cv::merge(std::vector<cv::Mat>{u, v}, uv[i]);
+        frames[i] = SystemFrame(FOURCC_NV12, {&y[i], &uv[i]});
+    }
     // In one batch: BT.709 and BT.601 full range, as the caps can give them, and no colorimetry on a frame of 720
     // lines, which makes it BT.709.
-    const std::vector<ImagePtr> frames = {Nv12Image(sd, y_planes[0], uv_planes[0]),
-                                          Nv12Image(sd, y_planes[1], uv_planes[1]),
-                                          Nv12Image(hd, y_planes[2], uv_planes[2])};
     frames[0]->colorimetry = {YuvColorimetry::Matrix::BT709, false};
     frames[1]->colorimetry = {YuvColorimetry::Matrix::BT601, true};
-    const YuvCoefficients *expected[3] = {&kBt709Limited, &kBt601Full, &kBt709Limited};
+    RunBatch({{frames[0], Nv12(y[0], uv[0], kBt709Limited), {0, 0, 640, 360}},
+              {frames[1], Nv12(y[1], uv[1], kBt601Full), {0, 0, 640, 360}},
+              {frames[2], Nv12(y[2], uv[2], kBt709Limited), {0, 0, 1280, 720}}},
+             64, 48, false);
+}
 
-    OpenclPreprocessor::Settings settings;
-    settings.width = W;
-    settings.height = H;
-    settings.batch_size = frames.size();
-    OpenclPreprocessor preproc(nullptr, nullptr, settings);
-    OpenclBatch &batch = preproc.CreateBatch();
-    for (size_t i = 0; i < frames.size(); i++)
-        preproc.Add(batch, i, frames[i], nullptr, nullptr);
-    preproc.Finish(batch);
+TEST_F(OpenclPreprocessorTest, BgrxAndRgbxFramesInAnRgbModel) {
+    const cv::Mat bgr = TestFrame(640, 360, 4);
+    const cv::Mat bgr2 = TestFrame(640, 360, 5);
+    const cv::Mat bgrx = WithX(bgr, cv::COLOR_BGR2BGRA, 6);
+    const cv::Mat rgbx = WithX(bgr2, cv::COLOR_BGR2RGBA, 7);
+    const auto bgrx_frame = SystemFrame(FOURCC_BGRX, {&bgrx});
+    const auto rgbx_frame = SystemFrame(FOURCC_RGBX, {&rgbx});
 
-    const auto *out = static_cast<const uint8_t *>(batch.host_memory);
-    for (size_t i = 0; i < frames.size(); i++) {
-        const cv::Rect whole(0, 0, static_cast<int>(frames[i]->width), static_cast<int>(frames[i]->height));
-        ExpectClose(out + i * 3 * W * H, Reference({}, y_planes[i], uv_planes[i], whole, W, H, *expected[i]),
-                    "frame " + std::to_string(i));
-    }
+    // Both byte orders into a model that takes R, G, B planes.
+    RunBatch({{bgrx_frame, Packed(bgr), {10, 20, 100, 200}},
+              {bgrx_frame, Packed(bgr), {600, 300, 80, 90}},
+              {rgbx_frame, Packed(bgr2), {0, 0, 640, 360}},
+              {rgbx_frame, Packed(bgr2), {37, 53, 101, 77}}},
+             64, 48, true);
 }
 
 TEST_F(OpenclPreprocessorTest, LetterboxIsFilled) {
     constexpr int W = 32, H = 32;
-    const cv::Mat bgr = TestFrame(64, 32, 3);
-    auto image = std::make_shared<Image>();
-    image->type = MemoryType::SYSTEM;
-    image->format = FOURCC_BGR;
-    image->width = bgr.cols;
-    image->height = bgr.rows;
-    image->planes[0] = const_cast<uint8_t *>(bgr.data);
-    image->stride[0] = static_cast<uint32_t>(bgr.step);
+    const cv::Mat bgr = TestFrame(64, 32, 8);
+    const auto image = SystemFrame(FOURCC_BGR, {&bgr});
 
     OpenclPreprocessor::Settings settings;
     settings.width = W;

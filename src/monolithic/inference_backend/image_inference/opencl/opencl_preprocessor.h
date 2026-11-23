@@ -40,7 +40,8 @@ namespace InferenceBackend {
 
 // The model input of one infer request: [batch, 3, height, width] u8, written by OpenclPreprocessor.
 struct OpenclBatch {
-    // Device memory (cl_mem) when the outputs are on the device, otherwise USM host memory.
+    // The model input: device memory (cl_mem) when the outputs are on the device, otherwise USM host memory. On a
+    // discrete GPU the kernels write host outputs into device memory too, copied to the host memory in one transfer.
     cl_mem device_memory = nullptr;
     void *host_memory = nullptr;
 

@@ -69,7 +69,7 @@ correcting the pipeline.
 | CPU              | only `video/x-raw` available  | `ie` or `opencv`      |
 | GPU / NPU        | use `video/x-raw(memory:VAMemory)` for optimal performance | use `va-surface-sharing` to avoid memory copying |
 
-#### Many models on the same objects: `pre-process-backend=opencl`
+### Many models on the same objects: `pre-process-backend=opencl`
 
 With `va` and `va-surface-sharing`, each ROI of each `gvaclassify` or `gvainference`
 element is scaled by a separate call to the media driver's video processing. In
