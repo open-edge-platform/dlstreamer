@@ -2032,7 +2032,8 @@ void InferenceImpl::InferenceCompletionCallback(
     }
 
     try {
-        if (PostProcessFrames(blobs, inference_frames) == PostProcessorExitStatus::FAIL)
+        // PROTOTYPE (gpu_post_process): no blobs = post-processing skipped, see OpenVinoImageInference
+        if (!blobs.empty() && PostProcessFrames(blobs, inference_frames) == PostProcessorExitStatus::FAIL)
             throw std::runtime_error("Post-processing has been exited with FAIL code.");
     } catch (const std::exception &e) {
         GST_ERROR("%s", Utils::createNestedErrorMsg(e).c_str());
