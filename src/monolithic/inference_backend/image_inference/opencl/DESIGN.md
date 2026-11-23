@@ -6,9 +6,11 @@ Windows (D3D11 and D3D12 textures, system memory).
 device.
 
 This document started as the design of a D3D11-only prototype (commit
-`038141e`). Sections 2.2 and 7.1, and the measured variants of section 6, are
+`038141e`). Sections 2.2.2 and 7.1, and the measured variants of section 6, are
 still the prototype's analysis and measurements; the rest describes the
-current implementation.
+current implementation. Platform-specific parts are marked: on Linux the frames
+come from VA (decoders, `vapostproc`), on Windows from D3D11 or D3D12. Section
+7.2 evaluates the implementation on Windows, section 7.3 on Linux.
 
 ## 1. Summary
 
@@ -35,28 +37,75 @@ pre-processing only converts the precision and applies mean/scale.
 - **Color:** YUV frames are converted with the color matrix and range of the
   `colorimetry` in their caps, or GStreamer's default for the frame size.
 
-The kernel itself is cheap. On Windows the cost of GPU pre-processing is in the
-CPU-side synchronization around it, which most of the D3D design is about
-(section 5.8).
+The kernel itself is cheap; what differs between the platforms is the cost it
+replaces and the synchronization around it:
+
+- **Linux:** the VA backends make one VPP call per ROI, each a full media
+  driver submission that the CPU waits for. With many small ROIs per frame these
+  calls, not the inference, limit the pipeline (section 2.2.1). `opencl` reads
+  the decoder's surfaces in place and makes one kernel launch per frame and
+  element.
+- **Windows:** the cost of GPU pre-processing is in the CPU-side
+  synchronization of D3D11 interop, which most of the D3D design is about
+  (sections 2.2.2 and 5.8).
 
 ## 2. Background
 
 ### 2.1 Existing backends
 
-| Backend | Pre-processing | Handed to OpenVINO™ |
-|---|---|---|
-| `va` | VA VPP into a surface at model size, mapped to system memory | host tensor |
-| `va-surface-sharing` | VA VPP into an NV12 surface at model size | NV12 surface; OpenVINO™ converts the color |
-| `d3d11`, `d3d12` | GstD3D11/D3D12Converter into a BGRA texture at model size, mapped to system memory | host tensor (OpenCV repacks it to planar) |
-| `d3d11-surface-sharing` | GstD3D11Converter into a shared BGRA texture; OpenCL acquires it and copies the image into a buffer | `cl_mem` BGRX, NHWC |
-| `d3d12-surface-sharing` | GstD3D12Converter, D3D12 copy into a shared buffer imported through `cl_khr_external_memory`, OpenCL buffer copy | `cl_mem` BGRX, NHWC |
-| `opencv`, `ie` | on the CPU, system memory only | host tensor |
+| Backend | Platform | Pre-processing | Handed to OpenVINO™ |
+|---|---|---|---|
+| `va` | Linux | VA VPP into a surface at model size, mapped to system memory | host tensor |
+| `va-surface-sharing` | Linux | VA VPP into an NV12 surface at model size | NV12 surface; OpenVINO™ converts the color |
+| `d3d11`, `d3d12` | Windows | GstD3D11/D3D12Converter into a BGRA texture at model size, mapped to system memory | host tensor (OpenCV repacks it to planar) |
+| `d3d11-surface-sharing` | Windows | GstD3D11Converter into a shared BGRA texture; OpenCL acquires it and copies the image into a buffer | `cl_mem` BGRX, NHWC |
+| `d3d12-surface-sharing` | Windows | GstD3D12Converter, D3D12 copy into a shared buffer imported through `cl_khr_external_memory`, OpenCL buffer copy | `cl_mem` BGRX, NHWC |
+| `opencv`, `ie` | both | on the CPU, system memory only (GPU frames are mapped first) | host tensor |
+
+On Linux, the VA backends make one VPP call per ROI, and `opencv` converts
+with BT.601 whatever the caps say; `va-surface-sharing` leaves the NV12 to RGB
+conversion to OpenVINO™, also BT.601.
 
 For the BGRX NHWC tensors, OpenVINO™ pre-processing then drops the fourth
 channel, transposes to the model layout, converts to the model precision and
 applies mean/scale.
 
-### 2.2 Where the per-frame cost goes (Windows, D3D11)
+### 2.2 Where the per-frame cost goes
+
+#### 2.2.1 Linux (VA)
+
+With `va` and `va-surface-sharing`, `gvaclassify` and `gvainference` crop and
+scale every ROI with a VPP call of their own (`VaApiConverter::Convert`). The
+pipeline of issue #1259 runs yolov8n-pose, then 3 models on every person and 3 on
+every face. With about 6 persons and 2.8 faces per frame, it makes about 26 VPP
+calls per frame. Measured on an Arc Pro B60 (xe, kernel 7.0, iHD 26.3.2):
+
+- **Fixed cost per call.** The pixel work of a call takes microseconds, but the
+  call costs about 400 µs, nearly all of it in `vaEndPicture`
+  (`vaBeginPicture` + `vaRenderPicture`: about 3 µs). For every call, the media
+  driver builds a VP pipeline and command buffer, allocates and maps temporary
+  GPU memory, and submits through `XE_EXEC` with a dma-fence. The CPU waits for
+  the result.
+- **Serial.** An element converts its ROIs one after another. A process-wide
+  mutex in `VaApiConverter` also serialized the elements (#1286 makes it per
+  converter). The 26 calls are therefore about 10.5 ms of serialized work per
+  frame: a cap of about 90 fps, whatever the models cost. With the six models
+  replaced by near-zero-compute ones, the pipeline still ran at 93-95 fps.
+- **Small ROIs.** A ROI too small for the SFC goes to the render/compute path.
+  That path shares the xe engine group with the long-running compute queues of
+  OpenCL and OpenVINO™, so each such submission switches the engine-group
+  mode: about 1.3 ms per frame in this pipeline on kernel 7.0. On older kernels
+  these switches could stall the inference badly.
+- **NV12 out.** `va-surface-sharing` hands an NV12 surface per ROI to OpenVINO™,
+  which still converts it to BGR and assembles the batch.
+
+`opencl` removes the VPP calls. The ROIs of a frame become one kernel launch per
+element, on surfaces imported once, and the kernel writes the final model input
+of the whole batch. The CPU waits once per batch (section 5.8). The gain is
+largest with many small ROIs per frame. With a few large ROIs, VPP takes its
+fast SFC path and the two are close (section 7.3).
+
+#### 2.2.2 Windows (D3D11)
 
 Measured on the prototype. Each D3D11 frame goes through these steps on the CPU
 side:
@@ -111,8 +160,9 @@ Goals:
 - Do all of the image pre-processing on the GPU in one kernel, writing the final
   model input, and keep OpenVINO™ pre-processing down to the precision
   conversion and mean/scale.
-- Keep CPU synchronization and D3D11 device lock time per frame as low as
-  possible: the worker thread and the infer request are on the critical path.
+- Keep CPU synchronization per frame as low as possible: on Linux no VA
+  submission or wait per ROI, on Windows little D3D11 device lock time. The
+  submitting thread and the infer request are on the critical path.
 - Give a model-proc the same meaning as the `va` backend does (regions,
   rounding, the `ImageTransformationParams` reported for post-processing), and
   convert YUV as the caps say.
@@ -161,7 +211,46 @@ Then, in every case:
 | [`D3D12TargetPool`](../../../../../include/dlstreamer/d3d12/target_pool.h), [`d3d11_device_for`](../../../../../include/dlstreamer/d3d12/d3d11_device.h) | Shared with the watermark: pooled D3D12 textures that D3D11 can open, and the D3D11 device of a D3D12 adapter. |
 | [`inference_impl.cpp`](../../../gst/inference_elements/vision/base/inference_impl.cpp), [`gva_base_inference.cpp`](../../../gst/inference_elements/vision/base/gva_base_inference.cpp) | `opencl` property value, support checks and fallback, caps, cross-adapter and cross-GPU fallback. |
 
-### 5.2 Per-frame flow (Windows)
+### 5.2 Per-frame flow
+
+#### 5.2.1 Linux
+
+```mermaid
+sequenceDiagram
+    participant VA as VA decoder (iHD)
+    participant S as Streaming thread
+    participant CL as OpenCL queue
+    participant OV as OpenVINO™ (GPU plugin)
+    participant C as OpenVINO™ completion thread
+    VA->>S: frame: NV12 VA surface (VAMemory), or a DMA-BUF
+    S->>S: gvadetect / gvaclassify / gvainference: ROIs of the frame, SubmitImage per ROI [requests_mutex_]
+    S->>CL: Add(): geometry, then the planes of the surface (imported on first use: cached per surface on xe, per frame on i915)
+    S->>CL: next frame or batch full: ROI table write, acquire, one kernel for the frame's ROIs, release
+    S->>CL: batch full: last launch (+ copy to host memory for CPU/NPU/AUTO on a dGPU), clFinish [CPU wait]
+    S->>OV: start_async
+    OV-->>C: inference done
+    C->>C: post-processing, results attached to the frames, frames pushed downstream and released
+```
+
+There is no wrapper and no worker thread on Linux. The element's
+`SubmitImage` goes straight to `OpenVinoImageInference`, under its
+`requests_mutex_`. The streaming thread therefore waits for the kernels once
+per batch, in `Finish()` (section 5.8). Elements that share a model instance
+(`model-instance-id`) share its `OpenclPreprocessor`, and their calls are
+serialized by that mutex. VA surfaces are read in place: the decoder's pool is
+fixed, so each surface is imported once and the import is kept. The other
+frames are prepared as follows:
+
+- A DMA-BUF is imported into a VA surface per frame.
+- System memory is uploaded once per frame.
+
+With GPU inference, the model input is a buffer in OpenVINO's VA context (the
+context OpenVINO™ creates for the frames' VA display), bound once per infer
+request. With CPU, NPU or AUTO inference, the preprocessor creates its own VA
+context on the same display. The model input is then USM host memory, written
+through a device buffer and one copy on a discrete GPU (section 5.7).
+
+#### 5.2.2 Windows
 
 ```mermaid
 sequenceDiagram
@@ -183,9 +272,8 @@ sequenceDiagram
 For a D3D11 frame of another device than the inference one, D is the frame's
 device: the copy, the query and the wait are there (section 5.3).
 
-On Linux and for system memory, there is no wrapper: the element's
-`SubmitImage` goes straight to `OpenVinoImageInference`, which adds the frame to
-the batch the same way.
+System memory frames on Windows take the Linux flow: no wrapper, and the
+streaming thread waits for the kernels.
 
 ### 5.3 Frame sources
 
@@ -349,19 +437,33 @@ worker waits for it on the CPU (`gst_d3d12_memory_sync()`) before submitting the
 frame. D3D12 submits at once, so by the time a frame reaches the worker its
 copy has normally completed.
 
-**VA (ordering 1).** The VA context has no user sync: the acquire orders the
-kernel after the VA work.
+**VA (ordering 1).** The VA contexts have no user sync: the acquire orders the
+kernel after the VA work on the surface. That holds for OpenVINO's VA context
+(`CL_CONTEXT_INTEROP_USER_SYNC` is `CL_FALSE` in it, checked with
+`clGetContextInfo` on OpenVINO™ 2026.5) and for the preprocessor's own. There is
+one acquire and one release per launch, so one per frame and element, not per
+ROI.
+
+**Host outputs (Linux and Windows).** For CPU, NPU and AUTO inference the batch
+is complete in host memory when `Finish()` returns. On a discrete GPU the copy
+from the device buffer is enqueued before the `clFinish`, on the same in-order
+queue.
 
 **Queue placement.** The OpenCL queue is created with
-`CreateInteropCommandQueue()`, which puts it on an engine other than the one
-OpenVINO™ runs inference on (`rcs` vs `ccs` on the test GPU). The `clFinish`
-therefore waits for the pre-processing only, not for the inference in flight.
+`CreateInteropCommandQueue()`. Where the GPU has a second engine that can run
+the kernels, the queue goes there: on the Windows test GPU it is on `rcs`, while
+OpenVINO™ runs inference on `ccs`. The `clFinish` then waits for the
+pre-processing only, not for the inference in flight. The Arc Pro B60 (Linux
+test GPU) has no such engine, so the queue shares the compute engine with the
+inference, and a launch can wait behind inference work already queued there.
+That wait is paid once per batch, which is why per-object models should run
+with `batch-size` greater than 1 (section 7.3).
 
 ### 5.9 Threads
 
 | Thread | Work |
 |---|---|
-| Streaming thread(s) | Windows: the copy (or a hit in the ROI cache) and a push into the bounded queue (`batch × nireq`), which blocks when full. Otherwise: `SubmitImage` itself. |
+| Streaming thread(s) | Windows, D3D frames: the copy (or a hit in the ROI cache) and a push into the bounded queue (`batch × nireq`), which blocks when full. Linux, and system memory on Windows: `SubmitImage` itself: `Add()` (the import or upload, and a launch when the frame changes), and `Finish()` (the CPU wait) + `start_async` when the batch is full. |
 | Worker (Windows, one per model instance) | the wait for the copy, then OpenVINO's `SubmitImage`: `Add()`, and `Finish()` + `start_async` when the batch is full |
 | OpenVINO™ completion threads | results to the element; images released, copies back to their pools |
 
@@ -498,7 +600,7 @@ The current implementation differs from the prototype (one model input per
 batch, launches per frame, any device, VA, D3D12). Section 7.2 repeats the
 throughput comparison on it.
 
-### 7.2 Current implementation
+### 7.2 Current implementation, Windows
 
 Correctness:
 
@@ -661,6 +763,138 @@ in three rounds of four. The latency did not change either, at 30 fps
 average per element): `gvadetect` 9.5-11.0 ms with the wait and 9.9-11.0 ms
 without; per-object `gvaclassify` 4.2-5.9 ms and 4.3-5.6 ms.
 
+### 7.3 Current implementation, Linux
+
+**Setup.**
+
+- Hardware: Intel Core Ultra 7 265 and an Arc Pro B60 (discrete, `xe`).
+- Software: kernel 7.0, iHD 26.3.2, compute runtime 26.31.39395, OpenVINO™
+  2026.5, GStreamer 1.28.8. Commit `aebb81c3` (with the colorimetry change).
+- Clip: 1920×1080 H.265 at 30 fps, 1800 frames, decoded by `vah265dec` into
+  VAMemory. The caps colorimetry is `2:0:7:1`: limited range and no matrix, so
+  GStreamer's default for 1080 lines applies, BT.709. The clip shows two bottles
+  on a white background, so there are 2 detections per frame, about 200×660
+  pixels each.
+- Models:
+  - yolo11n: 640×640, RGB, letterbox, from its rt_info.
+  - resnet-v1-50-tf and mobilenet-v2-1.0-224: 224×224, BGR. Their model-procs
+    ask for `aspect-ratio` resize with `central` crop. Labels:
+    `imagenet_2012_bkgr.txt`.
+
+**Model input.** An identity model (input → output, 64×48 planar BGR) ran on
+four ROIs on the bottles and on the full frame, over 10 frames. Its model input
+was compared with two references computed from the decoded NV12. The first
+is an exact emulation of the kernel: bilinear on the planes at pixel centers,
+then limited-range YUV → RGB with the BT.709 or the BT.601 matrix. The second
+is OpenCV's conversion (`cvtColor` NV12 → BGR, BT.601) followed by
+`resize INTER_LINEAR`. Mean / max absolute difference:
+
+| Backend | vs emulation, BT.709 | vs emulation, BT.601 | vs OpenCV |
+|---|---|---|---|
+| `opencl`: VA frames with GPU, CPU and AUTO inference; batch 3; system memory NV12 and I420 | **0.002 / 1** | 4.03 / 25 | 4.20 / 29 |
+| `opencv` | 4.20 / 29 | 0.76 / 17 | **0.000 / 0** |
+| `va` | 8.32 / 141 | 6.55 / 141 | 6.57 / 140 |
+| `va-surface-sharing` | 9.43 / 157 | 7.74 / 157 | 7.80 / 156 |
+
+- `opencl` writes the same model input on every path. It follows the caps'
+  BT.709, and it differs from the emulation only by rounding.
+- For BGR and BGRx frames (converted by `videoconvert`), its input equals
+  bilinear sampling of the converted frames (max 1).
+- The other backends convert with BT.601. The VA backends also sample
+  differently: VPP's scaler differs by up to 157 at the bottles' edges.
+
+**Classifier outputs.** yolo11n ran with `opencl` in every run, so all runs
+classified the same ROIs. resnet-50 and mobilenet-v2 then classified them with
+each backend: 300 ROIs per model in 150 frames. The reference cuts each ROI
+with the model-proc's geometry (as computed by `ComputeRoiGeometry` and
+`VaApiConverter`), samples the decoded NV12 bilinearly in floating point,
+converts it with BT.709 or BT.601, and runs the model on the CPU in FP32. Every
+backend agrees with both references on 100% of the top-1 labels. Total
+variation distance of the output distributions, 0.5 Σ|p − q| (lower is
+closer):
+
+| Backend | resnet-50, BT.709 ref. | resnet-50, BT.601 ref. | mobilenet-v2, BT.709 ref. | mobilenet-v2, BT.601 ref. |
+|---|---|---|---|---|
+| `opencl` | **0.0019** | 0.0219 | **0.0016** | 0.0046 |
+| `va-surface-sharing` | 0.0191 | 0.0096 | 0.0049 | 0.0017 |
+| `va` | 0.0259 | 0.0084 | 0.0048 | 0.0016 |
+| `opencv` | 0.0189 | 0.0107 | 0.0036 | 0.0014 |
+
+Each backend is closest to the reference with its own matrix. Against its own
+matrix, `opencl` is 4-5× closer than the others on resnet-50; on mobilenet-v2
+all four are equal.
+
+**Unit tests.** The 13 tests of `opencl_preproc_tests.cpp` pass on the B60.
+Their host outputs go through device memory, as on any discrete GPU.
+
+**Throughput, GPU inference.** Three pipelines:
+
+- P1: `gvadetect` yolo11n;
+- P2: P1 + `gvaclassify` resnet-50 per object;
+- P3: P2 + `gvaclassify` mobilenet-v2 per object.
+
+Every inference element ran on the backend under test, with `device=GPU`.
+Each run covered the whole clip, with N copies of the pipeline in one process
+sharing a model instance per model. The fps is the frame count integrated over
+the `gvafpscounter` windows. Two runs per cell, interleaved; the tables give
+their mean, and both runs where they differ by more than 5%. No run fell back
+to another backend, and the kernel log stayed clean. Total fps, with DL
+Streamer's default `batch-size=1`:
+
+| Pipeline | N | `va-surface-sharing` | `va` | `opencv` | `opencl` | `opencl` vs `va-surface-sharing` |
+|---|---|---|---|---|---|---|
+| P1 | 1 | 984 | 68 | 521 | **1013** | +3% |
+| P2 | 1 | **684** | 41 | 333 | 634 (706 / 561) | −7% |
+| P3 | 1 | **538** | 30 | 222 | 524 | −3% |
+| P1 | 4 | **1018** | 68 | 484 | 1011 | −1% |
+| P2 | 4 | **677** | 39 | 317 | 596 | −12% |
+| P3 | 4 | **511** | 29 | 212 | 501 | −2% |
+
+The same with `batch-size=8` on the classifiers, N = 1:
+
+| Pipeline | `va-surface-sharing` | `va` | `opencv` | `opencl` | `opencl` vs `va-surface-sharing` |
+|---|---|---|---|---|---|
+| P2 | **842** | 48 | 324 | 817 | −3% |
+| P3 | 756 | (incomplete runs) | 219 | **788** | +4% |
+
+On this clip, `opencl` and `va-surface-sharing` are within a few percent of
+each other: the clip has the case section 2.2.1 calls close.
+
+- **Detection** has one full-frame conversion per frame. Both backends run at
+  the detector's speed, twice as fast as `opencv`.
+- **Per-object classification** has only two large ROIs per frame. VPP takes
+  its fast SFC path and makes 2 calls per classifier per frame.
+- **The wait per batch.** `opencl` waits for its kernel once per batch, so with
+  `batch-size=1` it waits once per ROI. On the B60 its queue shares the compute
+  engine with the inference (section 5.8), so the wait includes inference work
+  queued before the kernel. That fits the 7-12% loss on P2 and the spread
+  between P2's runs, though the wait was not measured directly.
+- **Batching.** It removes most of that: from `batch-size` 1 to 8, `opencl`
+  gains 29% on P2 and 50% on P3, against 23% and 41% for
+  `va-surface-sharing`, and `opencl` is ahead on P3.
+- **Many small ROIs per frame** (section 2.2.1) are the case where the VPP
+  calls dominate. That is where `opencl` is designed to win.
+- **`va`** maps each VPP output to system memory, which on a discrete GPU reads
+  across PCIe. That makes it the slowest.
+
+**Throughput, other inference devices.** The same clip with P1 and P2, N = 1,
+`batch-size=1`, `opencl` against the backend the element selects by default
+for the device. Total fps:
+
+| Device | Pipeline | default backend | `opencl` | ratio |
+|---|---|---|---|---|
+| CPU | P1 | 224 (216 / 232, `opencv`) | **248** | 1.11× |
+| CPU | P2 | 104 (`opencv`) | **117** | 1.13× |
+| NPU | P1 | 23 (`va`) | **86** | 3.8× |
+| NPU | P2 | 23 (`va`) | **87** | 3.8× |
+| AUTO | P1 | 40 (`va`) | **380** | 9.5× |
+| AUTO | P2 | 35 (`va`) | **375** | 10.9× |
+
+With these devices, the frames stay in VAMemory and the kernel runs on the B60.
+It writes the model input through device memory and one copy into host memory
+per batch. The default backends instead read VPP output, or the decoded frame
+itself, back across PCIe.
+
 ## 8. Limitations and risks
 
 - The frames must be on the inference device's adapter (or display): frames on
@@ -693,8 +927,21 @@ without; per-object `gvaclassify` 4.2-5.9 ms and 4.3-5.6 ms.
 - D3D12 frames are copied with a submission per frame on the D3D12 device's
   direct queue, and the worker waits for the copy on the CPU.
 - The CPU waits for the kernels of a batch (`clFinish`, one GPU round trip)
-  before its inference starts. On the test system that costs at most about 2%
-  of throughput, and no measurable latency (section 7.2).
+  before its inference starts. On the Windows test system that costs at most
+  about 2% of throughput, and no measurable latency (section 7.2).
+- **Linux, GPUs without a second compute engine.** On the Arc Pro B60, the
+  kernels share the engine with the inference, and each batch's wait includes
+  the inference work queued before the kernel. With `batch-size=1`,
+  per-object classification on a few large ROIs per frame ran 2-12% slower
+  than `va-surface-sharing` (section 7.3). Per-object models should use a
+  larger `batch-size`.
+- **Linux, DMA-BUF.** DMA-BUFs from `vapostproc` are Tile4. The DMA-BUF mapper
+  reports their modifier as 0, with linear strides, so the import reads them
+  wrongly; so do the VA backends. The mapper needs a separate fix. The decoders'
+  VA surfaces are not affected.
+- **Linux, `i915`.** The current implementation was tested on `xe` (Arc B60)
+  only. On `i915` the VA imports are made per frame (section 2.3); that path
+  is untested.
 
 ## 9. Future work
 
@@ -709,9 +956,10 @@ at every frame and kept every old texture through its import: 985 pools and
 274 MB now.
 
 1. **No CPU wait**: order the inference after the kernels on the GPU. It needs
-   an OpenVINO™ API for an infer request to wait for a `cl_event` (section 6),
-   and gains little on the test system (section 7.2). Measure the cost of the
-   wait on Linux first, where the streaming thread waits.
+   an OpenVINO™ API for an infer request to wait for a `cl_event` (section 6).
+   It gains little on the Windows test system (section 7.2). On Linux, on a GPU
+   whose kernels share the inference engine, it is the likely cause of the 2-12%
+   that `batch-size=1` per-object pipelines lose (section 7.3).
 2. **VA imports**: check the import cache when the decoder recreates its
    surfaces (Linux).
 3. **Kernel**: vector stores, an anti-aliased (area) downscale for large ratios
@@ -742,7 +990,19 @@ gst-launch-1.0 filesrc location=video.mp4 ! decodebin3 ! \
   gvafpscounter ! fakesink
 ```
 
-`GST_DEBUG=GVA_common:4` logs the setup, for example (Windows, D3D12 frames):
+`GST_DEBUG=GVA_common:4` logs the setup. For example on Linux, with VA frames,
+yolo11n on the GPU, resnet-50 on the GPU with `batch-size=8`, and resnet-50 on
+the CPU:
+
+```
+OpenCL pre-processing on 'Intel(R) Arc(TM) Pro B60 Graphics': 640x640 planar RGB, batch 1, into device memory of the inference context
+OpenCL pre-processing on 'Intel(R) Arc(TM) Pro B60 Graphics': 224x224 planar BGR, batch 8, into device memory of the inference context
+OpenCL pre-processing on 'Intel(R) Arc(TM) Pro B60 Graphics': 224x224 planar BGR, batch 1, into host memory, through device memory
+OpenCL pre-processing: VA surfaces of a 'xe' device, imports cached per surface
+OpenCL pre-processing: YUV to RGB with BT.709, limited range
+```
+
+On Windows, with D3D12 frames:
 
 ```
 OpenCL pre-processing: OpenVINO uses an OpenCL context with D3D11 interop user sync
