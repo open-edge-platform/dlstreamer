@@ -6,8 +6,9 @@ Windows (D3D11 and D3D12 textures, system memory).
 device.
 
 This document started as the design of a D3D11-only prototype (commit
-`038141e`). Sections 2.2, 6 and 7.1 are still the prototype's analysis and
-measurements; the rest describes the current implementation.
+`038141e`). Sections 2.2 and 7.1, and the measured variants of section 6, are
+still the prototype's analysis and measurements; the rest describes the
+current implementation.
 
 ## 1. Summary
 
@@ -320,7 +321,8 @@ Each frame needs three orderings:
    reads it.
 2. The kernel completes before OpenVINO™ reads the model input. OpenVINO™ runs
    on its own queues, so only a CPU-side wait connects the two: `Finish()`
-   waits for the queue (`clFinish`) once per batch.
+   waits for the queue (`clFinish`) once per batch. OpenVINO's API offers no
+   way to order them on the GPU (section 6).
 3. The kernel completes before the frame's planes or copy are reused: the batch
    keeps the planes until `Finish()`, and the copy is released with the image,
    after the inference.
@@ -425,9 +427,24 @@ Other options:
 - **Writing normalized f32/f16 in the kernel.** Not needed: the GPU plugin folds
   the u8 → f32 conversion and mean/scale into the input reorder it runs anyway,
   and u8 is 4× less memory traffic.
-- **Running the kernel on OpenVINO's queue** (`ClContext(core, queue)`). Would
-  remove the last CPU wait, but restricts OpenVINO™ to a single stream. Left as
-  future work.
+- **Running the kernel on OpenVINO's queue** (`ClContext(core, queue)`), which
+  would order the inference after it without a CPU wait. Rejected: OpenVINO™
+  supports such a context in latency mode only. The GPU plugin asserts a single
+  stream, enqueues the inference on the caller's thread in `start_async`, and
+  lets one request of a graph be in flight at a time: `enqueue_notify()` waits
+  until the previous request has completed (`Graph::wait(Stage::EXECUTE)`). That
+  trades the wait for the kernel, one GPU round trip, for a wait for the whole
+  previous inference. With OpenVINO™ 2026.5 on the test system,
+  `compile_model` also crashed with such a context (not investigated further).
+- **Ordering the inference after the kernel on the GPU**, with an event or a
+  marker. Not possible through OpenVINO's API: remote tensors carry no events,
+  and the GPU plugin's in-order streams ignore input dependency events. It
+  would take an OpenVINO™ API to make an infer request wait for a `cl_event`
+  on its queue, as a marker or barrier before the network.
+- **Starting the inference from a thread that waits for the kernels**, so that
+  the submitting thread doesn't wait. Possible without OpenVINO™ changes, but
+  the round trip stays in each request's latency, and removing the wait
+  altogether gains at most about 2% on the test system (section 7.2): not done.
 - **D3D12 textures through `cl_khr_external_memory`.** Rejected: images
   imported from texture handles faulted the GPU on the test driver (section
   2.3).
@@ -619,6 +636,31 @@ yolo11n instance): 279 MB with frames of another device, 274 MB with the
 decoder's device, flat after the first seconds, with one pool per frame size
 in either case.
 
+Cost of the CPU wait before each inference (`clFinish` in `Finish()`), as an
+upper bound: builds that flush instead of waiting, whose results are racy,
+against the regular wait. Four rounds, the order alternating, the first 100
+frames skipped, on the same day as the table above. D3D12 frames, then system
+memory frames (`video/x-raw,format=NV12` after `decodebin3`). Median fps, and
+the median of the per-round ratios with their range:
+
+| Pipeline | wait | no wait | no wait / wait |
+|---|---|---|---|
+| `gvaclassify` mobilenetv2, `inference-region=full-frame`, SD | 1681.2 | 1715.0 | +2.5% (−1.3% to +4.1%) |
+| `gvadetect` yolo11n, SD | 332.2 | 332.5 | −0.5% (−2.1% to +4.0%) |
+| yolo11n → resnet18 per object, SD | 232.1 | 232.5 | +0.3% (−1.4% to +0.4%) |
+| same, HD | 106.6 | 106.1 | −0.5% (−1.6% to +2.0%) |
+| system memory: classify | 1425.0 | 1434.8 | +0.3% (−1.9% to +2.3%) |
+| system memory: detect | 319.0 | 321.6 | +1.4% (−0.6% to +3.3%) |
+| system memory: detect → classify per object | 224.1 | 228.5 | +1.9% (−0.2% to +2.5%) |
+
+On D3D frames the wrapper's worker thread waits, and the wait costs nothing
+measurable: the pipelines are bound by the GPU. With system memory frames the
+streaming thread waits, as on Linux, and the two-stage pipeline lost about 2%
+in three rounds of four. The latency did not change either, at 30 fps
+(`identity sync=true` after the decoder, three runs each, the latency tracer's
+average per element): `gvadetect` 9.5-11.0 ms with the wait and 9.9-11.0 ms
+without; per-object `gvaclassify` 4.2-5.9 ms and 4.3-5.6 ms.
+
 ## 8. Limitations and risks
 
 - The frames must be on the inference device's adapter (or display): frames on
@@ -650,8 +692,9 @@ in either case.
   used (not verified).
 - D3D12 frames are copied with a submission per frame on the D3D12 device's
   direct queue, and the worker waits for the copy on the CPU.
-- One GPU round trip (the batch's `clFinish`) is still on each infer request's
-  critical path.
+- The CPU waits for the kernels of a batch (`clFinish`, one GPU round trip)
+  before its inference starts. On the test system that costs at most about 2%
+  of throughput, and no measurable latency (section 7.2).
 
 ## 9. Future work
 
@@ -665,8 +708,10 @@ at every frame and kept every old texture through its import: 985 pools and
 5.2 GB of GPU memory in 12 seconds (SD and HD, yolo11n), against 2 pools and
 274 MB now.
 
-1. **No CPU wait**: run the kernel on OpenVINO's queue, or order it against
-   inference on the GPU.
+1. **No CPU wait**: order the inference after the kernels on the GPU. It needs
+   an OpenVINO™ API for an infer request to wait for a `cl_event` (section 6),
+   and gains little on the test system (section 7.2). Measure the cost of the
+   wait on Linux first, where the streaming thread waits.
 2. **VA imports**: check the import cache when the decoder recreates its
    surfaces (Linux).
 3. **Kernel**: vector stores, an anti-aliased (area) downscale for large ratios
