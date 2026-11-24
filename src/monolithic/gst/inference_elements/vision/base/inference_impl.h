@@ -14,6 +14,7 @@
 
 #include <gst/video/video.h>
 
+#include <atomic>
 #include <chrono>
 #include <gst/analytics/analytics.h>
 #include <list>
@@ -93,6 +94,7 @@ class InferenceImpl {
 
     std::list<OutputFrame> output_frames;
     std::mutex output_frames_mutex;
+    std::atomic<unsigned> failed_frames{0};
 
 #ifndef _WIN32
     void SetAffinityMask(const cpu_set_t &mask);

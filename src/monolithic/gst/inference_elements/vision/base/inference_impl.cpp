@@ -1964,14 +1964,28 @@ GstFlowReturn InferenceImpl::TransformFrameIp(GvaBaseInference *gva_base_inferen
  */
 void InferenceImpl::PushFramesIfInferenceFailed(
     std::vector<std::shared_ptr<InferenceBackend::ImageInference::IFrameBase>> frames) {
+    std::vector<GvaBaseInference *> elements;
     for (auto &frame : frames) {
         auto inference_result = std::dynamic_pointer_cast<InferenceResult>(frame);
         /* InferenceResult is inherited from IFrameBase */
         assert(inference_result.get() != nullptr && "Expected a valid InferenceResult");
 
         std::shared_ptr<InferenceFrame> inference_roi = inference_result->inference_frame;
+        if (std::find(elements.begin(), elements.end(), inference_roi->gva_base_inference) == elements.end())
+            elements.push_back(inference_roi->gva_base_inference);
         inference_result->image.reset(); // deleter will to not make buffer_unref, see 'SubmitImages' method
         UpdateOutputFrames(inference_roi);
+    }
+    // On the bus, so that it is visible without GST_DEBUG; rate-limited in case a whole stream fails
+    const unsigned count = failed_frames += static_cast<unsigned>(frames.size());
+    if (count <= 10 || count % 1000 < frames.size()) {
+        for (GvaBaseInference *element : elements) {
+            GST_ELEMENT_WARNING(element, STREAM, FAILED,
+                                ("Inference of a frame failed; the frame is passed on without inference results"),
+                                ("%u frame(s) of model instance '%s' failed so far, see the GVA_common debug log for "
+                                 "the reason",
+                                 count, element->model_instance_id ? element->model_instance_id : ""));
+        }
     }
     PushOutput();
 }
