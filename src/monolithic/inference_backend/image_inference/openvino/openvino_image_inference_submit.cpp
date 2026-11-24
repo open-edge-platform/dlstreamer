@@ -6,7 +6,7 @@
 
 // OpenVinoImageInference::SubmitImage and what it needs: taking a free infer request, putting the frame into its input
 // tensor (software pre-processing, or bypass when the frame already fits the model), and starting the request once
-// the batch is full. See Flush() in openvino_image_inference.cpp for how a partly filled batch is started.
+// the batch is full. See StartCurrentSlot() in openvino_image_inference.cpp for how a partly filled batch is started.
 
 #include "openvino_image_inference.h"
 
@@ -257,7 +257,10 @@ void OpenVinoImageInference::SubmitImage(
         // start inference asynchronously if enough buffers for batching
         if (inference_slot->buffers.size() >= safe_convert<size_t>(batch_size_)) {
             current_slot_ = nullptr;
+            partial_batch_id_ = 0;
             inference_slot->StartAsync();
+        } else if (inference_slot->buffers.size() == 1) {
+            partial_batch_id_ = ++last_batch_id_;
         }
     } catch (const std::exception &e) {
         // The slot holds the whole batch now: fail all of its frames, as Flush() and the completion callback do.

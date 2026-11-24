@@ -23,6 +23,7 @@
 //                        the callback, then FreeSlot() returns the slot to the pool.
 //   Flush(), Close()     (openvino_image_inference.cpp) start the partly filled batch and wait until no frame is in
 //                        flight.
+//   StartPartialBatch()  (openvino_image_inference.cpp) starts the partly filled batch without waiting.
 //
 // Modules. An arrow means "uses"; none of them includes this header.
 //   openvino_config_helper.h              typed view of the string-keyed InferenceConfig
@@ -85,6 +86,9 @@ class OpenVinoImageInference : public InferenceBackend::ImageInference {
 
     bool IsQueueFull() override;
 
+    uint64_t GetPartialBatchId() override;
+    void StartPartialBatch(uint64_t batch_id) override;
+
     void Flush() override;
 
     void Close() override;
@@ -126,6 +130,10 @@ class OpenVinoImageInference : public InferenceBackend::ImageInference {
     // The slot that takes the next frame, null if none. Written under requests_mutex_; atomic so that IsQueueFull() can
     // read it without the lock.
     std::atomic<InferSlot *> current_slot_{nullptr};
+    // Id of the batch in current_slot_ while it holds frames, 0 otherwise. Written under requests_mutex_; atomic so
+    // that GetPartialBatchId() can read it without the lock, which SubmitImage() holds while waiting for a slot.
+    std::atomic<uint64_t> partial_batch_id_{0};
+    uint64_t last_batch_id_ = 0; // under requests_mutex_
 
     std::unique_ptr<InferenceBackend::ImagePreprocessor> pre_processor_;
 
@@ -137,6 +145,9 @@ class OpenVinoImageInference : public InferenceBackend::ImageInference {
 
   private:
     void FreeSlot(InferSlot *inference_slot);
+    // Takes the partly filled batch out of current_slot_ and starts it; returns the slot if starting failed, then the
+    // caller fails its frames and frees it. Called with requests_mutex_ held.
+    InferSlot *StartCurrentSlot();
     bool DoNeedImagePreProcessing(const InferenceBackend::ImagePtr src_img);
     void SubmitImageProcessing(const std::string &input_name, InferSlot *inference_slot,
                                const InferenceBackend::Image &src_img,

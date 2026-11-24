@@ -62,6 +62,9 @@ class ImageInferenceAsyncD3D12 : public ImageInference {
 
     bool IsQueueFull() override;
 
+    uint64_t GetPartialBatchId() override;
+    void StartPartialBatch(uint64_t batch_id) override;
+
     void Flush() override;
 
     void Close() override;

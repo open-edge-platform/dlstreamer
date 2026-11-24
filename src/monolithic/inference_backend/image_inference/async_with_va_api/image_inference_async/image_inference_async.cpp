@@ -214,6 +214,15 @@ bool ImageInferenceAsync::IsQueueFull() {
     return _inference->IsQueueFull();
 }
 
+uint64_t ImageInferenceAsync::GetPartialBatchId() {
+    return _inference->GetPartialBatchId();
+}
+
+// Frames still queued here are not in the batch yet; they go into the next one.
+void ImageInferenceAsync::StartPartialBatch(uint64_t batch_id) {
+    _inference->StartPartialBatch(batch_id);
+}
+
 void ImageInferenceAsync::Flush() {
     if (_va_image_pool) {
         _va_image_pool->Flush();

@@ -92,12 +92,19 @@ class InferenceImpl {
     std::list<OutputFrame> output_frames;
     std::mutex output_frames_mutex;
 
+    // The model's partly filled batch as last seen by TransformFrameIp, and how many frames that run inference have
+    // arrived since. Under _mutex.
+    uint64_t partial_batch_id = 0;
+    size_t partial_batch_age = 0;
+
 #ifndef _WIN32
     void SetAffinityMask(const cpu_set_t &mask);
 #else
     void SetAffinityMask(const WinCorePinningMask &mask);
 #endif
     void PushOutput();
+    void StartStalePartialBatch();
+    void StartPartialBatch();
     bool CheckSrcPadBlocked(GstObject *src);
     void PushBufferToSrcPad(OutputFrame &output_frame);
     void PushFramesIfInferenceFailed(std::vector<std::shared_ptr<InferenceBackend::ImageInference::IFrameBase>> frames);
