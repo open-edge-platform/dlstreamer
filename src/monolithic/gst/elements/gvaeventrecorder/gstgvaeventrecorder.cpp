@@ -17,6 +17,8 @@
 #include <gst/analytics/analytics.h>
 #include <gst/video/video.h>
 
+#include <dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h>
+
 #include "gva_caps.h"
 
 #include "drop_log_throttle/drop_log_throttle.hpp"

@@ -13,6 +13,8 @@
 #include <gst/analytics/analytics.h>
 #include <gst/video/video.h>
 
+#include <dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h>
+
 #include "frame_selector.hpp"
 #include "gva_caps.h"
 #include "gva_utils.h"

@@ -64,6 +64,10 @@ gboolean gst_analytics_mtd_set_semantic_tag(GstAnalyticsMtd *instance, const gch
 GST_ANALYTICS_META_API
 gchar *gst_analytics_mtd_get_semantic_tag(const GstAnalyticsMtd *instance);
 
+/* Returns TRUE if the tag of @instance equals @tag, an unset tag never matches. */
+GST_ANALYTICS_META_API
+gboolean gst_analytics_mtd_has_semantic_tag(const GstAnalyticsMtd *instance, const gchar *tag);
+
 G_END_DECLS
 
 #endif /* __GST_ANALYTICS_SEMANTIC_TAG_MTD_H__ */

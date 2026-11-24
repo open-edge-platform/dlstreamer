@@ -33,4 +33,5 @@ target_link_libraries(${TARGET_NAME}
     ${GSTREAMER_BASE_LIBRARIES}
     ${GSTREAMER_VIDEO_LIBRARIES}
     ${GSTREAMER_ANALYTICS_LIBRARIES}
+    dlstreamer_gst_meta
 )

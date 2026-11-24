@@ -205,3 +205,23 @@ gchar *gst_analytics_mtd_get_semantic_tag(const GstAnalyticsMtd *instance) {
     gchar *tag = gst_analytics_relation_meta_get_semantic_tag(instance->meta, instance->id);
     return tag ? tag : g_strdup("");
 }
+
+/**
+ * gst_analytics_mtd_has_semantic_tag:
+ * @instance: Instance of #GstAnalyticsMtd
+ * @tag: Tag string to compare against
+ *
+ * Check if the semantic tag of any analytics metadata equals @tag. An unset tag never matches.
+ *
+ * Returns: TRUE if the semantic tag of @instance equals @tag.
+ */
+gboolean gst_analytics_mtd_has_semantic_tag(const GstAnalyticsMtd *instance, const gchar *tag) {
+    g_return_val_if_fail(instance != NULL, FALSE);
+    g_return_val_if_fail(instance->meta != NULL, FALSE);
+    g_return_val_if_fail(tag != NULL, FALSE);
+
+    gchar *current = gst_analytics_relation_meta_get_semantic_tag(instance->meta, instance->id);
+    gboolean ret = current != NULL && g_strcmp0(current, tag) == 0;
+    g_free(current);
+    return ret;
+}
