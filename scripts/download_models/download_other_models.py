@@ -375,8 +375,10 @@ def download_ppocr_v5(models_path: Path, model_name: str) -> None:
         shutil.copyfile(paddle_dir / "config.json", fp16_dir / "config.json")
 
 
-def download_pallet_defect_detection(models_path: Path) -> None:
-    model_name = "pallet_defect_detection"
+def download_pallet_defect_detection_model(
+    models_path: Path, model_name: str, commit: str, archive_name: str
+) -> None:
+    """Extract an INT8 Pallet Defect Detection model from an edge-ai-resources archive."""
     model_dir = models_path / "public" / model_name
     int8_dir = model_dir / "INT8"
     if all_exist(int8_dir / f"{model_name}.xml"):
@@ -385,10 +387,9 @@ def download_pallet_defect_detection(models_path: Path) -> None:
 
     log(f"Downloading and converting: {model_dir}")
     with staging_dir(model_dir) as tmp:
-        archive = tmp / f"{model_name}.zip"
+        archive = tmp / archive_name
         download_file(
-            "https://github.com/open-edge-platform/edge-ai-resources/raw/"
-            "06bb0d621cb14a1791672552a538beddddcc4066/models/INT8/pallet_defect_detection.zip",
+            f"https://github.com/open-edge-platform/edge-ai-resources/raw/{commit}/models/INT8/{archive_name}",
             archive,
         )
         extract_zip(archive, tmp)
@@ -467,7 +468,24 @@ MODEL_HANDLERS: dict[str, tuple[str, Callable[[Path], None]]] = {
         "PaddlePaddle PP-OCRv5_mobile_rec",
         functools.partial(download_ppocr_v5, model_name="PP-OCRv5_mobile_rec"),
     ),
-    "pallet_defect_detection": ("Pallet Defect Detection", download_pallet_defect_detection),
+    "pallet_defect_detection": (
+        "Pallet Defect Detection",
+        functools.partial(
+            download_pallet_defect_detection_model,
+            model_name="pallet_defect_detection",
+            commit="06bb0d621cb14a1791672552a538beddddcc4066",
+            archive_name="pallet_defect_detection.zip",
+        ),
+    ),
+    "pallet_defect_detection_3.x": (
+        "Pallet Defect Detection 3.x",
+        functools.partial(
+            download_pallet_defect_detection_model,
+            model_name="pallet_defect_detection_3.x",
+            commit="4f002b31fae3af7361b1f43c48c243bd8d513d9b",
+            archive_name="pallet_defect_detection_3.x.zip",
+        ),
+    ),
     "colorcls2": ("Colorcls2", download_colorcls2),
     "pointpillars": ("PointPillars", download_pointpillars),
 }
