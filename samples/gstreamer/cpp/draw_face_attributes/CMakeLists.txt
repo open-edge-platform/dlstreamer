@@ -19,26 +19,21 @@ pkg_check_modules(GLIB2 glib-2.0 REQUIRED)
 if(DLSTREAMER_BASE_DIR)
     # In-tree build: DLSTREAMER_BASE_DIR is set by top-level CMakeLists.txt.
     # GStreamer/OpenCV are in build/deps/{gstreamer,opencv}-bin/.
+    # Top-level already adds global include_directories and link_directories.
     set(DLSTREAMER_INCLUDE_DIRS
         ${DLSTREAMER_BASE_DIR}/include/dlstreamer/gst
         ${DLSTREAMER_BASE_DIR}/include
     )
-    if(WIN32)
-        find_package(OpenCV 5.1.0 CONFIG REQUIRED COMPONENTS core imgproc)
-    else()
-        find_package(OpenCV 5.1.0 CONFIG REQUIRED COMPONENTS core imgproc
-            PATHS "${CMAKE_BINARY_DIR}/deps/opencv-bin/lib/cmake/opencv5"
-        )
-    endif()
+    find_package(OpenCV OPTIONAL_COMPONENTS core imgproc)
 else()
     # Standalone build: DL Streamer is installed at /opt/intel/dlstreamer.
     # PKG_CONFIG_PATH must be set to include dlstreamer's pkgconfig dirs
     # (done by build_and_run.sh or setup_dls_env.sh).
     set(DLSTREAMER_INSTALL_DIR "/opt/intel/dlstreamer")
     set(DLSTREAMER_INCLUDE_DIRS ${DLSTREAMER_INSTALL_DIR}/include)
-    # Pass the OpenCV install prefix so CMake searches both lib/ (Ubuntu) and lib64/ (Fedora).
-    find_package(OpenCV 5.1.0 CONFIG REQUIRED COMPONENTS core imgproc
-        PATHS "${DLSTREAMER_INSTALL_DIR}/opencv"
+    find_package(OpenCV
+        OPTIONAL_COMPONENTS core imgproc
+        PATHS ${DLSTREAMER_INSTALL_DIR}/opencv
     )
 endif()
 
@@ -84,3 +79,7 @@ PRIVATE
         ${GSTANALYTICS_LIBRARIES}
         ${GSTALLOCATORS_LIBRARIES}
 )
+
+if(NOT WIN32 AND NOT OpenCV_FOUND)
+    target_link_libraries(${TARGET_NAME} PRIVATE opencv_core opencv_imgproc)
+endif()

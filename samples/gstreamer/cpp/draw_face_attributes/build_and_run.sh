@@ -38,10 +38,12 @@ cd "${BUILD_DIR}" || exit
 
 export PKG_CONFIG_PATH=/opt/intel/dlstreamer/gstreamer/lib/pkgconfig:/opt/intel/dlstreamer/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig
 
+CMAKE_OPENCV_FLAGS=(-DCMAKE_C_FLAGS=-I/opt/opencv/include -DCMAKE_CXX_FLAGS=-I/opt/opencv/include -DCMAKE_EXE_LINKER_FLAGS=-L/opt/opencv)
+
 if [ -f /etc/lsb-release ]; then
-    cmake "${BASE_DIR}"
+    cmake "${BASE_DIR}" "${CMAKE_OPENCV_FLAGS[@]}"
 else
-    cmake3 "${BASE_DIR}"
+    cmake3 "${BASE_DIR}" "${CMAKE_OPENCV_FLAGS[@]}"
 fi
 
 make -j "$(nproc)"
