@@ -376,7 +376,7 @@ def download_ppocr_v5(models_path: Path, model_name: str) -> None:
 
 
 def download_pallet_defect_detection_model(
-    models_path: Path, model_name: str, commit: str, archive_name: str
+    models_path: Path, model_name: str, commit: str, archive_name: str, source_subdir: str = "deployment/Detection/model"
 ) -> None:
     """Extract an INT8 Pallet Defect Detection model from an edge-ai-resources archive."""
     model_dir = models_path / "public" / model_name
@@ -394,11 +394,13 @@ def download_pallet_defect_detection_model(
         )
         extract_zip(archive, tmp)
 
-        source_dir = tmp / "deployment" / "Detection" / "model"
+        source_dir = tmp / source_subdir if source_subdir else tmp
         int8_dir.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source_dir / "model.bin", int8_dir / f"{model_name}.bin")
         shutil.copyfile(source_dir / "model.xml", int8_dir / f"{model_name}.xml")
-        shutil.copyfile(source_dir / "config.json", int8_dir / "config.json")
+        config_json = source_dir / "config.json"
+        if config_json.is_file():
+            shutil.copyfile(config_json, int8_dir / "config.json")
 
 
 def download_colorcls2(models_path: Path) -> None:
@@ -484,6 +486,7 @@ MODEL_HANDLERS: dict[str, tuple[str, Callable[[Path], None]]] = {
             model_name="pallet_defect_detection_3.x",
             commit="4f002b31fae3af7361b1f43c48c243bd8d513d9b",
             archive_name="pallet_defect_detection_3.x.zip",
+            source_subdir="",
         ),
     ),
     "colorcls2": ("Colorcls2", download_colorcls2),
