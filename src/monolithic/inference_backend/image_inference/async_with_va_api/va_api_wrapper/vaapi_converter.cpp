@@ -17,6 +17,7 @@
 #include <cstring>
 #include <stdexcept>
 #include <string>
+#include <unistd.h>
 
 using namespace InferenceBackend;
 
@@ -102,36 +103,64 @@ VASurfaceID ConvertVASurfaceFromDifferentDriverContext(VaDpyWrapper src_display,
     return dst_surface;
 }
 
+// DRM fourcc of the layer of a DMA-BUF holding an image of this format
+uint32_t DrmFormat(int fourcc) {
+    switch (fourcc) {
+    case FOURCC_NV12:
+        return DRM_FORMAT_NV12;
+    case FOURCC_I420:
+        return DRM_FORMAT_YUV420;
+    case FOURCC_BGRX:
+        return DRM_FORMAT_XRGB8888;
+    case FOURCC_BGRA:
+        return DRM_FORMAT_ARGB8888;
+    case FOURCC_RGBX:
+        return DRM_FORMAT_XBGR8888;
+    case FOURCC_RGBA:
+        return DRM_FORMAT_ABGR8888;
+    default:
+        throw std::invalid_argument("Unsupported DMA-BUF image format");
+    }
+}
+
 VASurfaceID ConvertDMABuf(VaDpyWrapper display, const Image &src, int rt_format) {
     if (src.type != MemoryType::DMA_BUFFER) {
         throw std::runtime_error("MemoryType=DMA_BUFFER expected");
     }
 
-    VASurfaceAttribExternalBuffers external = VASurfaceAttribExternalBuffers();
-    external.width = src.width;
-    external.height = src.height;
-    external.num_planes = Utils::GetPlanesCount(src.format);
-    uint64_t dma_fd = src.dma_fd;
-    external.buffers = &dma_fd;
-    external.num_buffers = 1;
-    external.pixel_format = src.format;
-    external.data_size = 0;
-    for (uint32_t i = 0; i < external.num_planes; i++) {
-        external.pitches[i] = src.stride[i];
-        external.offsets[i] = src.offsets[i];
+    // DRM_PRIME_2 passes the DRM format modifier: the DMA-BUFs of VA surfaces are usually tiled, and importing them
+    // as linear reads every pixel from the wrong place. All planes are in one object and one layer.
+    VADRMPRIMESurfaceDescriptor desc = VADRMPRIMESurfaceDescriptor();
+    desc.fourcc = safe_convert<uint32_t>(src.format);
+    desc.width = src.width;
+    desc.height = src.height;
+    desc.num_objects = 1;
+    desc.objects[0].fd = src.dma_fd;
+    // The size of the DMA-BUF itself: the planes of a VA surface take more than the sum of the plane sizes
+    const off_t dma_buf_size = src.dma_fd >= 0 ? lseek(src.dma_fd, 0, SEEK_END) : -1;
+    if (dma_buf_size > 0)
+        lseek(src.dma_fd, 0, SEEK_SET);
+    desc.objects[0].size = safe_convert<uint32_t>(dma_buf_size > 0 ? static_cast<size_t>(dma_buf_size) : src.size);
+    desc.objects[0].drm_format_modifier = src.drm_format_modifier;
+    desc.num_layers = 1;
+    desc.layers[0].drm_format = DrmFormat(src.format);
+    desc.layers[0].num_planes = Utils::GetPlanesCount(src.format);
+    for (uint32_t i = 0; i < desc.layers[0].num_planes; i++) {
+        desc.layers[0].object_index[i] = 0;
+        desc.layers[0].offset[i] = src.offsets[i];
+        desc.layers[0].pitch[i] = src.stride[i];
     }
-    external.data_size = src.size;
 
     VASurfaceAttrib attribs[2] = {};
     attribs[0].flags = VA_SURFACE_ATTRIB_SETTABLE;
     attribs[0].type = VASurfaceAttribMemoryType;
     attribs[0].value.type = VAGenericValueTypeInteger;
-    attribs[0].value.value.i = VA_SURFACE_ATTRIB_MEM_TYPE_DRM_PRIME;
+    attribs[0].value.value.i = VA_SURFACE_ATTRIB_MEM_TYPE_DRM_PRIME_2;
 
     attribs[1].flags = VA_SURFACE_ATTRIB_SETTABLE;
     attribs[1].type = VASurfaceAttribExternalBufferDescriptor;
     attribs[1].value.type = VAGenericValueTypePointer;
-    attribs[1].value.value.p = &external;
+    attribs[1].value.value.p = &desc;
 
     VASurfaceID va_surface_id;
     VA_CALL(display.drvVtable().vaCreateSurfaces2(display.drvCtx(), safe_convert<uint32_t>(rt_format), src.width,

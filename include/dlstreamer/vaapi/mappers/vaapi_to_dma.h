@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -53,7 +53,7 @@ class MemoryMapperVAAPIToDMA final : public BaseMemoryMapper {
                 TensorInfo info = src->tensor(plane_num)->info();
                 int object_index = layer->object_index[j];
                 int dma_fd = prime_desc.objects[object_index].fd;
-                int drm_modifier = prime_desc.objects[object_index].drm_format_modifier;
+                uint64_t drm_modifier = prime_desc.objects[object_index].drm_format_modifier;
                 info.stride[ImageLayout(info.shape).w_position() - 1] = layer->pitch[j];
                 // only one tensor object takes ownership of each dma-fd handle
                 auto dst =

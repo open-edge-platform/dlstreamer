@@ -1415,7 +1415,9 @@ gboolean gva_base_inference_set_caps(GstBaseTransform *trans, GstCaps *incaps, G
     gst_video_info_from_caps(&video_info, incaps);
     CapsFeature caps_feature = get_caps_feature(incaps);
 
-    // if DMA_DRM format detected, convert to 'traditional' video format
+    // if DMA_DRM format detected, convert to 'traditional' video format and keep the DRM modifier (e.g. tiling),
+    // which the video info cannot hold
+    uint64_t drm_modifier = 0;
     if (gst_video_is_dma_drm_caps(incaps)) {
         GstVideoInfoDmaDrm dma_info;
 
@@ -1424,6 +1426,8 @@ gboolean gva_base_inference_set_caps(GstBaseTransform *trans, GstCaps *incaps, G
 
         if (!gst_video_info_dma_drm_to_video_info(&dma_info, &video_info))
             return FALSE;
+
+        drm_modifier = dma_info.drm_modifier;
     }
 
     // Check if the caps are compatible with the device
@@ -1461,7 +1465,8 @@ gboolean gva_base_inference_set_caps(GstBaseTransform *trans, GstCaps *incaps, G
     // stop() drops the buffer mapper and the upstream devices, so initialize again after a restart:
     // upstream may also be on another device now.
     if (base_inference->inference && base_inference->priv->buffer_mapper && base_inference->info &&
-        gst_video_info_is_equal(base_inference->info, &video_info) && base_inference->caps_feature == caps_feature) {
+        gst_video_info_is_equal(base_inference->info, &video_info) && base_inference->caps_feature == caps_feature &&
+        base_inference->priv->drm_modifier == drm_modifier) {
         // We alredy have an inference model instance.
         return TRUE;
     }
@@ -1478,6 +1483,7 @@ gboolean gva_base_inference_set_caps(GstBaseTransform *trans, GstCaps *incaps, G
     }
     base_inference->info = gst_video_info_copy(&video_info);
     base_inference->caps_feature = caps_feature;
+    base_inference->priv->drm_modifier = drm_modifier;
 
     base_inference->priv->buffer_mapper.reset();
 
@@ -1549,7 +1555,7 @@ gboolean gva_base_inference_set_caps(GstBaseTransform *trans, GstCaps *incaps, G
 #else
         base_inference->priv->buffer_mapper =
             BufferMapperFactory::createMapper(base_inference->inference->GetInferenceMemoryType(), base_inference->info,
-                                              base_inference->priv->va_display);
+                                              base_inference->priv->va_display, base_inference->priv->drm_modifier);
 #endif
 
         if (!base_inference->priv->buffer_mapper)

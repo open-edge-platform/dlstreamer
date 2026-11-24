@@ -24,6 +24,8 @@ struct GvaBaseInferencePrivate {
     dlstreamer::ContextPtr d3d12_device;
 
     std::unique_ptr<InferenceBackend::BufferToImageMapper> buffer_mapper;
+    // DRM format modifier of DMA-BUF input (from DMA_DRM caps), 0 (linear) otherwise
+    uint64_t drm_modifier = 0;
 
     // Owner of the post-processor. GvaBaseInference::post_proc points to it. It is replaced when caps are renegotiated,
     // frames that are still being processed keep the one they started with until they are done.
