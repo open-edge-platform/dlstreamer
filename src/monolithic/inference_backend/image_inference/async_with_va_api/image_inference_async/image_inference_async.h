@@ -14,6 +14,7 @@
 #include "inference_backend/logger.h"
 #include "inference_backend/pre_proc.h"
 
+#include <atomic>
 #include <map>
 
 namespace InferenceBackend {
@@ -61,6 +62,7 @@ class ImageInferenceAsync : public ImageInference {
 
     ImageInference::Ptr _inference;
     ErrorHandlingFunc _error_handler;
+    std::atomic<bool> _destroying{false};
 
     std::unique_ptr<ThreadPool> _thread_pool;
 

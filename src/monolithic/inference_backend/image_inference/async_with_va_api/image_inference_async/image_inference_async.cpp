@@ -183,7 +183,7 @@ void ImageInferenceAsync::SubmitImage(IFrameBase::Ptr frame,
             // buffer; otherwise the frame blocks the shared output queue forever and every later frame is retained.
             GVA_ERROR("Submitting a frame for inference failed, the frame is passed on without results: %s",
                       Utils::createNestedErrorMsg(e).c_str());
-            if (_error_handler)
+            if (_error_handler && !_destroying)
                 _error_handler({failed});
         }
     });
@@ -247,4 +247,12 @@ void ImageInferenceAsync::Close() {
     _inference->Close();
 }
 
-ImageInferenceAsync::~ImageInferenceAsync() = default;
+ImageInferenceAsync::~ImageInferenceAsync() {
+    // The element that owned the frames is going away with us, so a pre-processing task that is still waiting for
+    // an infer request must fail quietly (no error handler) and the workers must be joinable: close the request pool
+    // first, which wakes such a task (issue #1240: a model instance whose requests stopped completing).
+    _destroying = true;
+    if (_inference)
+        _inference->Close();
+    _thread_pool.reset();
+}
