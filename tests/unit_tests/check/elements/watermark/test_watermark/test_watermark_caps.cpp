@@ -29,7 +29,7 @@ struct FormatEntry {
    expands to a string literal — safe for static init. */
 static const FormatEntry supported_formats[] = {
     {"BGR", GST_VIDEO_CAPS_MAKE("BGR")},   {"NV12", GST_VIDEO_CAPS_MAKE("NV12")}, {"BGRA", GST_VIDEO_CAPS_MAKE("BGRA")},
-    {"RGBA", GST_VIDEO_CAPS_MAKE("RGBA")}, {"BGRx", GST_VIDEO_CAPS_MAKE("BGRx")}, {"I420", GST_VIDEO_CAPS_MAKE("I420")},
+    {"BGRx", GST_VIDEO_CAPS_MAKE("BGRx")}, {"I420", GST_VIDEO_CAPS_MAKE("I420")},
 };
 static const int NUM_FORMATS = sizeof(supported_formats) / sizeof(supported_formats[0]);
 

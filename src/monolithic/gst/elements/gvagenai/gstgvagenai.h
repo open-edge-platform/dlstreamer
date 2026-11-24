@@ -47,6 +47,8 @@ struct _GstGvaGenAI {
 
     void *backend; // GvaGenAIRuntime * (opaque runtime state; allocated/freed in gstgvagenai.cpp)
 
+    gboolean post_metrics; // post a "dlstreamer/genai-request" bus message per generation request
+
     // Last inference result, persisted so gvawatermark renders across frames
     gchar *last_result;
     gfloat last_confidence;

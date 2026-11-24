@@ -105,6 +105,31 @@ TEST_F(HeatMapBoxesConverterTest, InvalidParameterInModelProc) {
     EXPECT_THROW(HeatMapBoxesConverter(CreateInitializer(), _confidence_threshold), std::invalid_argument);
 }
 
+TEST_F(HeatMapBoxesConverterTest, ConfidenceThresholdCanBeChangedWhileRunning) {
+    HeatMapBoxesConverter post_proc(CreateInitializer(), _confidence_threshold);
+    auto blob = GetTestBlob();
+    blob->SetDims(_output_dims);
+    OutputBlobs blobs_map{{"output_layer_name", blob}};
+
+    auto count_boxes = [](const TensorsTable &table) {
+        size_t count = 0;
+        for (const auto &batch : table)
+            for (const auto &tensors : batch)
+                count += tensors.size();
+        return count;
+    };
+
+    // The box in the test data has a confidence of about 0.88
+    EXPECT_GT(count_boxes(post_proc.convert(blobs_map)), 0u);
+
+    BlobToMetaConverter &converter = post_proc; // what the post-processor holds
+    converter.setConfidenceThreshold(0.95);
+    EXPECT_EQ(count_boxes(post_proc.convert(blobs_map)), 0u);
+
+    converter.setConfidenceThreshold(0.5);
+    EXPECT_GT(count_boxes(post_proc.convert(blobs_map)), 0u);
+}
+
 TEST_F(HeatMapBoxesConverterTest, CanCovert) {
     HeatMapBoxesConverter post_proc(CreateInitializer(), _confidence_threshold);
     auto blob = GetTestBlob();

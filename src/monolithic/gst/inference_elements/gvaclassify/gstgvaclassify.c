@@ -58,6 +58,9 @@ void gst_gva_classify_set_property(GObject *object, guint property_id, const GVa
 
     GST_DEBUG_OBJECT(gvaclassify, "set_property");
 
+    if (gva_base_inference_reject_write(GST_ELEMENT(object), pspec))
+        return;
+
     static gulong probe_id = 0;
 
     switch (property_id) {

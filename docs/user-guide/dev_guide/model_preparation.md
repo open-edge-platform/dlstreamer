@@ -85,7 +85,11 @@ inference element to one from the table below.**
 
 **Default behavior**: If the property is not set, Pipeline Framework
 will pick `ie` if the system memory is used in the pipeline, `va` - for GPU
-memory (VAMemory and DMABuf).
+memory (VAMemory and DMABuf). On Windows, `d3d12-surface-sharing` is picked for
+D3D12Memory and `d3d11-surface-sharing` for D3D11Memory when the inference device
+is a GPU; `d3d12` and `d3d11` are picked for NPU, AUTO and MULTI devices, or when
+surface sharing is not supported with the current settings (see
+[Windows pre-processing backends](#windows-pre-processing-backends)).
 
 | pre-process-backend | Description | Memory type in pipeline | Configurable with model-proc? |
 |---|---|---|---|
@@ -93,6 +97,33 @@ memory (VAMemory and DMABuf).
 | opencv | All power of OpenCV is leveraged for input image pre-processing. Provides a wide variety of operations that can be performed on image. | System | Yes |
 | <br>va<br><br> | Should be used in pipelines with GPU memory. Performs mapping to the system memory and uses VA pre-processor. | <br>VAMemory<br>and<br>DMABuf<br><br> | Yes |
 | <br>va-surface-sharing<br><br> | Should be used in pipelines with GPU memory and GPU inference device. Doesn’t perform mapping to the system memory. As a pre-processor, it performs image resize, crop, and sets color format to NV12. | <br>VAMemory<br><br> | Partially |
+
+### Windows pre-processing backends
+
+On Windows, the VA backends are replaced by Direct3D backends. `ie` and
+`opencv` are available for system memory, as on Linux.
+
+| pre-process-backend | Description | Memory type in pipeline |
+|---|---|---|
+| d3d11 | Resizes, crops and converts the color format on the GPU with the GStreamer D3D11 converter, then maps the result to system memory for inference. Works with GPU and NPU inference devices. | D3D11Memory |
+| d3d11-surface-sharing | Converts the frame on the GPU into a BGRA/RGBA texture at model input size and passes it to OpenVINO™ through OpenCL/D3D11 interop. The frame is not copied to system memory. GPU inference device only. | D3D11Memory |
+| d3d12 | Same as `d3d11`, using the GStreamer D3D12 converter. Works with GPU and NPU inference devices. | D3D12Memory |
+| d3d12-surface-sharing | Converts the frame on the GPU into a BGRA/RGBA texture at model input size and copies it into a shared D3D12 buffer. OpenCL imports the buffer through `cl_khr_external_memory`, so the frame is not copied to system memory. GPU inference device only. | D3D12Memory |
+
+Notes:
+
+- None of the D3D backends support custom pre-processing libraries
+  (`custom-preproc-lib`).
+- If a surface sharing backend is not supported with the current settings
+  (for example, `device=NPU`), the element falls back to `d3d11` or `d3d12`
+  and logs a warning.
+- Surface sharing backends hand OpenVINO™ a BGRA or RGBA tensor that
+  matches the channel order in the model's `rt_info`. If the model specifies
+  no channel order, BGR is assumed.
+- If `pre-process-backend` is not set, inference elements accept both
+  D3D11Memory and D3D12Memory. D3D12 decoders (used by `decodebin3` on
+  Windows 10 and later) then output D3D12Memory. A `d3d11` backend accepts only
+  D3D11Memory, and a `d3d12` backend accepts only D3D12Memory.
 
 **Post-processing** uses so called converters to process raw inference results.
 The converters transform the results from raw output

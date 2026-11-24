@@ -30,16 +30,16 @@ class D3D11Converter {
                  const ImageTransformationParams::Ptr &image_transform_info = nullptr,
                  const Rectangle<uint32_t> &roi = {});
 
-    bool IsCompatible(uint32_t src_width, uint32_t src_height, DXGI_FORMAT src_format) const {
-        return _src_width == src_width && _src_height == src_height && _src_format == src_format;
-    }
-
   private:
     GstD3D11Device *_device;
     GstD3D11Converter *_converter = nullptr;
+    // SRV-capable copy of the source, for inputs the shader backend cannot sample directly.
+    GstBuffer *_srv_fallback_buf = nullptr;
     uint32_t _src_width, _src_height;
     uint32_t _dst_width, _dst_height;
     DXGI_FORMAT _src_format;
+
+    GstBuffer *PrepareShaderInput(GstBuffer *src_buffer);
 
     void SetupPreprocessing(const InputImageLayerDesc::Ptr &pre_proc_info,
                             const ImageTransformationParams::Ptr &image_transform_info, uint32_t src_rect_x,

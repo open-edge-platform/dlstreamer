@@ -29,4 +29,5 @@ target_link_libraries(${TARGET_NAME}
     ${GSTREAMER_BASE_LIBRARIES}
     ${GSTREAMER_VIDEO_LIBRARIES}
     ${GSTANALYTICS_LIBRARIES}
+    common
 )

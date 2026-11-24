@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -9,10 +9,10 @@
 #include <gva_json_meta.h>
 #include <gvametapublish.hpp>
 
-#pragma message "gvametapublish test prepared with File support"
+#pragma message("gvametapublish test prepared with File support")
 
 #ifdef PAHO_INC
-#pragma message "gvametapublish test prepared with MQTT support"
+#pragma message("gvametapublish test prepared with MQTT support")
 #include <MQTTAsync.h>
 #include <uuid/uuid.h>
 #endif

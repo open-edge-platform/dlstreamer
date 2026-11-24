@@ -1,6 +1,33 @@
 # gvamotiondetect
 
-Performs lightweight motion detection on NV12 video frames and emits motion regions of interest (ROIs) as analytics metadata. Automatically uses a VA-API (GPU) accelerated path when VAMemory caps are negotiated; otherwise falls back to a system-memory (CPU) path. Designed for low-latency scene motion highlighting and downstream triggering without requiring a full inference model.
+Performs lightweight motion detection on NV12 video frames and emits motion regions of interest (ROIs) as analytics metadata. Automatically uses a GPU accelerated path when GPU memory caps are negotiated (VAMemory on Linux, D3D11Memory or D3D12Memory on Windows); otherwise falls back to a system-memory (CPU) path. Designed for low-latency scene motion highlighting and downstream triggering without requiring a full inference model.
+
+## Windows
+
+On Windows, the element accepts and produces:
+
+- `video/x-raw(memory:D3D11Memory)` in `NV12`
+- `video/x-raw(memory:D3D12Memory)` in `NV12`
+- `video/x-raw` in `NV12`, `I420` or `YV12`
+
+The properties are the same as on Linux. The GPU path depends on the negotiated memory type:
+
+- **D3D11Memory**: the frame is downscaled on the GPU with the D3D11 video processor, then converted to grayscale through OpenCV OpenCL/D3D11 interop. The frame is not copied to system memory.
+- **D3D12Memory**: the frame is downscaled on the GPU with the D3D12 converter. The small downscaled luma plane is then read back to system memory, because OpenCV has no D3D12 interop. The readback is cheap because the working resolution is small.
+
+The element obtains the upstream D3D11/D3D12 device through the GStreamer device context. If no device is available or a GPU step fails, it falls back to the system-memory path for that frame.
+
+Example pipelines:
+
+```bash
+# D3D11
+gst-launch-1.0 filesrc location=${VIDEO_FILE} ! parsebin ! d3d11h264dec ! gvamotiondetect ! queue !   gvametaconvert ! gvametapublish file-path=motion.json ! fakesink
+
+# D3D12
+gst-launch-1.0 filesrc location=${VIDEO_FILE} ! parsebin ! d3d12h264dec ! gvamotiondetect ! queue !   gvametaconvert ! gvametapublish file-path=motion.json ! fakesink
+```
+
+## Element Details (Linux)
 
 ```bash
 Pad Templates:
@@ -75,50 +102,65 @@ Element Properties:
   parent               : The parent object.
                           flags: readable, writable
                           Object of type "GstObject"
+```
 
-Relationship between confirm-frames and min-persistence:
-  These two controls act at different stages and are not interchangeable:
-  - confirm-frames works at the raw per-block motion stage. It requires N consecutive frames of activity in the same grid block before that block contributes to a raw motion rectangle. It filters out flicker/noise early.
-  - min-persistence applies after rectangles are merged and tracked. A tracked ROI must be matched for N frames (its age) before it is emitted. It guards publication of unstable, short-lived motion regions.
-  Effect: Raising confirm-frames reduces how many raw rectangles enter tracking (front-end suppression). Raising min-persistence delays emission of tracked ROIs (back-end stabilization). You can combine them: e.g., confirm-frames=2 with min-persistence=2 yields rectangles only after two agreeing frames and then requires two tracked frames for output (at least 2 total, possibly 3 if initial confirmation overlaps). Keeping confirm-frames=1 but min-persistence>1 allows immediate raw detection yet still waits for persistence before emission.
+## Relationship between confirm-frames and min-persistence
 
-Metadata Output:
+These two controls act at different stages and are not interchangeable:
+
+- confirm-frames works at the raw per-block motion stage. It requires N consecutive frames of activity in the same grid block before that block contributes to a raw motion rectangle. It filters out flicker/noise early.
+- min-persistence applies after rectangles are merged and tracked. A tracked ROI must be matched for N frames (its age) before it is emitted. It guards publication of unstable, short-lived motion regions.
+
+Effect: Raising confirm-frames reduces how many raw rectangles enter tracking (front-end suppression). Raising min-persistence delays emission of tracked ROIs (back-end stabilization). You can combine them: e.g., confirm-frames=2 with min-persistence=2 yields rectangles only after two agreeing frames and then requires two tracked frames for output (at least 2 total, possibly 3 if initial confirmation overlaps). Keeping confirm-frames=1 but min-persistence>1 allows immediate raw detection yet still waits for persistence before emission.
+
+## Metadata Output
+
 - Each emitted motion ROI is attached as a `GstVideoRegionOfInterestMeta` with label "motion".
 - A `GstAnalyticsRelationMeta` aggregates object detection metadata entries (type quark "motion") for all ROIs on the frame.
 - ROI coordinates are normalized internally for analytics structures and rounded to 3 decimal places to reduce payload size.
 
-Algorithm Summary:
-1. Acquire current frame luma plane (VA surface fast path or system-memory conversion) and downscale to a working size.
+## Algorithm Summary
+
+1. Acquire current frame luma plane (VA surface, D3D11 or D3D12 GPU path, or system-memory conversion) and downscale to a working size.
 2. Build motion mask: absdiff(previous, current) -> GaussianBlur -> threshold (pixel-diff-threshold) -> morphology (open + dilate).
 3. Grid scan: accumulate changed pixels per block, compute ratio; mark blocks exceeding motion-threshold.
 4. Temporal confirmation: if confirm-frames > 1 require consecutive active frames per block before rectangle creation.
 5. Merge overlapping rectangles, track over time with IoU matching and exponential smoothing (smooth-alpha).
 6. Apply persistence (min-persistence) and miss grace (max-miss), then emit stable ROIs with associated analytics metadata.
 
-Tuning Guidelines:
+## Tuning Guidelines
+
 - Increase `pixel-diff-threshold` to reduce noise sensitivity (e.g., minor lighting flicker). Decrease for subtle motion.
 - Increase `motion-threshold` to require more changed pixels in a block (filters small localized changes).
 - Raise `confirm-frames` (e.g., 2-3) to suppress transient single-frame spikes; keep at 1 for maximal responsiveness.
 - Adjust `min-persistence` if you want to delay ROI publication until sustained movement is observed.
 - Lower `iou-threshold` if objects move rapidly and fail to match across frames; raise to avoid merging nearby independent motions.
 - Set `smooth-alpha` closer to 1.0 for minimal smoothing (snappier boxes) or lower for steadier boxes.
- - Raise `min-rel-area` to suppress very small (potentially noisy) motion rectangles; lower it to allow detection of tiny/distant objects. Default 0.0005 ≈ 0.05% of frame area.
+- Raise `min-rel-area` to suppress very small (potentially noisy) motion rectangles; lower it to allow detection of tiny/distant objects. Default 0.0005 ≈ 0.05% of frame area.
 
-Performance Notes:
+## Performance Notes
+
 - VA-API path uses hardware surface mapping and optional hardware downscale (via `vaBlitSurface` when available) to minimize memory bandwidth.
+- D3D11 path downscales on the GPU and keeps the frame on the GPU through OpenCV OpenCL/D3D11 interop.
+- D3D12 path downscales on the GPU and reads back only the small luma plane.
 - System-memory path performs software resize; consider reducing `block-size` to balance granularity vs CPU cost.
 - Internal working resolution scales proportionally to input width when downscaling; large frames benefit more from confirmation and smoothing.
 
-Limitations / Future Improvements:
-- Only NV12 format is currently supported (both system memory and VAMemory).
+## Limitations / Future Improvements
+
+- Only NV12 format is currently supported (both system memory and VAMemory). On Windows, system memory also accepts I420 and YV12, while D3D11Memory and D3D12Memory accept NV12 only.
 - Block merging uses a simple O(n^2) combination; extremely dense motion may produce fewer, larger ROIs.
 - No explicit per-ROI confidence beyond binary motion presence (confidence fixed to 1.0 in analytics metadata).
 - Coordinate rounding (3 decimal places) applied for analytics metadata; raw ROI meta stores integer pixel coordinates.
 
-```bash
+## Plugin Registration
+
+```text
 Plugin Registration:
   Name: gvamotiondetect
   Classification: Filter/Video
   Description: Automatically uses VA surface path when VAMemory caps negotiated; otherwise system memory path
 ```
+
+On Windows, the description is "Windows motion detection: D3D11/D3D12 GPU path when negotiated, software otherwise".
 

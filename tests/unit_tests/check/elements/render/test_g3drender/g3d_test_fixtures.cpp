@@ -323,20 +323,41 @@ GstBuffer *build_batch_buf(GstHarness *h, const Scenario *sc) {
 }
 
 GstEvent *build_calib_event(void) {
-    GstStructure *cam = gst_structure_new_empty("camera");
-    gst_structure_set(cam, "index", G_TYPE_INT, 0, NULL);
-    append_float_array_field(cam, "tr_velo_to_cam", SYNTH_TR_VELO_TO_CAM, 16);
-    append_float_array_field(cam, "r0_rect", SYNTH_R0_RECT, 16);
-    append_float_array_field(cam, "p2", SYNTH_P2, 12);
+    return build_calib_event_for_cameras(1, NULL);
+}
 
+GstEvent *build_calib_event_for_cameras(guint n_cams, const gchar *const *class_names) {
     GstStructure *root = gst_structure_new_empty("g3d/calibration");
     gst_structure_set(root, "modality", G_TYPE_STRING, "lidar", NULL);
-    gst_structure_set(root, "cameras", G_TYPE_UINT, 1u, NULL);
+    gst_structure_set(root, "cameras", G_TYPE_UINT, n_cams, NULL);
 
-    GValue cam_val = G_VALUE_INIT;
-    g_value_init(&cam_val, GST_TYPE_STRUCTURE);
-    g_value_take_boxed(&cam_val, cam);
-    gst_structure_take_value(root, "camera-0", &cam_val);
+    for (guint i = 0; i < n_cams; i++) {
+        GstStructure *cam = gst_structure_new_empty("camera");
+        gst_structure_set(cam, "index", G_TYPE_INT, (gint)i, NULL);
+        append_float_array_field(cam, "tr_velo_to_cam", SYNTH_TR_VELO_TO_CAM, 16);
+        append_float_array_field(cam, "r0_rect", SYNTH_R0_RECT, 16);
+        append_float_array_field(cam, "p2", SYNTH_P2, 12);
+
+        gchar key[32];
+        g_snprintf(key, sizeof(key), "camera-%u", i);
+        GValue cam_val = G_VALUE_INIT;
+        g_value_init(&cam_val, GST_TYPE_STRUCTURE);
+        g_value_take_boxed(&cam_val, cam);
+        gst_structure_take_value(root, key, &cam_val);
+    }
+
+    if (class_names) {
+        GValue names = G_VALUE_INIT;
+        g_value_init(&names, GST_TYPE_ARRAY);
+        GValue v = G_VALUE_INIT;
+        g_value_init(&v, G_TYPE_STRING);
+        for (const gchar *const *n = class_names; *n; n++) {
+            g_value_set_string(&v, *n);
+            gst_value_array_append_value(&names, &v);
+        }
+        g_value_unset(&v);
+        gst_structure_take_value(root, "class-names", &names);
+    }
 
     return gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM_STICKY, root);
 }

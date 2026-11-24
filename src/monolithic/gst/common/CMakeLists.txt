@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2018-2025 Intel Corporation
+# Copyright (C) 2018-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -39,7 +39,8 @@ PRIVATE
 )
 
 if(WIN32)
-    target_include_directories(${TARGET_NAME} PUBLIC ${GSTD3D11_INCLUDE_DIRS})
+    target_include_directories(${TARGET_NAME} PUBLIC ${GSTD3D11_INCLUDE_DIRS} ${GSTD3D12_INCLUDE_DIRS})
+    target_compile_definitions(${TARGET_NAME} PUBLIC GST_USE_UNSTABLE_API)
 endif()
 
 target_link_libraries(${TARGET_NAME}
@@ -57,7 +58,7 @@ PRIVATE
 )
 
 if(WIN32)
-    target_link_libraries(${TARGET_NAME} PUBLIC ${GSTD3D11_LIBRARIES})
+    target_link_libraries(${TARGET_NAME} PUBLIC ${GSTD3D11_LIBRARIES} ${GSTD3D12_LIBRARIES})
 endif()
 
 if(${ENABLE_VAAPI} AND NOT(WIN32))

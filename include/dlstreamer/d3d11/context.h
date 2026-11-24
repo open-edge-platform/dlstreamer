@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2025 Intel Corporation
+ * Copyright (C) 2025-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -20,7 +20,7 @@ using D3D11ContextPtr = std::shared_ptr<D3D11Context>;
 class D3D11Context : public BaseContext {
   public:
     struct key {
-        static constexpr auto d3d_device = BaseContext::key::d3d_device;
+        static constexpr auto d3d11_device = BaseContext::key::d3d11_device;
     };
 
     static inline D3D11ContextPtr create(const ContextPtr &another_context) {
@@ -34,7 +34,7 @@ class D3D11Context : public BaseContext {
 
     D3D11Context(const ContextPtr &another_context) : BaseContext(MemoryType::D3D11) {
         DLS_CHECK(another_context);
-        DLS_CHECK(_d3d_device = static_cast<GstD3D11Device *>(another_context->handle(key::d3d_device)));
+        DLS_CHECK(_d3d_device = static_cast<GstD3D11Device *>(another_context->handle(key::d3d11_device)));
         _parent = another_context;
     }
 
@@ -43,11 +43,11 @@ class D3D11Context : public BaseContext {
     }
 
     std::vector<std::string> keys() const override {
-        return {key::d3d_device};
+        return {key::d3d11_device};
     }
 
     void *handle(std::string_view key) const noexcept override {
-        if (key == key::d3d_device || key.empty())
+        if (key == key::d3d11_device || key.empty())
             return _d3d_device;
         return nullptr;
     }

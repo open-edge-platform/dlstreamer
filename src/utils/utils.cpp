@@ -197,7 +197,7 @@ std::string fixPath(std::string path) {
     return path;
 }
 
-bool isCPUPTLHSeries() {
+bool isCPUPTLHSeries(bool checkForHSeries) {
     std::string brand_str;
 
 #ifndef _WIN32
@@ -233,8 +233,8 @@ bool isCPUPTLHSeries() {
     if (brand_str.empty())
         return false;
 
-    // Match "3xxH" pattern (e.g. "358H") in the brand string
-    static const std::regex model_regex("\\b3\\d{2}H\\b");
+    // Match "3xxH" (e.g. "358H") for H-series; otherwise match any "3xx" model
+    const std::regex model_regex(checkForHSeries ? "\\b3\\d{2}H\\b" : "\\b3\\d{2}");
     return std::regex_search(brand_str, model_regex);
 }
 

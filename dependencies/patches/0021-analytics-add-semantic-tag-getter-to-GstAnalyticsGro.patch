@@ -1,0 +1,77 @@
+From 7ab91a1f94c8834389a23797517ab4832f45c905 Mon Sep 17 00:00:00 2001
+From: Oskar Fiedot <oskar.fiedot@intel.com>
+Date: Tue, 27 Oct 2026 01:20:43 +0000
+Subject: [PATCH 21/23] analytics: add semantic tag getter to
+ GstAnalyticsGroupMtd
+
+analytics: add semantic tag getter to GstAnalyticsGroupMtd
+
+Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/11155>
+
+(cherry picked from commit eee9c8e9d75f138c582e249683ddfa2a1914ed90)
+---
+ .../gst/analytics/gstanalyticsgroupmtd.c      | 26 ++++++++++++++++++-
+ .../gst/analytics/gstanalyticsgroupmtd.h      |  4 +++
+ 2 files changed, 29 insertions(+), 1 deletion(-)
+
+diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsgroupmtd.c b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsgroupmtd.c
+index f67078196f6..e9dd842ec28 100644
+--- a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsgroupmtd.c
++++ b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsgroupmtd.c
+@@ -45,7 +45,7 @@ typedef struct _GstAnalyticsGroupMtdData GstAnalyticsGroupMtdData;
+ 
+ /*
+  * GstAnalyticsGroupMtdData:
+- * @semantic_tag: Semantic meaning of this grouping where a value of NULL means
++ * @semantic_tag: Semantic meaning of this grouping where an empty string means
+  *    no semantic is defined for the group.
+  * @members_len: Number of allocated member slots
+  * @members_count: Number of assigned member slot
+@@ -120,6 +120,30 @@ gst_analytics_group_mtd_has_semantic_tag (const GstAnalyticsGroupMtd * handle,
+   return gst_id_str_is_equal_to_str (&mtddata->semantic_tag, tag);
+ }
+ 
++/**
++ * gst_analytics_group_mtd_get_semantic_tag:
++ * @handle: handle
++ *
++ * Get the semantic tag of the group.
++ *
++ * Returns: (transfer full): A copy of the semantic tag string. Returns an
++ *    empty string if no tag has been set. The caller must free the returned
++ *    string with g_free() when no longer needed.
++ *
++ * Since: 1.30
++ */
++gchar *
++gst_analytics_group_mtd_get_semantic_tag (const GstAnalyticsGroupMtd * handle)
++{
++  GstAnalyticsGroupMtdData *mtddata;
++  g_return_val_if_fail (handle, NULL);
++
++  mtddata = gst_analytics_relation_meta_get_mtd_data (handle->meta, handle->id);
++  g_return_val_if_fail (mtddata != NULL, NULL);
++
++  return g_strdup (gst_id_str_as_str (&mtddata->semantic_tag));
++}
++
+ /**
+  * gst_analytics_group_mtd_semantic_tag_has_prefix:
+  * @handle: handle
+diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsgroupmtd.h b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsgroupmtd.h
+index dce63b5a81b..3db1bc23c09 100644
+--- a/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsgroupmtd.h
++++ b/subprojects/gst-plugins-bad/gst-libs/gst/analytics/gstanalyticsgroupmtd.h
+@@ -86,5 +86,9 @@ GST_ANALYTICS_META_API
+ gboolean gst_analytics_relation_meta_get_group_mtd (GstAnalyticsRelationMeta * meta,
+     guint an_meta_id, GstAnalyticsGroupMtd * rlt);
+ 
++GST_ANALYTICS_META_API
++gchar * gst_analytics_group_mtd_get_semantic_tag (const GstAnalyticsGroupMtd *
++    handle);
++
+ G_END_DECLS
+ #endif /* __GST_ANALYTICS_GROUP_MTD_H__ */
+-- 
+2.43.0
+

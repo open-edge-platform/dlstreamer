@@ -24,18 +24,9 @@ This enables alerting for events, like in prompts:
 
 Any image-text-to-text model supported by optimum-intel can be used. Smaller models (1B-4B parameters) are recommended for edge deployment. For example, OpenGVLab/InternVL3_5-2B.
 
-The script runs:
-
-```code
-optimum-cli export openvino \
-    --model <model_id> \
-    --task image-text-to-text \
-    --trust-remote-code \
-    <output_dir>
-```
-
-Exported artifacts are stored under `models/<ModelName>/`. 
-The export runs once and is cached. To skip export, pass `--model-path` directly.
+Use the [Hugging Face model conversion](../../../../scripts/download_models/README.md#1-hugging-face-conversion)
+to download and export the model to OpenVINO IR, then pass the exported
+directory to `vlm_alerts.py` via `--model-path`.
 
 ## Video Preparation
 
@@ -122,30 +113,21 @@ stages.
 
 ## Setup
 
-<u>1. Create and activate a virtual environment:</u>
-```code
+```sh
 cd samples/gstreamer/python/vlm_alerts
-uv venv --system-site-packages .vlm-venv
-source .vlm-venv/bin/activate
 ```
 
-**Note**:  The **`--system-site-packages`** flag is required so the virtual environment can
- use the GStreamer Python bindings (PyGObject / `gi`) provided by the system
- DL Streamer installation.
+A DL Streamer build that includes the `gvagenai` element is required
+(the `intel/dlstreamer` Docker image already provides it). No Python
+environment setup is needed: `vlm_alerts.py` only imports the GStreamer
+Python bindings (`gi`), which the Docker image installs system-wide already.
+If you're using a native (non-Docker) installation instead, make sure
+PyGObject is available as described in the
+[DL Streamer Installation Guide](../../../../docs/user-guide/install/install_guide_index.md).
 
-<u>2. Install dependencies:</u>
-```code
-curl -LO https://raw.githubusercontent.com/openvinotoolkit/openvino.genai/refs/heads/releases/2026/3/samples/export-requirements.txt
-uv pip install -r export-requirements.txt
-uv pip install -r requirements.txt
-```
-
-`requirements.txt` overrides two packages from `export-requirements.txt`:
-
-- `transformers` must be compatible with `optimum-intel` for OpenVINO export.
-- `openvino-tokenizers` must match the OpenVINO runtime used by DL Streamer to avoid binary incompatibility.
-
-A DL Streamer build that includes the `gvagenai` element is required.
+Model export dependencies are handled separately by the
+[Hugging Face model conversion](../../../../scripts/download_models/README.md#1-hugging-face-conversion)
+workflow (see [Model Preparation](#model-preparation)).
 
 ## Running
 
@@ -153,7 +135,11 @@ Required arguments:
 
 - `--prompt`
 - `--video-path` or `--video-url`
-- `--model-id` or `--model-path`
+- `--model-path` (path to the model exported in [Model Preparation](#model-preparation)). `--model-id` is also
+  accepted and triggers an inline `optimum-cli` export, but that requires
+  manually installing `optimum-intel`/`transformers`/`timm` yourself; using
+  `--model-path` with a model exported via the Hugging Face model conversion
+  workflow is the documented and recommended path.
 
 ### Single stream (default)
 
@@ -162,8 +148,7 @@ Run one video stream with an isolated model instance:
 ```code
 python3 vlm_alerts.py \
     --video-url https://videos.pexels.com/video-files/2103099/2103099-hd_1280_720_60fps.mp4 \
-    --model-id Phi-4-multimodal \
-    --models-dir /home/dlstreamer/
+    --model-path ./models/Phi-4-multimodal-instruct \
     --prompt "Is there a police car? Answer yes or no."
 ```
 
@@ -179,7 +164,7 @@ use **`model-instance-id=stream-grp-2`**.
 python3 vlm_alerts.py \
     --stream-groups \
     --video-url https://videos.pexels.com/video-files/2103099/2103099-hd_1280_720_60fps.mp4 \
-    --model-id OpenGVLab/InternVL3_5-2B \
+    --model-path ./models/InternVL3_5-2B \
     --prompt "Is there a police car? Answer yes or no."
 ```
 

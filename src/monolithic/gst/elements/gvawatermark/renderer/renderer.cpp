@@ -56,6 +56,8 @@ void render::convert_prims_color(std::vector<render::Prim> &prims, ColorConverte
             p = rect;
         } else if (std::holds_alternative<render::Text>(p)) {
             render::Text text = std::get<render::Text>(p);
+            if (text.draw_bg)
+                text.contrast_color = converter.convert(contrast_text_color(text.color));
             text.color = converter.convert(text.color);
             p = text;
         } else if (std::holds_alternative<render::Circle>(p)) {

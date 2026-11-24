@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cmath>
 #include <condition_variable>
 #include <deque>
 #include <filesystem>
@@ -505,11 +506,25 @@ GstClockTime get_exit_g3dinference_timestamp(GstG3DInference *filter) {
     return timestamp;
 }
 
+/* PointPillars' theta -> GstAnalytics3DODMtd yaw. PointPillars (KITTI lidar
+ * frame) lays w along the box's local x and l along its local y and rotates by
+ * -theta, so the length axis points along (sin theta, cos theta). The mtd's yaw
+ * is the counter-clockwise angle of the length axis from +x, i.e.
+ * pi/2 - theta, wrapped to [-pi, pi). */
+float pointpillars_yaw(float theta) {
+    const double pi = 3.14159265358979323846;
+    double yaw = std::fmod(pi / 2.0 - theta + pi, 2.0 * pi);
+    if (yaw < 0.0)
+        yaw += 2.0 * pi;
+    return static_cast<float>(yaw - pi);
+}
+
 /* Emit one GstAnalytics3DODMtd per detection onto @rmeta. Each detection is
  * DETECTION_WIDTH floats in PointPillars layout: x, y, z, w, l, h, theta, score,
  * label. The GstAnalytics3DODMtd setter takes (length, width, height), so the
- * model's w maps to width (d[3]) and l maps to length (d[4]). PointPillars reports
- * z at the box's bottom-center (its lower face), but the mtd stores the box centre,
+ * model's w maps to width (d[3]) and l maps to length (d[4]); theta is converted
+ * to the mtd's yaw convention by pointpillars_yaw(). PointPillars reports z at
+ * the box's bottom-center (its lower face), but the mtd stores the box centre,
  * so raise z by half the height. Returns the number of 3D detections written. */
 size_t emit_3d_od_mtds(GstAnalyticsRelationMeta *rmeta, const std::vector<float> &detections) {
     const size_t count = detections.size() / DETECTION_WIDTH;
@@ -518,7 +533,8 @@ size_t emit_3d_od_mtds(GstAnalyticsRelationMeta *rmeta, const std::vector<float>
         const float *d = detections.data() + i * DETECTION_WIDTH;
         GstAnalytics3DODMtd mtd;
         if (gst_analytics_relation_meta_add_3d_od_mtd(rmeta, /*x=*/d[0], /*y=*/d[1], /*z=*/d[2] + d[5] * 0.5f,
-                                                      /*length=*/d[4], /*width=*/d[3], /*height=*/d[5], /*yaw=*/d[6],
+                                                      /*length=*/d[4], /*width=*/d[3], /*height=*/d[5],
+                                                      /*yaw=*/pointpillars_yaw(d[6]),
                                                       /*pitch=*/0.f, /*roll=*/0.f, /*class_id=*/static_cast<gint>(d[8]),
                                                       /*confidence=*/d[7], GST_ANALYTICS_3D_SENSOR_LIDAR, &mtd)) {
             ++written;

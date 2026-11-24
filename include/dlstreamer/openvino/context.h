@@ -19,6 +19,8 @@
 #endif
 #include <openvino/runtime/intel_npu/properties.hpp>
 
+#include "dlstreamer/openvino/utils.h"
+
 namespace dlstreamer {
 
 class OpenVINOContext : public BaseContext {
@@ -40,10 +42,23 @@ class OpenVINOContext : public BaseContext {
         ov::AnyMap context_params;
         if (device.find("GPU") != std::string::npos && context) {
 #ifdef _WIN32
-            auto d3d_device = context->handle(BaseContext::key::d3d_device);
-            if (d3d_device) {
-                auto gst_device = static_cast<GstD3D11Device *>(d3d_device);
+            auto d3d11_device = context->handle(BaseContext::key::d3d11_device);
+            if (d3d11_device) {
+                auto gst_device = static_cast<GstD3D11Device *>(d3d11_device);
                 _remote_context = ov::intel_gpu::ocl::D3DContext(core, gst_d3d11_device_get_device_handle(gst_device));
+            }
+            // D3D12: the OV GPU plugin has no D3D12 interop, so the default OpenCL context of a GPU
+            // is used and D3D12 resources are bridged through cl_khr_external_memory, which needs
+            // that GPU on the GstD3D12Device's adapter. "GPU.<N>" gets a device on its own adapter;
+            // plain "GPU" reuses the upstream device wherever it is, so follow it there, as
+            // D3DContext does for D3D11.
+            auto d3d12_device = context->handle(BaseContext::key::d3d12_device);
+            if (d3d12_device && device == "GPU") {
+                gint64 adapter_luid = 0;
+                g_object_get(d3d12_device, "adapter-luid", &adapter_luid, nullptr);
+                const std::string gpu = find_gpu_for_adapter_luid(core, adapter_luid);
+                if (!gpu.empty())
+                    _remote_context = core.get_default_context(gpu);
             }
 #else
             auto va_display = context->handle(BaseContext::key::va_display);

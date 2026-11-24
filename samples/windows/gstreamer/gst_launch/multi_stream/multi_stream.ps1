@@ -142,8 +142,11 @@ function Get-DeviceConfig {
 
     if ($DeviceName -eq "CPU") {
         $PreprocBackend = "opencv"
+    } elseif ($DeviceName -like "GPU*") {
+        # GPU passes the pre-processed frame to OpenVINO in GPU memory; NPU does not support it
+        $PreprocBackend = "d3d12-surface-sharing"
     } else {
-        $PreprocBackend = "d3d11"
+        $PreprocBackend = "d3d12"
     }
 
     # Set sink element based on output type and device
@@ -158,7 +161,11 @@ function Get-DeviceConfig {
             if ($DeviceName -eq "CPU") {
                 $SinkBase = "gvawatermark ! videoconvert ! x264enc ! h264parse ! mp4mux"
             } else {
-                $SinkBase = "d3d11convert ! gvawatermark ! mfh264enc ! h264parse ! mp4mux"
+                # d3d12h264enc only exists on GPUs with D3D12 video encode; its default rate control
+                # (vbr) produces broken streams on some drivers, so constant QP is used.
+                gst-inspect-1.0 d3d12h264enc *> $null
+                $Encoder = if ($LASTEXITCODE -eq 0) { "d3d12h264enc rate-control=cqp" } else { "d3d12download ! mfh264enc" }
+                $SinkBase = "d3d12convert ! gvawatermark ! $Encoder ! h264parse ! mp4mux"
             }
         }
         default {

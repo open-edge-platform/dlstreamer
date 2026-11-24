@@ -147,13 +147,13 @@ The element operates in-place. It keeps the point cloud payload intact and appen
 The element adds one `GstAnalytics3DODMtd` per detection to the buffer's `GstAnalyticsRelationMeta`. Each `GstAnalytics3DODMtd` carries:
 
 - `x, y, z`: 3D bounding box center coordinates (metres, sensor/world frame)
-- `length, width, height`: box extents (metres)
-- `yaw, pitch, roll`: orientation (radians). Only `yaw` is populated by PointPillars; `pitch` and `roll` are `0`.
+- `length, width, height`: box extents (metres) along the box's own x, y and z axes
+- `yaw, pitch, roll`: orientation (radians). `yaw` is the counter-clockwise rotation about +z from the sensor's +x axis to the box's length axis. Only `yaw` is populated by PointPillars; `pitch` and `roll` are `0`.
 - `class_id`: predicted class identifier
 - `confidence`: detection score produced by the model post-processing stage
 - `modality`: sensor modality, set to `GST_ANALYTICS_3D_SENSOR_LIDAR`
 
-The PointPillars post-processing emits boxes as `(x, y, z, w, l, h, theta, score, label)`; `g3dinference` maps the model's `w`/`l` onto the metadata's `width`/`length` so the stored `length`/`width` keep their physical meaning.
+The PointPillars post-processing emits boxes as `(x, y, z, w, l, h, theta, score, label)`; `g3dinference` maps the model's `w`/`l` onto the metadata's `width`/`length` so the stored `length`/`width` keep their physical meaning. PointPillars lays `w` along the box's x axis and rotates by `-theta`, so its length axis points along `(sin theta, cos theta)`; the stored `yaw` is therefore `pi/2 - theta`, wrapped to `[-pi, pi)`.
 
 When `gvametaconvert` converts these detections to JSON, each becomes a `bbox_3d` object with `x, y, z, l, w, h, yaw, pitch, roll`, plus `confidence`, `label_id`, and `modality` (`"lidar"`).
 

@@ -40,6 +40,10 @@ PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvastreammux/
     ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvastreamdemux/
     ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvafpscounter/
+    ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvaeventrecorder/
+    ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvaframeselect/
+    ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvaroiscale/
+    ${CMAKE_CURRENT_SOURCE_DIR}/../elements/gvatagger/
 )
 
 target_link_libraries(${TARGET_NAME}
@@ -54,6 +58,10 @@ PRIVATE
     gvastreammux
     gvastreamdemux
     gvafpscounter
+    gvaeventrecorder
+    gvaframeselect
+    gvaroiscale
+    gvatagger
 )
 
 if(ENABLE_GENAI)

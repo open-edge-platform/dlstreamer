@@ -52,10 +52,17 @@ void gst_gva_detect_set_property(GObject *object, guint property_id, const GValu
 
     GST_DEBUG_OBJECT(gvadetect, "set_property");
 
+    if (gva_base_inference_reject_write(GST_ELEMENT(object), pspec))
+        return;
+
     switch (property_id) {
     case PROP_THRESHOLD:
+        GST_OBJECT_LOCK(gvadetect);
         gvadetect->threshold = g_value_get_float(value);
         gvadetect->threshold_explicitly_set = TRUE;
+        // Takes effect from the next inference result, if the post-processor already exists
+        gva_base_inference_apply_threshold_locked(&gvadetect->base_inference);
+        GST_OBJECT_UNLOCK(gvadetect);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -70,7 +77,9 @@ void gst_gva_detect_get_property(GObject *object, guint property_id, GValue *val
 
     switch (property_id) {
     case PROP_THRESHOLD:
+        GST_OBJECT_LOCK(gvadetect);
         g_value_set_float(value, gvadetect->threshold);
+        GST_OBJECT_UNLOCK(gvadetect);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -103,7 +112,7 @@ void gst_gva_detect_class_init(GstGvaDetectClass *klass) {
                            "Threshold for detection results. Only regions of interest "
                            "with confidence values above the threshold will be added to the frame",
                            DEFAULT_MIN_THRESHOLD, DEFAULT_MAX_THRESHOLD, DEFAULT_THRESHOLD,
-                           (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                           (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | GST_PARAM_MUTABLE_PLAYING)));
 }
 
 void gst_gva_detect_init(GstGvaDetect *gvadetect) {

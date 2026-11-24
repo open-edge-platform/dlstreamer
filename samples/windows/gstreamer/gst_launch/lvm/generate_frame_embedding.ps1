@@ -9,7 +9,7 @@ param(
     [string]$Device = "CPU",
     [string]$Precision = "FP16",
     [string]$Model = "openai_clip-vit-large-patch14",
-    [string]$PreprocessBackend = "opencv",
+    [string]$PreprocessBackend = "",
     [string]$OutputType = "json",
     [string]$FrameLimiter = ""
 )
@@ -23,7 +23,8 @@ if ($InputSource -eq "--help" -or $InputSource -eq "-h") {
     Write-Host "  -Device             Device (default: CPU). Supported: CPU, GPU, NPU"
     Write-Host "  -Precision          Model precision (default: FP16). Supported: FP32, FP16, INT8"
     Write-Host "  -Model              Model name (default: openai_clip-vit-large-patch14)"
-    Write-Host "  -PreprocessBackend  Preprocessing backend (default: opencv for CPU; d3d11 for GPU/NPU)"
+    Write-Host "  -PreprocessBackend  Preprocessing backend (default: opencv for CPU, d3d12-surface-sharing for GPU, d3d12 for NPU)"
+    Write-Host "                      Supported: ie, opencv, d3d11, d3d11-surface-sharing, d3d12, d3d12-surface-sharing"
     Write-Host "  -OutputType         Output type (default: json). Supported: json, fps"
     Write-Host "  -FrameLimiter       Optional GStreamer element to add after decode (e.g., ' ! identity eos-after=1000')"
     Write-Host ""
@@ -71,18 +72,37 @@ if ($InputSource -match "://") {
     $SOURCE_ELEMENT = "filesrc location=`"$INPUT_PATH`""
 }
 
-# Set processing element and preprocessing backend based on device
-if ($Device -eq "CPU") {
-    $PROC_ELEMENT = "videoconvert ! videoscale"
-    $PPBKEND = "opencv"
-} else {
-    # GPU or NPU
-    if ($PreprocessBackend -eq "opencv") {
-        $PPBKEND = "d3d11"
-    } else {
-        $PPBKEND = $PreprocessBackend
+# Set preprocessing backend based on device
+if ($PreprocessBackend -eq "") {
+    switch ($Device) {
+        "CPU" { $PPBKEND = "opencv" }
+        "GPU" { $PPBKEND = "d3d12-surface-sharing" }
+        "NPU" { $PPBKEND = "d3d12" }
     }
+} else {
+    $VALID_BACKENDS = @("ie", "opencv", "d3d11", "d3d11-surface-sharing", "d3d12", "d3d12-surface-sharing")
+    if ($VALID_BACKENDS -notcontains $PreprocessBackend) {
+        Write-Host "ERROR: Unsupported preprocessing backend: $PreprocessBackend" -ForegroundColor Red
+        Write-Host "Supported backends: $($VALID_BACKENDS -join ', ')"
+        exit 1
+    }
+    if ($Device -eq "CPU" -and $PreprocessBackend -like "d3d*") {
+        Write-Host "ERROR: $PreprocessBackend backend requires GPU or NPU device" -ForegroundColor Red
+        exit 1
+    }
+    $PPBKEND = $PreprocessBackend
+}
+
+# The processing element selects the memory type the inference element receives, which must
+# match the backend: system memory for ie/opencv, D3D12Memory for d3d12 backends and
+# D3D11Memory for d3d11 backends.
+if ($PPBKEND -like "d3d12*") {
+    $PROC_ELEMENT = "d3d12convert"
+} elseif ($PPBKEND -like "d3d11*") {
     $PROC_ELEMENT = "d3d11convert"
+} else {
+    # videoconvert passes D3D memory through untouched, so system memory is requested explicitly
+    $PROC_ELEMENT = "videoconvert ! videoscale ! video/x-raw"
 }
 
 # Set sink element based on output type

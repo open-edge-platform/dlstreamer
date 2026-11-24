@@ -8,9 +8,9 @@
 
 # Dependency versions and installer SHA256 hash
 # Get the GStreamer hash from https://gstreamer.freedesktop.org/data/pkg/windows/${GSTREAMER_VERSION}/msvc/gstreamer-1.0-msvc-x86_64-${GSTREAMER_VERSION}.exe.sha256sum
-set(GSTREAMER_VERSION "1.28.2")
+set(GSTREAMER_VERSION "1.28.8")
 set(GSTREAMER_SHORT_VERSION "1.28")
-set(GSTREAMER_INSTALLER_HASH "6dd72c370efa0dc4e1098940da36a4d591fd687579faf77a3c055d3aa30e6752")
+set(GSTREAMER_INSTALLER_HASH "e4c41ee6ee9c6c32a45d198463ec08d79bac3bd5fa58adc93d13fe4a08abc9d9")
 
 # Default build configuration for CPack
 if(NOT CPACK_BUILD_CONFIG)

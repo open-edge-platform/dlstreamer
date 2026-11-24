@@ -30,7 +30,8 @@ if ($Model -eq "--help" -or $Model -eq "-h") {
     Write-Host "  -Device             Device (default: GPU). Supported: CPU, GPU, NPU"
     Write-Host "  -InputSource        Input source (default: Pexels video URL)"
     Write-Host "  -OutputType         Output type (default: display). Supported: file, display, fps, json, display-and-json"
-    Write-Host "  -PreprocessBackend  Preprocessing backend (default: auto). Supported: ie, opencv (CPU), d3d11 (GPU/NPU)"
+    Write-Host "  -PreprocessBackend  Preprocessing backend (default: opencv for CPU, d3d12-surface-sharing for GPU, d3d12 for NPU)"
+    Write-Host "                      Supported: ie, opencv, d3d11, d3d11-surface-sharing, d3d12, d3d12-surface-sharing"
     Write-Host "  -Precision          Model precision (default: FP16). Supported: INT8, FP32, FP16"
     Write-Host "  -FrameLimiter       Optional GStreamer element to add after decode (e.g., ' ! identity eos-after=100')"
     Write-Host ""
@@ -107,18 +108,49 @@ if ($InputSource -match "://") {
 
 # Set pre-process backend based on device
 if ($PreprocessBackend -eq "") {
-    if ($Device -eq "CPU") {
-        $PREPROC_BACKEND = "opencv"
-    } else {
-        $PREPROC_BACKEND = "d3d11"
+    switch ($Device) {
+        "CPU" { $PREPROC_BACKEND = "opencv" }
+        "GPU" { $PREPROC_BACKEND = "d3d12-surface-sharing" }
+        "NPU" { $PREPROC_BACKEND = "d3d12" }
     }
 } else {
-    $VALID_BACKENDS = @("ie", "opencv", "d3d11")
+    $VALID_BACKENDS = @("ie", "opencv", "d3d11", "d3d11-surface-sharing", "d3d12", "d3d12-surface-sharing")
     if ($VALID_BACKENDS -notcontains $PreprocessBackend) {
-        Write-Host "ERROR: Invalid PREPROC_BACKEND parameter. Supported values: ie, opencv, d3d11" -ForegroundColor Red
+        Write-Host "ERROR: Invalid PREPROC_BACKEND parameter. Supported values: $($VALID_BACKENDS -join ', ')" -ForegroundColor Red
+        exit 1
+    }
+    if ($Device -eq "CPU" -and $PreprocessBackend -like "d3d*") {
+        Write-Host "ERROR: $PreprocessBackend backend requires GPU or NPU device" -ForegroundColor Red
         exit 1
     }
     $PREPROC_BACKEND = $PreprocessBackend
+}
+
+# The elements after inference select the memory type the inference element receives, which
+# must match the backend: system memory for ie/opencv, D3D12Memory for d3d12 backends and
+# D3D11Memory for d3d11 backends.
+if ($PREPROC_BACKEND -notlike "d3d*") {
+    $CONVERT = "videoconvert"
+    $DISPLAY_CONVERT = "videoconvert ! "
+    $VIDEO_SINK = "autovideosink sync=false"
+    $ENCODER = "openh264enc"
+} elseif ($PREPROC_BACKEND -like "d3d12*") {
+    $CONVERT = "d3d12convert"
+    $DISPLAY_CONVERT = ""
+    $VIDEO_SINK = "d3d12videosink sync=false"
+    # d3d12h264enc only exists on GPUs with D3D12 video encode; its default rate control (vbr)
+    # produces broken streams on some drivers, so constant QP is used.
+    gst-inspect-1.0 d3d12h264enc *> $null
+    if ($LASTEXITCODE -eq 0) {
+        $ENCODER = "d3d12h264enc rate-control=cqp"
+    } else {
+        $ENCODER = "d3d12download ! mfh264enc"
+    }
+} else {
+    $CONVERT = "d3d11convert"
+    $DISPLAY_CONVERT = "videoconvert ! "
+    $VIDEO_SINK = "d3d11videosink sync=false"
+    $ENCODER = "mfh264enc"
 }
 
 # Set IE config for yolov10s on GPU
@@ -133,10 +165,10 @@ switch ($OutputType) {
         $FILENAME = [System.IO.Path]::GetFileNameWithoutExtension($InputSource)
         $OUTPUT_FILE = "yolo_${FILENAME}_${Model}_${Precision}_${Device}.mp4"
         if (Test-Path $OUTPUT_FILE) { Remove-Item $OUTPUT_FILE }
-        $SINK_ELEMENT = "! queue ! d3d11convert ! gvawatermark ! gvafpscounter ! mfh264enc ! h264parse ! mp4mux ! filesink location=$OUTPUT_FILE"
+        $SINK_ELEMENT = "! queue ! $CONVERT ! gvawatermark ! gvafpscounter ! $ENCODER ! h264parse ! mp4mux ! filesink location=$OUTPUT_FILE"
     }
     "display" {
-        $SINK_ELEMENT = "! queue ! d3d11convert ! gvawatermark ! videoconvert ! gvafpscounter ! d3d11videosink sync=false"
+        $SINK_ELEMENT = "! queue ! $CONVERT ! gvawatermark ! ${DISPLAY_CONVERT}gvafpscounter ! $VIDEO_SINK"
     }
     "fps" {
         $SINK_ELEMENT = "! queue ! gvafpscounter ! fakesink async=false"
@@ -147,7 +179,7 @@ switch ($OutputType) {
     }
     "display-and-json" {
         if (Test-Path "output.json") { Remove-Item "output.json" }
-        $SINK_ELEMENT = "! queue ! d3d11convert ! gvawatermark ! gvametaconvert add-tensor-data=true ! gvametapublish file-format=json-lines file-path=output.json ! videoconvert ! gvafpscounter ! d3d11videosink sync=false"
+        $SINK_ELEMENT = "! queue ! $CONVERT ! gvawatermark ! gvametaconvert add-tensor-data=true ! gvametapublish file-format=json-lines file-path=output.json ! ${DISPLAY_CONVERT}gvafpscounter ! $VIDEO_SINK"
     }
     default {
         Write-Host "ERROR: Invalid OUTPUT parameter" -ForegroundColor Red

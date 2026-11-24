@@ -113,6 +113,13 @@ class BlobToMetaConverter {
         return !skip_raw_tensors;
     }
 
+    // The confidence threshold can be changed while the pipeline is running, from a different thread than the one
+    // calling convert(). Safe to call from any thread, it takes effect from the next conversion. Only converters that
+    // have a confidence threshold react.
+    virtual void setConfidenceThreshold(double threshold) {
+        (void)threshold;
+    }
+
     // Default frame-aware entry point: converters that do not need frame or ROI context
     // can ignore FramesWrapper and reuse the blob-only conversion path.
     virtual TensorsTable convert(const OutputBlobs &output_blobs, FramesWrapper &frames) {

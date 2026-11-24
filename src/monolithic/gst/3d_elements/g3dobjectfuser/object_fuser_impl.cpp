@@ -17,13 +17,13 @@ namespace dlstreamer {
 
 namespace {
 
-/* Build the 8 corners of a 3D oriented bounding box (yaw around Z), in the
- * lidar/world frame. Returns a 3x8 cv::Mat of float32. */
+/* Build the 8 corners of a 3D oriented bounding box, in the lidar/world frame,
+ * following GstAnalytics3DODMtd: length along the box's local x, width along
+ * its local y, rotated by yaw counter-clockwise about +z. Returns a 3x8
+ * cv::Mat of float32. */
 cv::Mat make_3d_box_corners(const Box3D &b) {
-    /* Uses the convention: w == box.length, l == box.width so projected
-     * boxes line up with KITTI examples. */
-    float l = b.width;
-    float w = b.length;
+    float l = b.length;
+    float w = b.width;
     float h = b.height;
     float corners_local[8][3] = {{-l / 2, -w / 2, -h / 2}, {l / 2, -w / 2, -h / 2}, {l / 2, w / 2, -h / 2},
                                  {-l / 2, w / 2, -h / 2},  {-l / 2, -w / 2, h / 2}, {l / 2, -w / 2, h / 2},

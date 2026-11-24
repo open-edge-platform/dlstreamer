@@ -77,3 +77,6 @@ class RGBtoYUVColorConverter : public ColorConverter {
 std::shared_ptr<ColorConverter> create_color_converter(dlstreamer::ImageFormat format,
                                                        const std::vector<Color> &rgb_color_table, double Kr, double Kb,
                                                        bool full_range);
+
+// Black or white in RGB, whichever text color reads better on the given RGB background
+Color contrast_text_color(const Color &rgb_background);

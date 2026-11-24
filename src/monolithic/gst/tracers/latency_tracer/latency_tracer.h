@@ -38,6 +38,7 @@ struct LatencyTracer {
     gpointer element_type_cache; // Map<GstElement*, ElementType> - cache element types for O(1) lookup
     gpointer topology_cache;     // Map<GstElement*, GstElement*> - cache sink->source mappings for O(1) lookup
     GMutex tracer_mutex;         // guards all shared map writes
+    gboolean post_metrics;       // post "dlstreamer/latency-window" element messages on the bus
 };
 
 struct LatencyTracerClass {

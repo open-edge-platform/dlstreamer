@@ -7,15 +7,22 @@
 
 set -e
 
+if [ -z "${MODELS_PATH:-}" ]; then
+  echo "Error: MODELS_PATH is not set." >&2
+  exit 1
+else
+  echo "MODELS_PATH: $MODELS_PATH"
+fi
+
 INPUT=${1:-https://github.com/intel-iot-devkit/sample-videos/raw/master/head-pose-face-detection-female-and-male.mp4}
 DEVICE=${2:-CPU}
 OUTPUT=${3:-display} # Supported values: display, fps, json, display-and-json
 
 SCRIPTDIR="$(dirname "$(realpath "$0")")"
 
-# --- Prepare models (download from HuggingFace and convert to OpenVINO IR) ---
-echo "Preparing models..."
-eval "$(python3 "${SCRIPTDIR}/prepare_models.py")"
+DETECT_MODEL_PATH=${MODELS_PATH}/public/arnabdhar_YOLOv8-Face-Detection/FP16/arnabdhar_YOLOv8-Face-Detection.xml
+CLASS_MODEL_PATH=${MODELS_PATH}/public/dima806_fairface_age_image_detection/FP16/dima806_fairface_age_image_detection.xml
+GENDER_MODEL_PATH=${MODELS_PATH}/public/dima806_fairface_gender_image_detection/FP16/dima806_fairface_gender_image_detection.xml
 
 if [[ $OUTPUT == "display" ]] || [[ -z $OUTPUT ]]; then
   SINK_ELEMENT="gvawatermark ! videoconvert ! gvafpscounter ! autovideosink sync=false"
@@ -52,10 +59,6 @@ elif [[ $INPUT == *"://"* ]]; then
 else
   SOURCE_ELEMENT="filesrc location=${INPUT}"
 fi
-
-DETECT_MODEL_PATH=${DETECT_MODEL_PATH:?Detection model not prepared}
-CLASS_MODEL_PATH=${CLASS_MODEL_PATH:?Classification model not prepared}
-GENDER_MODEL_PATH=${GENDER_MODEL_PATH:?Gender model not prepared}
 
 echo Running sample with the following parameters:
 echo GST_PLUGIN_PATH="${GST_PLUGIN_PATH}"

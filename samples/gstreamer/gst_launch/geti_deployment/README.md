@@ -91,6 +91,12 @@ Example deployment of Geti™ multi-label classification model using CPU device,
 ./geti_sample.sh classification_multi CPU
 ```
 
+Example deployment of Geti™ instance segmentation model (MaskRCNN, RTMDet or RF-DETR-Seg) using CPU device, saving results into `output.json`.
+
+```sh
+./geti_sample.sh instance-segmentation geti-segmentation/FP16/openvino.xml CPU opencv https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4 json
+```
+
 ## See also
 
 * [Samples overview](../../../README.md)

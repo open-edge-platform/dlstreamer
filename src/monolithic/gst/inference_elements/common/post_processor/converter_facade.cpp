@@ -183,6 +183,18 @@ void ConverterFacade::convert(const OutputBlobs &all_output_blobs, FramesWrapper
         tensors_batch = blob_to_meta->convert(processed_output_blobs, frames);
     }
 
+    // The converter gives results for every frame of the batch. The frames that are not processed in this pass belong
+    // to an element with other settings: their results are dropped here, and nobody else would free them. The attacher
+    // and the coordinates restorer then find nothing to do for them, so they do not need to know about the mask.
+    for (size_t i = 0; i < tensors_batch.size() && i < frames.size(); ++i) {
+        if (frames.active(i))
+            continue;
+        for (auto &tensor : tensors_batch[i])
+            for (GstStructure *structure : tensor)
+                gst_structure_free(structure);
+        tensors_batch[i].clear();
+    }
+
     if (frames.need_coordinate_restore() && coordinates_restorer != nullptr)
         coordinates_restorer->restore(tensors_batch, frames);
 

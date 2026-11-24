@@ -17,8 +17,12 @@
 
 #define GST_USE_UNSTABLE_API
 #include <gst/d3d11/gstd3d11.h>
+#include <gst/d3d12/gstd3d12.h>
 #include <opencv2/core/directx.hpp>
 
+#include "d3d12_converter.h"
+
+#include <dlstreamer/d3d11/device_lock.h>
 #include <dlstreamer/gst/videoanalytics/video_frame.h>
 
 // Linux parity helper: round normalized coordinates to 3 decimal places to reduce metadata verbosity.
@@ -64,6 +68,7 @@ struct _GstGvaMotionDetect {
     GstBaseTransform parent;
     GstVideoInfo vinfo;
     gboolean caps_is_d3d11; // set when upstream negotiated memory:D3D11Memory
+    gboolean caps_is_d3d12; // set when upstream negotiated memory:D3D12Memory
     int block_size;
     double motion_threshold;
     int min_persistence;
@@ -89,11 +94,18 @@ struct _GstGvaMotionDetect {
     // D3D11 GPU path state
     GstD3D11Device *d3d11_device;  // obtained via gst.d3d11.device.handle context
     GstD3D11Converter *d3d11_conv; // lazy: (re)built when small size changes
-    GstBuffer *small_buf;          // holds the pooled small NV12 D3D11 GstMemory
+    GstBuffer *small_buf;          // holds the pooled small NV12 D3D11/D3D12 GstMemory
     int small_w;
     int small_h;
     gboolean cv_ocl_ready;           // cv::directx OpenCL context initialized from this device
     gboolean tried_d3d11_peer_query; // one-shot peer query on first frame
+
+    // D3D12 GPU path state. Downscale runs on the GPU; the small NV12 texture is then
+    // read back (cv::directx has no D3D12 interop), which is cheap at ~320px width.
+    GstD3D12Device *d3d12_device;                  // obtained via gst.d3d12.device.handle context
+    InferenceBackend::D3D12Converter *d3d12_conv;  // lazy: (re)built when small size changes
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT small_y_fp; // staging layout of the small texture's Y plane
+    gboolean tried_d3d12_peer_query;
 };
 
 // Scan blocks to produce raw motion rectangles (parity with Linux md_scan_blocks, adapted to Windows struct & members)
@@ -320,7 +332,7 @@ static inline double md_iou(const MotionRectWin &a, const MotionRectWin &b) {
     return (double)inter / (double)(a.w * a.h + b.w * b.h - inter);
 }
 
-// ---------------- D3D11 context negotiation ----------------
+// ---------------- D3D11/D3D12 context negotiation ----------------
 static void gst_gva_motion_detect_set_context(GstElement *elem, GstContext *context) {
     GstGvaMotionDetect *self = GST_GVA_MOTION_DETECT(elem);
     const gchar *ctype = gst_context_get_context_type(context);
@@ -331,32 +343,28 @@ static void gst_gva_motion_detect_set_context(GstElement *elem, GstContext *cont
             self->d3d11_device = dev; // transfer ref
             GST_INFO_OBJECT(self, "Obtained GstD3D11Device %p", dev);
         }
+    } else if (g_strcmp0(ctype, GST_D3D12_DEVICE_HANDLE_CONTEXT_TYPE) == 0 && !self->d3d12_device) {
+        const GstStructure *s = gst_context_get_structure(context);
+        GstD3D12Device *dev = nullptr;
+        if (gst_structure_get(s, "device", GST_TYPE_D3D12_DEVICE, &dev, NULL) && dev) {
+            self->d3d12_device = dev; // transfer ref
+            GST_INFO_OBJECT(self, "Obtained GstD3D12Device %p", dev);
+        }
     }
     GST_ELEMENT_CLASS(gst_gva_motion_detect_parent_class)->set_context(elem, context);
 }
 
 // ---------------- D3D11 GPU path helpers ----------------
 
-// RAII guard for gst_d3d11_device_lock / gst_d3d11_device_unlock.
-namespace {
-struct D3D11DeviceLockGuard {
-    GstD3D11Device *dev;
-    explicit D3D11DeviceLockGuard(GstD3D11Device *d) : dev(d) {
-        gst_d3d11_device_lock(dev);
-    }
-    ~D3D11DeviceLockGuard() {
-        gst_d3d11_device_unlock(dev);
-    }
-    D3D11DeviceLockGuard(const D3D11DeviceLockGuard &) = delete;
-    D3D11DeviceLockGuard &operator=(const D3D11DeviceLockGuard &) = delete;
-};
-} // namespace
-
-// Release cached D3D11 converter + small destination buffer (safe to call when not allocated).
+// Release cached D3D11/D3D12 converters + small destination buffer (safe to call when not allocated).
 static void gst_gva_motion_detect_release_d3d11_small(GstGvaMotionDetect *self) {
     if (self->d3d11_conv) {
         gst_object_unref(self->d3d11_conv);
         self->d3d11_conv = nullptr;
+    }
+    if (self->d3d12_conv) {
+        delete self->d3d12_conv; // waits for its last submission before freeing command allocators
+        self->d3d12_conv = nullptr;
     }
     if (self->small_buf) {
         gst_buffer_unref(self->small_buf);
@@ -462,7 +470,7 @@ static gboolean gst_gva_motion_detect_d3d11_to_small_gray(GstGvaMotionDetect *se
     }
 
     // Import the small NV12 texture into OpenCV; driver interop requires holding the device lock.
-    D3D11DeviceLockGuard lock_guard(self->d3d11_device);
+    dlstreamer::D3D11DeviceLock lock_guard(self->d3d11_device);
     try {
         cv::UMat small_bgr;
         cv::directx::convertFromD3D11Texture2D(small_tex, small_bgr); // NV12 -> BGR on GPU
@@ -474,14 +482,103 @@ static gboolean gst_gva_motion_detect_d3d11_to_small_gray(GstGvaMotionDetect *se
     return TRUE;
 }
 
+// ---------------- D3D12 GPU path helpers ----------------
+
+// Lazy-built GstD3D12Converter + small NV12 destination texture matching requested dimensions.
+static gboolean gst_gva_motion_detect_ensure_d3d12_converter(GstGvaMotionDetect *self, int src_w, int src_h, int dst_w,
+                                                             int dst_h) {
+    if (self->d3d12_conv && self->small_buf && self->small_w == dst_w && self->small_h == dst_h)
+        return TRUE;
+    gst_gva_motion_detect_release_d3d11_small(self);
+    if (!self->d3d12_device)
+        return FALSE;
+
+    D3D12_HEAP_PROPERTIES heap_props = {};
+    heap_props.Type = D3D12_HEAP_TYPE_DEFAULT;
+    D3D12_RESOURCE_DESC desc = {};
+    desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+    desc.Width = (UINT64)dst_w;
+    desc.Height = (UINT)dst_h;
+    desc.DepthOrArraySize = 1;
+    desc.MipLevels = 1;
+    desc.Format = DXGI_FORMAT_NV12;
+    desc.SampleDesc.Count = 1;
+    desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+    // RENDER_TARGET for the converter, SIMULTANEOUS_ACCESS so GstD3D12Memory can stage a CPU readback.
+    desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET | D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS;
+
+    GstMemory *mem = gst_d3d12_allocator_alloc(nullptr, self->d3d12_device, &heap_props, D3D12_HEAP_FLAG_NONE, &desc,
+                                               D3D12_RESOURCE_STATE_COMMON, nullptr);
+    if (!mem) {
+        GST_WARNING_OBJECT(self, "gst_d3d12_allocator_alloc failed (%dx%d NV12)", dst_w, dst_h);
+        return FALSE;
+    }
+    GstBuffer *buf = gst_buffer_new();
+    gst_buffer_append_memory(buf, mem);
+    self->small_buf = buf;
+
+    // Staging (CPU map) layout of the Y plane: rows are 256-byte aligned.
+    gst_d3d12_device_get_device_handle(self->d3d12_device)
+        ->GetCopyableFootprints(&desc, 0, 1, 0, &self->small_y_fp, nullptr, nullptr, nullptr);
+
+    try {
+        self->d3d12_conv = new InferenceBackend::D3D12Converter(self->d3d12_device, src_w, src_h, DXGI_FORMAT_NV12,
+                                                                dst_w, dst_h, DXGI_FORMAT_NV12);
+    } catch (const std::exception &e) {
+        GST_WARNING_OBJECT(self, "D3D12Converter creation failed: %s", e.what());
+        gst_gva_motion_detect_release_d3d11_small(self);
+        return FALSE;
+    }
+    self->small_w = dst_w;
+    self->small_h = dst_h;
+    GST_INFO_OBJECT(self, "D3D12 converter ready: %dx%d -> %dx%d (NV12)", src_w, src_h, dst_w, dst_h);
+    return TRUE;
+}
+
+// GPU downscale of the D3D12 frame into the small NV12 texture, then read its Y plane back
+// (GstD3D12Memory CPU map waits for the converter fence) into a GRAY cv::UMat.
+// Returns TRUE on success, FALSE to request CPU fallback.
+static gboolean gst_gva_motion_detect_d3d12_to_small_gray(GstGvaMotionDetect *self, GstBuffer *buf, int width,
+                                                          int height, int small_w, int small_h, cv::UMat &curr_small) {
+    GstMemory *src_mem = gst_buffer_peek_memory(buf, 0);
+    if (!src_mem || !gst_is_d3d12_memory(src_mem))
+        return FALSE;
+
+    if (!gst_gva_motion_detect_ensure_d3d12_converter(self, width, height, small_w, small_h))
+        return FALSE;
+
+    try {
+        self->d3d12_conv->Convert(buf, self->small_buf);
+    } catch (const std::exception &e) {
+        GST_WARNING_OBJECT(self, "D3D12Converter::Convert failed: %s; falling back to CPU", e.what());
+        return FALSE;
+    }
+
+    GstMemory *dst_mem = gst_buffer_peek_memory(self->small_buf, 0);
+    GstMapInfo map;
+    if (!gst_memory_map(dst_mem, &map, GST_MAP_READ)) {
+        GST_WARNING_OBJECT(self, "Couldn't map small D3D12 texture; falling back to CPU");
+        return FALSE;
+    }
+    cv::Mat y_mat(small_h, small_w, CV_8UC1, map.data + self->small_y_fp.Offset,
+                  (size_t)self->small_y_fp.Footprint.RowPitch);
+    y_mat.copyTo(curr_small);
+    gst_memory_unmap(dst_mem, &map);
+    return TRUE;
+}
+
 static gboolean gst_gva_motion_detect_start(GstBaseTransform *t) {
     GstGvaMotionDetect *self = GST_GVA_MOTION_DETECT(t);
     self->caps_is_d3d11 = FALSE;
+    self->caps_is_d3d12 = FALSE;
     self->frame_index = 0;
     self->tried_d3d11_peer_query = FALSE;
-    // Invite upstream to provide a D3D11 device context (non-blocking; handled via set_context).
+    self->tried_d3d12_peer_query = FALSE;
+    // Invite upstream to provide a D3D11/D3D12 device context (non-blocking; handled via set_context).
     gst_element_post_message(GST_ELEMENT(self),
                              gst_message_new_need_context(GST_OBJECT(self), "gst.d3d11.device.handle"));
+    gst_element_post_message(GST_ELEMENT(self),
+                             gst_message_new_need_context(GST_OBJECT(self), GST_D3D12_DEVICE_HANDLE_CONTEXT_TYPE));
     return TRUE;
 }
 
@@ -491,6 +588,7 @@ static gboolean gst_gva_motion_detect_set_caps(GstBaseTransform *t, GstCaps *in,
         return FALSE;
 
     gboolean is_d3d11 = FALSE;
+    gboolean is_d3d12 = FALSE;
     guint caps_size = gst_caps_get_size(in);
     for (guint i = 0; i < caps_size; ++i) {
         const GstCapsFeatures *features = gst_caps_get_features(in, i);
@@ -498,9 +596,14 @@ static gboolean gst_gva_motion_detect_set_caps(GstBaseTransform *t, GstCaps *in,
             is_d3d11 = TRUE;
             break;
         }
+        if (features && gst_caps_features_contains(features, GST_CAPS_FEATURE_MEMORY_D3D12_MEMORY)) {
+            is_d3d12 = TRUE;
+            break;
+        }
     }
 
     self->caps_is_d3d11 = is_d3d11;
+    self->caps_is_d3d12 = is_d3d12;
     // Reset tracking + algorithm state on caps change (resolution may differ).
     self->tracks.clear();
     self->block_state.release();
@@ -617,13 +720,26 @@ static GstFlowReturn gst_gva_motion_detect_transform_ip(GstBaseTransform *t, Gst
 
     int target_w = std::min(320, width);
     double scale = (double)target_w / (double)width;
-    int small_w = target_w;
-    int small_h = std::max(1, (int)std::lround(height * scale));
+    // Even sizes: the D3D11/D3D12 paths downscale into an NV12 texture, which can't be
+    // created with an odd width or height.
+    int small_w = std::max(2, target_w & ~1);
+    int small_h = std::max(2, (int)std::lround(height * scale) & ~1);
 
-    // Lazy one-shot peer query for the D3D11 device if set_context hasn't fired yet.
+    // Lazy one-shot peer query for the D3D11/D3D12 device if set_context hasn't fired yet.
     if (self->caps_is_d3d11 && !self->d3d11_device && !self->tried_d3d11_peer_query) {
         self->tried_d3d11_peer_query = TRUE;
         GstQuery *q = gst_query_new_context("gst.d3d11.device.handle");
+        if (gst_pad_peer_query(GST_BASE_TRANSFORM_SINK_PAD(t), q)) {
+            GstContext *ctx = nullptr;
+            gst_query_parse_context(q, &ctx);
+            if (ctx)
+                gst_gva_motion_detect_set_context(GST_ELEMENT(self), ctx);
+        }
+        gst_query_unref(q);
+    }
+    if (self->caps_is_d3d12 && !self->d3d12_device && !self->tried_d3d12_peer_query) {
+        self->tried_d3d12_peer_query = TRUE;
+        GstQuery *q = gst_query_new_context(GST_D3D12_DEVICE_HANDLE_CONTEXT_TYPE);
         if (gst_pad_peer_query(GST_BASE_TRANSFORM_SINK_PAD(t), q)) {
             GstContext *ctx = nullptr;
             gst_query_parse_context(q, &ctx);
@@ -639,6 +755,8 @@ static GstFlowReturn gst_gva_motion_detect_transform_ip(GstBaseTransform *t, Gst
     gboolean small_ready = FALSE;
     if (self->caps_is_d3d11 && self->d3d11_device) {
         small_ready = gst_gva_motion_detect_d3d11_to_small_gray(self, buf, width, height, small_w, small_h, curr_small);
+    } else if (self->caps_is_d3d12 && self->d3d12_device) {
+        small_ready = gst_gva_motion_detect_d3d12_to_small_gray(self, buf, width, height, small_w, small_h, curr_small);
     }
     if (!small_ready) {
         if (!gst_gva_motion_detect_cpu_to_small_gray(self, buf, width, height, small_w, small_h, curr_luma, curr_small))
@@ -716,6 +834,10 @@ static void gst_gva_motion_detect_finalize(GObject *obj) {
         gst_object_unref(self->d3d11_device);
         self->d3d11_device = nullptr;
     }
+    if (self->d3d12_device) {
+        gst_object_unref(self->d3d12_device);
+        self->d3d12_device = nullptr;
+    }
     g_mutex_clear(&self->meta_mutex);
     G_OBJECT_CLASS(gst_gva_motion_detect_parent_class)->finalize(obj);
 }
@@ -727,14 +849,16 @@ static void gst_gva_motion_detect_class_init(GstGvaMotionDetectClass *klass) {
     GST_DEBUG_CATEGORY_INIT(gst_gva_motion_detect_debug_win, "gvamotiondetect", 0, "Motion detect (Windows)");
     gst_element_class_set_static_metadata(
         eclass, "Motion detect (auto GPU/CPU)", "Filter/Video",
-        "Windows motion detection: D3D11 GPU path when negotiated, software otherwise", "dlstreamer");
+        "Windows motion detection: D3D11/D3D12 GPU path when negotiated, software otherwise", "dlstreamer");
     static GstStaticPadTemplate sink_templ =
         GST_STATIC_PAD_TEMPLATE("sink", GST_PAD_SINK, GST_PAD_ALWAYS,
                                 GST_STATIC_CAPS("video/x-raw(memory:D3D11Memory), format=NV12; "
+                                                "video/x-raw(memory:D3D12Memory), format=NV12; "
                                                 "video/x-raw, format={ NV12, I420, YV12 }"));
     static GstStaticPadTemplate src_templ =
         GST_STATIC_PAD_TEMPLATE("src", GST_PAD_SRC, GST_PAD_ALWAYS,
                                 GST_STATIC_CAPS("video/x-raw(memory:D3D11Memory), format=NV12; "
+                                                "video/x-raw(memory:D3D12Memory), format=NV12; "
                                                 "video/x-raw, format={ NV12, I420, YV12 }"));
     gst_element_class_add_static_pad_template(eclass, &sink_templ);
     gst_element_class_add_static_pad_template(eclass, &src_templ);
@@ -800,6 +924,7 @@ static void gst_gva_motion_detect_init(GstGvaMotionDetect *self) {
     self->min_rel_area = 0.0005; // default minimum relative area (0.05% of frame)
     self->frame_index = 0;
     self->caps_is_d3d11 = FALSE;
+    self->caps_is_d3d12 = FALSE;
     self->d3d11_device = nullptr;
     self->d3d11_conv = nullptr;
     self->small_buf = nullptr;
@@ -807,5 +932,9 @@ static void gst_gva_motion_detect_init(GstGvaMotionDetect *self) {
     self->small_h = 0;
     self->cv_ocl_ready = FALSE;
     self->tried_d3d11_peer_query = FALSE;
+    self->d3d12_device = nullptr;
+    self->d3d12_conv = nullptr;
+    self->small_y_fp = {};
+    self->tried_d3d12_peer_query = FALSE;
     g_mutex_init(&self->meta_mutex);
 }

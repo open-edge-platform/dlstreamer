@@ -38,6 +38,14 @@ Install DLStreamer on the host (see [DLStreamer Installation Guide](../../../../
 cd samples/gstreamer/python/prompted_detection
 ```
 
+### Install Python Dependencies
+
+This sample only needs the Python packages already provided by the DL
+Streamer installation (GStreamer Python bindings). If you installed DL
+Streamer natively and skipped them, see
+[Step 9: Install Python dependencies](../../../../docs/user-guide/dev_guide/advanced_install/advanced_install_guide_compilation.md#step-9-install-python-dependencies-optional)
+in the Advanced Install Guide. The Docker image already includes them.
+
 ### Download Video
 
 Download example video file:

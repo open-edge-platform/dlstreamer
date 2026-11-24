@@ -1,0 +1,976 @@
+openvino_bevfusion fixes that g3dbevfusion relies on: detection head weights,
+sparse encoder layout, OpenVINO 2026 compatibility and checkpoint sanitizing.
+
+Squashed from https://github.com/openvinotoolkit/openvino_contrib/pull/1197
+(head 1d7ca25ae8d53ea510c19b47bb16061b834e2104), against openvino_contrib
+master 192fffa4a6533502d1a523e7853f5d982be57dd8. Remove this patch once the
+PR is merged and g3dbevfusion_prepare.sh pins a commit that contains it.
+
+diff --git a/modules/openvino_bevfusion/bevfusion/sparse_encoder_extension.py b/modules/openvino_bevfusion/bevfusion/sparse_encoder_extension.py
+index 606b299add30372a91c55df0af0b7e4aa222a625..1f71b3c4455b6034a8c6c39fc340d773eb74ff23 100644
+--- a/modules/openvino_bevfusion/bevfusion/sparse_encoder_extension.py
++++ b/modules/openvino_bevfusion/bevfusion/sparse_encoder_extension.py
+@@ -87,8 +87,20 @@ def _fuse_bn(weights_dir: Path, w_name: str, b_name: str,
+ 
+ 
+ def _reformat_weight(weight: np.ndarray) -> np.ndarray:
+-    """Reshape [k0, k1, k2, C_in, C_out] → flat [num_k * C_in * C_out]."""
+-    return weight.reshape(-1).astype(np.float32)
++    """Reshape a checkpoint sparse-conv weight to what the kernels expect.
++
++    The mmdetection3d/spconv checkpoint stores these as
++    ``[C_out, k0, k1, k2, C_in]``, while the OpenCL kernels index their weight
++    buffer as ``[num_k, C_in, C_out]``. The two differ by moving the output
++    channel from the front to the back, so a bare ``reshape(-1)`` scrambles
++    every tap/channel and silently produces plausible-looking but wrong
++    features (it cost the whole encoder its accuracy: cosine similarity 0.68
++    against spconv at the very first layer).
++    """
++    if weight.ndim != 5:
++        raise ValueError(f'expected a 5-D sparse conv weight, got {weight.shape}')
++    reordered = weight.transpose(1, 2, 3, 4, 0)   # -> [k0, k1, k2, C_in, C_out]
++    return np.ascontiguousarray(reordered).reshape(-1).astype(np.float32)
+ 
+ 
+ def pack_sparse_encoder_weights(weights_dir: str) -> np.ndarray:
+diff --git a/modules/openvino_bevfusion/export.py b/modules/openvino_bevfusion/export.py
+index db916883f58354383075ca8581a3b51c0ec23c8e..d025ec295a715f730b4ace9cf7f872341842cd1c 100644
+--- a/modules/openvino_bevfusion/export.py
++++ b/modules/openvino_bevfusion/export.py
+@@ -38,6 +38,7 @@ import argparse
+ import json
+ import os
+ import pickle
++import re
+ import sys
+ from pathlib import Path
+ 
+@@ -215,19 +216,35 @@ class PatchMerging(nn.Module):
+         self.norm = nn.LayerNorm(4 * in_channels)
+ 
+     def forward(self, x, H, W):
++        """Merge 2x2 neighbourhoods, in mmcv PatchMerging's channel order.
++
++        mmcv implements this with nn.Unfold(kernel_size=2, stride=2), whose
++        output channel index is ``c * 4 + ky * 2 + kx`` -- the four merged
++        positions are interleaved *within* each input channel. The original
++        Swin implementation instead concatenates whole channel blocks per
++        offset (``cat([x[0::2,0::2], x[1::2,0::2], x[0::2,1::2], x[1::2,1::2]])``).
++        The checkpoint was trained through mmcv (convert_weights=True), so its
++        ``reduction`` Linear expects the Unfold order; using the original order
++        permutes every input to that layer.
++
++        Reproduced with slice+stack rather than nn.Unfold, which has poor
++        ONNX/OpenVINO support.
++        """
+         B, L, C = x.shape
+-        x = x.view(B, H, W, C)
+-        pad_h = H % 2
+-        pad_w = W % 2
+-        if pad_h or pad_w:
+-            x = F.pad(x, (0, 0, 0, pad_w, 0, pad_h))
+-        x0 = x[:, 0::2, 0::2, :]
+-        x1 = x[:, 1::2, 0::2, :]
+-        x2 = x[:, 0::2, 1::2, :]
+-        x3 = x[:, 1::2, 1::2, :]
+-        x = torch.cat([x0, x1, x2, x3], -1)
+-        _, new_H, new_W, _ = x.shape
+-        x = x.view(B, -1, 4 * C)
++        x = x.view(B, H, W, C).permute(0, 3, 1, 2)      # B, C, H, W
++        if H % 2 or W % 2:
++            # mmcv's AdaptivePadding uses padding='corner' (bottom/right).
++            x = F.pad(x, (0, W % 2, 0, H % 2))
++        new_H, new_W = x.shape[2] // 2, x.shape[3] // 2
++
++        x = torch.stack([x[:, :, 0::2, 0::2],           # ky=0, kx=0
++                         x[:, :, 0::2, 1::2],           # ky=0, kx=1
++                         x[:, :, 1::2, 0::2],           # ky=1, kx=0
++                         x[:, :, 1::2, 1::2]],          # ky=1, kx=1
++                        dim=2)                          # B, C, 4, new_H, new_W
++        x = x.reshape(B, 4 * C, new_H, new_W)           # channel = c*4 + ky*2 + kx
++        x = x.flatten(2).transpose(1, 2)                # B, new_H*new_W, 4C
++
+         x = self.norm(x)
+         x = self.reduction(x)
+         return x, new_H, new_W
+@@ -318,17 +335,44 @@ class GeneralizedLSSFPN(nn.Module):
+             }),
+         ])
+ 
++    def _lateral(self, i, x):
++        return F.relu(self.lateral_convs[i]['bn'](self.lateral_convs[i]['conv'](x)))
++
++    def _fpn(self, i, x):
++        return F.relu(self.fpn_convs[i]['bn'](self.fpn_convs[i]['conv'](x)))
++
+     def forward(self, inputs):
++        """Top-down: upsample -> cat -> conv1x1 -> conv3x3, per level.
++
++        Follows GeneralizedLSSFPN.forward in the reference implementation. Two
++        details matter and were previously wrong:
++          * level 1 is upsampled into level 0 *after* its fpn_conv, not before
++            (the reference overwrites laterals[i] with the fpn_conv output, and
++            the next iteration reads that same slot);
++          * align_corners is **False**. The GeneralizedLSSFPN class default is
++            True, but the lidar-cam config explicitly overrides `upsample_cfg`
++            to `dict(mode='bilinear', align_corners=False)`, and that is what
++            the checkpoint was trained with. Reading the class default instead
++            of the config costs relL2 0.087 on output[0].
++        Both feed output[0], which is the only output the view transform uses,
++        so getting them wrong corrupts the whole camera branch.
++
++        Verified bit-exact against mmdet's own source by tools/compare_swin.py.
++        """
+         assert len(inputs) == 3
+-        up3 = F.interpolate(inputs[2], size=inputs[1].shape[2:], mode='bilinear', align_corners=False)
+-        cat1 = torch.cat([inputs[1], up3], dim=1)
+-        lat1 = F.relu(self.lateral_convs[1]['bn'](self.lateral_convs[1]['conv'](cat1)))
+-        up1 = F.interpolate(lat1, size=inputs[0].shape[2:], mode='bilinear', align_corners=False)
+-        cat0 = torch.cat([inputs[0], up1], dim=1)
+-        lat0 = F.relu(self.lateral_convs[0]['bn'](self.lateral_convs[0]['conv'](cat0)))
+-        out0 = F.relu(self.fpn_convs[0]['bn'](self.fpn_convs[0]['conv'](lat0)))
+-        out1 = F.relu(self.fpn_convs[1]['bn'](self.fpn_convs[1]['conv'](lat1)))
+-        return [out0, out1]
++        laterals = list(inputs)
++
++        # i = 1: cat level 2 (upsampled) onto level 1
++        x = F.interpolate(laterals[2], size=laterals[1].shape[2:],
++                          mode='bilinear', align_corners=False)
++        laterals[1] = self._fpn(1, self._lateral(1, torch.cat([laterals[1], x], dim=1)))
++
++        # i = 0: cat level 1 (upsampled, post-fpn_conv) onto level 0
++        x = F.interpolate(laterals[1], size=laterals[0].shape[2:],
++                          mode='bilinear', align_corners=False)
++        laterals[0] = self._fpn(0, self._lateral(0, torch.cat([laterals[0], x], dim=1)))
++
++        return [laterals[0], laterals[1]]
+ 
+ 
+ class CameraBackboneNeck(nn.Module):
+@@ -644,6 +688,32 @@ def build_decoder(state_dict, prefixes):
+ # 6. TransFusion Detection Head
+ # ============================================================================
+ 
++# Buffers computed at construction time rather than read from the checkpoint.
++TRANSFUSION_COMPUTED_BUFFERS = {'bev_pos', 'nms_interior', 'nms_exempt_class'}
++
++# The checkpoint stores the decoder layer with mmcv BaseTransformerLayer naming
++# (mmdet's DetrTransformerDecoderLayer), while the module below is written with
++# plain torch.nn names. Without this mapping every decoder tensor is skipped.
++TRANSFUSION_KEY_PATTERNS = (
++    (r'^decoder\.(\d+)\.self_attn\.attn\.', r'decoder.\1.self_attn.'),
++    (r'^decoder\.(\d+)\.cross_attn\.attn\.', r'decoder.\1.multihead_attn.'),
++    (r'^decoder\.(\d+)\.ffn\.layers\.0\.0\.', r'decoder.\1.linear1.'),
++    (r'^decoder\.(\d+)\.ffn\.layers\.1\.', r'decoder.\1.linear2.'),
++    (r'^decoder\.(\d+)\.norms\.0\.', r'decoder.\1.norm1.'),
++    (r'^decoder\.(\d+)\.norms\.1\.', r'decoder.\1.norm2.'),
++    (r'^decoder\.(\d+)\.norms\.2\.', r'decoder.\1.norm3.'),
++)
++
++
++def remap_transfusion_key(key):
++    """Translate a checkpoint head key into this module's parameter name."""
++    for pattern, replacement in TRANSFUSION_KEY_PATTERNS:
++        new_key, count = re.subn(pattern, replacement, key)
++        if count:
++            return new_key
++    return key
++
++
+ def build_transfusion_head(state_dict, prefixes):
+     """Build TransFusion detection head from checkpoint weights."""
+ 
+@@ -672,14 +742,18 @@ def build_transfusion_head(state_dict, prefixes):
+         def forward(self, query, key, query_pos, key_pos):
+             qpe = self.self_posembed(query_pos)
+             kpe = self.cross_posembed(key_pos)
++            # Unlike a standard DETR decoder layer, TransFusion also encodes
++            # the *value* with the positional embedding -- see the explicit
++            # notes in projects/BEVFusion/bevfusion/transformer.py, which pass
++            # `value=query + query_pos` and `value=key + key_pos`.
+             q = (query + qpe).permute(2, 0, 1)
+-            v_s = query.permute(2, 0, 1)
++            v_s = (query + qpe).permute(2, 0, 1)
+             q2, _ = self.self_attn(q, q, v_s)
+             query2 = query + q2.permute(1, 2, 0)
+             query2 = self.norm1(query2.permute(0, 2, 1)).permute(0, 2, 1)
+             q = (query2 + qpe).permute(2, 0, 1)
+             k = (key + kpe).permute(2, 0, 1)
+-            v = key.permute(2, 0, 1)
++            v = (key + kpe).permute(2, 0, 1)
+             q2, _ = self.multihead_attn(q, k, v)
+             query2 = query2 + q2.permute(1, 2, 0)
+             query2 = self.norm2(query2.permute(0, 2, 1)).permute(0, 2, 1)
+@@ -738,6 +812,13 @@ def build_transfusion_head(state_dict, prefixes):
+             batch_y = batch_y + 0.5
+             coord = torch.cat([batch_x[None], batch_y[None]], dim=0)[None]
+             self.register_buffer('bev_pos', coord.view(1, 2, -1).permute(0, 2, 1))
++            pad = self.nks // 2
++            interior = torch.zeros(1, 1, xs, ys)
++            interior[:, :, pad:xs - pad, pad:ys - pad] = 1.0
++            self.register_buffer('nms_interior', interior)
++            exempt = torch.zeros(1, self.nc, 1, 1)
++            exempt[:, 8:10] = 1.0
++            self.register_buffer('nms_exempt_class', exempt)
+ 
+         def forward(self, bev_features):
+             B = bev_features.shape[0]
+@@ -747,16 +828,22 @@ def build_transfusion_head(state_dict, prefixes):
+             x = F.relu(x)
+             dense_heatmap = self.heatmap_head[1](x)
+             heatmap = dense_heatmap.detach().sigmoid()
+-            pad = self.nks // 2
+-            local_max = torch.zeros_like(heatmap)
+-            local_max_inner = F.max_pool2d(heatmap, kernel_size=self.nks, stride=1,
+-                                           padding=0)
+-            local_max[:, :, pad:(-pad), pad:(-pad)] = local_max_inner
+-            local_max[:, 8] = F.max_pool2d(heatmap[:, 8:9], kernel_size=1, stride=1,
+-                                           padding=0)[:, 0]
+-            local_max[:, 9] = F.max_pool2d(heatmap[:, 9:10], kernel_size=1, stride=1,
+-                                           padding=0)[:, 0]
+-            heatmap = heatmap * (heatmap == local_max)
++            # Local-max suppression, as in the reference: a cell survives if it
++            # is the maximum of its nks x nks window; cells in the outer
++            # nks//2 border never survive (the reference compares them against
++            # a zero-filled local_max, and sigmoid is never 0); classes 8 and 9
++            # (pedestrian, traffic_cone) use a 1x1 window, i.e. no suppression.
++            #
++            # The reference builds local_max with slice assignments into a
++            # zeros_like() tensor. Those export as ScatterNDUpdate, which the
++            # OpenVINO GPU plugin computes incorrectly in this graph (seen on
++            # 2025.4 and 2026.3: the queries are then taken from the BEV corner
++            # and every score is ~0). Express the same result with masks only.
++            pooled = F.max_pool2d(heatmap, kernel_size=self.nks, stride=1,
++                                  padding=self.nks // 2)
++            keep = (heatmap == pooled).float() * self.nms_interior
++            keep = torch.maximum(keep, self.nms_exempt_class)
++            heatmap = heatmap * keep
+             feat_flat = fusion_feat.view(B, self.hc, -1)
+             hm_flat = heatmap.view(B, self.nc, -1)
+             hm_all = hm_flat.view(B, -1)
+@@ -791,13 +878,25 @@ def build_transfusion_head(state_dict, prefixes):
+     loaded = 0
+     for k, v in state_dict.items():
+         if k.startswith(prefix):
+-            mk = k[len(prefix):]
++            mk = remap_transfusion_key(k[len(prefix):])
+             if mk in model_dict and model_dict[mk].shape == v.shape:
+                 model_dict[mk] = v
+                 loaded += 1
+     head.load_state_dict(model_dict)
+     head.eval()
+     print(f"  TransFusion head: loaded {loaded} weights")
++
++    # Every parameter must come from the checkpoint. Anything left behind keeps
++    # its random init and silently destroys accuracy -- which is exactly how the
++    # decoder layer went unnoticed (all 18 of its tensors are named differently
++    # in the checkpoint), leaving the head unable to score above ~0.001.
++    assigned = {remap_transfusion_key(k[len(prefix):])
++                for k in state_dict if k.startswith(prefix)}
++    missing = sorted(set(model_dict) - assigned - TRANSFUSION_COMPUTED_BUFFERS)
++    if missing:
++        raise RuntimeError(
++            f"TransFusion head: {len(missing)} parameters were not found in the "
++            f"checkpoint and would keep their random initialization: {missing}")
+     return head
+ 
+ 
+@@ -825,7 +924,12 @@ class CameraEncoderMerged(nn.Module):
+     def forward(self, images, depth_maps):
+         cam_feats = self.backbone_neck(images)       # [B,256,32,88]
+         depth_feats = self.dtransform(depth_maps)     # [B,64,32,88]
+-        combined = torch.cat([cam_feats, depth_feats], dim=1)  # [B,320,32,88]
++        # Depth features come FIRST: depthnet's leading conv is trained with
++        # input channels [0:64] = dtransform output and [64:320] = image
++        # features. See DepthLSSTransform.get_cam_feats in the reference
++        # implementation, which does torch.cat([d, x], dim=1). Swapping these
++        # scrambles every input channel and flattens the depth softmax.
++        combined = torch.cat([depth_feats, cam_feats], dim=1)  # [B,320,32,88]
+         daf = self.depthnet(combined)                 # [B,198,32,88]
+         depth_logits = daf[:, :D_BINS]                # [B,118,32,88]
+         context_feats = daf[:, D_BINS:]               # [B,80,32,88]
+@@ -1082,7 +1186,7 @@ def optimize_full_detection_topk(output_dir: Path):
+     full_detection_original.xml.
+     """
+     import openvino as ov
+-    from openvino.runtime import opset13 as opset
++    from openvino import opset13 as opset
+ 
+     xml_path = output_dir / 'full_detection.xml'
+     if not xml_path.exists():
+@@ -1280,7 +1384,11 @@ def main():
+     else:
+         print(f"\n[A1] Camera Backbone + Neck (SwinT + FPN)")
+         cam_model = CameraBackboneNeck()
+-        load_camera_backbone_neck_weights(cam_model, state, prefixes)
++        if not load_camera_backbone_neck_weights(cam_model, state, prefixes):
++            raise RuntimeError(
++                "Camera backbone+neck has parameters missing from the checkpoint; "
++                "they would keep their random initialization (see the missing/"
++                "unexpected counts above)")
+         cam_model.eval()
+ 
+     dummy_img = torch.randn(1, 3, 256, 704)
+diff --git a/modules/openvino_bevfusion/openvino_extensions/bev_pool/bev_pool_scatter.cl b/modules/openvino_bevfusion/openvino_extensions/bev_pool/bev_pool_scatter.cl
+index 2dc1bb20b6b067e8cf6a56d50d50290009040e70..aa4396ccc3c03e3d6fa86cee2693acf76a9c88d8 100644
+--- a/modules/openvino_bevfusion/openvino_extensions/bev_pool/bev_pool_scatter.cl
++++ b/modules/openvino_bevfusion/openvino_extensions/bev_pool/bev_pool_scatter.cl
+@@ -38,8 +38,28 @@
+ 
+ #define FP_SCALE 8192  /* 2^13 fixed-point */
+ 
+-/* Depth bins with probability < threshold are skipped */
+-#define DEPTH_THRESHOLD 0.005f
++/* Fixed-point quantization for the int32 atomic accumulator.
++ * Rounding to nearest rather than truncating matters: each pixel/channel
++ * flushes tens of times, and a plain (int) cast truncates toward zero every
++ * time, so the errors are biased in one direction instead of cancelling. That
++ * systematic bias cost ~10% relative L2 on the pooled BEV features. */
++static inline int fp_quantize(float v) {
++    return (int)(v * FP_SCALE + (v >= 0.0f ? 0.5f : -0.5f));
++}
++
++/* Depth bins with softmax probability below this are skipped entirely.
++ *
++ * Set to 0 = no skipping, which is what the reference does: BEVFusion's
++ * bev_pool scatters every frustum point that lands inside the grid, with no
++ * probability cutoff (projects/BEVFusion/bevfusion/ops/bev_pool/bev_pool.py).
++ *
++ * A 0.005f cutoff was tried as a speedup. It is a poor trade here: the depth
++ * softmax is flat (mean top-1 is only 0.16 -- BEVFusion supervises the depth
++ * distribution through the detection loss alone, never directly), so ~82 of
++ * 118 bins clear 0.005 anyway. That bought ~30% of the ray loop while dropping
++ * pooled-BEV agreement with the numpy reference from cos 0.9951 to 0.9909.
++ * Keep it exact; bev_pool's cost needs a structural fix, not a lossy one. */
++#define DEPTH_THRESHOLD 0.0f
+ 
+ __kernel void bevpool_scatter(
+     __global const INPUT0_TYPE* depth_probs,    /* [N, D, H, W] (softmax) */
+@@ -117,7 +137,7 @@ __kernel void bevpool_scatter(
+             /* Flush previous accumulation */
+             if (prev_grid >= 0) {
+                 int oidx = (c * nz) * nx_ny + prev_grid;
+-                atomic_add(&output[oidx], (int)(accum * FP_SCALE));
++                atomic_add(&output[oidx], fp_quantize(accum));
+             }
+             prev_grid = g;
+             accum = val;
+@@ -126,6 +146,6 @@ __kernel void bevpool_scatter(
+     /* Flush final accumulation */
+     if (prev_grid >= 0) {
+         int oidx = (c * nz) * nx_ny + prev_grid;
+-        atomic_add(&output[oidx], (int)(accum * FP_SCALE));
++        atomic_add(&output[oidx], fp_quantize(accum));
+     }
+ }
+diff --git a/modules/openvino_bevfusion/openvino_extensions/gpu_custom_layers.xml b/modules/openvino_bevfusion/openvino_extensions/gpu_custom_layers.xml
+index 855c0c84aa4018e298dfbdbda28ca6a9e8cd1199..7cc18b7a3d6be9005922ce79300bf00479aee3b8 100644
+--- a/modules/openvino_bevfusion/openvino_extensions/gpu_custom_layers.xml
++++ b/modules/openvino_bevfusion/openvino_extensions/gpu_custom_layers.xml
+@@ -49,7 +49,18 @@ SPDX-License-Identifier: Apache-2.0 -->
+         <Tensor arg-index="3" type="output" port-index="0" format="BFYX"/>
+     </Buffers>
+     <CompilerOptions options="-cl-mad-enable -cl-fast-relaxed-math"/>
+-    <WorkSizes global="31899648,1,1" local="16,1,1"/>
++    <!--
++      Per-pixel work sizing: one work-group per pixel (cam, h, w).
++      total_pixels = NUM_CAMS * FEAT_H * FEAT_W = 6 * 32 * 88 = 16,896
++      local = CHANNELS = 80 (one work item per output channel)
++      global = 16896 * 80 = 1,351,680
++
++      Must stay in sync with bev_pool/bev_pool_gpu.xml. This entry used to
++      carry the older per-point sizing (global 31,899,648 / local 16), which
++      both over-dispatched by 118x and, because local < CHANNELS, left
++      channels 16..79 uncomputed and part of loc_grid[] uninitialized.
++    -->
++    <WorkSizes global="1351680,1,1" local="80,1,1"/>
+ </CustomLayer>
+ 
+ <!-- ═══ BEVPoolConvert: int32 → float32 conversion ═══ -->
+diff --git a/modules/openvino_bevfusion/openvino_extensions/sparse_encoder/CMakeLists.txt b/modules/openvino_bevfusion/openvino_extensions/sparse_encoder/CMakeLists.txt
+index 768af5c2186ff946f5d7cd6e41f58022940b7b95..9b8b2b6e335f99b610caf5308e2771287d1ebcb7 100644
+--- a/modules/openvino_bevfusion/openvino_extensions/sparse_encoder/CMakeLists.txt
++++ b/modules/openvino_bevfusion/openvino_extensions/sparse_encoder/CMakeLists.txt
+@@ -46,15 +46,23 @@ find_package(OpenMP)
+ 
+ set(TARGET_NAME "openvino_sparse_encoder_extension")
+ add_library(${TARGET_NAME} MODULE sparse_encoder_op.cpp ov_extension.cpp)
+-target_link_libraries(${TARGET_NAME} PRIVATE openvino::runtime ${OpenCL_LIBRARY})
++target_link_libraries(${TARGET_NAME} PRIVATE openvino::runtime ${OpenCL_LIBRARY} ${CMAKE_DL_LIBS})
+ target_include_directories(${TARGET_NAME} PRIVATE ${OpenCL_INCLUDE_DIR})
+ 
++# The op locates sparse_conv.cl next to its own .so at runtime (see
++# shared_object_dir() in sparse_encoder_op.cpp), so keep a copy beside it.
++add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
++    COMMAND ${CMAKE_COMMAND} -E copy_if_different
++            "${CMAKE_CURRENT_SOURCE_DIR}/sparse_conv.cl"
++            "$<TARGET_FILE_DIR:${TARGET_NAME}>/sparse_conv.cl"
++    COMMENT "Copying sparse_conv.cl next to the extension library")
++
+ if(OpenMP_CXX_FOUND)
+     target_link_libraries(${TARGET_NAME} PRIVATE OpenMP::OpenMP_CXX)
+     message(STATUS "OpenMP enabled for neighbor map construction")
+ endif()
+ 
+-target_compile_options(${TARGET_NAME} PRIVATE -O3 -march=native)
++target_compile_options(${TARGET_NAME} PRIVATE -O3)
+ 
+ install(TARGETS ${TARGET_NAME} LIBRARY DESTINATION lib RUNTIME DESTINATION lib)
+ install(FILES sparse_conv.cl DESTINATION lib)
+diff --git a/modules/openvino_bevfusion/openvino_extensions/sparse_encoder/sparse_encoder_op.cpp b/modules/openvino_bevfusion/openvino_extensions/sparse_encoder/sparse_encoder_op.cpp
+index 83eabaafe5d81b7d175fcf84b6087d3d50a70a6d..ea7c933a83f46380e94999f78f1f0e6701b3c2f0 100644
+--- a/modules/openvino_bevfusion/openvino_extensions/sparse_encoder/sparse_encoder_op.cpp
++++ b/modules/openvino_bevfusion/openvino_extensions/sparse_encoder/sparse_encoder_op.cpp
+@@ -14,6 +14,8 @@
+ #include <openvino/core/shape.hpp>
+ 
+ #include <CL/cl.h>
++#include <dlfcn.h>
++#include <cstdlib>
+ #include <fstream>
+ #include <sstream>
+ #include <cstring>
+@@ -30,6 +32,59 @@
+ 
+ namespace BEVFusionExtension {
+ 
++// ============================================================
++// Diagnostic output
++//
++// The op runs inside host applications (e.g. a GStreamer pipeline) whose
++// stdout is not ours to write to, so timing, kernel selection and benchmark
++// messages are only printed when BEVFUSION_VERBOSE is set. Errors still go
++// to stderr unconditionally.
++// ============================================================
++static std::ostream& log_out() {
++    static std::ostream null_stream(nullptr);
++    static const bool verbose = std::getenv("BEVFUSION_VERBOSE") != nullptr;
++    return verbose ? std::cout : null_stream;
++}
++
++// ============================================================
++// Stage dumping (debug)
++//
++// Set BEVFUSION_DUMP_DIR to write each layer's output features and
++// coordinates, so they can be diffed against a reference implementation
++// (see tools/sparse_encoder_ref.py). Off unless the variable is set.
++// File format: int32 N, int32 C, then N*4 int32 coords, then N*C float32.
++// ============================================================
++static const char* dump_dir() {
++    static const char* dir = std::getenv("BEVFUSION_DUMP_DIR");
++    return dir;
++}
++
++static void dump_stage(const char* tag, cl_mem feat, int N, int C,
++                       const int* coords);
++
++// ============================================================
++// Kernel source location
++// ============================================================
++
++// Directory holding this shared object, so the .cl kernel can be found next to
++// it wherever the library is installed.
++static std::string shared_object_dir() {
++    Dl_info info{};
++    if (dladdr(reinterpret_cast<const void*>(&shared_object_dir), &info) == 0 || !info.dli_fname)
++        return ".";
++    std::string path(info.dli_fname);
++    auto pos = path.find_last_of('/');
++    return pos == std::string::npos ? std::string(".") : path.substr(0, pos);
++}
++
++// Directory of this source file, baked in at compile time. Only valid when
++// running from the tree the library was built in; kept as a last resort.
++static std::string source_dir_at_build_time() {
++    std::string path(__FILE__);
++    auto pos = path.find_last_of("/\\");
++    return pos == std::string::npos ? std::string(".") : path.substr(0, pos);
++}
++
+ // ============================================================
+ // OpenCL State (lazy-initialized, thread-safe)
+ // ============================================================
+@@ -178,6 +233,48 @@ static void upload(cl_mem buf, const void* data, size_t sz) {
+     CL_CHECK(clEnqueueWriteBuffer(g_queue, buf, CL_FALSE, 0, sz, data, 0, nullptr, nullptr));
+ }
+ 
++// Read back an FP16 feature buffer and write it next to its coordinates.
++static void dump_stage(const char* tag, cl_mem feat, int N, int C,
++                       const int* coords) {
++    const char* dir = dump_dir();
++    if (!dir || N <= 0 || C <= 0)
++        return;
++
++    CL_CHECK(clFinish(g_queue));
++    std::vector<uint16_t> half((size_t)N * C);
++    CL_CHECK(clEnqueueReadBuffer(g_queue, feat, CL_TRUE, 0,
++                                 half.size() * sizeof(uint16_t), half.data(),
++                                 0, nullptr, nullptr));
++
++    std::vector<float> full(half.size());
++    for (size_t i = 0; i < half.size(); i++) {
++        uint16_t h = half[i];
++        uint32_t sign = ((uint32_t)h & 0x8000) << 16;
++        uint32_t exp_bits = (h >> 10) & 0x1F;
++        uint32_t mant = h & 0x3FF;
++        uint32_t f;
++        if (exp_bits == 0) {
++            f = sign;  // zero / subnormal -> zero, matching the s2d kernel
++        } else {
++            f = sign | ((exp_bits + 112) << 23) | (mant << 13);
++        }
++        std::memcpy(&full[i], &f, 4);
++    }
++
++    std::string path = std::string(dir) + "/" + tag + ".bin";
++    std::ofstream f(path, std::ios::binary);
++    if (!f) {
++        std::cerr << "[sparse_encoder_ext] cannot write " << path << std::endl;
++        return;
++    }
++    int32_t hdr[2] = {N, C};
++    f.write(reinterpret_cast<const char*>(hdr), sizeof(hdr));
++    f.write(reinterpret_cast<const char*>(coords), (size_t)N * 4 * sizeof(int32_t));
++    f.write(reinterpret_cast<const char*>(full.data()), full.size() * sizeof(float));
++    log_out() << "[sparse_encoder_ext] dumped " << tag << " N=" << N
++              << " C=" << C << std::endl;
++}
++
+ static void gpu_f32_to_f16(cl_mem f32, cl_mem f16, int total) {
+     CL_CHECK(clSetKernelArg(g_float_to_half_kernel, 0, sizeof(cl_mem), &f32));
+     CL_CHECK(clSetKernelArg(g_float_to_half_kernel, 1, sizeof(cl_mem), &f16));
+@@ -214,20 +311,19 @@ static void init_opencl() {
+             g_queue = clCreateCommandQueue(g_context, g_device, 0, &err);
+             CL_CHECK(err);
+ 
+-            // Find kernel source (try multiple paths, including relative to this source file)
++            // Find kernel source. The __FILE__ path only exists on the machine
++            // that compiled this library, so an installed/relocated .so has to
++            // locate the kernel next to itself (or be told where to look).
+             std::string src;
+-            // Derive directory of this source file at compile time
+-            std::string this_dir = std::string(__FILE__);
+-            {
+-                auto pos = this_dir.find_last_of("/\\");
+-                if (pos != std::string::npos) this_dir = this_dir.substr(0, pos);
+-                else this_dir = ".";
+-            }
+-            for (const auto& path : {
+-                (this_dir + "/sparse_conv.cl"),
+-                // std::string("openvino_extensions/sparse_encoder/sparse_conv_fused.cl"),
+-                // std::string("bevfusion/kernels/sparse_conv/sparse_conv_fused.cl")
+-            }) {
++            std::vector<std::string> candidates;
++            if (const char* dir = std::getenv("BEVFUSION_KERNEL_DIR"))
++                candidates.push_back(std::string(dir) + "/sparse_conv.cl");
++            candidates.push_back(shared_object_dir() + "/sparse_conv.cl");
++            candidates.push_back(source_dir_at_build_time() + "/sparse_conv.cl");
++
++            std::string tried;
++            for (const auto& path : candidates) {
++                tried += (tried.empty() ? "" : ", ") + path;
+                 std::ifstream f(path);
+                 if (f.is_open()) {
+                     std::ostringstream ss;
+@@ -237,7 +333,8 @@ static void init_opencl() {
+                 }
+             }
+             if (src.empty())
+-                throw std::runtime_error("Cannot find sparse_conv.cl");
++                throw std::runtime_error("Cannot find sparse_conv.cl (tried: " + tried +
++                                         "). Set BEVFUSION_KERNEL_DIR to the directory holding it.");
+ 
+             const char* sp = src.c_str();
+             size_t sl = src.size();
+@@ -273,7 +370,7 @@ static void init_opencl() {
+             // Optional fused kernel (write directly to BEV layout)
+             g_sparse_to_bev_fp16_kernel = clCreateKernel(g_program, "sparse_to_bev_fp16", &err);
+             if (err != CL_SUCCESS) {
+-                std::cout << "[sparse_encoder] sparse_to_bev_fp16 not found, using fallback" << std::endl;
++                log_out() << "[sparse_encoder] sparse_to_bev_fp16 not found, using fallback" << std::endl;
+                 g_sparse_to_bev_fp16_kernel = nullptr;
+             }
+             // FP16 output variant (half the BEV readback bandwidth)
+@@ -285,62 +382,62 @@ static void init_opencl() {
+             // Fused BN+ReLU+F32→F16 kernel
+             g_fused_bn_relu_f16_kernel = clCreateKernel(g_program, "fused_bn_relu_f16", &err);
+             if (err != CL_SUCCESS) {
+-                std::cout << "[sparse_encoder] fused_bn_relu_f16 not found, using fallback" << std::endl;
++                log_out() << "[sparse_encoder] fused_bn_relu_f16 not found, using fallback" << std::endl;
+                 g_fused_bn_relu_f16_kernel = nullptr;
+             }
+ 
+             // Compact GPU hash table kernels (for GPU neighbor map building)
+             g_build_hash_compact_kernel = clCreateKernel(g_program, "build_hash_table_compact", &err);
+             if (err != CL_SUCCESS) {
+-                std::cout << "[sparse_encoder] build_hash_table_compact not found" << std::endl;
++                log_out() << "[sparse_encoder] build_hash_table_compact not found" << std::endl;
+                 g_build_hash_compact_kernel = nullptr;
+             }
+             g_build_nmap_compact_kernel = clCreateKernel(g_program, "build_neighbor_map_compact", &err);
+             if (err != CL_SUCCESS) {
+-                std::cout << "[sparse_encoder] build_neighbor_map_compact not found" << std::endl;
++                log_out() << "[sparse_encoder] build_neighbor_map_compact not found" << std::endl;
+                 g_build_nmap_compact_kernel = nullptr;
+             }
+ 
+             // SLM v2 kernels
+             g_subm_conv_fp16_slm_v2_kernel = clCreateKernel(g_program, "subm_conv_fp16_slm_v2", &err);
+             if (err != CL_SUCCESS) {
+-                std::cout << "[sparse_encoder] subm_conv_fp16_slm_v2 not found" << std::endl;
++                log_out() << "[sparse_encoder] subm_conv_fp16_slm_v2 not found" << std::endl;
+                 g_subm_conv_fp16_slm_v2_kernel = nullptr;
+             }
+             g_subm_conv_fp16_slm_v2_w8_kernel = clCreateKernel(g_program, "subm_conv_fp16_slm_v2_w8", &err);
+             if (err != CL_SUCCESS) {
+-                std::cout << "[sparse_encoder] subm_conv_fp16_slm_v2_w8 not found" << std::endl;
++                log_out() << "[sparse_encoder] subm_conv_fp16_slm_v2_w8 not found" << std::endl;
+                 g_subm_conv_fp16_slm_v2_w8_kernel = nullptr;
+             }
+             g_subm_conv_fp16_mv4_kernel = clCreateKernel(g_program, "subm_conv_fp16_mv4", &err);
+             if (err != CL_SUCCESS) {
+-                std::cout << "[sparse_encoder] subm_conv_fp16_mv4 not found" << std::endl;
++                log_out() << "[sparse_encoder] subm_conv_fp16_mv4 not found" << std::endl;
+                 g_subm_conv_fp16_mv4_kernel = nullptr;
+             }
+ 
+             // Strided conv with precomputed neighbor map
+             g_build_strided_nmap_kernel = clCreateKernel(g_program, "build_strided_nmap", &err);
+             if (err != CL_SUCCESS) {
+-                std::cout << "[sparse_encoder] build_strided_nmap not found" << std::endl;
++                log_out() << "[sparse_encoder] build_strided_nmap not found" << std::endl;
+                 g_build_strided_nmap_kernel = nullptr;
+             }
+             g_strided_conv_nmap_fp16_kernel = clCreateKernel(g_program, "strided_conv_nmap_fp16", &err);
+             if (err != CL_SUCCESS) {
+-                std::cout << "[sparse_encoder] strided_conv_nmap_fp16 not found" << std::endl;
++                log_out() << "[sparse_encoder] strided_conv_nmap_fp16 not found" << std::endl;
+                 g_strided_conv_nmap_fp16_kernel = nullptr;
+             }
+ 
+             // NEW: DPAS/XMX kernels
+             g_subm_conv_fp16_dpas_kernel = clCreateKernel(g_program, "subm_conv_fp16_dpas", &err);
+             if (err != CL_SUCCESS) {
+-                std::cout << "[sparse_encoder] subm_conv_fp16_dpas not found (XMX not available)" << std::endl;
++                log_out() << "[sparse_encoder] subm_conv_fp16_dpas not found (XMX not available)" << std::endl;
+                 g_subm_conv_fp16_dpas_kernel = nullptr;
+             } else {
+                 // DPAS kernel compiled but may not work on all GPUs
+                 // Verified: 0xb0b0 (32 EU Xe-LPG) reports XMX but lacks functional units
+                 // Disable DPAS until we can verify correctness at runtime
+                 g_use_dpas = false;
+-                std::cout << "[sparse_encoder] DPAS kernel compiled (disabled: verification needed)" << std::endl;
++                log_out() << "[sparse_encoder] DPAS kernel compiled (disabled: verification needed)" << std::endl;
+             }
+             g_subm_conv_fp16_dpas_resadd_kernel = clCreateKernel(g_program, "subm_conv_fp16_dpas_resadd", &err);
+             if (err != CL_SUCCESS) {
+@@ -350,63 +447,63 @@ static void init_opencl() {
+             // NEW: Optimized FP16 fast kernel
+             g_subm_conv_fp16_fast_kernel = clCreateKernel(g_program, "subm_conv_fp16_fast", &err);
+             if (err != CL_SUCCESS) {
+-                std::cout << "[sparse_encoder] subm_conv_fp16_fast not found" << std::endl;
++                log_out() << "[sparse_encoder] subm_conv_fp16_fast not found" << std::endl;
+                 g_subm_conv_fp16_fast_kernel = nullptr;
+             }
+ 
+             // NEW: FP16 lite kernel (FP16 accum, no preloading)
+             g_subm_conv_fp16_lite_kernel = clCreateKernel(g_program, "subm_conv_fp16_lite", &err);
+             if (err != CL_SUCCESS) {
+-                std::cout << "[sparse_encoder] subm_conv_fp16_lite not found" << std::endl;
++                log_out() << "[sparse_encoder] subm_conv_fp16_lite not found" << std::endl;
+                 g_subm_conv_fp16_lite_kernel = nullptr;
+             }
+ 
+             // NEW: Morton-ordered kernel
+             g_subm_conv_fp16_morton_kernel = clCreateKernel(g_program, "subm_conv_fp16_morton", &err);
+             if (err != CL_SUCCESS) {
+-                std::cout << "[sparse_encoder] subm_conv_fp16_morton not found" << std::endl;
++                log_out() << "[sparse_encoder] subm_conv_fp16_morton not found" << std::endl;
+                 g_subm_conv_fp16_morton_kernel = nullptr;
+             }
+ 
+             // NEW: Feature permutation kernel
+             g_permute_features_fp16_kernel = clCreateKernel(g_program, "permute_features_fp16", &err);
+             if (err != CL_SUCCESS) {
+-                std::cout << "[sparse_encoder] permute_features_fp16 not found" << std::endl;
++                log_out() << "[sparse_encoder] permute_features_fp16 not found" << std::endl;
+                 g_permute_features_fp16_kernel = nullptr;
+             }
+ 
+             // NEW: Transposed-weight kernels
+             g_subm_conv_fp16_w4t_kernel = clCreateKernel(g_program, "subm_conv_fp16_w4t", &err);
+             if (err != CL_SUCCESS) {
+-                std::cout << "[sparse_encoder] subm_conv_fp16_w4t not found" << std::endl;
++                log_out() << "[sparse_encoder] subm_conv_fp16_w4t not found" << std::endl;
+                 g_subm_conv_fp16_w4t_kernel = nullptr;
+             }
+             g_subm_conv_fp16_w8t_kernel = clCreateKernel(g_program, "subm_conv_fp16_w8t", &err);
+             if (err != CL_SUCCESS) {
+-                std::cout << "[sparse_encoder] subm_conv_fp16_w8t not found" << std::endl;
++                log_out() << "[sparse_encoder] subm_conv_fp16_w8t not found" << std::endl;
+                 g_subm_conv_fp16_w8t_kernel = nullptr;
+             }
+ 
+             // NEW: Optimized lite8 and fused residual kernels
+             g_subm_conv_fp16_lite8_kernel = clCreateKernel(g_program, "subm_conv_fp16_lite8", &err);
+             if (err != CL_SUCCESS) {
+-                std::cout << "[sparse_encoder] subm_conv_fp16_lite8 not found" << std::endl;
++                log_out() << "[sparse_encoder] subm_conv_fp16_lite8 not found" << std::endl;
+                 g_subm_conv_fp16_lite8_kernel = nullptr;
+             }
+             g_subm_conv_fp16_lite_resadd_kernel = clCreateKernel(g_program, "subm_conv_fp16_lite_resadd", &err);
+             if (err != CL_SUCCESS) {
+-                std::cout << "[sparse_encoder] subm_conv_fp16_lite_resadd not found" << std::endl;
++                log_out() << "[sparse_encoder] subm_conv_fp16_lite_resadd not found" << std::endl;
+                 g_subm_conv_fp16_lite_resadd_kernel = nullptr;
+             }
+             g_subm_conv_fp16_lite8_resadd_kernel = clCreateKernel(g_program, "subm_conv_fp16_lite8_resadd", &err);
+             if (err != CL_SUCCESS) {
+-                std::cout << "[sparse_encoder] subm_conv_fp16_lite8_resadd not found" << std::endl;
++                log_out() << "[sparse_encoder] subm_conv_fp16_lite8_resadd not found" << std::endl;
+                 g_subm_conv_fp16_lite8_resadd_kernel = nullptr;
+             }
+ 
+             char name[256];
+             clGetDeviceInfo(d, CL_DEVICE_NAME, sizeof(name), name, nullptr);
+-            std::cout << "[sparse_encoder_ext] Using: " << name << std::endl;
++            log_out() << "[sparse_encoder_ext] Using: " << name << std::endl;
+             return;
+         }
+     }
+@@ -576,7 +673,11 @@ static const LayerDesc LAYERS[] = {
+     {1, 64, 64,  27, 3,3,3, 1,1,1, 0,0,0},
+     {1, 64, 64,  27, 3,3,3, 1,1,1, 0,0,0},
+     {1, 64, 64,  27, 3,3,3, 1,1,1, 0,0,0},
+-    {2, 64, 128, 27, 3,3,3, 2,2,2, 1,1,1},  // ds2
++    // ds2 uses z-padding 0, not 1: the config's encoder_paddings[2] is
++    // (0, 0, (1,1,0)), so the strided conv of stage 3 pads (px,py,pz)=(1,1,0).
++    // With pz=1 this level becomes Z=6 instead of Z=5, which shifts every
++    // feature into the wrong z slice (and contradicts the level comment below).
++    {2, 64, 128, 27, 3,3,3, 2,2,2, 1,1,0},  // ds2
+     // encoder_layer3 (no downsample)
+     {1, 128, 128, 27, 3,3,3, 1,1,1, 0,0,0},
+     {1, 128, 128, 27, 3,3,3, 1,1,1, 0,0,0},
+@@ -947,11 +1048,11 @@ static void run_subm_conv(
+                 CL_CHECK(clFinish(g_queue));
+                 double ms = std::chrono::duration<double, std::milli>(
+                     std::chrono::high_resolution_clock::now() - t0).count() / RUNS;
+-                std::cout << "[subm_bench] " << Cin << "x" << Cout << " N=" << N
++                log_out() << "[subm_bench] " << Cin << "x" << Cout << " N=" << N
+                           << " " << name << ": " << ms << " ms" << std::endl;
+                 return ms;
+             } catch (const std::exception& e) {
+-                std::cout << "[subm_bench] " << name << " FAILED: " << e.what() << std::endl;
++                log_out() << "[subm_bench] " << name << " FAILED: " << e.what() << std::endl;
+                 return 1e30;
+             }
+         };
+@@ -984,7 +1085,7 @@ static void run_subm_conv(
+         g_best_kernel[cw_idx] = 1; // mark as benchmarked
+         g_best_kernel_type[cw_idx] = best_type;
+         g_best_kernel_idx[cw_idx] = best_idx;
+-        std::cout << "[subm_bench] BEST for " << Cin << "x" << Cout
++        log_out() << "[subm_bench] BEST for " << Cin << "x" << Cout
+                   << ": type=" << best_type << " idx=" << best_idx
+                   << " (" << best_ms << " ms)" << std::endl;
+     }
+@@ -1097,7 +1198,7 @@ static void pre_upload_weights(const float* params, const int* w_offsets, const
+         CL_CHECK(clerr);
+     }
+     g_weights_uploaded = true;
+-    std::cout << "[sparse_encoder_ext] Pre-uploaded weights for " << NUM_LAYERS << " layers" << std::endl;
++    log_out() << "[sparse_encoder_ext] Pre-uploaded weights for " << NUM_LAYERS << " layers" << std::endl;
+ 
+     // ── DPAS weight packing: convert [num_k, C_in, C_out] to VNNI format ──
+     // VNNI for FP16 k16: weights_packed[k][ci_tile][co_tile][8][16] as uint
+@@ -1118,7 +1219,7 @@ static void pre_upload_weights(const float* params, const int* w_offsets, const
+     //   which is: data[0..15], data[16..31], ..., data[112..127]
+     //   = columns of our 8×16 matrix
+     if (g_use_dpas) {
+-        std::cout << "[sparse_encoder_ext] Packing weights for DPAS..." << std::endl;
++        log_out() << "[sparse_encoder_ext] Packing weights for DPAS..." << std::endl;
+         for (int i = 0; i < NUM_LAYERS; i++) {
+             int num_k = LAYERS[i].num_k;
+             int C_in = LAYERS[i].C_in;
+@@ -1180,7 +1281,7 @@ static void pre_upload_weights(const float* params, const int* w_offsets, const
+                                                       pb, packed.data(), &clerr);
+             CL_CHECK(clerr);
+         }
+-        std::cout << "[sparse_encoder_ext] DPAS weight packing done" << std::endl;
++        log_out() << "[sparse_encoder_ext] DPAS weight packing done" << std::endl;
+     }
+ 
+     // ── Transposed weight packing ──
+@@ -1363,6 +1464,7 @@ bool SparseEncoderOp::evaluate(
+         run_subm_conv(cur_feat, alt_feat, cur_N, cur_C, Cout, 1, 0);
+         std::swap(cur_feat, alt_feat);
+         cur_C = Cout;
++        dump_stage("L00_conv_input", cur_feat, cur_N, cur_C, levels[0].coords_ptr);
+         if (do_section_timing) {
+             CL_CHECK(clFinish(g_queue));
+             sec_conv0 = std::chrono::duration<double, std::milli>(
+@@ -1434,6 +1536,11 @@ bool SparseEncoderOp::evaluate(
+             cur_C = Cout;
+             ms_subm += std::chrono::duration<double, std::milli>(
+                 std::chrono::high_resolution_clock::now() - t0).count();
++            if (dump_dir()) {
++                char tag[64];
++                snprintf(tag, sizeof(tag), "L%02d_res", li);
++                dump_stage(tag, cur_feat, cur_N, cur_C, levels[cur_level].coords_ptr);
++            }
+             li += 2;
+             
+             // Section timing after residual block
+@@ -1703,6 +1810,13 @@ bool SparseEncoderOp::evaluate(
+                 t_sec = std::chrono::high_resolution_clock::now();
+             }
+ 
++            if (dump_dir()) {
++                char tag[64];
++                snprintf(tag, sizeof(tag), "L%02d_%s", li,
++                         L.type == 3 ? "conv_out" : "downsample");
++                dump_stage(tag, cur_feat, cur_N, cur_C,
++                           strided_precomp[strided_idx].out_coords.data());
++            }
+             strided_idx++;
+             li++;
+         }
+@@ -1781,13 +1895,13 @@ bool SparseEncoderOp::evaluate(
+ 
+     g_call_count++;
+     if (g_call_count <= 5 || g_call_count % 20 == 0) {
+-        std::cout << "[sparse_encoder_ext] " << elapsed << " ms, N=" << N
++        log_out() << "[sparse_encoder_ext] " << elapsed << " ms, N=" << N
+                   << " -> N_out=" << cur_N
+                   << " | precomp=" << ms_precomp << " subm=" << ms_subm
+                   << " sgpu=" << ms_sgpu
+                   << " s2d=" << ms_s2d << std::endl;
+         if (do_section_timing) {
+-            std::cout << "[SECTION_PROFILE] upload=" << sec_upload
++            log_out() << "[SECTION_PROFILE] upload=" << sec_upload
+                       << " conv0=" << sec_conv0
+                       << " lv0=" << sec_level[0]
+                       << " st0=" << sec_strided[0]
+diff --git a/modules/openvino_bevfusion/run_inference_standalone.py b/modules/openvino_bevfusion/run_inference_standalone.py
+index 7abbe2519cce5d21e9dcbe237907ca1f7f9ae3a8..5eb1a9e1d22ee6e01b5e34542d279dff9a246840 100644
+--- a/modules/openvino_bevfusion/run_inference_standalone.py
++++ b/modules/openvino_bevfusion/run_inference_standalone.py
+@@ -643,7 +643,7 @@ class BEVFusionInference:
+             if has_b6_dt and has_b6_dn:
+                 dt_res = self._infer('vtransform_dtransform_b6', [depth_maps])
+                 df = list(dt_res.values())[0]
+-                combined = np.concatenate([cam_feats, df], axis=1)
++                combined = np.concatenate([df, cam_feats], axis=1)
+                 dn_res = self._infer('vtransform_depthnet_b6', [combined])
+                 daf = list(dn_res.values())[0]
+                 dl, cf = daf[:, :D], daf[:, D:]
+@@ -652,7 +652,7 @@ class BEVFusionInference:
+                 for i in range(6):
+                     dt_res = self._infer('vtransform_dtransform', [depth_maps[i:i+1]])
+                     df = list(dt_res.values())[0]
+-                    combined = np.concatenate([cam_feats[i:i+1], df], axis=1)
++                    combined = np.concatenate([df, cam_feats[i:i+1]], axis=1)
+                     dn_res = self._infer('vtransform_depthnet', [combined])
+                     daf = list(dn_res.values())[0]
+                     dl_l.append(daf[0, :D])
+diff --git a/modules/openvino_bevfusion/tools/sanitize_checkpoint.py b/modules/openvino_bevfusion/tools/sanitize_checkpoint.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..b43615d2c393baffda877bd23d054016effed24c
+--- /dev/null
++++ b/modules/openvino_bevfusion/tools/sanitize_checkpoint.py
+@@ -0,0 +1,95 @@
++#!/usr/bin/env python3
++# Copyright (C) 2018-2026 Intel Corporation
++# SPDX-License-Identifier: Apache-2.0
++
++"""Strip an mmdetection3d checkpoint down to a plain ``state_dict``.
++
++The published BEVFusion checkpoints pickle mmengine objects into their ``meta``
++field (the training config), so ``torch.load`` raises ``ModuleNotFoundError: No
++module named 'mmengine'`` unless the whole mmengine/mmcv stack is installed.
++``export.py`` only ever reads ``ckpt['state_dict']``, so we unpickle with stub
++modules standing in for the mm* packages and re-save just the weights.
++
++Usage:
++    python sanitize_checkpoint.py in.pth out.pth
++"""
++from __future__ import annotations
++
++import argparse
++import importlib.abc
++import importlib.machinery
++import sys
++import types
++
++import torch
++
++# mm* classes appearing in the pickle are all dict-like config containers, so a
++# dict subclass reconstructs them faithfully enough to reach the state_dict.
++STUB_PACKAGES = ('mmengine', 'mmcv', 'mmdet', 'mmdet3d')
++
++
++class _StubConfig(dict):
++    """Stand-in for mmengine.config.ConfigDict and friends."""
++
++
++class _StubModule(types.ModuleType):
++    """Package-like module whose every attribute resolves to _StubConfig."""
++
++    __path__: list = []
++
++    def __getattr__(self, name):
++        if name.startswith('__'):
++            raise AttributeError(name)
++        # A dotted lookup may be either a submodule or a class; submodules are
++        # already in sys.modules by the time pickle asks for them.
++        return sys.modules.get(f'{self.__name__}.{name}', _StubConfig)
++
++
++class _StubFinder(importlib.abc.MetaPathFinder, importlib.abc.Loader):
++    """Import hook that fabricates a _StubModule for any mm* module path."""
++
++    def find_spec(self, fullname, path=None, target=None):
++        root = fullname.split('.')[0]
++        if root not in STUB_PACKAGES:
++            return None
++        return importlib.machinery.ModuleSpec(fullname, self, is_package=True)
++
++    def create_module(self, spec):
++        return _StubModule(spec.name)
++
++    def exec_module(self, module):
++        pass
++
++
++def _install_stubs() -> None:
++    """Make the mm* packages importable as no-op stubs."""
++    sys.meta_path.insert(0, _StubFinder())
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument('input', help='Checkpoint to read')
++    parser.add_argument('output', help='Where to write the weights-only checkpoint')
++    args = parser.parse_args()
++
++    _install_stubs()
++
++    ckpt = torch.load(args.input, map_location='cpu', weights_only=False)
++    state = ckpt.get('state_dict', ckpt) if isinstance(ckpt, dict) else ckpt
++    if not isinstance(state, dict) or not state:
++        raise SystemExit(f'No state_dict found in {args.input}')
++
++    tensors = {k: v for k, v in state.items() if torch.is_tensor(v)}
++    dropped = len(state) - len(tensors)
++    torch.save({'state_dict': tensors}, args.output)
++
++    print(f'{args.input} -> {args.output}')
++    print(f'  {len(tensors)} weight tensors kept'
++          + (f', {dropped} non-tensor entries dropped' if dropped else ''))
++    prefixes = sorted({k.split(".")[0] for k in tensors})
++    print(f'  top-level prefixes: {prefixes}')
++    return 0
++
++
++if __name__ == '__main__':
++    sys.exit(main())

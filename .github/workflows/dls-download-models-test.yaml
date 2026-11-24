@@ -62,7 +62,7 @@ jobs:
         run: |
           uv venv "$HF_VENV"
           source "$HF_VENV/bin/activate"
-          uv pip install -r scripts/download_models/requirements_download_hf_models.txt
+          uv pip install --index-strategy unsafe-best-match -r scripts/download_models/requirements_download_hf_models.txt
 
       - name: "README §1 - standard HF export"
         if: needs.setup.outputs.should_run == 'true'

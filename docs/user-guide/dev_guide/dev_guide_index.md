@@ -65,6 +65,9 @@
 - [Latency Tracer](./latency_tracer.md)
   - [Elements and Pipeline Latency](./latency_tracer.md#elements-and-pipeline-latency)
   - [Interval Configuration](./latency_tracer.md#interval-configuration)
+- [Structured Metrics Messages](./metrics_messages.md)
+  - [Message format](./metrics_messages.md#message-format)
+  - [Messages](./metrics_messages.md#messages)
 - [Model-proc File (legacy)](./model_proc_file.md)
   - [Contents](./model_proc_file.md#table-of-contents)
   - [Overview](./model_proc_file.md#model-proc-overview)
@@ -95,6 +98,7 @@ dlstreamer-deepstream-coexistence.md
 converting_deepstream_to_dlstreamer
 how_to_contribute
 latency_tracer
+metrics_messages
 model_proc_file
 optimizer
 :::

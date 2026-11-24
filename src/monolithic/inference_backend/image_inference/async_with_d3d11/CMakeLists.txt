@@ -8,12 +8,15 @@ if(WIN32)
     set (TARGET_NAME "image_inference_async_d3d11")
 
     find_package(PkgConfig REQUIRED)
+    find_package(OpenVINO REQUIRED Runtime)
+    find_package(OpenCL REQUIRED)
 
     pkg_check_modules(GSTD3D11 gstreamer-d3d11-1.0>=1.16 REQUIRED)
     pkg_check_modules(GSTVIDEO gstreamer-video-1.0>=1.16 REQUIRED)
 
     set(MAIN_SRC
         ${CMAKE_CURRENT_SOURCE_DIR}/d3d11_converter.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/d3d11_surface_sharing.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/image_inference_async_d3d11.cpp
     )
 
@@ -35,6 +38,8 @@ if(WIN32)
         utils
         d3d11
         dxgi
+        openvino::runtime
+        OpenCL::OpenCL
         ${GSTD3D11_LIBRARIES}
         ${GSTVIDEO_LIBRARIES}
     )

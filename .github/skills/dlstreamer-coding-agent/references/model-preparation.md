@@ -336,8 +336,9 @@ Typical `requirements.txt` entries by model source:
 # CPU-only PyTorch — must appear before torch-dependent packages
 --extra-index-url https://download.pytorch.org/whl/cpu
 
-# OpenVINO Python version (pin to match DL Streamer runtime — query with: python3 -c "import openvino; print(openvino.__version__)")
-openvino==2026.3.1
+# OpenVINO extra index needed when using nightly OpenVINO builds
+--extra-index-url https://storage.openvinotoolkit.org/simple/wheels/nightly
+openvino==2026.5.0.dev20261027
 nncf==3.0.0  # required for int8=True quantization (query with: pip show nncf | grep Version)
 
 # Ultralytics YOLO (query with: pip show ultralytics | grep Version)

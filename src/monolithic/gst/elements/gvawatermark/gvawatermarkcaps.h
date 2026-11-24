@@ -11,8 +11,6 @@
 // Preferred format to use with VAMemory and DMABuf
 #define WATERMARK_VA_PREFERRED_REMOTE_FORMAT "NV12"
 
-#define WATERMARK_SYSTEM_CAPS GST_VIDEO_CAPS_MAKE("{ BGRx, RGBA, BGRA, BGR, NV12, I420 }") "; "
-
 #ifdef ENABLE_VAAPI
 #define WATERMARK_VASURFACE_CAPS                                                                                       \
     GST_VIDEO_CAPS_MAKE_WITH_FEATURES(VASURFACE_FEATURE_STR, WATERMARK_PREFERRED_REMOTE_FORMAT) "; "
@@ -26,13 +24,7 @@
 #define WATERMARK_DMA_BUFFER_CAPS
 #endif
 
-#ifdef _WIN32
-#define WATERMARK_D3D11_CAPS                                                                                           \
-    GST_VIDEO_CAPS_MAKE_WITH_FEATURES(D3D11MEMORY_FEATURE_STR, "{ BGRx, RGBA, BGRA, BGR, NV12, I420 }") "; "
-#else
-#define WATERMARK_D3D11_CAPS
-#endif
-
+// System memory and D3D memory take GVA_CAPS's formats.
 #define WATERMARK_ALL_CAPS                                                                                             \
-    WATERMARK_SYSTEM_CAPS WATERMARK_VASURFACE_CAPS WATERMARK_DMA_BUFFER_CAPS WATERMARK_VAMEMORY_CAPS                   \
-        WATERMARK_D3D11_CAPS
+    SYSTEM_MEM_CAPS WATERMARK_VASURFACE_CAPS WATERMARK_DMA_BUFFER_CAPS WATERMARK_VAMEMORY_CAPS D3D11MEMORY_CAPS        \
+        D3D12MEMORY_CAPS
