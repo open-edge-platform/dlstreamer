@@ -6,6 +6,7 @@
 
 #include "vaapi_converter.h"
 
+#include "inference_backend/image_inference.h"
 #include "inference_backend/pre_proc.h"
 #include "safe_arithmetic.hpp"
 #include "utils.h"
@@ -56,7 +57,17 @@ VASurfaceID ConvertVASurfaceFromDifferentDriverContext(VaDpyWrapper src_display,
                                                        VaDpyWrapper dst_display, int rt_format, uint64_t &drm_fd_out) {
 
     VADRMPRIMESurfaceDescriptor drm_descriptor = VADRMPRIMESurfaceDescriptor();
-    VA_CALL(src_display.drvVtable().vaSyncSurface(src_display.drvCtx(), src_surface));
+    {
+        ITT_TASK("vaSyncSurface");
+        const VAStatus status = src_display.drvVtable().vaSyncSurface(src_display.drvCtx(), src_surface);
+        if (status == VA_STATUS_ERROR_DECODING_ERROR)
+            throw DecodedFrameError("the decoder flagged surface " + std::to_string(src_surface) +
+                                    " as corrupted (vaSyncSurface sts=" + std::to_string(status) + " " +
+                                    status_to_string(status) + ")");
+        if (status != VA_STATUS_SUCCESS)
+            throw std::runtime_error("vaSyncSurface failed, sts=" + std::to_string(status) + " " +
+                                     status_to_string(status));
+    }
     VA_CALL(src_display.drvVtable().vaExportSurfaceHandle(src_display.drvCtx(), src_surface,
                                                           VA_SURFACE_ATTRIB_MEM_TYPE_DRM_PRIME_2,
                                                           VA_EXPORT_SURFACE_READ_ONLY, &drm_descriptor));

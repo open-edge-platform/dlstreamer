@@ -31,6 +31,7 @@
 #include "video_frame.h"
 
 #include <assert.h>
+#include <atomic>
 #include <cmath>
 #include <cstring>
 #include <exception>
@@ -1762,7 +1763,25 @@ GstFlowReturn InferenceImpl::SubmitImages(GvaBaseInference *gva_base_inference,
             if (!model.input_processor_info.empty() && gva_base_inference->input_prerocessors_factory)
                 input_preprocessors =
                     gva_base_inference->input_prerocessors_factory(model.inference, model.input_processor_info, &meta);
-            model.inference->SubmitImage(std::move(result), input_preprocessors);
+            try {
+                auto submitted = result;
+                model.inference->SubmitImage(std::move(submitted), input_preprocessors);
+            } catch (const InferenceBackend::DecodedFrameError &e) {
+                // Issue #1240: under multi-stream load the decoder flags a frame about once an hour; the frames that
+                // follow (into the same surface too) decode fine. Pass this frame on without inference results
+                // instead of stopping every stream of the process. On the bus so that it is visible without GST_DEBUG;
+                // rate-limited in case a stream delivers nothing but corrupted frames.
+                static std::atomic<unsigned> corrupted_frames{0};
+                const unsigned count = ++corrupted_frames;
+                if (count <= 10 || count % 1000 == 0) {
+                    GST_ELEMENT_WARNING(gva_base_inference, STREAM, DECODE,
+                                        ("Skipping inference on a frame the decoder flagged as corrupted"),
+                                        ("occurrence %u: %s", count, e.what()));
+                }
+                GVA_WARNING("Skipping inference on a frame the decoder flagged as corrupted (occurrence %u): %s", count,
+                            e.what());
+                PushFramesIfInferenceFailed({result});
+            }
         }
     } catch (const std::exception &e) {
         std::throw_with_nested(std::runtime_error("Failed to submit images to inference"));
