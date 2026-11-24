@@ -15,6 +15,7 @@
 #include "pre_event_ring/pre_event_ring.hpp"
 
 #include <glib/gstdio.h>
+#include <dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h>
 #include <gst/analytics/analytics.h>
 #include <gst/check/gstharness.h>
 #include <gst/gst.h>

@@ -9,6 +9,7 @@
 #include "test_utils.h"
 
 #include <cstring>
+#include <dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h>
 #include <gst/analytics/analytics.h>
 #include <gst/video/gstvideometa.h>
 #include <string>
