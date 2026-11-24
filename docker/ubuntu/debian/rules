@@ -8,7 +8,7 @@ endif
 PYTHON_LIBDIR_ARGS := $(if $(PYTHON_LIBDIR),-l$(PYTHON_LIBDIR))
 
 %:
-	dh $@ -l/opt/intel/dlstreamer/opencv/lib
+	dh $@ -l/opt/opencv
 
 override_dh_shlibdeps:
 	dh_shlibdeps --dpkg-shlibdeps-params="--ignore-missing-info -l$(CURDIR)/opt/intel/dlstreamer/gstreamer/lib -l./libraries/usr/lib -l./libraries/usr/local/lib -l./libraries/usr/lib/x86_64-linux-gnu $(PYTHON_LIBDIR_ARGS)"

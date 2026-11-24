@@ -151,7 +151,7 @@ ENV PATH="/python3venv/bin:${PATH}"
 # ==============================================================================
 FROM builder AS opencv-builder
 
-ARG OPENCV_VERSION=5.1.0
+ARG OPENCV_VERSION=4.13.0
 
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
@@ -372,11 +372,11 @@ ARG DLSTREAMER_BUILD_NUMBER
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
 COPY --from=gstreamer-builder ${GSTREAMER_DIR} ${GSTREAMER_DIR}
-COPY --from=opencv-builder /usr/local/include/opencv5 /usr/local/include/opencv5
+COPY --from=opencv-builder /usr/local/include/opencv4 /usr/local/include/opencv4
 COPY --from=opencv-builder /copy_libs/ /usr/local/lib/
-COPY --from=opencv-builder /usr/local/lib/cmake/opencv5 /usr/local/lib/cmake/opencv5
-COPY --from=opencv-builder /usr/local/lib/pkgconfig/opencv5.pc /usr/local/lib/pkgconfig/
-COPY --from=opencv-builder /usr/local/share/opencv5/ /usr/local/share/opencv5/
+COPY --from=opencv-builder /usr/local/lib/cmake/opencv4 /usr/local/lib/cmake/opencv4
+COPY --from=opencv-builder /usr/local/lib/pkgconfig/opencv4.pc /usr/local/lib/pkgconfig/
+COPY --from=opencv-builder /usr/local/share/opencv4/ /usr/local/share/opencv4/
 COPY --from=kafka-builder /usr/local/include/librdkafka /usr/local/include/librdkafka
 COPY --from=kafka-builder /copy_libs/ /usr/local/lib/
 COPY --from=realsense-builder /copy_libs/ /usr/local/lib/
@@ -479,6 +479,7 @@ RUN apt-get update && \
 
 RUN \
     mkdir -p /deb-pkg/opt/intel/ && \
+    mkdir -p /deb-pkg/opt/opencv/include && \
     mkdir -p /deb-pkg/opt/rdkafka && \
     mkdir -p /deb-pkg/opt/librealsense/ && \
     cp -r "${DLSTREAMER_DIR}/build/intel64/${BUILD_ARG}" /deb-pkg/opt/intel/dlstreamer && \
@@ -493,12 +494,8 @@ RUN \
     mkdir -p /deb-pkg/opt/intel/dlstreamer/share/gir-1.0 && \
     cp "${DLSTREAMER_DIR}/girs/"*.gir /deb-pkg/opt/intel/dlstreamer/share/gir-1.0/ && \
     cp "${DLSTREAMER_DIR}/build/src/gst/metadata/"*.typelib /deb-pkg/opt/intel/dlstreamer/lib/girepository-1.0/ && \
-    mkdir -p /deb-pkg/opt/intel/dlstreamer/opencv/lib/cmake /deb-pkg/opt/intel/dlstreamer/opencv/lib/pkgconfig /deb-pkg/opt/intel/dlstreamer/opencv/include && \
-    cp -a /usr/local/lib/libopencv*.so* /deb-pkg/opt/intel/dlstreamer/opencv/lib/ && \
-    cp -r /usr/local/include/opencv5 /deb-pkg/opt/intel/dlstreamer/opencv/include/ && \
-    cp -r /usr/local/lib/cmake/opencv5 /deb-pkg/opt/intel/dlstreamer/opencv/lib/cmake/ && \
-    cp /usr/local/lib/pkgconfig/opencv5.pc /deb-pkg/opt/intel/dlstreamer/opencv/lib/pkgconfig/ && \
-    sed -i 's|^prefix=.*|prefix=/opt/intel/dlstreamer/opencv|' /deb-pkg/opt/intel/dlstreamer/opencv/lib/pkgconfig/opencv5.pc && \
+    cp -a /usr/local/lib/libopencv*.so* /deb-pkg/opt/opencv/ && \
+    cp -r /usr/local/include/opencv4/* /deb-pkg/opt/opencv/include && \
     cp -a /usr/local/lib/librdkafka*.so* /deb-pkg/opt/rdkafka/ && \
     cp -a /usr/local/lib/librealsense* /deb-pkg/opt/librealsense/ && \
     rm -rf /deb-pkg/opt/intel/dlstreamer/archived && \
@@ -614,7 +611,7 @@ RUN \
 # DL Streamer environment variables
 ENV LIBVA_DRIVER_NAME=iHD
 ENV GST_PLUGIN_PATH=/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0:/opt/intel/dlstreamer/gstreamer/lib/
-ENV LD_LIBRARY_PATH=/opt/intel/dlstreamer/gstreamer/lib:/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/lib/gstreamer-1.0:/opt/intel/dlstreamer/opencv/lib:/opt/rdkafka:/opt/librealsense:/usr/local/lib/gstreamer-1.0:/usr/local/lib
+ENV LD_LIBRARY_PATH=/opt/intel/dlstreamer/gstreamer/lib:/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/lib/gstreamer-1.0:/opt/opencv:/opt/rdkafka:/opt/librealsense:/usr/local/lib/gstreamer-1.0:/usr/local/lib
 ENV LIBVA_DRIVERS_PATH=/usr/lib/x86_64-linux-gnu/dri
 ENV GST_VA_ALL_DRIVERS=1
 ENV MODEL_PROC_PATH=/opt/intel/dlstreamer/samples/gstreamer/model_proc
