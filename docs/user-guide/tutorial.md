@@ -78,7 +78,7 @@ is built on.
 > **Pipelines vs. ready-made samples:** In this tutorial we mostly build
 > pipelines **by hand** so you learn the building blocks. DL Streamer also ships
 > **30+ ready-to-run sample scripts** for common use cases — we use one of them
-> in [Step 4.3](#43-find-anything-with-plain-english-prompt-based-detection).
+> in [Step 4.3](#43-find-anything-with-plain-english-ready-made-sample).
 > Once you understand the pieces, the samples are a great shortcut.
 
 That's the whole concept. Now let's see it in action.
@@ -168,10 +168,20 @@ export MODELS_PATH="$HOME/dlstreamer_demo/models"
 
 ### 2.2 Download the demo videos
 
-Any local video files can be used to run this tutorial.
+Any local video files can be used to run this tutorial. Name them as in the table below,
+since the following examples use these names.
 
-For demonstrative purposes, we'll use five short, freely licensed clips from [Pexels\*](https://www.pexels.com/),
-downloaded in **Full HD (1080p)**. Copy/paste to download all five:
+| File | Sample content | Used for |
+|---|---|---|
+| `bridge.mp4` | Cars crossing the bridge | Detection & segmentation |
+| `skateboard.mp4` | A skateboarder (and a dog!) in an autumn park | Prompt detection & JSON export |
+| `dance.mp4` | A person dancing in a greenhouse | Human pose estimation |
+| `beach.mp4` | People walking along a sunset beach | Object tracking |
+| `girl_dog.mp4` | A girl playing with her dog | Privacy blur |
+
+
+The following examples have been validated with five short, freely licensed clips from [Pexels\*](https://www.pexels.com/).
+They were downloaded in **Full HD (1080p)** resolution with the following commands:
 
 ```bash
 wget -O ${VIDEOS_PATH}/bridge.mp4     "https://www.pexels.com/download/video/34129177/?w=1920&h=1080"
@@ -180,14 +190,6 @@ wget -O ${VIDEOS_PATH}/dance.mp4      "https://www.pexels.com/download/video/379
 wget -O ${VIDEOS_PATH}/beach.mp4      "https://www.pexels.com/download/video/32192786/?w=1920&h=1080"
 wget -O ${VIDEOS_PATH}/girl_dog.mp4   "https://www.pexels.com/download/video/7516659/?w=1920&h=1080"
 ```
-
-| File | Content | Used for |
-|---|---|---|
-| `bridge.mp4` | Cars crossing the Brooklyn Bridge | Detection & segmentation |
-| `skateboard.mp4` | A skateboarder (and a dog!) in an autumn park | Prompt detection & JSON export |
-| `dance.mp4` | A person dancing in a greenhouse | Human pose estimation |
-| `beach.mp4` | People walking along a sunset beach | Object tracking |
-| `girl_dog.mp4` | A girl playing with her dog | Privacy blur |
 
 > **Credits:** Videos by *ubeyonroad*, *Rec Everywhere*, *Airam Dato-on*, *Igor
 > Vieira*, and *RDNE Stock project* on Pexels. Free to use under the
@@ -217,9 +219,9 @@ into whatever directory you give it:
 
 ```bash
 DL="/opt/intel/dlstreamer/scripts/download_models/download_ultralytics_models.py"
-python3 $DL --model yolo11s.pt@v8.4.0          --outdir ${MODELS_PATH}/yolo11s/FP16 --half
-python3 $DL --model yolo11s-seg.pt@v8.4.0      --outdir ${MODELS_PATH}/yolo11s-seg/FP16 --half
-python3 $DL --model yolo11s-pose.pt@v8.4.0     --outdir ${MODELS_PATH}/yolo11s-pose/FP16 --half
+python3 $DL --model yolo11s.pt@v8.4.0          --outdir ${MODELS_PATH}/public/yolo11s/FP16 --half
+python3 $DL --model yolo11s-seg.pt@v8.4.0      --outdir ${MODELS_PATH}/public/yolo11s-seg/FP16 --half
+python3 $DL --model yolo11s-pose.pt@v8.4.0     --outdir ${MODELS_PATH}/public/yolo11s-pose/FP16 --half
 python3 $DL --model yoloe-26s-seg.pt@v8.4.0 --classes "dog,person,backpack" --outdir ${MODELS_PATH}/public/yoloe-26s-seg/FP16 --half
 ```
 
@@ -233,9 +235,9 @@ You now have four ready-to-use models under `${MODELS_PATH}`:
 
 | Model | File | What it does |
 |---|---|---|
-| `yolo11s` | `${MODELS_PATH}/yolo11s/FP16/yolo11s.xml` | Detects objects (boxes + labels) |
-| `yolo11s-seg` | `${MODELS_PATH}/yolo11s-seg/FP16/yolo11s-seg.xml` | Detects **and** outlines objects pixel-by-pixel |
-| `yolo11s-pose` | `${MODELS_PATH}/yolo11s-pose/FP16/yolo11s-pose.xml` | Detects people and their body keypoints |
+| `yolo11s` | `${MODELS_PATH}/public/yolo11s/FP16/yolo11s.xml` | Detects objects (boxes + labels) |
+| `yolo11s-seg` | `${MODELS_PATH}/public/yolo11s-seg/FP16/yolo11s-seg.xml` | Detects **and** outlines objects pixel-by-pixel |
+| `yolo11s-pose` | `${MODELS_PATH}/public/yolo11s-pose/FP16/yolo11s-pose.xml` | Detects people and their body keypoints |
 | `yoloe-26s-seg` | `${MODELS_PATH}/public/yoloe-26s-seg/FP16/yoloe-26s-seg.xml` | Open-vocabulary detection — class baked in at export via `--classes` |
 
 ---
@@ -258,7 +260,7 @@ Detect and label cars, people, and more with `yolo11s`:
 ```bash
 gst-launch-1.0 \
   filesrc location=${VIDEOS_PATH}/bridge.mp4 ! decodebin3 ! \
-  gvadetect model=${MODELS_PATH}/yolo11s/FP16/yolo11s.xml device=GPU ! queue ! \
+  gvadetect model=${MODELS_PATH}/public/yolo11s/FP16/yolo11s.xml device=GPU ! queue ! \
   gvawatermark ! gvafpscounter ! videoconvert ! autovideosink sync=false
 ```
 
@@ -292,7 +294,7 @@ Same video, but now outline each object precisely — just by swapping in the
 ```bash
 gst-launch-1.0 \
   filesrc location=${VIDEOS_PATH}/bridge.mp4 ! decodebin3 ! \
-  gvadetect model=${MODELS_PATH}/yolo11s-seg/FP16/yolo11s-seg.xml device=GPU ! queue ! \
+  gvadetect model=${MODELS_PATH}/public/yolo11s-seg/FP16/yolo11s-seg.xml device=GPU ! queue ! \
   gvawatermark ! gvafpscounter ! videoconvert ! autovideosink sync=false
 ```
 
@@ -318,7 +320,7 @@ Now estimate body keypoints with `yolo11s-pose`:
 ```bash
 gst-launch-1.0 \
   filesrc location=${VIDEOS_PATH}/dance.mp4 ! decodebin3 ! \
-  gvadetect model=${MODELS_PATH}/yolo11s-pose/FP16/yolo11s-pose.xml device=GPU ! queue ! \
+  gvadetect model=${MODELS_PATH}/public/yolo11s-pose/FP16/yolo11s-pose.xml device=GPU ! queue ! \
   gvawatermark ! gvafpscounter ! videoconvert ! autovideosink sync=false
 ```
 
@@ -352,7 +354,7 @@ We add `gvatrack` and tell `gvadetect` to only run every 3rd frame with
 ```bash
 gst-launch-1.0 \
   filesrc location=${VIDEOS_PATH}/beach.mp4 ! decodebin3 ! \
-  gvadetect model=${MODELS_PATH}/yolo11s/FP16/yolo11s.xml device=GPU inference-interval=3 ! queue ! \
+  gvadetect model=${MODELS_PATH}/public/yolo11s/FP16/yolo11s.xml device=GPU inference-interval=3 ! queue ! \
   gvatrack tracking-type=short-term-imageless ! queue ! \
   gvawatermark ! gvafpscounter ! videoconvert ! autovideosink sync=false
 ```
@@ -377,7 +379,7 @@ anonymizing faces, people, or license plates. Here we blur every detected
 ```bash
 gst-launch-1.0 \
   filesrc location=${VIDEOS_PATH}/girl_dog.mp4 ! decodebin3 ! \
-  gvadetect model=${MODELS_PATH}/yolo11s/FP16/yolo11s.xml device=GPU ! queue ! videoconvert ! \
+  gvadetect model=${MODELS_PATH}/public/yolo11s/FP16/yolo11s.xml device=GPU ! queue ! videoconvert ! \
   gvawatermark displ-cfg=enable-blur=true,show-blur-roi=person ! \
   gvafpscounter ! videoconvert ! autovideosink sync=false
 ```
@@ -441,7 +443,7 @@ screen with a file writer:
 ```bash
 gst-launch-1.0 \
   filesrc location=${VIDEOS_PATH}/skateboard.mp4 ! decodebin3 ! \
-  gvadetect model=${MODELS_PATH}/yolo11s/FP16/yolo11s.xml device=GPU ! queue ! \
+  gvadetect model=${MODELS_PATH}/public/yolo11s/FP16/yolo11s.xml device=GPU ! queue ! \
   gvametaconvert format=json ! \
   gvametapublish method=file file-format=json-lines file-path=${HOME}/dlstreamer_demo/results.json ! \
   fakesink sync=false
@@ -515,7 +517,7 @@ headless, we output to a file:
 ```bash
 gst-launch-1.0 \
   filesrc location=${VIDEOS_PATH}/bridge.mp4 ! decodebin3 ! \
-  gvadetect model=${MODELS_PATH}/yolo11s/FP16/yolo11s.xml device=GPU ! queue ! \
+  gvadetect model=${MODELS_PATH}/public/yolo11s/FP16/yolo11s.xml device=GPU ! queue ! \
   gvawatermark ! gvafpscounter ! \
   vah264enc ! h264parse ! mp4mux ! filesink location=${VIDEOS_PATH}/bridge_detected_in_docker.mp4
 ```

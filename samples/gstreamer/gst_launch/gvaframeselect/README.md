@@ -33,7 +33,7 @@ The pipeline combines the following elements:
 
 ## Input video and model
 
-The sample needs a video with people and a YOLOv8s detection model. The script does not download either of them; you must provide both.
+The sample needs a video with people and a compatible object-detection model that includes the `person` class. The script does not download either of them; you must provide both.
 
 ### Video
 
@@ -41,12 +41,9 @@ Use any local video supported by GStreamer that contains people, and pass its pa
 
 ### Model
 
-This sample expects the `yolov8s` model in FP16 precision from Ultralytics, converted to OpenVINO IR.
+Prepare a compatible OpenVINO IR object-detection model with a `person` class using the general helpers in [scripts/download_models/](../../../../scripts/download_models/README.md).
 
-Use the model conversion scripts in [scripts/download_models/](../../../../scripts/download_models/README.md) to prepare it.
-Before running them, create and activate the dedicated model-download virtual environment described in [scripts/download_models/README.md](../../../../scripts/download_models/README.md).
-
-Pass the resulting OpenVINO IR model XML to the script with `--model`. Keep its matching `.bin` weights file alongside it.
+Pass the resulting OpenVINO IR model XML to the script with `--model`. Keep its matching `.bin` weights file alongside it. The models used to validate this sample are listed in [Validation](#validation).
 
 ## Usage
 
@@ -94,6 +91,13 @@ When `gvaframeselect` is placed after `gvaeventrecorder` and before `gvaroiscale
 The same selected video buffers continue downstream to `fakesink`; saving JPEGs does not consume them.
 
 Each forwarded frame carries its stream frame number in its buffer offset (`GST_BUFFER_OFFSET`). The number counts every input frame, including dropped frames, starts at zero, and resets on a new stream.
+
+## Validation
+
+This sample was validated with:
+
+- Model: `yolov8s` (FP16)
+- Video: [`people-detection.mp4`](https://github.com/intel-iot-devkit/sample-videos/raw/master/people-detection.mp4)
 
 ## See Also
 

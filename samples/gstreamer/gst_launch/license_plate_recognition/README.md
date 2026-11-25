@@ -23,13 +23,18 @@ This sample builds a GStreamer pipeline of the following elements:
 
 ## Models
 
-The example pipeline uses `yolov8_license_plate_detector` for plate detection and `ch_PP-OCRv4_rec_infer` for OCR. These models are examples; a replacement must be compatible with the pipeline's model paths and preprocessing/postprocessing configuration. Prepare supported models with the general [`download_other_models.py`](../../../../scripts/download_models/README.md) helper.
+The sample script requires these models; their names and paths are hard-coded:
 
-The accuracy of license plate detection depends on whether the applied model has been trained using data representing license plates from a specific region. Choose a compatible detector trained for the relevant region; replacing the example model may require updating its pipeline configuration.
+* `yolov8_license_plate_detector` for plate detection, loaded from `$MODELS_PATH/public/yolov8_license_plate_detector/FP32/yolov8_license_plate_detector.xml`
+* `ch_PP-OCRv4_rec_infer` for OCR, loaded from `$MODELS_PATH/public/ch_PP-OCRv4_rec_infer/FP32/ch_PP-OCRv4_rec_infer.xml`
+
+Prepare both with the `download_other_models.py` helper from [`scripts/download_models`](../../../../scripts/download_models/README.md). The models used to validate this sample are listed in [Validation](#validation).
+
+The accuracy of license plate detection depends on whether the applied model has been trained using data representing license plates from a specific region.
 
 ## Running
 
-Prepare compatible models before running the sample. See the [download_models README](../../../../scripts/download_models/README.md) for helper setup and supported models.
+Prepare the required models before running the sample (see [Models](#models)).
 
 ```sh
     cd /opt/intel/dlstreamer/samples/gstreamer/gst_launch/license_plate_recognition/
@@ -60,6 +65,13 @@ Use any local video, supported stream URL, or camera source. A clip containing v
 The sample:
 * prints gst-launch command line into console
 * starts the command and shows the video with bounding boxes around the detected license plates together with the recognized text, or prints out fps if you set OUTPUT to fps.
+
+## Validation
+
+This sample was validated with:
+
+- Models: `yolov8_license_plate_detector`, `ch_PP-OCRv4_rec_infer` (FP32)
+- Video: [`ParkingVideo.mp4`](https://github.com/open-edge-platform/edge-ai-resources/raw/main/videos/ParkingVideo.mp4)
 
 ## See also
 

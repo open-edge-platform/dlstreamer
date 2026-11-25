@@ -6,10 +6,12 @@ The sample does not download models or clone repositories. Prepare models for th
 
 ### DL Streamer
 
-The example DL Streamer pipeline uses `yolov8_license_plate_detector` and `ch_PP-OCRv4_rec_infer`. Prepare compatible models with the general [`download_other_models.py`](../../../../scripts/download_models/README.md) helper; its README describes setup and supported models. Replacing the examples may require updating the pipeline paths and configuration. The sample expects:
+The DL Streamer pipeline requires `yolov8_license_plate_detector` and `ch_PP-OCRv4_rec_infer` (FP32); their paths are hard-coded in both entrypoints, which load them from `./public/` in the working directory (mounted as `/working_dir` in the container). Prepare them with `download_other_models.py` from [scripts/download_models](../../../../scripts/download_models/README.md). The sample expects:
 
 - `public/yolov8_license_plate_detector/FP32/yolov8_license_plate_detector.xml`
 - `public/ch_PP-OCRv4_rec_infer/FP32/ch_PP-OCRv4_rec_infer.xml`
+
+The models used to validate this sample are listed in [Validation](#validation).
 
 ### DeepStream / TAO
 
@@ -29,3 +31,10 @@ Use NVIDIA's TAO model setup instructions to obtain the artifacts. The sample ch
 The Python entrypoint is `coexistence_dls_and_ds.py`; the shell entrypoint is `coexistence_dls_and_ds.sh`. Both accept an input source, `LPR`, and an output path. An HTTPS input is streamed by GStreamer; it is not downloaded to a local video file.
 
 [DL Streamer and DeepStream Coexistence](../../../../docs/user-guide/dev_guide/dlstreamer-deepstream-coexistence.md)
+
+## Validation
+
+This sample was validated with:
+
+- Models (DL Streamer): `yolov8_license_plate_detector`, `ch_PP-OCRv4_rec_infer` (FP32)
+- Models (DeepStream): TrafficCamNet, LPDNet, LPRNet

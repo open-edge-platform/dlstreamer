@@ -71,7 +71,7 @@ pipeline.set_state(Gst.State.NULL)
 
 ## Running the Sample
 
-The sample requires a video file and an object detection model. Use any local video supported by GStreamer and pass its path to the sample. YOLO11n INT8 is the example model; the application accepts a compatible OpenVINO XML path. Prepare models with the general [Ultralytics conversion helper](../../../../scripts/download_models/README.md#2-ultralytics-conversion); see the helper README for supported models and setup.
+The sample requires a video file and a compatible object detection model in OpenVINO™ IR format. Use any local video supported by GStreamer and pass its path to the sample, followed by the model XML path. Prepare models with the general helpers in [scripts/download_models](../../../../scripts/download_models/README.md). The models used to validate this sample are listed in [Validation](#validation).
 
 The sample displays output on a local desktop by default. Run it on the host or use X11 forwarding.
 
@@ -82,6 +82,13 @@ python3 ./hello_dlstreamer.py /path/to/video.mp4 "${MODELS_PATH}/public/yolo11n/
 ```
 
 The video stream displays with object detection annotations, including bounding boxes and class labels.
+
+## Validation
+
+This sample was validated with:
+
+- Model: `yolo11n` (INT8)
+- Video: [`1192116-sd_640_360_30fps.mp4`](https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4)
 
 ## See Also
 

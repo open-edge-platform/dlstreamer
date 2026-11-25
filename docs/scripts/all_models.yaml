@@ -33,14 +33,6 @@ YOLOv5:
   model-proc: https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/model_proc/public/yolo-v5.json
   files:
     - source: https://github.com/ultralytics/yolov5/releases/download/v7.0/yolov5s.pt
-YOLOv7:
-  source: public
-  format: pytorch
-  task_type: detection
-  readme: https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/download_public_models.html
-  source_readme: https://github.com/WongKinYiu/yolov7
-  labels-file: https://github.com/open-edge-platform/dlstreamer/blob/main/samples/labels/coco_80cl.txt
-  model-proc: https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/model_proc/public/yolo-v7.json
 YOLOv8:
   source: public
   format: pytorch
@@ -104,22 +96,6 @@ ch_PP-OCRv4_rec_infer:
   task_type: ocr
   readme: https://github.com/PaddlePaddle/PaddleOCR
   source_readme: https://github.com/PaddlePaddle/PaddleOCR
-  model-proc: not required
-CenterFace:
-  source: public
-  format: onnx
-  task_type: detection
-  readme: https://github.com/Star-Clouds/CenterFace/tree/master
-  source_readme: https://github.com/Star-Clouds/CenterFace/tree/master
-  labels-file:
-  model-proc: not required
-HSEmotion:
-  source: public
-  format: onnx
-  task_type: emotion recognition
-  readme: https://github.com/av-savchenko/face-emotion-recognition/tree/main
-  source_readme: https://github.com/av-savchenko/face-emotion-recognition/tree/main
-  labels-file:
   model-proc: not required
 
 mask_rcnn_inception_resnet_v2_atrous_coco:

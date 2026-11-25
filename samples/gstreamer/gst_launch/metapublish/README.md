@@ -21,12 +21,11 @@ Overall this sample builds GStreamer pipeline of the following elements:
 
 ## Models
 
-The sample is configured with example models from different sources. `centerface` is converted from the upstream CenterFace project; the `dima806/*` models are from Hugging Face. The general model-preparation helpers convert them to OpenVINO IR; see [`scripts/download_models/README.md`](../../../../scripts/download_models/README.md).
-*   __centerface__ is primary detection network for detecting faces that appear within video frames.
-*   __dima806/facial_age_image_detection__ ageestimation on detected faces
-*   __dima806/fairface_gender_image_detection__ gender estimation on detected faces
+The sample script requires these models; their names and paths are hard-coded as `$MODELS_PATH/public/<model_name>/FP16/<model_name>.xml`:
+*   `centerface` - face detection
+*   `dima806_fairface_gender_image_detection`, `dima806_facial_age_image_detection` - gender and age classification, prepared with `download_hf_models.py`
 
-The listed models are examples for the current pipeline configuration. Prepare compatible models before running; use the general helpers in [`scripts/download_models`](../../../../scripts/download_models/README.md) if conversion is needed. Substituting models may require updating their paths and model-proc configuration.
+Both helpers are described in [`scripts/download_models`](../../../../scripts/download_models/README.md). The models used to validate this sample are listed in [Validation](#validation).
 
 The sample contains `model_proc` subfolder with .json files for each model with description of model input/output formats and post-processing rules for classification models.
 
@@ -70,6 +69,13 @@ Arguments:
 The sample
 * prints gst-launch command line into console
 * starts the command and emits inference events that include the evaluated age and gender for each face detected within video input frames.
+
+## Validation
+
+This sample was validated with:
+
+- Models: `centerface` (FP16), `dima806_facial_age_image_detection`, `dima806_fairface_gender_image_detection` (FP16)
+- Video: [`head-pose-face-detection-female-and-male.mp4`](https://github.com/intel-iot-devkit/sample-videos/raw/master/head-pose-face-detection-female-and-male.mp4)
 
 ## See also
 * [Samples overview](../../../README.md)

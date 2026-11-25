@@ -42,3 +42,10 @@ The `test_gvafpsthrottle.sh` script provides usage examples and instructions for
 ```bash
 ./test_gvafpsthrottle.sh
 ```
+
+## Validation
+
+This sample was validated with:
+
+- Model: none
+- Video: none (`videotestsrc` by default)

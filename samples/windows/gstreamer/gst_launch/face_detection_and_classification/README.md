@@ -47,9 +47,12 @@ graph LR
 
 ## Models
 
-The example pipeline uses `centerface` for detection, `dima806/facial_age_image_detection` for age, `dima806/face_emotions_image_detection` for emotion, and `dima806/fairface_gender_image_detection` for gender. These are example models, not mandatory choices. Any compatible face detector and classifiers can be used if their OpenVINO models, paths, and matching model-proc configuration are supplied.
+`face_detection_and_classification.ps1` requires the following models, each loaded from `%MODELS_PATH%\public\<model>\FP32\<model>.xml`:
 
-Prepare the example models with the general helpers documented in [`scripts/download_models/README.md`](../../../../../scripts/download_models/README.md): `download_other_models.py centerface` for CenterFace, and `download_hf_models.py` with the listed Hugging Face model IDs for the classifiers.
+* `centerface` (face detection)
+* `dima806_facial_age_image_detection`, `dima806_fairface_gender_image_detection` and `dima806_face_emotions_image_detection` (classification), prepared with `download_hf_models.py` from the corresponding `dima806/...` Hugging Face model IDs
+
+See [Model Conversion Scripts](../../../../../scripts/download_models/README.md) for the helpers. The models used to validate this sample are listed in [Validation](#validation).
 
 ## Environment Variables
 
@@ -115,6 +118,13 @@ https://docs.openvinotoolkit.org/latest/openvino_docs_IE_DG_supported_plugins_Su
 The sample
 * prints gst-launch-1.0 full command line into console
 * starts the command and either visualizes video with bounding boxes around detected faces, facial landmarks points and text with classification results (age/gender, emotion) for each detected face or prints out fps if you set SINK_ELEMENT = fps
+
+## Validation
+
+This sample was validated with:
+
+- Models: `centerface`, `dima806_facial_age_image_detection`, `dima806_fairface_gender_image_detection`, `dima806_face_emotions_image_detection` (FP32)
+- Video: [`head-pose-face-detection-female-and-male.mp4`](https://github.com/intel-iot-devkit/sample-videos/raw/master/head-pose-face-detection-female-and-male.mp4)
 
 ## See also
 * [Windows Samples overview](../../../../README.md)

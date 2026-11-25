@@ -71,12 +71,11 @@ source /opt/intel/dlstreamer/scripts/setup_dls_env.sh
 
 ### 4. Prepare a VLM model
 
-Prepare any VLM model supported by the installed OpenVINO GenAI runtime with the general
-[`download_hf_models.py`](../../../../scripts/download_models/README.md#1-hugging-face-conversion)
-helper. `OpenVINO/gemma-3-4b-it-int8-ov` is one example that fits well on Intel Core Ultra
-systems; the Quick Start below assumes it was exported with `--outdir "${MODELS_PATH}"`, which
-creates `${MODELS_PATH}/OpenVINO_gemma-3-4b-it-int8-ov`. Follow the helper README for setup, supported
-models, and gated-model access. Pass the resulting model directory with `--model-path`.
+A compatible VLM supported by the installed OpenVINO GenAI runtime is needed. Prepare it with the general
+helpers in [scripts/download_models](../../../../scripts/download_models/README.md); when exported with
+`download_hf_models.py --outdir "${MODELS_PATH}"`, the model directory is created as
+`${MODELS_PATH}/<org>_<name>`. Pass the resulting model directory with `--model-path`.
+The models used to validate this sample are listed in [Validation](#validation).
 
 ### 5. Create virtual environment and install dependencies
 
@@ -318,3 +317,10 @@ sudo apt install gir1.2-gst-plugins-base-1.0
 ## Video Credits
 
 The sample uses a camera stream supplied at runtime; it does not bundle or download a video.
+
+## Validation
+
+This sample was validated with:
+
+- Model: `OpenVINO/gemma-3-4b-it-int8-ov`
+- Input: ONVIF camera RTSP stream showing [`A Hunter Posing with His Dog and a Shotgun`](https://www.pexels.com/video/a-hunter-posing-with-his-dog-and-a-shotgun-6200843/)

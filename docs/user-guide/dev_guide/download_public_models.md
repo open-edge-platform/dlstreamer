@@ -20,8 +20,7 @@ the [Model Conversion Scripts README](https://github.com/open-edge-platform/dlst
 - `download_timm_models.py` converts supported TIMM image-classification
 	models hosted on Hugging Face.
 - `download_other_models.py` downloads and converts selected helper models that
-	are not handled by the other scripts, including `yolox-tiny`, `yolox_s`, and
-	`yolov7`.
+	are not handled by the other scripts, including `yolox-tiny`.
 
 ## Reproducible Downloads
 

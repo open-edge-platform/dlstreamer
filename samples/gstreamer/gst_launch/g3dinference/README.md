@@ -98,6 +98,13 @@ If `POINTPILLARS_ROOT` is not set, `g3dinference_prepare.sh` first looks for a s
 - `g3dinference_prepare.sh` writes a fresh runtime JSON config with absolute paths, so it does not depend on the upstream `pointpillars_ov_config.json` having usable paths on your machine.
 - If you already downloaded the IR files with `download_other_models.py pointpillars`, the preparation script reuses them from `MODELS_PATH/public/pointpillars/FP16`.
 
+## Validation
+
+This sample was validated with:
+
+- Model: PointPillars (FP16)
+- Input: PointPillars demo point cloud `000002.bin`
+
 ## See Also
 
 - [g3dinference element documentation](../../../../docs/user-guide/elements/g3dinference.md)

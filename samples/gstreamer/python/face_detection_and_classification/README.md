@@ -50,13 +50,7 @@ Use any local video supported by the installed GStreamer plugins. A clip contain
 
 ## Prepare Models
 
-The examples use two Hugging Face models; compatible face-detection and face-classification models can be substituted by updating their paths. Prepare them with the general helpers in [`scripts/download_models/README.md`](../../../../scripts/download_models/README.md): `download_ultralytics_models.py` for `arnabdhar/YOLOv8-Face-Detection` and `download_hf_models.py` for `dima806/fairface_age_image_detection`.
-
-- **Face detection:** `arnabdhar/YOLOv8-Face-Detection` (Ultralytics YOLO format)
-  - Prepare with [Ultralytics conversion](../../../../scripts/download_models/README.md#2-ultralytics-conversion)
-  
-- **Age classification:** `dima806/fairface_age_image_detection` (Hugging Face Transformers)
-  - Prepare with [Hugging Face model conversion](../../../../scripts/download_models/README.md#1-hugging-face-conversion)
+A compatible face detection model and a compatible face classification (age) model in OpenVINO™ IR format are needed; pass their paths with `--det-model` and `--cls-model`. Prepare models with the general helpers in [scripts/download_models](../../../../scripts/download_models/README.md); the helpers write them as `$MODELS_PATH/public/<model_name>/<precision>/<model_name>.xml`. The models used to validate this sample are listed in [Validation](#validation).
 
 ## Install Python Dependencies
 
@@ -125,3 +119,10 @@ The sample constructs a GStreamer pipeline that:
 5. **Outputs** either annotated video (file mode) or JSON metadata (json mode)
 
 The pipeline automatically handles model loading, inference, and metadata aggregation.
+
+## Validation
+
+This sample was validated with:
+
+- Models: `arnabdhar_YOLOv8-Face-Detection`, `dima806_fairface_age_image_detection` (FP16)
+- Video: [`18553046-hd_1280_720_30fps.mp4`](https://videos.pexels.com/video-files/18553046/18553046-hd_1280_720_30fps.mp4)

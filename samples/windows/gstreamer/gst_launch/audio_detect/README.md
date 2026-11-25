@@ -35,7 +35,7 @@ graph LR
 
 ## Model
 
-The example uses the Open Model Zoo `aclnet` model (`aclnet_des_53_fp32.onnx`). It is an example, not a required model choice: use a compatible audio event-classification model and provide matching model-proc configuration. Prepare ACLNet with the general [`download_other_models.py`](../../../../../scripts/download_models/README.md) helper, selecting `aclnet`.
+`audio_event_detection.ps1` requires the `aclnet` audio event-classification model, loaded from `%AUDIO_MODELS_PATH%\public\aclnet\FP32\aclnet.xml` together with the [`model_proc/aclnet.json`](model_proc/aclnet.json) model-proc file. Prepare it with `download_other_models.py` (see [Model Conversion Scripts](../../../../../scripts/download_models/README.md)). The models used to validate this sample are listed in [Validation](#validation).
 
 ## Environment Variables
 
@@ -100,6 +100,13 @@ Copy-Item samples\gstreamer\gst_launch\audio_detect\how_are_you_doing.wav sample
 The sample
 * prints full gst-launch-1.0 command to the console
 * starts the command and outputs audio detection results to the console
+
+## Validation
+
+This sample was validated with:
+
+- Model: `aclnet`
+- Input: `how_are_you_doing.wav` (included with the sample)
 
 ## See also
 * [Windows Samples overview](../../../../README.md)

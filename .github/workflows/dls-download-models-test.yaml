@@ -303,14 +303,14 @@ jobs:
           source "$OTHER_VENV/bin/activate"
           uv pip install -r scripts/download_models/requirements_download_other_models.txt
 
-      - name: "README §4 - download only mars-small128"
+      - name: "README §4 - download only aclnet"
         if: needs.setup.outputs.should_run == 'true'
         run: |
           source "$OTHER_VENV/bin/activate"
           cd scripts/download_models
-          python download_other_models.py mars-small128
-          test -f "$MODELS_PATH/public/mars-small128/FP32/mars_small128_fp32.xml"
-          test -f "$MODELS_PATH/public/mars-small128/INT8/mars_small128_int8.xml"
+          python download_other_models.py aclnet
+          test -f "$MODELS_PATH/public/aclnet/FP32/aclnet.xml"
+          test -f "$MODELS_PATH/public/aclnet/FP16/aclnet.xml"
 
   test-download-other-models-cli-validation:
     name: download_other_models.py validation
@@ -362,7 +362,7 @@ jobs:
         run: |
           cd scripts/download_models
           unset MODELS_PATH
-          if python3 download_other_models.py mars-small128 2>&1 | grep -q "MODELS_PATH is not specified"; then
+          if python3 download_other_models.py aclnet 2>&1 | grep -q "MODELS_PATH is not specified"; then
             echo "Missing MODELS_PATH handling works"
           else
             echo "Missing MODELS_PATH handling failed"

@@ -32,7 +32,7 @@ Please follow official DL Streamer documentation for [installation steps](https:
 
 ## Model Preparation
 
-Before running this sample, prepare any Whisper model compatible with OpenVINO GenAI using the general [`download_hf_models.py`](../../../../scripts/download_models/download_hf_models.py) helper. For example, `openai/whisper-tiny` is supported; other compatible Whisper models may also be used. Follow the [model download README](../../../../scripts/download_models/README.md#1-hugging-face-conversion) to set up and use the helper, then pass the resulting model directory to `--models-path`.
+Before running this sample, prepare a Whisper model compatible with OpenVINO GenAI using the general helpers in [`scripts/download_models`](../../../../scripts/download_models/README.md#1-hugging-face-conversion), then pass the resulting model directory to `--models-path`. The models used to validate this sample are listed in [Validation](#validation).
 
 ## Demo Script Execution:
 
@@ -75,3 +75,10 @@ gst-launch-1.0  filesrc location=${HOME}/<filename>.mp4 ! qtdemux name=demux dem
 - `model` - Path to model (directory for Whisper, custom path for other models)
 - `model_type` - Model type: `whisper` (supported), or your custom type
 - `device` - Inference device: `CPU`, `GPU`
+
+## Validation
+
+This sample was validated with:
+
+- Model: `openai/whisper-base`
+- Input: local WAV audio file

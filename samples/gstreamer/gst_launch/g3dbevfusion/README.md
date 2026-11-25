@@ -92,3 +92,10 @@ gst-launch-1.0 -e \
 `g3dlidarparse frame-rate=12` reads the sensors at the sequence's rate. On an Intel Arc Pro B60, with ten accumulated LiDAR sweeps, inference takes about 90 ms per frame for fusion and about 70 ms for LiDAR-only. The frames are about 89 ms apart on average, so fusion only just keeps up with the recording in a window. A video file is timed by its PTS, so it plays at the recorded pace whatever the inference speed.
 
 See [g3dbevfusion](../../../../docs/user-guide/elements/g3dbevfusion.md) for the element's modes, configuration and limitations.
+
+## Validation
+
+This sample was validated with:
+
+- Model: BEVFusion (`g3dbevfusion.json` package)
+- Input: nuScenes `v1.0-mini` (`scene-0103`) converted by `g3dbevfusion_prepare_data.sh`

@@ -23,7 +23,7 @@ if ($Device -eq "--help" -or $Device -eq "-h") {
     Write-Host "  -Device                Device (default: CPU). Supported: CPU, GPU, NPU"
     Write-Host "  -InputSource           Required local video path or URI"
     Write-Host "  -Model                 Model path (default: yolov8n from MODELS_PATH)"
-    Write-Host "  -Precision             Model precision (default: FP32). Supported: FP32, FP16, INT8"
+    Write-Host "  -Precision             Model precision (default: FP16). Supported: FP32, FP16, INT8"
     Write-Host "  -PreprocessBackend     Preprocessing backend (default: opencv for CPU, d3d12-surface-sharing for GPU, d3d12 for NPU)"
     Write-Host "                         Supported: ie, opencv, d3d11, d3d11-surface-sharing, d3d12, d3d12-surface-sharing"
     Write-Host "  -OutputType            Output type (default: display). Supported: display, json"

@@ -62,11 +62,11 @@ Configurable element properties (via gst-launch-1.0):
 
 ## Models
 
-The example uses `arnabdhar/YOLOv8-Face-Detection` for face detection; any compatible OpenVINO face detector can be used by setting `DETECT_MODEL_PATH`. Prepare a suitable model with the general [`download_ultralytics_models.py`](../../../../../scripts/download_models/README.md#2-ultralytics-conversion) helper; see its README for supported models and setup.
+A compatible face detection model in OpenVINO™ IR format is needed. Prepare it with the general helpers in [scripts/download_models](../../../../../scripts/download_models/README.md). The models used to validate this sample are listed in [Validation](#validation).
 
 ### Model storage location
 
-By default, the sample looks for the model at `$MODELS_PATH/public/arnabdhar_YOLOv8-Face-Detection/FP16/arnabdhar_YOLOv8-Face-Detection.xml`. Set `DETECT_MODEL_PATH` to use another compatible model XML.
+By default, the sample looks for the model under `$MODELS_PATH/public/<model_name>/FP16/<model_name>.xml`. Set `DETECT_MODEL_PATH` to the XML of the model you want to use.
 
 
 ## Prerequisites
@@ -124,6 +124,13 @@ Saved: saved_frames/frame_00000.jpg
 Saved: saved_frames/frame_00001.jpg
 Saved: saved_frames/frame_00002.jpg
 ```
+
+## Validation
+
+This sample was validated with:
+
+- Model: `arnabdhar_YOLOv8-Face-Detection` (FP16)
+- Video: [`head-pose-face-detection-female-and-male.mp4`](https://github.com/intel-iot-devkit/sample-videos/raw/master/head-pose-face-detection-female-and-male.mp4)
 
 ## See also
 * [Samples overview](../../../../README.md)

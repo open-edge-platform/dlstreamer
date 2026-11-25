@@ -51,9 +51,7 @@ Use any local video supported by GStreamer and pass its path with `--input`. A c
 
 ### Prepare Model
 
-This sample expects `yoloe-26s-seg` in FP16 precision from Ultralytics, exported with the target class baked in via `--classes`.
-
-Use the [Ultralytics model conversion](../../../../scripts/download_models/README.md#2-ultralytics-conversion) to prepare the model.
+A compatible YOLOE open-vocabulary detection model in OpenVINO™ IR format is needed, exported with the target class baked in via `--classes`. Pass its path with `--model`; the expected layout is `$MODELS_PATH/public/<model_name>/<precision>/<model_name>.xml`. Prepare models with the general helpers in [scripts/download_models](../../../../scripts/download_models/README.md). The models used to validate this sample are listed in [Validation](#validation).
 
 ## Run Sample Application
 
@@ -63,7 +61,7 @@ python3 prompted_detection.py \
     --prompt "person"
 ```
 
-If `--model` is omitted, it defaults to `$MODELS_PATH/public/yoloe-26s-seg-pf/FP16/yoloe-26s-seg-pf.xml`.
+If `--model` is omitted, it defaults to `$MODELS_PATH/public/yoloe-26s-seg/FP16/yoloe-26s-seg.xml`.
 
 > **Note:** Replace the `--model` path with the actual location where you downloaded the model in the [Prepare Model](#prepare-model) step.
 
@@ -117,6 +115,13 @@ appsink.connect("new-sample", on_new_sample, None)
 ```
 
 The `on_new_sample` callback prints frame timestamps when the requested object is detected.
+
+## Validation
+
+This sample was validated with:
+
+- Model: `yoloe-26s-seg` (FP16)
+- Video: [`1192116-sd_640_360_30fps.mp4`](https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4)
 
 ## See also
 * [Samples overview](../../../README.md)

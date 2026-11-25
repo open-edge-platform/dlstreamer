@@ -21,7 +21,7 @@ This sample builds GStreamer pipeline of the following elements
 
 ## Model
 
-The example pipeline is configured for the YOLOv8s detector under `$MODELS_PATH/public/yolov8s/FP32/`. A compatible OpenVINO detector may be used by updating the model path in the sample script. Prepare it with the general [`download_ultralytics_models.py`](../../../../scripts/download_models/README.md#2-ultralytics-conversion) helper; see its README for supported models and setup. Set `MODELS_PATH` to the model store used by the sample.
+The sample script requires the YOLOv8s detector (`yolov8s`); the model name and path are hard-coded as `$MODELS_PATH/public/yolov8s/FP16/yolov8s.xml`. Prepare it with the `download_ultralytics_models.py` helper from [`scripts/download_models`](../../../../scripts/download_models/README.md#2-ultralytics-conversion) and set `MODELS_PATH` to the same root. The models used to validate this sample are listed in [Validation](#validation).
 
 ## Running
 
@@ -63,6 +63,13 @@ Example:
 ```sh
 ./gvaattachroi_sample.sh /path/to/video.mp4 GPU file 100,150,200,300
 ```
+
+## Validation
+
+This sample was validated with:
+
+- Model: `yolov8s` (FP16)
+- Video: [`1192116-sd_640_360_30fps.mp4`](https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4)
 
 ## See also
 

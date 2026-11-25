@@ -40,9 +40,7 @@ MonoDETR is trained on KITTI, so it performs best on genuine KITTI imagery — w
 no reprojection, black borders, or domain-gap depth bias. To run on KITTI instead
 of PandaSet:
 
-1. Download the **KITTI 3D Object Detection** data from the official site (free
-   registration required):
-   <https://www.cvlibs.net/datasets/kitti/eval_object.php?obj_benchmark=3d>.
+1. Download the **KITTI 3D Object Detection** data from the official site.
    Get *"left color images of object data set"* and *"camera calibration matrices
    of object data set"*.
 2. Each image (`image_2/NNNNNN.png`, 1242×375) has a calibration file
@@ -57,18 +55,23 @@ described above unless reprojected as this sample does.
 
 ## Model
 
-The MonoDETR OpenVINO IR is **not** downloaded automatically. Create a virtual
-environment with the conversion dependencies, then export the IR once:
+The sample needs a MonoDETR-compatible OpenVINO IR model, which is **not**
+downloaded automatically. To create it:
 
-```bash
-python3 -m venv .monodetr-venv
-source .monodetr-venv/bin/activate
-pip install -r ../../../../scripts/download_models/requirements_convert_monodetr.txt
-python3 ../../../../scripts/download_models/convert_monodetr.py --outdir .
-```
+1. Clone the official MonoDETR repository (the one published with the MonoDETR paper) into a directory
+   outside this repository.
+2. Download the pretrained KITTI checkpoint (`.pth`) listed in that repository's README.
+3. Install the converter dependencies from `requirements_convert_monodetr.txt` in
+   [`scripts/download_models`](../../../../scripts/download_models/README.md).
+4. Run the `convert_monodetr.py` helper from `scripts/download_models`, outside the MonoDETR checkout:
 
-Then pass its path as the first argument (or place it at
+   ```bash
+   python convert_monodetr.py --repo /path/to/MonoDETR --ckpt /path/to/checkpoint.pth --outdir ${MODELS_PATH}/public/monodetr/FP16
+   ```
+
+Then pass the resulting `monodetr.xml` path as the first argument (or leave it at
 `${MODELS_PATH}/public/monodetr/FP16/monodetr.xml`).
+The models used to validate this sample are listed in [Validation](#validation).
 
 ## Run
 
@@ -100,3 +103,10 @@ Examples:
 This sample uses data from PandaSet by Hesai and Scale AI, licensed under
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The data is retrieved
 on demand and is not redistributed as part of DL Streamer.
+
+## Validation
+
+This sample was validated with:
+
+- Model: `monodetr` (FP16)
+- Input: PandaSet sequence `001`

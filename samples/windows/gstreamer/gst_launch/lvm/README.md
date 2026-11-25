@@ -21,14 +21,9 @@ This sample builds a GStreamer pipeline of the following elements:
 **Sink**: `fakesink` (default) or `gvafpscounter` for performance measurement.
 
 ## Model
-Use any video supported by the installed GStreamer plugins. The examples use `C:\videos\sample.mp4`; it is not a required clip. The model can be any compatible CLIP image encoder in OpenVINO format; the models below are examples.
+Use any video supported by the installed GStreamer plugins. The examples use `C:\videos\sample.mp4`; it is not a required clip.
 
-Prepare the example Hugging Face models with the general [`download_hf_models.py`](../../../../../scripts/download_models/README.md#1-hugging-face-conversion) helper, selecting the matching model ID, for example `openai/clip-vit-large-patch14`.
-
-The sample supports these models in OpenVINO™ format; pass the converted directory name (with the `openai_` prefix) to `-Model`:
-- [`clip-vit-large-patch14`](https://huggingface.co/openai/clip-vit-large-patch14)
-- [`clip-vit-base-patch16`](https://huggingface.co/openai/clip-vit-base-patch16)
-- [`clip-vit-base-patch32`](https://huggingface.co/openai/clip-vit-base-patch32)
+The sample needs a compatible CLIP image encoder (Vision Transformer) in OpenVINO™ IR format. The script loads the model directory selected with `-Model` from `%MODELS_PATH%\public\<model>\<precision>\<model>.xml`. Supported Hugging Face CLIP models can be prepared with the general `download_hf_models.py` helper (see [Model Conversion Scripts](../../../../../scripts/download_models/README.md)). The models used to validate this sample are listed in [Validation](#validation).
 
 ## Pipeline Architecture
 This pipeline extracts image embeddings using a Vision Transformer (ViT) from a CLIP model. After decoding, `gvainference` extracts the high-dimensional feature vectors (embeddings) from each frame. The data flow is determined by the `OUTPUT` parameter, supporting either JSON metadata extraction or FPS performance benchmarking.
@@ -74,7 +69,7 @@ The sample requires `-InputSource`; the other parameters are optional:
 | :--- | :--- | :--- |
 | -InputSource | Local file path or HTTPS URL | required |
 | -Device | `CPU`, `GPU`, or `NPU` | `CPU` |
-| -Precision | `FP32`, `FP16`, or `INT8` | `FP32` |
+| -Precision | `FP32`, `FP16`, or `INT8` | `FP16` |
 | -Model | CLIP model directory name (see above) | `openai_clip-vit-large-patch14` |
 | -PreprocessBackend | `ie`, `opencv`, `d3d11`, `d3d11-surface-sharing`, `d3d12` or `d3d12-surface-sharing` (D3D backends need GPU or NPU) | `opencv` for CPU; `d3d12-surface-sharing` for GPU; `d3d12` for NPU |
 | -OutputType | `json` (save embeddings) or `fps` (benchmark) | `json` |
@@ -87,6 +82,13 @@ The sample:
 * prints the `gst-launch-1.0` full command line into the console
 * starts the command and either publishes metadata to a file or prints out FPS if you set OUTPUT=fps
 
+## Validation
+
+This sample was validated with:
+
+- Model: `openai_clip-vit-large-patch14` (FP16)
+- Video: [`1192116-sd_640_360_30fps.mp4`](https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4)
+
 ## See also
 
 * [Windows Samples overview](../../../../README.md)
@@ -94,7 +96,7 @@ The sample:
 
 ## Example Usage
 
-Run with a local video (CPU, FP32, JSON output):
+Run with a local video (CPU, FP16, JSON output):
 ```PowerShell
 .\generate_frame_embedding.ps1 -InputSource "C:\videos\sample.mp4"
 ```

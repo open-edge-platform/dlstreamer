@@ -249,7 +249,7 @@ sequenceDiagram
 </br>
 
 ## Prerequisite
-This sample application requires a video file and two models. Use any local video supported by GStreamer that contains vehicles. The source currently refers to YOLO11s and `dima806/vehicle_10_types_image_detection` as example models; compatible alternatives require updating the model paths in the sample.
+This sample application requires a video file and two specific models whose paths are hard-coded in `open_close_valve_sample.py` (see [Model files](#model-files)). Use any local video supported by GStreamer that contains vehicles.
 </br>
 
 #### Video sample
@@ -257,14 +257,15 @@ The sample reads the video from `./videos/cars_extended.mp4` (relative to the di
 </br>
 
 #### Model files
-Prepare compatible detector and classifier models with the general helpers described in
-[`scripts/download_models/README.md`](../../../../scripts/download_models/README.md): the Ultralytics
-helper for YOLO11s and the Hugging Face helper for the example vehicle classifier. The README
-documents their setup and supported models.
+The sample requires the following models in OpenVINO™ IR format; their paths are hard-coded in `open_close_valve_sample.py` and built from the `MODELS_PATH` environment variable:
 
-The example model paths are `$MODELS_PATH/public/yolo11s/FP16/yolo11s.xml` and
-`$MODELS_PATH/public/dima806_vehicle_10_types_image_detection/FP16/dima806_vehicle_10_types_image_detection.xml`.
-No model-proc file is required for either example model.
+- `yolo11s` — object detection, loaded from `$MODELS_PATH/public/yolo11s/FP16/yolo11s.xml`; prepare it with `download_ultralytics_models.py`.
+- `dima806_vehicle_10_types_image_detection` — vehicle type classification, loaded from
+  `$MODELS_PATH/public/dima806_vehicle_10_types_image_detection/FP16/dima806_vehicle_10_types_image_detection.xml`;
+  prepare it with `download_hf_models.py`.
+
+See [scripts/download_models](../../../../scripts/download_models/README.md) for the helper scripts.
+No model-proc file is required for either model. The models used to validate this sample are listed in [Validation](#validation).
 
 ## Sample execution
 
@@ -282,6 +283,13 @@ The sample:
 * While both windows are active, they display the same synchronized content.
 
 
+
+## Validation
+
+This sample was validated with:
+
+- Models: `yolo11s`, `dima806_vehicle_10_types_image_detection` (FP16)
+- Video: [`cars_extended.mp4`](https://github.com/open-edge-platform/edge-ai-resources/raw/main/videos/cars_extended.mp4)
 
 ## See also
 * [Samples overview](../../../README.md)

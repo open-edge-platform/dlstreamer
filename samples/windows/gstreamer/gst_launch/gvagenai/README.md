@@ -21,16 +21,10 @@ This sample builds a GStreamer pipeline of the following elements:
 
 ## Model Preparation
 
-Use any model supported by `gvagenai` and the installed OpenVINO GenAI runtime; the models below are examples, not required choices. A pre-converted compatible model may be used, or a supported Hugging Face model can be prepared with the general [`download_hf_models.py`](../../../../../scripts/download_models/README.md#1-hugging-face-conversion) helper. For example, use `download_hf_models.py --model <HUGGING_FACE_MODEL_ID> --outdir <MODEL_DIR>` and add `--extra_args` when the model requires export options.
+The sample needs a compatible visual language model (VLM) in OpenVINO™ format that is supported by `gvagenai` and the installed OpenVINO™ GenAI runtime. Supported Hugging Face models can be prepared with the general `download_hf_models.py` helper (see [Model Conversion Scripts](../../../../../scripts/download_models/README.md)). The models used to validate this sample are listed in [Validation](#validation).
 
 > [!NOTE]
 > The helper only exports supported model architectures; check its supported-model notes and set up its dependencies as described in the linked guide. Gated Hugging Face models require access to the repository. DL Streamer currently depends on OpenVINO™ GenAI 2026.3.1.
-
-| Example model | Hugging Face model ID |
-|---------------|-----------------------|
-| MiniCPM-V 2.6 | `openbmb/MiniCPM-V-2_6` |
-| Phi-4-multimodal-instruct | `microsoft/Phi-4-multimodal-instruct` |
-| Gemma 3 | `google/gemma-3-4b-it` |
 
 Use any video or camera source supported by the installed GStreamer plugins. Examples use `C:\videos\video.mp4`; the input is independent of the selected VLM.
 
@@ -179,6 +173,13 @@ Video preprocessing isn't implemented for this model. Pass frames as independent
 ```
 - **Cause:** `-VisionMode video` was used with a model that does not support video input (e.g. MiniCPM-V, Phi-4-multimodal, Gemma 3 are image-only)
 - **Solution:** Use `-VisionMode image` (the default), or switch to a video-capable model such as Qwen2/2.5/3-VL or LLaVA-NeXT-Video
+
+## Validation
+
+This sample was validated with:
+
+- Model: `openbmb/MiniCPM-V-2_6`
+- Video: [`1192116-sd_640_360_30fps.mp4`](https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4)
 
 ## See also
 * [Windows Samples overview](../../../../README.md)

@@ -13,12 +13,11 @@ In this sample the `gvapython` element is used three times.
 
 ## Models
 
-The sample is configured with these example models from different sources. `centerface` is converted from the upstream CenterFace project; the `dima806/*` models are from Hugging Face. The general model-preparation helpers convert them to OpenVINO IR; see [`scripts/download_models/README.md`](../../../../scripts/download_models/README.md).
-*   __centerface__ is primary detection network for finding faces
-*   __dima806/facial_age_image_detection__ age estimation on detected faces
-*   __dima806/fairface_gender_image_detection__ gender estimation on detected faces
+The sample script requires these models; their names and paths are hard-coded as `$MODELS_PATH/public/<model_name>/FP16/<model_name>.xml`:
+*   `centerface` - face detection
+*   `dima806_facial_age_image_detection`, `dima806_fairface_gender_image_detection` - age and gender classification, prepared with `download_hf_models.py`
 
-The listed models are examples for the current pipeline configuration. Prepare compatible models before running; use the general helpers in [`scripts/download_models`](../../../../scripts/download_models/README.md) if conversion is needed. If you substitute models, update the paths and ensure their outputs match the Python post-processing callbacks.
+Both helpers are described in [`scripts/download_models`](../../../../../scripts/download_models/README.md). The models used to validate this sample are listed in [Validation](#validation).
 
 ## Running
 
@@ -55,6 +54,13 @@ The sample
 * prints gst-launch-1.0 full command line into console
 * starts the command and either visualizes video with bounding boxes around detected faces, facial landmarks points and text with classification results (age/gender, emotion) for each detected face or
 prints out fps if you set SINK_ELEMENT = fps
+
+## Validation
+
+This sample was validated with:
+
+- Models: `centerface` (FP16), `dima806_facial_age_image_detection`, `dima806_fairface_gender_image_detection` (FP16)
+- Video: [`head-pose-face-detection-female-and-male.mp4`](https://github.com/intel-iot-devkit/sample-videos/raw/master/head-pose-face-detection-female-and-male.mp4)
 
 ## See also
 * [Samples overview](../../../../README.md)

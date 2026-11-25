@@ -95,14 +95,7 @@ graph TD
 
 ### Feature Extraction Model
 
-Deep SORT requires a feature extraction model that generates 128-dimensional feature vectors for person re-identification. The recommended model is **mars-small128**, which can be downloaded with `download_other_models.py` after setting up its environment as described in the [download_models README](https://github.com/open-edge-platform/dlstreamer/blob/main/scripts/download_models/README.md):
-
-```bash
-cd scripts/download_models
-python download_other_models.py mars-small128
-```
-
-This downloads both FP32 and INT8 quantized versions of the model.
+Deep SORT requires a feature extraction model that generates 128-dimensional feature vectors for person re-identification. The recommended model is **mars-small128**.
 
 #### Usage with External Feature Extractor
 

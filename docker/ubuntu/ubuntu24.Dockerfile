@@ -82,9 +82,9 @@ RUN \
 # Intel NPU drivers and prerequisites installation
 WORKDIR /tmp/npu_deps
 
-RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.38.0/linux-npu-driver-v1.38.0.20260910-34487311128-ubuntu2404.tar.gz && \
-    tar -xf linux-npu-driver-v1.38.0.20260910-34487311128-ubuntu2404.tar.gz && \
-    curl -LO https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260830T100000Z/pool/main/l/level-zero-loader/libze1_1.32.0-1~24.04~ppa1_amd64.deb && \
+RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.39.1/linux-npu-driver-v1.39.1.20261119-44517102376-ubuntu2404.tar.gz && \
+    tar -xf linux-npu-driver-v1.39.1.20261119-44517102376-ubuntu2404.tar.gz && \
+    curl -LO https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20261110T100000Z/pool/main/l/level-zero-loader/libze1_1.34.0-1~24.04~ppa1_amd64.deb && \
     apt-get update && \
     apt-get install -y --no-install-recommends ./intel-*.deb && \
     apt-get clean && \
@@ -151,7 +151,7 @@ ENV PATH="/python3venv/bin:${PATH}"
 # ==============================================================================
 FROM builder AS opencv-builder
 
-ARG OPENCV_VERSION=4.13.0
+ARG OPENCV_VERSION=5.1.0
 
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
@@ -335,7 +335,7 @@ RUN cp -a /usr/local/lib/librdkafka* ./
 # ==============================================================================
 FROM builder AS realsense-builder
 
-ARG REALSENSE_VERSION=v2.58.4
+ARG REALSENSE_VERSION=v2.59.2
 
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
@@ -372,11 +372,11 @@ ARG DLSTREAMER_BUILD_NUMBER
 SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 
 COPY --from=gstreamer-builder ${GSTREAMER_DIR} ${GSTREAMER_DIR}
-COPY --from=opencv-builder /usr/local/include/opencv4 /usr/local/include/opencv4
+COPY --from=opencv-builder /usr/local/include/opencv5 /usr/local/include/opencv5
 COPY --from=opencv-builder /copy_libs/ /usr/local/lib/
-COPY --from=opencv-builder /usr/local/lib/cmake/opencv4 /usr/local/lib/cmake/opencv4
-COPY --from=opencv-builder /usr/local/lib/pkgconfig/opencv4.pc /usr/local/lib/pkgconfig/
-COPY --from=opencv-builder /usr/local/share/opencv4/ /usr/local/share/opencv4/
+COPY --from=opencv-builder /usr/local/lib/cmake/opencv5 /usr/local/lib/cmake/opencv5
+COPY --from=opencv-builder /usr/local/lib/pkgconfig/opencv5.pc /usr/local/lib/pkgconfig/
+COPY --from=opencv-builder /usr/local/share/opencv5/ /usr/local/share/opencv5/
 COPY --from=kafka-builder /usr/local/include/librdkafka /usr/local/include/librdkafka
 COPY --from=kafka-builder /copy_libs/ /usr/local/lib/
 COPY --from=realsense-builder /copy_libs/ /usr/local/lib/
@@ -479,7 +479,6 @@ RUN apt-get update && \
 
 RUN \
     mkdir -p /deb-pkg/opt/intel/ && \
-    mkdir -p /deb-pkg/opt/opencv/include && \
     mkdir -p /deb-pkg/opt/rdkafka && \
     mkdir -p /deb-pkg/opt/librealsense/ && \
     cp -r "${DLSTREAMER_DIR}/build/intel64/${BUILD_ARG}" /deb-pkg/opt/intel/dlstreamer && \
@@ -494,8 +493,12 @@ RUN \
     mkdir -p /deb-pkg/opt/intel/dlstreamer/share/gir-1.0 && \
     cp "${DLSTREAMER_DIR}/girs/"*.gir /deb-pkg/opt/intel/dlstreamer/share/gir-1.0/ && \
     cp "${DLSTREAMER_DIR}/build/src/gst/metadata/"*.typelib /deb-pkg/opt/intel/dlstreamer/lib/girepository-1.0/ && \
-    cp -a /usr/local/lib/libopencv*.so* /deb-pkg/opt/opencv/ && \
-    cp -r /usr/local/include/opencv4/* /deb-pkg/opt/opencv/include && \
+    mkdir -p /deb-pkg/opt/intel/dlstreamer/opencv/lib/cmake /deb-pkg/opt/intel/dlstreamer/opencv/lib/pkgconfig /deb-pkg/opt/intel/dlstreamer/opencv/include && \
+    cp -a /usr/local/lib/libopencv*.so* /deb-pkg/opt/intel/dlstreamer/opencv/lib/ && \
+    cp -r /usr/local/include/opencv5 /deb-pkg/opt/intel/dlstreamer/opencv/include/ && \
+    cp -r /usr/local/lib/cmake/opencv5 /deb-pkg/opt/intel/dlstreamer/opencv/lib/cmake/ && \
+    cp /usr/local/lib/pkgconfig/opencv5.pc /deb-pkg/opt/intel/dlstreamer/opencv/lib/pkgconfig/ && \
+    sed -i 's|^prefix=.*|prefix=/opt/intel/dlstreamer/opencv|' /deb-pkg/opt/intel/dlstreamer/opencv/lib/pkgconfig/opencv5.pc && \
     cp -a /usr/local/lib/librdkafka*.so* /deb-pkg/opt/rdkafka/ && \
     cp -a /usr/local/lib/librealsense* /deb-pkg/opt/librealsense/ && \
     rm -rf /deb-pkg/opt/intel/dlstreamer/archived && \
@@ -557,9 +560,9 @@ RUN \
 # Intel NPU drivers and prerequisites installation
 WORKDIR /tmp/npu_deps
 
-RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.38.0/linux-npu-driver-v1.38.0.20260910-34487311128-ubuntu2404.tar.gz && \
-    tar -xf linux-npu-driver-v1.38.0.20260910-34487311128-ubuntu2404.tar.gz && \
-    curl -LO https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20260830T100000Z/pool/main/l/level-zero-loader/libze1_1.32.0-1~24.04~ppa1_amd64.deb && \
+RUN curl -LO https://github.com/intel/linux-npu-driver/releases/download/v1.39.1/linux-npu-driver-v1.39.1.20261119-44517102376-ubuntu2404.tar.gz && \
+    tar -xf linux-npu-driver-v1.39.1.20261119-44517102376-ubuntu2404.tar.gz && \
+    curl -LO https://snapshot.ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu/20261110T100000Z/pool/main/l/level-zero-loader/libze1_1.34.0-1~24.04~ppa1_amd64.deb && \
     apt-get update && \
     apt-get install -y --no-install-recommends ./intel-*.deb && \
     apt-get clean && \
@@ -611,7 +614,7 @@ RUN \
 # DL Streamer environment variables
 ENV LIBVA_DRIVER_NAME=iHD
 ENV GST_PLUGIN_PATH=/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0:/opt/intel/dlstreamer/gstreamer/lib/
-ENV LD_LIBRARY_PATH=/opt/intel/dlstreamer/gstreamer/lib:/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/lib/gstreamer-1.0:/opt/opencv:/opt/rdkafka:/opt/librealsense:/usr/local/lib/gstreamer-1.0:/usr/local/lib
+ENV LD_LIBRARY_PATH=/opt/intel/dlstreamer/gstreamer/lib:/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/lib/gstreamer-1.0:/opt/intel/dlstreamer/opencv/lib:/opt/rdkafka:/opt/librealsense:/usr/local/lib/gstreamer-1.0:/usr/local/lib
 ENV LIBVA_DRIVERS_PATH=/usr/lib/x86_64-linux-gnu/dri
 ENV GST_VA_ALL_DRIVERS=1
 ENV MODEL_PROC_PATH=/opt/intel/dlstreamer/samples/gstreamer/model_proc

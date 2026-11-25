@@ -35,9 +35,7 @@ The pipeline uses the `gvadetect` element with the `custom-postproc-lib` paramet
 
 ## Model
 
-The example pipeline is configured for the **YOLOv11s** detector at `$MODELS_PATH/public/yolo11s/FP16/yolo11s.xml`. A compatible OpenVINO detector can be used after updating the model path in the sample script.
-
-Prepare a compatible detector with the general [`download_ultralytics_models.py`](../../../../../scripts/download_models/README.md#2-ultralytics-conversion) helper; YOLOv11s is the example model. Follow the helper README for dependencies and setup. Set `MODELS_PATH` to the model store used by the sample.
+The sample script requires the **YOLOv11s** detector (`yolo11s`); the path is hard-coded as `$MODELS_PATH/public/yolo11s/FP16/yolo11s.xml`, and the custom post-processing library parses the YOLOv11 output format. Prepare it with the `download_ultralytics_models.py` helper from [`scripts/download_models`](../../../../../scripts/download_models/README.md#2-ultralytics-conversion). The models used to validate this sample are listed in [Validation](#validation).
 
 ## Running
 
@@ -65,7 +63,7 @@ The script takes three positional parameters; `INPUT` is required, so `DEVICE` a
 
 ## Examples
 
-Run with the example model on a local video (GPU device, file output):
+Run on a local video (GPU device, file output):
 
 ```sh
 ./build_and_run.sh GPU file /path/to/video.mp4
@@ -184,6 +182,13 @@ The library:
 * Each model output layer has a separate `GstTensor` contained within one `GstTensorMeta`
 * Tensors are always passed in **unbatched** format (batch dimension = 1) regardless of pipeline batch-size setting
 * The library supports **object detection** tasks with `GstAnalyticsODMtd` metadata and **classification** tasks with `GstAnalyticsClsMtd` metadata
+
+## Validation
+
+This sample was validated with:
+
+- Model: `yolo11s` (FP16)
+- Video: [`1192116-sd_640_360_30fps.mp4`](https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4)
 
 ## See also
 

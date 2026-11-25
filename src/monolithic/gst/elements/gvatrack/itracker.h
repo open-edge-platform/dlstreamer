@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2022 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -12,5 +12,5 @@
 class ITracker {
   public:
     virtual ~ITracker() = default;
-    virtual void track(dlstreamer::FramePtr buffer, GVA::VideoFrame &frame_meta) = 0;
+    virtual void track(dlstreamer::FramePtr buffer, GVA::VideoFrame &frame_meta, GstBuffer *gst_buffer) = 0;
 };

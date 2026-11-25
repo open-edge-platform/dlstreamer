@@ -385,8 +385,11 @@ class RegionOfInterest {
     /**
      * @brief Set object ID
      * @param id ID to set
+     * @param first_seen Timestamp of the first appearance of the track, stored in GstAnalyticsTrackingMtd
+     * @param last_seen Timestamp of the latest appearance of the track, GST_CLOCK_TIME_NONE leaves it equal to
+     * first_seen
      */
-    void set_object_id(int32_t id) {
+    void set_object_id(int32_t id, GstClockTime first_seen = 0, GstClockTime last_seen = GST_CLOCK_TIME_NONE) {
         if (_gst_meta) {
             GstStructure *object_id = gst_video_region_of_interest_meta_get_param(_gst_meta, "object_id");
             if (object_id) {
@@ -408,8 +411,12 @@ class RegionOfInterest {
             }
         }
 
-        if (!gst_analytics_relation_meta_add_tracking_mtd(_od_meta.meta, id, 0, &trk_mtd)) {
+        if (!gst_analytics_relation_meta_add_tracking_mtd(_od_meta.meta, id, first_seen, &trk_mtd)) {
             throw std::runtime_error("Failed to add tracking metadata");
+        }
+
+        if (last_seen != GST_CLOCK_TIME_NONE && !gst_analytics_tracking_mtd_update_last_seen(&trk_mtd, last_seen)) {
+            throw std::runtime_error("Failed to update tracking metadata last seen timestamp");
         }
 
         if (!gst_analytics_relation_meta_set_relation(_od_meta.meta, GST_ANALYTICS_REL_TYPE_RELATE_TO, _od_meta.id,

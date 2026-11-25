@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "itracker.h"
+#include "track_history.h"
 #include <dlstreamer/base/memory_mapper.h>
 #include <dlstreamer/context.h>
 
@@ -41,12 +42,13 @@ class Tracker : public ITracker {
             const std::string &config_kv, dlstreamer::MemoryMapperPtr mapper, dlstreamer::ContextPtr context);
     ~Tracker() = default;
 
-    void track(dlstreamer::FramePtr buffer, GVA::VideoFrame &frame_meta) override;
+    void track(dlstreamer::FramePtr buffer, GVA::VideoFrame &frame_meta, GstBuffer *gst_buffer) override;
 
   private:
     std::unique_ptr<class TrackerBackend> _impl;
     std::unordered_map<int, std::string> labels;
     std::unordered_map<uint64_t, TrackState> track_states;
+    TrackHistory history;
 };
 
 } // namespace VasWrapper

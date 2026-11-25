@@ -17,7 +17,7 @@ Pipeline elements:
 
 ## Models
 
-The example uses `yolov8_license_plate_detector` and `ch_PP-OCRv4_rec_infer` for plate detection and OCR. Other compatible detector/recognizer pairs can be used by updating their model paths and matching model-proc configuration. Prepare the example pair with the general [`download_other_models.py`](../../../../../scripts/download_models/README.md#4-other-public-models) helper, selecting `yolov8_license_plate_detector,ch_PP-OCRv4_rec_infer`.
+`license_plate_recognition.ps1` requires the `yolov8_license_plate_detector` (plate detection) and `ch_PP-OCRv4_rec_infer` (OCR) models, loaded from `%MODELS_PATH%\public\<model>\FP32\<model>.xml` (no model-proc files needed). Prepare them with `download_other_models.py` (see [Model Conversion Scripts](../../../../../scripts/download_models/README.md)). The models used to validate this sample are listed in [Validation](#validation).
 
 ## Environment Variables
 
@@ -173,6 +173,13 @@ graph LR
     O4C --> O5C[gvafpscounter]
     O5C --> O6C[autovideosink<br/>sync=false]
 ```
+
+## Validation
+
+This sample was validated with:
+
+- Models: `yolov8_license_plate_detector`, `ch_PP-OCRv4_rec_infer` (FP32)
+- Video: [`ParkingVideo.mp4`](https://github.com/open-edge-platform/edge-ai-resources/raw/main/videos/ParkingVideo.mp4)
 
 ## See also
 * [Windows Samples overview](../../../../README.md)

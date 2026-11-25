@@ -107,7 +107,7 @@ Full installation guide: [Install Guide for Ubuntu](https://docs.openedgeplatfor
 
 **Step 1 — Set up model, input video and environment** (inside the container or on a native install):
 
-Download the model you want to use. The code below downloads the `yolo11n` model as an example; you can use any model that meets your needs.
+Download the **model** you want to use. The code below downloads the `yolo11n` model as an example; you can use any model that meets your needs.
 
 ```bash
 cd ~
@@ -124,14 +124,24 @@ source /opt/intel/dlstreamer/scripts/setup_dls_env.sh
 
 For INT8 export, `--data` selects the dataset YAML used for calibration. If omitted, Ultralytics uses its default dataset.
 
-Prepare an input video. Use any local video file and set the `INPUT_VIDEO` environment variable to its full path.
-The example below downloads a free Pexels video for demo purposes:
+Prepare an **input video**. Use any local video file and set the `INPUT_VIDEO` environment variable to its full path:
+
+```bash
+export INPUT_VIDEO=/path/to/file.mp4
+```
+
+The examples below were validated with a short, freely licensed clip from [Pexels](https://www.pexels.com/).
+It was downloaded with the following commands:
 
 ```bash
 cd ~
 curl -L -o input_video.mp4 https://videos.pexels.com/video-files/1192116/1192116-sd_640_360_30fps.mp4
 export INPUT_VIDEO=$PWD/input_video.mp4
 ```
+
+> **Credits:** [Busy Street](https://www.pexels.com/video/busy-street-1192116/) video by
+> *Rihard-Clement-Ciprian Diac* on Pexels. Free to use under the
+> [Pexels License](https://www.pexels.com/license/).
 
 **Step 2 — Run the pipeline.** Change `device=GPU` to `device=CPU` or `device=NPU` — no other code changes needed.
 
@@ -161,7 +171,7 @@ gst-launch-1.0 \
 
 ### Python API
 
-Create a file `detect.py` and set a path to your input video file:
+Create a file `detect.py` (it reads the input video path from `INPUT_VIDEO` set in Step 1):
 
 ```python
 import gi
@@ -171,7 +181,7 @@ import os
 
 Gst.init([])
 
-video_path = "/path/to/file.mp4"
+video_path = os.environ["INPUT_VIDEO"]
 model = os.path.expanduser("~/models/yolo11n/yolo11n.xml")
 pipeline = Gst.parse_launch(f"""
     filesrc location={video_path} !

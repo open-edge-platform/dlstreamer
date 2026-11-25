@@ -83,6 +83,13 @@ The sample:
 * prints the full `gst-launch-1.0` command to the console
 * outputs LiDAR parser debug logs and metadata summaries
 
+## Validation
+
+This sample was validated with:
+
+- Model: none
+- Input: KITTI-360 `velodyne` demo sequence from the metro-ai-suite repository
+
 ## See also
 * [Elements overview](../../../../docs/user-guide/elements/elements.md)
 * [g3dlidarparse element](../../../../docs/user-guide/elements/g3dlidarparse.md)

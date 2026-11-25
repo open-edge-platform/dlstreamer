@@ -11,7 +11,7 @@ The `gvafpscounter` inserted at the end of each stream pipeline and measures FPS
 
 The command-line parameters allow to select inference device (ex, CPU, GPU).
 
-> **NOTE**: Before running samples (including this one), prepare required models using scripts in `scripts/download_models` (see `scripts/download_models/README.md` for per-model commands and per-script venv setup).
+> **NOTE**: `benchmark.bat` requires the `centerface` face-detection model, loaded from `%MODELS_PATH%\public\centerface\FP32\centerface.xml`. The models used to validate this sample are listed in [Validation](#validation).
 
 ## Environment Variables
 
@@ -25,8 +25,6 @@ set MODELS_PATH=C:\models
 
 ## Input video
 Use any local video file supported by the installed GStreamer plugins. For useful face detections, choose a clip containing people or faces. The example filename below is illustrative; obtain a suitable video from a source available to you and pass its local path. An optional example is [`head-pose-face-detection-female-and-male.mp4`](https://raw.githubusercontent.com/intel-iot-devkit/sample-videos/master/head-pose-face-detection-female-and-male.mp4).
-
-`benchmark.bat` is currently configured to use the `centerface` model. A different compatible face-detection model can be used by updating the model name and path in the batch file.
 
 ## Running
 
@@ -51,6 +49,13 @@ benchmark.bat C:\videos\faces.mp4 CPU 4
 The sample
 * prints gst-launch command line into console
 * reports FPS every second and average FPS on exit
+
+## Validation
+
+This sample was validated with:
+
+- Model: `centerface` (FP32)
+- Video: [`head-pose-face-detection-female-and-male.mp4`](https://github.com/intel-iot-devkit/sample-videos/raw/master/head-pose-face-detection-female-and-male.mp4)
 
 ## See also
 * [Windows Samples overview](../../../README.md)

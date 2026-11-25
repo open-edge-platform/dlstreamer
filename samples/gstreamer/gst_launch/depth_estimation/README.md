@@ -20,13 +20,12 @@ For each detected ROI, the mean depth value is attached as a classification labe
 
 ## Models
 
-This sample expects two OpenVINO IR models:
+The sample script requires two OpenVINO IR models; their names and paths are hard-coded:
 
-* `yolo11n` in FP16 precision from Ultralytics for object detection
-* `depth-anything/Depth-Anything-V2-Small-hf` in FP16 precision from HuggingFace for depth estimation
+* `yolo11n` (FP16) for object detection, loaded from `$MODELS_PATH/public/yolo11n/FP16/yolo11n.xml` and prepared with `download_ultralytics_models.py`
+* `depth-anything/Depth-Anything-V2-Small-hf` (FP16) for depth estimation, loaded from `$MODELS_PATH/public/depth-anything_Depth-Anything-V2-Small-hf/FP16/depth-anything_Depth-Anything-V2-Small-hf.xml` and prepared with `download_hf_models.py`
 
-Use the model conversion scripts in [scripts/download_models/](../../../../scripts/download_models/README.md) to prepare both models.
-Before running them, create and activate the dedicated model-download virtual environment described in [scripts/download_models/README.md](../../../../scripts/download_models/README.md).
+Both helpers, and the virtual environments they need, are described in [scripts/download_models/README.md](../../../../scripts/download_models/README.md). The models used to validate this sample are listed in [Validation](#validation).
 
 Set `MODELS_PATH` environment variable to the main directory (specified as `--outdir <output_dir>`) where models have been downloaded, for example:
 
@@ -83,6 +82,13 @@ The sample:
 * prints the full `gst-launch-1.0` pipeline before execution
 * renders detections when using display output modes, with the mean depth for each detected object attached as the ROI classification label
 * writes per-object `depth_metrics` tensors as json-lines to `output.json` when using JSON output modes, containing center depth, mean depth, median depth, minimum depth, maximum depth, standard deviation, valid pixel count, and valid pixel ratio
+
+## Validation
+
+This sample was validated with:
+
+- Models: `yolo11n`, `depth-anything_Depth-Anything-V2-Small-hf` (FP16)
+- Video: [`18553046-hd_1280_720_30fps.mp4`](https://videos.pexels.com/video-files/18553046/18553046-hd_1280_720_30fps.mp4)
 
 ## See also
 
