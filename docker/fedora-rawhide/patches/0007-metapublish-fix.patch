@@ -1,4 +1,4 @@
-From aa4229e3145d3c6a00a07126020d85c4415a9418 Mon Sep 17 00:00:00 2001
+From 95e07a4f8483c48b56b5fd4e07372460d2568c30 Mon Sep 17 00:00:00 2001
 From: Michal Holownia <michal.holownia@intel.com>
 Date: Fri, 30 Oct 2026 14:26:37 +0100
 Subject: [PATCH] metapublish fix
@@ -32,3 +32,6 @@ index f194fae8..0ff83a28 100644
 +set_target_properties(${TARGET_NAME} PROPERTIES INSTALL_RPATH "$ORIGIN")
 +
  install(TARGETS ${TARGET_NAME} DESTINATION ${DLSTREAMER_PLUGINS_INSTALL_PATH})
+-- 
+2.34.1
+

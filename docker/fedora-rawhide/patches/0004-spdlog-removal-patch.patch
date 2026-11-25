@@ -1,4 +1,4 @@
-From be1548ae244fb6541bd64daa38bf01bbc7d6c570 Mon Sep 17 00:00:00 2001
+From 4ff1c3ebb306237e549ef2b898c5d11e69a747a4 Mon Sep 17 00:00:00 2001
 From: Michal Holownia <michal.holownia@intel.com>
 Date: Fri, 30 Oct 2026 11:08:14 +0100
 Subject: [PATCH] spdlog removal patch
@@ -6,12 +6,15 @@ Subject: [PATCH] spdlog removal patch
 ---
  CMakeLists.txt                                      |  3 +++
  .../image_inference/openvino/CMakeLists.txt         | 13 ++++++++++++-
- .../openvino/openvino_image_inference.cpp           |  8 ++++++--
+ .../image_inference/openvino/openvino_formatters.h  |  6 ++++++
+ .../openvino/openvino_image_inference.cpp           |  1 -
+ .../openvino/openvino_model_compilation.cpp         |  3 ---
+ .../openvino/openvino_prepared_model.cpp            |  3 ---
  thirdparty/CMakeLists.txt                           |  4 +++-
- 4 files changed, 24 insertions(+), 4 deletions(-)
+ 7 files changed, 24 insertions(+), 9 deletions(-)
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 1df77e94..eaf910c4 100644
+index 9c605a5b..45bcce13 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -129,6 +129,9 @@ cmake_dependent_option(ENABLE_RDKAFKA_INSTALLATION "Enables rdkafka installation
@@ -58,14 +61,14 @@ index 25547fb9..e74ad5e0 100644
  if(WIN32)
      target_link_libraries(${TARGET_NAME} PUBLIC d3d11)
  endif()
-diff --git a/src/monolithic/inference_backend/image_inference/openvino/openvino_image_inference.cpp b/src/monolithic/inference_backend/image_inference/openvino/openvino_image_inference.cpp
-index a9759fa2..fbf95e67 100644
---- a/src/monolithic/inference_backend/image_inference/openvino/openvino_image_inference.cpp
-+++ b/src/monolithic/inference_backend/image_inference/openvino/openvino_image_inference.cpp
-@@ -6,7 +6,13 @@
+diff --git a/src/monolithic/inference_backend/image_inference/openvino/openvino_formatters.h b/src/monolithic/inference_backend/image_inference/openvino/openvino_formatters.h
+index 0eb5427d..49ba2369 100644
+--- a/src/monolithic/inference_backend/image_inference/openvino/openvino_formatters.h
++++ b/src/monolithic/inference_backend/image_inference/openvino/openvino_formatters.h
+@@ -11,7 +11,13 @@
  
- #include "gst/gststructure.h"
- #include "inference_backend/image_inference.h"
+ #include "inference_backend/pre_proc.h"
+ 
 +#ifdef DLS_USE_SYSTEM_FMT
 +#include <fmt/format.h>
 +#include <fmt/ranges.h>
@@ -74,17 +77,48 @@ index a9759fa2..fbf95e67 100644
  #include <spdlog/fmt/fmt.h>
 +#endif
  
- #include <cstddef>
+ #include <openvino/core/any.hpp>
+ 
+diff --git a/src/monolithic/inference_backend/image_inference/openvino/openvino_image_inference.cpp b/src/monolithic/inference_backend/image_inference/openvino/openvino_image_inference.cpp
+index 75c85f38..02df7008 100644
+--- a/src/monolithic/inference_backend/image_inference/openvino/openvino_image_inference.cpp
++++ b/src/monolithic/inference_backend/image_inference/openvino/openvino_image_inference.cpp
+@@ -9,7 +9,6 @@
+ 
+ #include "gst/gststructure.h"
+ #include "inference_backend/image_inference.h"
+-#include <spdlog/fmt/fmt.h>
+ 
  #include <openvino/runtime/properties.hpp>
-@@ -20,8 +26,6 @@
- // For logger_name
- #include <dlstreamer/element.h>
+ 
+diff --git a/src/monolithic/inference_backend/image_inference/openvino/openvino_model_compilation.cpp b/src/monolithic/inference_backend/image_inference/openvino/openvino_model_compilation.cpp
+index 616869af..168bbb6e 100644
+--- a/src/monolithic/inference_backend/image_inference/openvino/openvino_model_compilation.cpp
++++ b/src/monolithic/inference_backend/image_inference/openvino/openvino_model_compilation.cpp
+@@ -16,9 +16,6 @@
+ 
+ #include <openvino/runtime/intel_npu/properties.hpp>
  
 -#include <spdlog/fmt/bundled/ranges.h>
+-#include <spdlog/fmt/fmt.h>
 -
- #include "model_api_converters.h"
- #include "openvino_image_inference.h"
+ #ifdef _WIN32
+ #include <dlstreamer/d3d11/context.h>
+ #include <dlstreamer/d3d12/context.h>
+diff --git a/src/monolithic/inference_backend/image_inference/openvino/openvino_prepared_model.cpp b/src/monolithic/inference_backend/image_inference/openvino/openvino_prepared_model.cpp
+index 5848c3ba..de7c7ae9 100644
+--- a/src/monolithic/inference_backend/image_inference/openvino/openvino_prepared_model.cpp
++++ b/src/monolithic/inference_backend/image_inference/openvino/openvino_prepared_model.cpp
+@@ -17,9 +17,6 @@
  
+ #include <openvino/runtime/intel_gpu/properties.hpp>
+ 
+-#include <spdlog/fmt/bundled/ranges.h>
+-#include <spdlog/fmt/fmt.h>
+-
+ #include <algorithm>
+ #include <cassert>
+ #include <sstream>
 diff --git a/thirdparty/CMakeLists.txt b/thirdparty/CMakeLists.txt
 index 4785e3de..1de53b5a 100644
 --- a/thirdparty/CMakeLists.txt
@@ -99,3 +133,6 @@ index 4785e3de..1de53b5a 100644
 +    add_subdirectory(spdlog)
 +endif()
 \ No newline at end of file
+-- 
+2.34.1
+

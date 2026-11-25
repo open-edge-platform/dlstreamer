@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: MIT
 # ==============================================================================
 
-%global commit 83845c90c651f7e91140396e95f8f275e5f520d9
+%global commit 50a0ed4538c8163d981643751223c6e9cd506389
 %global so_ver 26.3.0
 
 # libgvametapublish.so is a plugin that is also linked by the kafka and mqtt plugins (through $ORIGIN rpath).
@@ -37,6 +37,12 @@ Patch4:         0005-json-libs-patch.patch
 Patch5:         0006-installation-paths-patch.patch
 # kafka and mqtt plugins link libgvametapublish, which is installed next to them in the plugin directory
 Patch6:         0007-metapublish-fix.patch
+# Fedora ships OpenCV 4, reverts the OpenCV 5.1 API changes of upstream commit d2a15447 in sources and samples
+Patch7:         0008-Revert-OpenCV-5.1.0-bump-in-sources-and-samples.patch
+# Elements added in v2026.3.0-rc2 use the generic semantic tag API, provided here by the semantic tag meta
+Patch8:         0009-Use-semantic-tag-meta-in-gvaeventrecorder-and-gvafra.patch
+# Same for unit tests, which are not built here but keep the patch series complete
+Patch9:         0010-Use-semantic-tag-meta-in-unit-tests.patch
 # The OpenVINO build dependency (libopenvino-devel) is only available on x86_64
 ExclusiveArch:  x86_64
 
@@ -206,5 +212,8 @@ import gstgva
 %{_datadir}/%{name}/
 
 %changelog
+* Tue Nov 24 2026 Packager <packager@example.com> - 2026.3.0~rc2-1
+- Update to v2026.3.0-rc2
+
 * Tue Oct 27 2026 Packager <packager@example.com> - 2026.2.0-1
 - Test package using Fedora system GStreamer

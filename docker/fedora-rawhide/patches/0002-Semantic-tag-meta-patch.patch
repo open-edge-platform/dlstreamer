@@ -1,4 +1,4 @@
-From 5a5b2577c5514bfb3a1809aab1c08bf481309d3e Mon Sep 17 00:00:00 2001
+From a071b4f307e90268a121d9404854cf02b48a23d2 Mon Sep 17 00:00:00 2001
 From: Michal Holownia <michal.holownia@intel.com>
 Date: Thu, 29 Oct 2026 09:12:25 +0100
 Subject: [PATCH] Semantic tag meta patch
@@ -130,7 +130,7 @@ index 00000000..ba472c1c
 +
 +#endif /* __GST_ANALYTICS_SEMANTIC_TAG_MTD_H__ */
 diff --git a/include/dlstreamer/gst/videoanalytics/region_of_interest.h b/include/dlstreamer/gst/videoanalytics/region_of_interest.h
-index 083d1bda..7f2107a5 100644
+index f6f8693b..3a8cf94a 100644
 --- a/include/dlstreamer/gst/videoanalytics/region_of_interest.h
 +++ b/include/dlstreamer/gst/videoanalytics/region_of_interest.h
 @@ -18,6 +18,7 @@
@@ -579,10 +579,10 @@ index 26d38617..7ac832e7 100644
  #include <gst/analytics/gstanalyticsobjecttrackingmtd.h>
  #include <gst/rtp/rtp.h>
  #include <nlohmann/json.hpp>
-diff --git a/src/monolithic/gst/inference_elements/common/post_processor/meta_attacher.cpp b/src/monolithic/gst/inference_elements/common/post_processor/meta_attacher.cpp
+diff --git a/src/monolithic/gst/inference_elements/vision/common/post_processor/meta_attacher.cpp b/src/monolithic/gst/inference_elements/vision/common/post_processor/meta_attacher.cpp
 index 410a6a08..924c8062 100644
---- a/src/monolithic/gst/inference_elements/common/post_processor/meta_attacher.cpp
-+++ b/src/monolithic/gst/inference_elements/common/post_processor/meta_attacher.cpp
+--- a/src/monolithic/gst/inference_elements/vision/common/post_processor/meta_attacher.cpp
++++ b/src/monolithic/gst/inference_elements/vision/common/post_processor/meta_attacher.cpp
 @@ -11,6 +11,7 @@
  #include "gva_utils.h"
  #include "processor_types.h"
@@ -624,3 +624,6 @@ index dfae7ca4..23bccde3 100644
  #include <gst/analytics/gstanalyticssegmentationmtd.h>
  #include <gst/analytics/gstanalyticstensormtd.h>
  #include <gst/analytics/gsttensor.h>
+-- 
+2.34.1
+

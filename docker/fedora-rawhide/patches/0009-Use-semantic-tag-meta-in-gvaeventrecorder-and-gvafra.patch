@@ -1,0 +1,95 @@
+From 9e7db46df0bedec9692e78415fbbbb02d9d66bab Mon Sep 17 00:00:00 2001
+From: Michal Holownia <michal.holownia@intel.com>
+Date: Tue, 24 Nov 2026 10:35:48 +0100
+Subject: [PATCH] Use semantic tag meta in gvaeventrecorder and gvaframeselect
+
+---
+ .../gst/metadata/gstanalyticssemantictagmtd.h |  4 ++++
+ src/gst/metadata/gstanalyticssemantictagmtd.c | 20 +++++++++++++++++++
+ .../gvaeventrecorder/gstgvaeventrecorder.cpp  |  2 ++
+ .../elements/gvaframeselect/CMakeLists.txt    |  1 +
+ .../gvaframeselect/gstgvaframeselect.cpp      |  2 ++
+ 5 files changed, 29 insertions(+)
+
+diff --git a/include/dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h b/include/dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h
+index ba472c1c..f9ae36ac 100644
+--- a/include/dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h
++++ b/include/dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h
+@@ -64,6 +64,10 @@ gboolean gst_analytics_mtd_set_semantic_tag(GstAnalyticsMtd *instance, const gch
+ GST_ANALYTICS_META_API
+ gchar *gst_analytics_mtd_get_semantic_tag(const GstAnalyticsMtd *instance);
+ 
++/* Returns TRUE if the tag of @instance equals @tag, an unset tag never matches. */
++GST_ANALYTICS_META_API
++gboolean gst_analytics_mtd_has_semantic_tag(const GstAnalyticsMtd *instance, const gchar *tag);
++
+ G_END_DECLS
+ 
+ #endif /* __GST_ANALYTICS_SEMANTIC_TAG_MTD_H__ */
+diff --git a/src/gst/metadata/gstanalyticssemantictagmtd.c b/src/gst/metadata/gstanalyticssemantictagmtd.c
+index 8e3dd9b8..b3837b76 100644
+--- a/src/gst/metadata/gstanalyticssemantictagmtd.c
++++ b/src/gst/metadata/gstanalyticssemantictagmtd.c
+@@ -205,3 +205,23 @@ gchar *gst_analytics_mtd_get_semantic_tag(const GstAnalyticsMtd *instance) {
+     gchar *tag = gst_analytics_relation_meta_get_semantic_tag(instance->meta, instance->id);
+     return tag ? tag : g_strdup("");
+ }
++
++/**
++ * gst_analytics_mtd_has_semantic_tag:
++ * @instance: Instance of #GstAnalyticsMtd
++ * @tag: Tag string to compare against
++ *
++ * Check if the semantic tag of any analytics metadata equals @tag. An unset tag never matches.
++ *
++ * Returns: TRUE if the semantic tag of @instance equals @tag.
++ */
++gboolean gst_analytics_mtd_has_semantic_tag(const GstAnalyticsMtd *instance, const gchar *tag) {
++    g_return_val_if_fail(instance != NULL, FALSE);
++    g_return_val_if_fail(instance->meta != NULL, FALSE);
++    g_return_val_if_fail(tag != NULL, FALSE);
++
++    gchar *current = gst_analytics_relation_meta_get_semantic_tag(instance->meta, instance->id);
++    gboolean ret = current != NULL && g_strcmp0(current, tag) == 0;
++    g_free(current);
++    return ret;
++}
+diff --git a/src/monolithic/gst/elements/gvaeventrecorder/gstgvaeventrecorder.cpp b/src/monolithic/gst/elements/gvaeventrecorder/gstgvaeventrecorder.cpp
+index 34529d6b..facfef84 100644
+--- a/src/monolithic/gst/elements/gvaeventrecorder/gstgvaeventrecorder.cpp
++++ b/src/monolithic/gst/elements/gvaeventrecorder/gstgvaeventrecorder.cpp
+@@ -17,6 +17,8 @@
+ #include <gst/analytics/analytics.h>
+ #include <gst/video/video.h>
+ 
++#include <dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h>
++
+ #include "gva_caps.h"
+ 
+ #include "drop_log_throttle/drop_log_throttle.hpp"
+diff --git a/src/monolithic/gst/elements/gvaframeselect/CMakeLists.txt b/src/monolithic/gst/elements/gvaframeselect/CMakeLists.txt
+index 18194643..b5d9be74 100644
+--- a/src/monolithic/gst/elements/gvaframeselect/CMakeLists.txt
++++ b/src/monolithic/gst/elements/gvaframeselect/CMakeLists.txt
+@@ -33,4 +33,5 @@ target_link_libraries(${TARGET_NAME}
+     ${GSTREAMER_BASE_LIBRARIES}
+     ${GSTREAMER_VIDEO_LIBRARIES}
+     ${GSTREAMER_ANALYTICS_LIBRARIES}
++    dlstreamer_gst_meta
+ )
+diff --git a/src/monolithic/gst/elements/gvaframeselect/gstgvaframeselect.cpp b/src/monolithic/gst/elements/gvaframeselect/gstgvaframeselect.cpp
+index 91b24210..5ea47d74 100644
+--- a/src/monolithic/gst/elements/gvaframeselect/gstgvaframeselect.cpp
++++ b/src/monolithic/gst/elements/gvaframeselect/gstgvaframeselect.cpp
+@@ -13,6 +13,8 @@
+ #include <gst/analytics/analytics.h>
+ #include <gst/video/video.h>
+ 
++#include <dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h>
++
+ #include "frame_selector.hpp"
+ #include "gva_caps.h"
+ #include "gva_utils.h"
+-- 
+2.34.1
+

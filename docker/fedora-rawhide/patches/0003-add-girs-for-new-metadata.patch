@@ -1,4 +1,4 @@
-From f81bf01f9bbf69bb70e7359e5b1cc87e63ea93b1 Mon Sep 17 00:00:00 2001
+From 6b373dcca159983368c08a2c4cec3532f6ce84b2 Mon Sep 17 00:00:00 2001
 From: Michal Holownia <michal.holownia@intel.com>
 Date: Thu, 29 Oct 2026 13:57:33 +0100
 Subject: [PATCH] add girs for new metadata
@@ -1439,3 +1439,6 @@ index d007ff3b..8e3dd9b8 100644
  gchar *gst_analytics_mtd_get_semantic_tag(const GstAnalyticsMtd *instance) {
      g_return_val_if_fail(instance != NULL, NULL);
      g_return_val_if_fail(instance->meta != NULL, NULL);
+-- 
+2.34.1
+

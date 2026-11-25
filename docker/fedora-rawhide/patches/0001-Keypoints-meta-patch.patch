@@ -1,4 +1,4 @@
-From b4215e52ffb0784b7619e8e1a64f4550d07d57c6 Mon Sep 17 00:00:00 2001
+From d544e032e92863d7c5be555bb8e34a5ad239506a Mon Sep 17 00:00:00 2001
 From: Michal Holownia <michal.holownia@intel.com>
 Date: Wed, 28 Oct 2026 09:26:53 +0100
 Subject: [PATCH] Keypoints meta patch
@@ -237,7 +237,7 @@ index 00000000..f73e6e1e
 +
 +#endif /* __GST_ANALYTICS_KEYPOINT_MTD_H__ */
 diff --git a/include/dlstreamer/gst/videoanalytics/region_of_interest.h b/include/dlstreamer/gst/videoanalytics/region_of_interest.h
-index d99b1d5a..083d1bda 100644
+index 3d64477a..f6f8693b 100644
 --- a/include/dlstreamer/gst/videoanalytics/region_of_interest.h
 +++ b/include/dlstreamer/gst/videoanalytics/region_of_interest.h
 @@ -17,7 +17,7 @@
@@ -1326,3 +1326,6 @@ index 567e258b..26d38617 100644
  #include <gst/analytics/gstanalyticsobjecttrackingmtd.h>
  #include <gst/rtp/rtp.h>
  #include <nlohmann/json.hpp>
+-- 
+2.34.1
+

@@ -1,4 +1,4 @@
-From 4d1a1bf69721cce838843b5a22fc924931f4ee14 Mon Sep 17 00:00:00 2001
+From 6ddb26f0435b0d3d689f69574c53052a0349be19 Mon Sep 17 00:00:00 2001
 From: Michal Holownia <michal.holownia@intel.com>
 Date: Fri, 30 Oct 2026 12:41:17 +0100
 Subject: [PATCH] installation paths patch
@@ -15,7 +15,7 @@ Subject: [PATCH] installation paths patch
  8 files changed, 34 insertions(+), 15 deletions(-)
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index d083cc56..7aac35c6 100644
+index ffe1ae32..957f69a3 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -100,9 +100,16 @@ foreach(OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES})
@@ -88,10 +88,10 @@ index e33a8d1d..ebd73a5e 100644
 +install(DIRECTORY cpp DESTINATION ${DLSTREAMER_SAMPLES_INSTALL_PATH} USE_SOURCE_PERMISSIONS)
  endif()
 diff --git a/src/gst/lib/CMakeLists.txt b/src/gst/lib/CMakeLists.txt
-index 58fb62a0..98d4b7ce 100644
+index 16e23fdc..09a1c718 100644
 --- a/src/gst/lib/CMakeLists.txt
 +++ b/src/gst/lib/CMakeLists.txt
-@@ -50,4 +50,8 @@ if(WIN32)
+@@ -53,4 +53,8 @@ if(WIN32)
      )
  endif()
  
@@ -166,3 +166,6 @@ index bec15f56..797b30f1 100644
  
  install(FILES ${WATERMARK_GIR_OUTPUT}
      DESTINATION ${GIR_INSTALL_DIR}
+-- 
+2.34.1
+

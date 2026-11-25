@@ -1,4 +1,4 @@
-From 92ab6b0abaa6db6995cac09997ba7b09ff0f0bf4 Mon Sep 17 00:00:00 2001
+From fafee35451e1abfdf2ff1d9a9496cc972bfed733 Mon Sep 17 00:00:00 2001
 From: Michal Holownia <michal.holownia@intel.com>
 Date: Fri, 30 Oct 2026 11:22:45 +0100
 Subject: [PATCH] json libs patch
@@ -9,7 +9,7 @@ Subject: [PATCH] json libs patch
  2 files changed, 29 insertions(+), 12 deletions(-)
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index eaf910c4..d083cc56 100644
+index 45bcce13..ffe1ae32 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -132,6 +132,9 @@ option(ENABLE_GENAI "Enables GenAI elements" OFF)
@@ -78,3 +78,6 @@ index 1de53b5a..1bd3dfbe 100644
  
  # Hint compiler about location of the header file generated.
  include_directories(${CMAKE_CURRENT_BINARY_DIR})
+-- 
+2.34.1
+

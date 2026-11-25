@@ -1,0 +1,425 @@
+From e72acc9cea36b9ee9eaefa6cd67b7c72faa8b5c2 Mon Sep 17 00:00:00 2001
+From: Michal Holownia <michal.holownia@intel.com>
+Date: Tue, 24 Nov 2026 10:26:42 +0100
+Subject: [PATCH] Revert OpenCV 5.1.0 bump in sources and samples
+
+---
+ .../cpp/draw_face_attributes/CMakeLists.txt   | 21 +++++----
+ .../cpp/draw_face_attributes/build_and_run.sh |  6 ++-
+ .../g3dobjectfuser/object_fuser_impl.cpp      |  2 +-
+ .../gst/3d_elements/g3drender/CMakeLists.txt  |  2 +-
+ .../gst/3d_elements/g3drender/g3drender.cpp   | 12 +++---
+ src/monolithic/gst/elements/CMakeLists.txt    |  2 +-
+ .../gst/elements/gvadeskew/gvadeskew.cpp      | 20 ++++-----
+ .../renderer/cpu/renderer_cpu.cpp             | 24 +++--------
+ .../renderer/gpu/renderer_gpu.cpp             |  8 ++--
+ .../gvawatermark/renderer/text_rasterizer.h   | 43 -------------------
+ .../gvawatermark3d/gvawatermark3drender.cpp   |  3 +-
+ .../converters/to_roi/heatmap_boxes.cpp       |  3 +-
+ 12 files changed, 46 insertions(+), 100 deletions(-)
+ delete mode 100644 src/monolithic/gst/elements/gvawatermark/renderer/text_rasterizer.h
+
+diff --git a/samples/gstreamer/cpp/draw_face_attributes/CMakeLists.txt b/samples/gstreamer/cpp/draw_face_attributes/CMakeLists.txt
+index a62b9246..2ee83c63 100644
+--- a/samples/gstreamer/cpp/draw_face_attributes/CMakeLists.txt
++++ b/samples/gstreamer/cpp/draw_face_attributes/CMakeLists.txt
+@@ -19,26 +19,21 @@ pkg_check_modules(GLIB2 glib-2.0 REQUIRED)
+ if(DLSTREAMER_BASE_DIR)
+     # In-tree build: DLSTREAMER_BASE_DIR is set by top-level CMakeLists.txt.
+     # GStreamer/OpenCV are in build/deps/{gstreamer,opencv}-bin/.
++    # Top-level already adds global include_directories and link_directories.
+     set(DLSTREAMER_INCLUDE_DIRS
+         ${DLSTREAMER_BASE_DIR}/include/dlstreamer/gst
+         ${DLSTREAMER_BASE_DIR}/include
+     )
+-    if(WIN32)
+-        find_package(OpenCV 5.1.0 CONFIG REQUIRED COMPONENTS core imgproc)
+-    else()
+-        find_package(OpenCV 5.1.0 CONFIG REQUIRED COMPONENTS core imgproc
+-            PATHS "${CMAKE_BINARY_DIR}/deps/opencv-bin/lib/cmake/opencv5"
+-        )
+-    endif()
++    find_package(OpenCV OPTIONAL_COMPONENTS core imgproc)
+ else()
+     # Standalone build: DL Streamer is installed at /opt/intel/dlstreamer.
+     # PKG_CONFIG_PATH must be set to include dlstreamer's pkgconfig dirs
+     # (done by build_and_run.sh or setup_dls_env.sh).
+     set(DLSTREAMER_INSTALL_DIR "/opt/intel/dlstreamer")
+     set(DLSTREAMER_INCLUDE_DIRS ${DLSTREAMER_INSTALL_DIR}/include)
+-    # Pass the OpenCV install prefix so CMake searches both lib/ (Ubuntu) and lib64/ (Fedora).
+-    find_package(OpenCV 5.1.0 CONFIG REQUIRED COMPONENTS core imgproc
+-        PATHS "${DLSTREAMER_INSTALL_DIR}/opencv"
++    find_package(OpenCV
++        OPTIONAL_COMPONENTS core imgproc
++        PATHS ${DLSTREAMER_INSTALL_DIR}/opencv
+     )
+ endif()
+ 
+@@ -83,4 +78,8 @@ PRIVATE
+         ${GSTVIDEO_LIBRARIES}
+         ${GSTANALYTICS_LIBRARIES}
+         ${GSTALLOCATORS_LIBRARIES}
+-)
+\ No newline at end of file
++)
++
++if(NOT WIN32 AND NOT OpenCV_FOUND)
++    target_link_libraries(${TARGET_NAME} PRIVATE opencv_core opencv_imgproc)
++endif()
+\ No newline at end of file
+diff --git a/samples/gstreamer/cpp/draw_face_attributes/build_and_run.sh b/samples/gstreamer/cpp/draw_face_attributes/build_and_run.sh
+index 597998be..7d6e9b5f 100755
+--- a/samples/gstreamer/cpp/draw_face_attributes/build_and_run.sh
++++ b/samples/gstreamer/cpp/draw_face_attributes/build_and_run.sh
+@@ -38,10 +38,12 @@ cd "${BUILD_DIR}" || exit
+ 
+ export PKG_CONFIG_PATH=/opt/intel/dlstreamer/gstreamer/lib/pkgconfig:/opt/intel/dlstreamer/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig
+ 
++CMAKE_OPENCV_FLAGS=(-DCMAKE_C_FLAGS=-I/opt/opencv/include -DCMAKE_CXX_FLAGS=-I/opt/opencv/include -DCMAKE_EXE_LINKER_FLAGS=-L/opt/opencv)
++
+ if [ -f /etc/lsb-release ]; then
+-    cmake "${BASE_DIR}"
++    cmake "${BASE_DIR}" "${CMAKE_OPENCV_FLAGS[@]}"
+ else
+-    cmake3 "${BASE_DIR}"
++    cmake3 "${BASE_DIR}" "${CMAKE_OPENCV_FLAGS[@]}"
+ fi
+ 
+ make -j "$(nproc)"
+diff --git a/src/monolithic/gst/3d_elements/g3dobjectfuser/object_fuser_impl.cpp b/src/monolithic/gst/3d_elements/g3dobjectfuser/object_fuser_impl.cpp
+index af9fbb81..ead7bbea 100644
+--- a/src/monolithic/gst/3d_elements/g3dobjectfuser/object_fuser_impl.cpp
++++ b/src/monolithic/gst/3d_elements/g3dobjectfuser/object_fuser_impl.cpp
+@@ -155,7 +155,7 @@ bool ObjectFuser::project_radar_box_to_image(const Box3D &box, const CameraCalib
+     /* Radar point (x, y) on the ground plane -> pixel via H. The 3D box has no
+      * explicit footprint; we approximate with a box of width/length in metres. */
+     auto project_point = [&](float x, float y, cv::Point2f &p) -> bool {
+-        cv::Mat src(cv::Matx<float, 3, 1>(x, y, 1.f));
++        cv::Mat src = (cv::Mat_<float>(3, 1) << x, y, 1.f);
+         cv::Mat dst = H * src;
+         float w = dst.at<float>(2, 0);
+         if (std::fabs(w) < 1e-6f)
+diff --git a/src/monolithic/gst/3d_elements/g3drender/CMakeLists.txt b/src/monolithic/gst/3d_elements/g3drender/CMakeLists.txt
+index c47c6994..c7148d4c 100644
+--- a/src/monolithic/gst/3d_elements/g3drender/CMakeLists.txt
++++ b/src/monolithic/gst/3d_elements/g3drender/CMakeLists.txt
+@@ -7,7 +7,7 @@
+ set(TARGET_NAME "g3drender")
+ 
+ find_package(PkgConfig REQUIRED)
+-find_package(OpenCV REQUIRED COMPONENTS core imgproc)
++find_package(OpenCV REQUIRED COMPONENTS core imgproc calib3d)
+ pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0)
+ pkg_check_modules(GSTREAMER_BASE REQUIRED gstreamer-base-1.0)
+ pkg_check_modules(GSTANALYTICS gstreamer-analytics-1.0>=1.28 REQUIRED)
+diff --git a/src/monolithic/gst/3d_elements/g3drender/g3drender.cpp b/src/monolithic/gst/3d_elements/g3drender/g3drender.cpp
+index c4eda168..d3f02e74 100644
+--- a/src/monolithic/gst/3d_elements/g3drender/g3drender.cpp
++++ b/src/monolithic/gst/3d_elements/g3drender/g3drender.cpp
+@@ -14,7 +14,7 @@
+ #include <gst/gst.h>
+ #include <gst/video/video.h>
+ 
+-#include <opencv2/geometry/3d.hpp>
++#include <opencv2/calib3d.hpp>
+ #include <opencv2/imgproc.hpp>
+ 
+ #include <algorithm>
+@@ -784,14 +784,14 @@ void draw_perspective(cv::Mat &canvas, const float *points, guint count, GstBuff
+     float el = self->cam_elevation * DEG2RAD;
+     float dist = self->cam_distance;
+ 
+-    cv::Mat cam_pos(cv::Matx<double, 3, 1>(dist * std::cos(el) * std::cos(az), dist * std::cos(el) * std::sin(az),
+-                                           dist * std::sin(el)));
++    cv::Mat cam_pos = (cv::Mat_<double>(3, 1) << dist * std::cos(el) * std::cos(az), dist * std::cos(el) * std::sin(az),
++                       dist * std::sin(el));
+ 
+     cv::Mat zaxis = -cam_pos / cv::norm(cam_pos);
+-    cv::Mat world_up(cv::Matx<double, 3, 1>(0, 0, 1));
++    cv::Mat world_up = (cv::Mat_<double>(3, 1) << 0, 0, 1);
+     cv::Mat xaxis = zaxis.cross(world_up);
+     if (cv::norm(xaxis) < 1e-6)
+-        xaxis = cv::Mat(cv::Matx<double, 3, 1>(1, 0, 0));
++        xaxis = (cv::Mat_<double>(3, 1) << 1, 0, 0);
+     else
+         xaxis = xaxis / cv::norm(xaxis);
+     cv::Mat yaxis = zaxis.cross(xaxis);
+@@ -813,7 +813,7 @@ void draw_perspective(cv::Mat &canvas, const float *points, guint count, GstBuff
+ 
+     double fx = (roi_w / 2.0) / std::tan(self->cam_fov * DEG2RAD / 2.0);
+     double fy = fx;
+-    cv::Mat K(cv::Matx<double, 3, 3>(fx, 0, roi_w / 2.0, 0, fy, roi_h / 2.0, 0, 0, 1));
++    cv::Mat K = (cv::Mat_<double>(3, 3) << fx, 0, roi_w / 2.0, 0, fy, roi_h / 2.0, 0, 0, 1);
+     cv::Mat dist_coeffs = cv::Mat::zeros(4, 1, CV_64F);
+ 
+     std::vector<cv::Point3f> obj_pts;
+diff --git a/src/monolithic/gst/elements/CMakeLists.txt b/src/monolithic/gst/elements/CMakeLists.txt
+index 7226e6b3..cf778194 100644
+--- a/src/monolithic/gst/elements/CMakeLists.txt
++++ b/src/monolithic/gst/elements/CMakeLists.txt
+@@ -6,7 +6,7 @@
+ 
+ set (TARGET_NAME "elements")
+ 
+-find_package(OpenCV REQUIRED COMPONENTS core imgproc)
++find_package(OpenCV REQUIRED core imgproc calib3d)
+ find_package(PkgConfig REQUIRED)
+ pkg_check_modules(GSTREAMER gstreamer-1.0>=1.16 REQUIRED)
+ pkg_check_modules(GSTVIDEO gstreamer-video-1.0>=1.16 REQUIRED)
+diff --git a/src/monolithic/gst/elements/gvadeskew/gvadeskew.cpp b/src/monolithic/gst/elements/gvadeskew/gvadeskew.cpp
+index 46642400..14e1ed82 100644
+--- a/src/monolithic/gst/elements/gvadeskew/gvadeskew.cpp
++++ b/src/monolithic/gst/elements/gvadeskew/gvadeskew.cpp
+@@ -17,7 +17,8 @@ enum {
+     PROP_INTRINSICS_FILE,
+ };
+ 
+-static const cv::Mat DEFAULT_INTRINSICS(cv::Matx<double, 3, 3>(1000.0, 0.0, 960.0, 0.0, 1000.0, 540.0, 0.0, 0.0, 1.0));
++static const cv::Mat DEFAULT_INTRINSICS =
++    (cv::Mat_<double>(3, 3) << 1000.0, 0.0, 960.0, 0.0, 1000.0, 540.0, 0.0, 0.0, 1.0);
+ 
+ static void gst_gvadeskew_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec);
+ static void gst_gvadeskew_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec);
+@@ -161,11 +162,10 @@ static bool get_closest_face_points(const std::vector<float> &translation, const
+ // Convert quaternion to rotation matrix
+ cv::Mat quaternionToRotationMatrix(const std::vector<float> &q) {
+     float qx = q[0], qy = q[1], qz = q[2], qw = q[3];
+-    cv::Mat R(
+-        cv::Matx<double, 3, 3>(1 - 2 * qy * qy - 2 * qz * qz, 2 * qx * qy - 2 * qz * qw, 2 * qx * qz + 2 * qy * qw,
+-                               2 * qx * qy + 2 * qz * qw, 1 - 2 * qx * qx - 2 * qz * qz, 2 * qy * qz - 2 * qx * qw,
+-                               2 * qx * qz - 2 * qy * qw, 2 * qy * qz + 2 * qx * qw, 1 - 2 * qx * qx - 2 * qy * qy));
+-
++    cv::Mat R =
++        (cv::Mat_<double>(3, 3) << 1 - 2 * qy * qy - 2 * qz * qz, 2 * qx * qy - 2 * qz * qw, 2 * qx * qz + 2 * qy * qw,
++         2 * qx * qy + 2 * qz * qw, 1 - 2 * qx * qx - 2 * qz * qz, 2 * qy * qz - 2 * qx * qw, 2 * qx * qz - 2 * qy * qw,
++         2 * qy * qz + 2 * qx * qw, 1 - 2 * qx * qx - 2 * qy * qy);
+     return R;
+ }
+ 
+@@ -174,7 +174,7 @@ void deskewAndPasteFace(cv::Mat &image, const std::vector<float> &translation, c
+                         const std::vector<cv::Point2f> &facePoints, const cv::Rect &destinationRect) {
+     // Convert quaternion to rotation matrix
+     cv::Mat R_obj_to_cam = quaternionToRotationMatrix(rotation);
+-    cv::Mat t_obj_to_cam(cv::Matx<double, 3, 1>(translation[0], translation[1], translation[2]));
++    cv::Mat t_obj_to_cam = (cv::Mat_<double>(3, 1) << translation[0], translation[1], translation[2]);
+ 
+     float length = dimension[0], width = dimension[1], height = dimension[2];
+ 
+@@ -184,14 +184,14 @@ void deskewAndPasteFace(cv::Mat &image, const std::vector<float> &translation, c
+                                            {-length / 2, height / 2, -width / 2}};
+ 
+     // Compute face center in camera coordinates
+-    cv::Mat faceCenterCam = R_obj_to_cam * cv::Mat(cv::Matx<double, 3, 1>(0, 0, -width / 2)) + t_obj_to_cam;
++    cv::Mat faceCenterCam = R_obj_to_cam * (cv::Mat_<double>(3, 1) << 0, 0, -width / 2) + t_obj_to_cam;
+ 
+     // Face normal in camera coordinates
+-    cv::Mat faceNormalCam = R_obj_to_cam * cv::Mat(cv::Matx<double, 3, 1>(0, 0, -1));
++    cv::Mat faceNormalCam = R_obj_to_cam * (cv::Mat_<double>(3, 1) << 0, 0, -1);
+     faceNormalCam /= cv::norm(faceNormalCam);
+ 
+     // Define virtual camera axes
+-    cv::Mat up(cv::Matx<double, 3, 1>(0, -1, 0));
++    cv::Mat up = (cv::Mat_<double>(3, 1) << 0, -1, 0);
+     cv::Mat x_axis = up.cross(faceNormalCam);
+     x_axis /= cv::norm(x_axis);
+     cv::Mat y_axis = faceNormalCam.cross(x_axis);
+diff --git a/src/monolithic/gst/elements/gvawatermark/renderer/cpu/renderer_cpu.cpp b/src/monolithic/gst/elements/gvawatermark/renderer/cpu/renderer_cpu.cpp
+index bd4c6c7c..658c70bf 100644
+--- a/src/monolithic/gst/elements/gvawatermark/renderer/cpu/renderer_cpu.cpp
++++ b/src/monolithic/gst/elements/gvawatermark/renderer/cpu/renderer_cpu.cpp
+@@ -7,7 +7,6 @@
+ #include "renderer_cpu.h"
+ 
+ #include "render_prim.h"
+-#include "text_rasterizer.h"
+ #include <inference_backend/buffer_mapper.h>
+ #include <opencv2/opencv.hpp>
+ 
+@@ -72,7 +71,7 @@ TextMasks rasterize_text(const render::Text &text, const cv::Size &y_size, const
+     TextMasks masks;
+ 
+     int baseline = 0;
+-    cv::Size text_size = render::get_text_size_compat(text, &baseline);
++    cv::Size text_size = cv::getTextSize(text.text, text.fonttype, text.fontscale, text.thick, &baseline);
+     // Some glyphs and the stroke thickness reach slightly beyond the size reported by getTextSize
+     int margin = text.thick + text_size.height / 2;
+     cv::Rect bounds_y(text.org.x - margin, text.org.y - text_size.height - margin, text_size.width + 2 * margin,
+@@ -88,7 +87,7 @@ TextMasks rasterize_text(const render::Text &text, const cv::Size &y_size, const
+         return masks;
+ 
+     cv::Mat mask(masks.roi_u_v.size() * 2, CV_8UC1, cv::Scalar(0));
+-    render::put_text_compat(mask, text, text.org - masks.roi_u_v.tl() * 2, cv::Scalar(255));
++    cv::putText(mask, text.text, text.org - masks.roi_u_v.tl() * 2, text.fonttype, text.fontscale, 255, text.thick);
+     masks.roi_y = cv::Rect(masks.roi_u_v.tl() * 2, mask.size()) & cv::Rect(cv::Point(), y_size);
+     masks.mask_y = mask(cv::Rect(cv::Point(), masks.roi_y.size()));
+ 
+@@ -272,7 +271,7 @@ void RendererI420::draw_text_bg(std::vector<cv::Mat> &mats, render::Text text) {
+ 
+     // Get text size to calculate background rectangle
+     int baseline = 0;
+-    cv::Size textSize = render::get_text_size_compat(text, &baseline);
++    cv::Size textSize = cv::getTextSize(text.text, text.fonttype, text.fontscale, text.thick, &baseline);
+ 
+     // Define background rectangle on Y plane
+     cv::Point bg_tl(text.org.x, text.org.y - textSize.height);
+@@ -401,7 +400,7 @@ void RendererNV12::draw_text_bg(std::vector<cv::Mat> &mats, render::Text text) {
+ 
+     // Get text size to calculate background rectangle
+     int baseline = 0;
+-    cv::Size textSize = render::get_text_size_compat(text, &baseline);
++    cv::Size textSize = cv::getTextSize(text.text, text.fonttype, text.fontscale, text.thick, &baseline);
+ 
+     // Define background rectangle on Y plane
+     cv::Point bg_tl(text.org.x, text.org.y - textSize.height);
+@@ -533,24 +532,13 @@ void RendererBGR::draw_circle(std::vector<cv::Mat> &mats, render::Circle circle)
+ void RendererBGR::draw_text(std::vector<cv::Mat> &mats, render::Text text) {
+     // On a text background, draw the glyphs in the color that contrasts with it
+     const cv::Scalar color = text.draw_bg ? text.contrast_color : text.color;
+-    int baseline = 0;
+-    const cv::Size text_size = render::get_text_size_compat(text, &baseline);
+-    const int margin = text.thick + text_size.height / 2;
+-    cv::Rect bounds(text.org.x - margin, text.org.y - text_size.height - margin, text_size.width + 2 * margin,
+-                    text_size.height + baseline + 2 * margin);
+-    bounds &= cv::Rect(cv::Point(), mats[0].size());
+-    if (bounds.empty())
+-        return;
+-
+-    cv::Mat mask = cv::Mat::zeros(bounds.size(), CV_8UC1);
+-    render::put_text_compat(mask, text, text.org - bounds.tl(), cv::Scalar(255));
+-    mats[0](bounds).setTo(color, mask);
++    cv::putText(mats[0], text.text, text.org, text.fonttype, text.fontscale, color, text.thick);
+ }
+ 
+ void RendererBGR::draw_text_bg(std::vector<cv::Mat> &mats, render::Text text) {
+     // Get text size to calculate background rectangle
+     int baseline = 0;
+-    cv::Size textSize = render::get_text_size_compat(text, &baseline);
++    cv::Size textSize = cv::getTextSize(text.text, text.fonttype, text.fontscale, text.thick, &baseline);
+ 
+     // Define background rectangle
+     cv::Point bg_tl(text.org.x, text.org.y - textSize.height);
+diff --git a/src/monolithic/gst/elements/gvawatermark/renderer/gpu/renderer_gpu.cpp b/src/monolithic/gst/elements/gvawatermark/renderer/gpu/renderer_gpu.cpp
+index 1721159f..bf4412db 100644
+--- a/src/monolithic/gst/elements/gvawatermark/renderer/gpu/renderer_gpu.cpp
++++ b/src/monolithic/gst/elements/gvawatermark/renderer/gpu/renderer_gpu.cpp
+@@ -7,7 +7,6 @@
+ #ifdef ENABLE_GVAWATERMARK_GPU
+ 
+ #include "renderer_gpu.h"
+-#include "../text_rasterizer.h"
+ #include "renderer_gpu_kernels.h"
+ 
+ #include <gst/gst.h>
+@@ -1460,7 +1459,7 @@ bool RendererGPU::flatten_text(const render::Text &text) {
+      * writes the label in the contrasting colour. */
+     if (text.draw_bg) {
+         int baseline = 0;
+-        const cv::Size size = render::get_text_size_compat(text, &baseline);
++        const cv::Size size = cv::getTextSize(text.text, text.fonttype, text.fontscale, text.thick, &baseline);
+         cv::Point bg_tl(text.org.x, text.org.y - size.height);
+         cv::Point bg_br(text.org.x + size.width, text.org.y + baseline);
+         bg_tl.x -= bg_tl.x & 1;
+@@ -1753,7 +1752,7 @@ const RendererGPU::AtlasEntry *RendererGPU::rasterize_text(const render::Text &t
+     int baseline = 0;
+     cv::Size size;
+     try {
+-        size = render::get_text_size_compat(text, &baseline);
++        size = cv::getTextSize(text.text, text.fonttype, text.fontscale, text.thick, &baseline);
+     } catch (const cv::Exception &e) {
+         GST_WARNING("gvawatermark GPU renderer: getTextSize failed: %s", e.what());
+         return nullptr;
+@@ -1785,7 +1784,8 @@ const RendererGPU::AtlasEntry *RendererGPU::rasterize_text(const render::Text &t
+ 
+     cv::Mat mask = cv::Mat::zeros(height, width, CV_8UC1);
+     try {
+-        render::put_text_compat(mask, text, text.org - tl, cv::Scalar(255));
++        cv::putText(mask, text.text, text.org - tl, text.fonttype, text.fontscale, cv::Scalar(255), text.thick,
++                    cv::LINE_8);
+     } catch (const cv::Exception &e) {
+         GST_WARNING("gvawatermark GPU renderer: putText failed: %s", e.what());
+         return nullptr;
+diff --git a/src/monolithic/gst/elements/gvawatermark/renderer/text_rasterizer.h b/src/monolithic/gst/elements/gvawatermark/renderer/text_rasterizer.h
+deleted file mode 100644
+index 6b0ec6ce..00000000
+--- a/src/monolithic/gst/elements/gvawatermark/renderer/text_rasterizer.h
++++ /dev/null
+@@ -1,43 +0,0 @@
+-/*******************************************************************************
+- * Copyright (C) 2026 Intel Corporation
+- *
+- * SPDX-License-Identifier: MIT
+- ******************************************************************************/
+-
+-#pragma once
+-
+-#include "render_prim.h"
+-
+-#include <opencv2/core/version.hpp>
+-#include <opencv2/imgproc.hpp>
+-
+-namespace render {
+-
+-inline constexpr int FONT_WEIGHT = 400;
+-inline constexpr int FONT_WEIGHT_BOLD = 600;
+-inline constexpr double HERSHEY_SCALE_FACTOR = 3.7;
+-
+-inline int font_weight(const Text &text) {
+-    return text.thick <= 1 ? FONT_WEIGHT : FONT_WEIGHT_BOLD;
+-}
+-
+-inline int font_size(const Text &text) {
+-    return cvRound(100 * text.fontscale / HERSHEY_SCALE_FACTOR);
+-}
+-
+-inline cv::Size get_text_size_compat(const Text &text, int *baseline) {
+-    cv::FontFace face("sans");
+-    const cv::Rect bounds = cv::getTextSize(cv::Size(), text.text, cv::Point(), face, font_size(text),
+-                                            font_weight(text), cv::PUT_TEXT_ALIGN_LEFT);
+-    const int base_line = bounds.y + bounds.height;
+-    if (baseline)
+-        *baseline = base_line;
+-    return cv::Size(bounds.width, bounds.height - base_line);
+-}
+-
+-inline void put_text_compat(cv::Mat &image, const Text &text, cv::Point org, const cv::Scalar &color) {
+-    cv::FontFace face("sans");
+-    cv::putText(image, text.text, org, color, face, font_size(text), font_weight(text), cv::PUT_TEXT_ALIGN_LEFT);
+-}
+-
+-} // namespace render
+diff --git a/src/monolithic/gst/elements/gvawatermark3d/gvawatermark3drender.cpp b/src/monolithic/gst/elements/gvawatermark3d/gvawatermark3drender.cpp
+index b38cf2d9..93974d2b 100644
+--- a/src/monolithic/gst/elements/gvawatermark3d/gvawatermark3drender.cpp
++++ b/src/monolithic/gst/elements/gvawatermark3d/gvawatermark3drender.cpp
+@@ -26,7 +26,8 @@ enum {
+ };
+ 
+ // A generic fallback camera intrinsics matrix (e.g., 1920x1080, fx=fy=1000, cx=960, cy=540)
+-static const cv::Mat DEFAULT_INTRINSICS(cv::Matx<double, 3, 3>(1000.0, 0.0, 960.0, 0.0, 1000.0, 540.0, 0.0, 0.0, 1.0));
++static const cv::Mat DEFAULT_INTRINSICS =
++    (cv::Mat_<double>(3, 3) << 1000.0, 0.0, 960.0, 0.0, 1000.0, 540.0, 0.0, 0.0, 1.0);
+ 
+ GST_DEBUG_CATEGORY_STATIC(gst_gva_watermark3d_render_debug_category);
+ #define GST_CAT_DEFAULT gst_gva_watermark3d_render_debug_category
+diff --git a/src/monolithic/gst/inference_elements/vision/common/post_processor/converters/to_roi/heatmap_boxes.cpp b/src/monolithic/gst/inference_elements/vision/common/post_processor/converters/to_roi/heatmap_boxes.cpp
+index 9660fd7d..45891dff 100644
+--- a/src/monolithic/gst/inference_elements/vision/common/post_processor/converters/to_roi/heatmap_boxes.cpp
++++ b/src/monolithic/gst/inference_elements/vision/common/post_processor/converters/to_roi/heatmap_boxes.cpp
+@@ -1,5 +1,5 @@
+ /*******************************************************************************
+- * Copyright (C) 2023-2026 Intel Corporation
++ * Copyright (C) 2023-2025 Intel Corporation
+  *
+  * SPDX-License-Identifier: MIT
+  ******************************************************************************/
+@@ -9,7 +9,6 @@
+ #include "inference_backend/image_inference.h"
+ #include "inference_backend/logger.h"
+ #include "safe_arithmetic.hpp"
+-#include <opencv2/geometry.hpp>
+ #include <opencv2/imgcodecs.hpp>
+ #include <opencv2/imgproc.hpp>
+ 
+-- 
+2.34.1
+

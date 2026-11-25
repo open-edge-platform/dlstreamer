@@ -1,0 +1,49 @@
+From 1afd124cfcd31e684e25137d42e072504299b3e2 Mon Sep 17 00:00:00 2001
+From: Michal Holownia <michal.holownia@intel.com>
+Date: Tue, 24 Nov 2026 11:26:21 +0100
+Subject: [PATCH] Use semantic tag meta in unit tests
+
+---
+ .../test_gvaeventrecorder/event_recorder_logic_tests.cpp        | 1 +
+ .../check/elements/watermark/test_watermark/CMakeLists.txt      | 2 +-
+ .../watermark/test_watermark/test_watermark_label_colors.cpp    | 1 +
+ 3 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/tests/unit_tests/check/elements/gvaeventrecorder/test_gvaeventrecorder/event_recorder_logic_tests.cpp b/tests/unit_tests/check/elements/gvaeventrecorder/test_gvaeventrecorder/event_recorder_logic_tests.cpp
+index 07ffe2f5..4e10e399 100644
+--- a/tests/unit_tests/check/elements/gvaeventrecorder/test_gvaeventrecorder/event_recorder_logic_tests.cpp
++++ b/tests/unit_tests/check/elements/gvaeventrecorder/test_gvaeventrecorder/event_recorder_logic_tests.cpp
+@@ -15,6 +15,7 @@
+ #include "pre_event_ring/pre_event_ring.hpp"
+ 
+ #include <glib/gstdio.h>
++#include <dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h>
+ #include <gst/analytics/analytics.h>
+ #include <gst/check/gstharness.h>
+ #include <gst/gst.h>
+diff --git a/tests/unit_tests/check/elements/watermark/test_watermark/CMakeLists.txt b/tests/unit_tests/check/elements/watermark/test_watermark/CMakeLists.txt
+index d7cd9e0a..ba193eb7 100644
+--- a/tests/unit_tests/check/elements/watermark/test_watermark/CMakeLists.txt
++++ b/tests/unit_tests/check/elements/watermark/test_watermark/CMakeLists.txt
+@@ -40,5 +40,5 @@ add_test(NAME ${TARGET_COLOR_CONVERTER} COMMAND ${TARGET_COLOR_CONVERTER}
+ set(TARGET_LABEL_COLORS "test_gvawatermark_label_colors")
+ add_executable(${TARGET_LABEL_COLORS} ${CMAKE_CURRENT_SOURCE_DIR}/test_watermark_label_colors.cpp)
+ target_include_directories(${TARGET_LABEL_COLORS} PRIVATE ${DLSTREAMER_BASE_DIR}/src/monolithic/gst/elements/gvawatermark)
+-target_link_libraries(${TARGET_LABEL_COLORS} PRIVATE ${COMMON_LIBS})
++target_link_libraries(${TARGET_LABEL_COLORS} PRIVATE ${COMMON_LIBS} dlstreamer_gst_meta)
+ add_test(NAME ${TARGET_LABEL_COLORS} COMMAND ${TARGET_LABEL_COLORS} WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+diff --git a/tests/unit_tests/check/elements/watermark/test_watermark/test_watermark_label_colors.cpp b/tests/unit_tests/check/elements/watermark/test_watermark/test_watermark_label_colors.cpp
+index 35a35754..df46ed72 100644
+--- a/tests/unit_tests/check/elements/watermark/test_watermark/test_watermark_label_colors.cpp
++++ b/tests/unit_tests/check/elements/watermark/test_watermark/test_watermark_label_colors.cpp
+@@ -9,6 +9,7 @@
+ #include "test_utils.h"
+ 
+ #include <cstring>
++#include <dlstreamer/gst/metadata/gstanalyticssemantictagmtd.h>
+ #include <gst/analytics/analytics.h>
+ #include <gst/video/gstvideometa.h>
+ #include <string>
+-- 
+2.34.1
+
