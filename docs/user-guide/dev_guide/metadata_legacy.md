@@ -1,5 +1,6 @@
 # Legacy Analytics Metadata (deprecated)
 
+> [!WARNING]
 > **DEPRECATED:** This metadata API is deprecated and will be removed in
 > the future. New code should use the
 > [GStreamer Analytics Metadata](./metadata_analytics.md) API.
@@ -67,7 +68,8 @@ gst-launch-1.0 --gst-plugin-path ${GST_PLUGIN_PATH} \
     gvawatermark ! videoconvert ! fpsdisplaysink sync=false
 ```
 
-> **NOTE:** More examples can be found in the
+> [!NOTE]
+> More examples can be found in the
 > [gst_launch](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch)
 > folder.
 

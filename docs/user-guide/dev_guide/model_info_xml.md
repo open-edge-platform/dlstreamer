@@ -28,7 +28,7 @@ Deep Learning Streamer supports the following fields in the model
 info section:
 
 | Field | Type | Possible values or example | Description | Corresponding 'model-proc' key |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `model_type` | string | <br>label<br>detection_output<br>yolo_v8<br><br> | The converter to parse output tensors and map to GStreamer meta data. | converter |
 | `confidence_threshold` | float | [0.0, 1.0] | The confidence level to report inference results, typically depends on training accuracy. | threshold (command line param) |
 | `iou_threshold` | float | [ 0.0, 1.0 ] | Threshold for non-maximum suppression (NMS) intersection over union (IOU) filtering. | iou_threshold |

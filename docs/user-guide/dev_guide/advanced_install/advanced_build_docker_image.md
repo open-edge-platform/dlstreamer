@@ -1,6 +1,7 @@
 # Advanced Installation On Ubuntu - Build Docker Image
 
-> **NOTE:** The easiest way to run Deep Learning Streamer in Docker is to
+> [!NOTE]
+> The easiest way to run Deep Learning Streamer in Docker is to
 > [pull docker images from DockerHub](../../install/install_guide_ubuntu.md#option-2-install-docker-image-from-docker-hub-and-run-it).
 
 The instructions below are intended for building Docker images based on

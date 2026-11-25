@@ -4,7 +4,8 @@ The DL Streamer Coding Agent is an AI-powered assistant that helps you build DL 
 analytics applications quickly from natural language descriptions. It generates complete,
 ready-to-run projects — including model download scripts, application code, and documentation.
 
-> **Note:** This feature is in **Preview** stage. Please share your feedback to help us improve it.
+> [!NOTE]
+> This feature is in **Preview** stage. Please share your feedback to help us improve it.
 
 ## Prerequisites
 
@@ -16,14 +17,17 @@ You need a development machine with one of the following coding environments ins
 - [Cursor](https://www.cursor.com/)
 - [Claude Code](https://code.claude.com/docs)
 
-Note: The Coding Agent communicates with AI coding models in the cloud, which typically requires a paid service or subscription.
-For best results, select a reasoning AI model.
+> [!TIP]
+> The Coding Agent communicates with AI coding models in the cloud, which typically requires
+> a paid service or subscription.
+> For best results, select a reasoning AI model.
 
 ### Target Machine
 
 You need a target machine to execute, run, and debug the generated code. The target machine can be the same as the development machine or a remote system. Refer to the [System Requirements](../system_requirements.md) page for the list of supported hardware platforms.
 
-> **Important:** In the Preview release, only **Linux** target machines are supported.
+> [!IMPORTANT]
+> In the Preview release, only **Linux** target machines are supported.
 
 ## Procedure
 
@@ -40,15 +44,15 @@ npx skills add open-edge-platform/dlstreamer --skill dlstreamer-coding-agent -g 
  npx skills update -g dlstreamer-coding-agent
 ```
 
-> **Note**: In general, the `npx skills add` command template to install skill is:
-`npx skills add open-edge-platform/dlstreamer@<branch_ref|commig-hash> -s <skill-name> -a <agent1> -a <agent2>`. For more details on the `npx skills` CLI, please refer https://github.com/vercel-labs/skills
-
+> [!NOTE]
+> In general, the `npx skills add` command template to install skill is:
+> `npx skills add open-edge-platform/dlstreamer@<branch_ref|commig-hash> -s <skill-name> -a <agent1> -a <agent2>`. For more details on the `npx skills` CLI, refer to <https://github.com/vercel-labs/skills>
 
 ### 2. Open the Chat Window and Enter Your Prompt
 
 Open the AI chat window in your coding environment and enter a prompt describing the application you want to build.
 
-```
+```text
 Develop a Python application that implements a license plate recognition pipeline optimized for Intel® Core™ Ultra Series 3 Processors:
 - Read input video from a file (https://github.com/open-edge-platform/edge-ai-resources/raw/main/videos/ParkingVideo.mp4) but also allow remote IP cameras
 - Run YOLOv11 (https://huggingface.co/morsetechlab/yolov11-license-plate-detection) for object detection and PaddleOCR (https://huggingface.co/PaddlePaddle/PP-OCRv5_server_rec) model for character recognition
@@ -58,9 +62,10 @@ Develop a Python application that implements a license plate recognition pipelin
 Save source code in the license_plate_recognition directory.
 ```
 
-For the list of user prompts that can be tried with the DL Streamer coding agent, please check the ones available at [link](https://github.com/open-edge-platform/dlstreamer/tree/main/.github/skills/dlstreamer-coding-agent/example-prompts)
+For the list of user prompts that can be tried with the DL Streamer coding agent, please check the ones available in the [example prompts directory](https://github.com/open-edge-platform/dlstreamer/tree/main/.github/skills/dlstreamer-coding-agent/example-prompts)
 
-> **Note**: If the installed `dlstreamer-coding-agent` skill at `~/.agents/skills` is not auto-discovered by the coding agent tools, one can invoke the same in the respective AI chat window by invoking it manually as following:
+> [!NOTE]
+> If the installed `dlstreamer-coding-agent` skill at `~/.agents/skills` is not auto-discovered by the coding agent tools, you can manually invoke the same in the respective AI chat window with:
 > `/dlstreamer-coding-agent [user prompt]`
 
 ### 3. What the Coding Agent Does
@@ -78,7 +83,7 @@ The agent may ask for permission to access remote web pages, create files in you
 
 The final output is a complete project directory containing:
 
-```
+```text
 <project_name>/
 ├── <app_name>.py           # Main application script
 ├── export_models.py        # Model download and export script
@@ -102,6 +107,7 @@ application can be created in less than 10 minutes.
 :loop:
 :width: 70%
 :align: center
+:::
 hide_directive-->
 
 ### 4. How to Write Effective Prompts

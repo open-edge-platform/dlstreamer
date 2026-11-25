@@ -1,6 +1,7 @@
 # Advanced Installation - Compilation From Source
 
-> **NOTE:** Installation of Deep Learning Streamer Pipeline Framework
+> [!NOTE]
+> Installation of Deep Learning Streamer Pipeline Framework
 > [from pre-built Debian packages using one-click script](../../install/install_guide_ubuntu.md)
 > is the easiest approach.
 
@@ -9,8 +10,9 @@ from the source code provided in
 
 [Open Edge Platform repository](https://github.com/open-edge-platform/edge-ai-libraries).
 
-> **NOTE:** The `main` branch currently targets a **nightly (pre-release) build
-> of OpenVINO™ GenAI**, not an official stable release. The exact nightly
+> [!NOTE]
+> The `main` branch currently targets a **nightly (pre-release) build of OpenVINO™ GenAI**,
+> not an official stable release. The exact nightly
 > version/date used below may become outdated over time; check the
 > `OPENVINO_GENAI_VERSION` build argument in
 > [docker/ubuntu/ubuntu24.Dockerfile](https://github.com/open-edge-platform/dlstreamer/blob/main/docker/ubuntu/ubuntu24.Dockerfile)
@@ -25,7 +27,7 @@ Follow the instructions in
 
 <!--hide_directive::::{tab-set}
 :::{tab-item}hide_directive--> Ubuntu 26
-<!--hide_directive:sync: tab0hide_directive-->
+<!--hide_directive:sync: ub26 hide_directive-->
 
   ```bash
   sudo apt-get update && \
@@ -43,7 +45,7 @@ Follow the instructions in
 
 <!--hide_directive:::
 :::{tab-item}hide_directive--> Ubuntu 24
-<!--hide_directive:sync: tab1hide_directive-->
+<!--hide_directive:sync: ub24 hide_directive-->
 
   ```bash
   sudo apt-get update && \
@@ -61,7 +63,7 @@ Follow the instructions in
 
 <!--hide_directive:::
 :::{tab-item}hide_directive--> Ubuntu 22
-<!--hide_directive:sync: tab2hide_directive-->
+<!--hide_directive:sync: ub22 hide_directive-->
 
   ```bash
   sudo apt-get update && \
@@ -79,7 +81,7 @@ Follow the instructions in
 
 <!--hide_directive:::
 :::{tab-item}hide_directive--> Fedora 41
-<!--hide_directive:sync: tab3hide_directive-->
+<!--hide_directive:sync: fedora hide_directive-->
 
   ```bash
   sudo dnf install -y \
@@ -96,7 +98,7 @@ Follow the instructions in
 
 <!--hide_directive:::
 :::{tab-item}hide_directive--> EMT 3.x
-<!--hide_directive:sync: tab3hide_directive-->
+<!--hide_directive:sync: emt hide_directive-->
 
   ```bash
   sudo dnf install -y uuid libuuid-devel openssl-devel gcc gcc-c++ make curl ca-certificates librdkafka-devel libva-devel alsa-lib-devel unzip glibc libstdc++ libgcc cmake sudo pkgconf pkgconf-pkg-config ocl-icd-devel libva-intel-media-driver python3-devel libXaw-devel ncurses-devel libva2 intel-compute-runtime intel-opencl intel-level-zero-gpu intel-ocloc-devel nasm
@@ -112,10 +114,12 @@ For crating wirtual enviroment `uv` tool is recomended, and needs to be instaled
    ```bash
   curl -LsSf https://astral.sh/uv/install.sh | sh
   ```
+
 Create a Python virtual environment and install required Python
 packages:
 
-> **NOTE:** Ubuntu 22.04's default Python (3.10) is not supported by the
+> [!NOTE]
+> Ubuntu 22.04's default Python (3.10) is not supported by the
 > OpenVINO™ GenAI Python bindings, so install Python 3.11 with `uv` and use it
 > for the virtual environment below. Ubuntu 24.04 and Ubuntu 26.04
 > can use their default system Python versions. Build native extensions such
@@ -126,7 +130,7 @@ packages:
 
 <!--hide_directive::::{tab-set}
 :::{tab-item}hide_directive--> Ubuntu 24, Ubuntu 26, Fedora 41, EMT
-<!--hide_directive:sync: tab1hide_directive-->
+<!--hide_directive:sync: non-ub22 hide_directive-->
 
   ```bash
   UV_PYTHON_PREFERENCE=only-system uv venv --python python3 ~/python3venv
@@ -137,7 +141,7 @@ packages:
 
 <!--hide_directive:::
 :::{tab-item}hide_directive--> Ubuntu 22
-<!--hide_directive:sync: tab2hide_directive-->
+<!--hide_directive:sync: ub22 hide_directive-->
 
   ```bash
   uv python install 3.11
@@ -177,7 +181,7 @@ which needs the [OpenVINO GenAI archive](https://docs.openvino.ai/2026/get-start
 
 <!--hide_directive::::{tab-set}
 :::{tab-item}hide_directive--> Ubuntu 26
-<!--hide_directive:sync: tab0hide_directive-->
+<!--hide_directive:sync: ub26 hide_directive-->
 
   ```bash
   wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/pre-release/2026.5.0.0rc2/openvino_genai_ubuntu26_2026.5.0.0rc2_x86_64.tar.gz | tar -xz &&
@@ -187,7 +191,7 @@ which needs the [OpenVINO GenAI archive](https://docs.openvino.ai/2026/get-start
 
 <!--hide_directive:::
 :::{tab-item}hide_directive--> Ubuntu 24
-<!--hide_directive:sync: tab1hide_directive-->
+<!--hide_directive:sync: ub24 hide_directive-->
 
   ```bash
   wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/pre-release/2026.5.0.0rc2/openvino_genai_ubuntu24_2026.5.0.0rc2_x86_64.tar.gz | tar -xz &&
@@ -197,7 +201,7 @@ which needs the [OpenVINO GenAI archive](https://docs.openvino.ai/2026/get-start
 
 <!--hide_directive:::
 :::{tab-item}hide_directive--> Ubuntu 22
-<!--hide_directive:sync: tab2hide_directive-->
+<!--hide_directive:sync: ub22 hide_directive-->
 
   ```bash
   wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/pre-release/2026.5.0.0rc2/openvino_genai_ubuntu22_2026.5.0.0rc2_x86_64.tar.gz | tar -xz &&
@@ -207,7 +211,7 @@ which needs the [OpenVINO GenAI archive](https://docs.openvino.ai/2026/get-start
 
 <!--hide_directive:::
 :::{tab-item}hide_directive--> Fedora 41
-<!--hide_directive:sync: tab3hide_directive-->
+<!--hide_directive:sync: fedora hide_directive-->
 
   ```bash
 sudo tee /etc/yum.repos.d/openvino.repo >/dev/null <<'EOF'
@@ -222,13 +226,14 @@ EOF
 sudo dnf install -y openvino-2026.3.1
 ```
 
-> **NOTE:** No Fedora-specific nightly OpenVINO™ GenAI archive is published.
+> [!NOTE]
+> No Fedora-specific nightly OpenVINO™ GenAI archive is published.
 > These instructions install the official OpenVINO™ Toolkit 2026.3.1 package
 > from Intel's YUM repository, matching the Fedora 41 Dockerfile.
 
 <!--hide_directive:::
 :::{tab-item}hide_directive--> EMT
-<!--hide_directive:sync: tab4hide_directive-->
+<!--hide_directive:sync: emt hide_directive-->
 
   ```bash
   wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/pre-release/2026.5.0.0rc2/openvino_genai_ubuntu24_2026.5.0.0rc2_x86_64.tar.gz | tar -xz &&
@@ -236,7 +241,8 @@ sudo dnf install -y openvino-2026.3.1
   source /opt/intel/openvino_genai/setupvars.sh
   ```
 
-  > **NOTE:** No EMT-specific OpenVINO™ GenAI archive is published; the
+  > [!NOTE]
+  > No EMT-specific OpenVINO™ GenAI archive is published; the
   > `ubuntu24` archive is used instead, matching the "plain" OpenVINO™
   > Toolkit archive flavor EMT has always relied on for ABI compatibility.
 
@@ -267,7 +273,7 @@ Set up the required environment variables:
 
 <!--hide_directive::::{tab-set}
 :::{tab-item}hide_directive--> Ubuntu
-<!--hide_directive:sync: tab1hide_directive-->
+<!--hide_directive:sync: ubuntu hide_directive-->
 
   ```bash
   export LIBVA_DRIVER_NAME=iHD
@@ -284,7 +290,7 @@ Set up the required environment variables:
 
 <!--hide_directive:::
 :::{tab-item}hide_directive--> Fedora
-<!--hide_directive:sync: tab2hide_directive-->
+<!--hide_directive:sync: fedora hide_directive-->
 
   ```bash
   export LIBVA_DRIVER_NAME=iHD
@@ -300,7 +306,7 @@ Set up the required environment variables:
 
 <!--hide_directive:::
 :::{tab-item}hide_directive--> EMT
-<!--hide_directive:sync: tab3hide_directive-->
+<!--hide_directive:sync: emt hide_directive-->
 
   Enable `i915` graphics driver in the system:
 
@@ -329,7 +335,8 @@ Set up the required environment variables:
 <!--hide_directive:::
 ::::hide_directive-->
 
-> **NOTE:**  For a permanent solution, open `\~/.bashrc` and add the variables above
+> [!NOTE]
+> For a permanent solution, open `\~/.bashrc` and add the variables above
 > to set up Linux to use them for every terminal session.
 
 ## Step 9: Install Python dependencies (optional)
@@ -337,18 +344,36 @@ Set up the required environment variables:
 If you intend to use Python elements or samples, you need to install the
 necessary dependencies using the following commands:
 
-> **NOTE:** This step requires the `~/python3venv` virtual environment and the
+> [!NOTE]
+> This step requires the `~/python3venv` virtual environment and the
 > `uv` tool set up in [Step 3](#step-3-set-up-a-python-environment). If you
 > skipped that step, install `uv` and create the virtual environment first.
-
-> **NOTE:** Install PyGObject into the activated `~/python3venv` from Step 3
+>
+> ---
+>
+> Install PyGObject into the activated `~/python3venv` from Step 3
 > so it is built for that environment's Python ABI. Ubuntu 22.04 uses
 > uv-managed Python, which includes its own development headers. Ubuntu 24.04
 > and 26.04 use the system Python, so install its matching `python3-dev`.
 
 <!--hide_directive::::{tab-set}
+:::{tab-item}hide_directive--> Ubuntu 26
+<!--hide_directive:sync: ub26 hide_directive-->
+
+  ```bash
+  sudo apt-get update
+  sudo apt-get install -y -q --no-install-recommends gcc cmake python-gi-dev python3-dev \
+      libglib2.0-dev libcairo2-dev libopencv-objdetect-dev libopencv-photo-dev libopencv-stitching-dev libopencv-video-dev \
+      libopencv-calib3d-dev libopencv-core-dev libopencv-dnn-dev libgirepository1.0-dev libgirepository-2.0-dev
+
+  source ~/python3venv/bin/activate
+  cd ~/dlstreamer
+  uv pip install -r requirements.txt
+  ```
+
+<!--hide_directive:::
 :::{tab-item}hide_directive--> Ubuntu 24
-<!--hide_directive:sync: tab1hide_directive-->
+<!--hide_directive:sync: ub24 hide_directive-->
 
   ```bash
   sudo apt-get update
@@ -363,7 +388,7 @@ necessary dependencies using the following commands:
 
 <!--hide_directive:::
 :::{tab-item}hide_directive--> Ubuntu 22
-<!--hide_directive:sync: tab2hide_directive-->
+<!--hide_directive:sync: ub22 hide_directive-->
 
   ```bash
   sudo apt-get update
@@ -377,24 +402,10 @@ necessary dependencies using the following commands:
   ```
 
 <!--hide_directive:::
-:::{tab-item}hide_directive--> Ubuntu 26
-<!--hide_directive:sync: tab4hide_directive-->
-
-  ```bash
-  sudo apt-get update
-  sudo apt-get install -y -q --no-install-recommends gcc cmake python-gi-dev python3-dev \
-      libglib2.0-dev libcairo2-dev libopencv-objdetect-dev libopencv-photo-dev libopencv-stitching-dev libopencv-video-dev \
-      libopencv-calib3d-dev libopencv-core-dev libopencv-dnn-dev libgirepository1.0-dev libgirepository-2.0-dev
-
-  source ~/python3venv/bin/activate
-  cd ~/dlstreamer
-  uv pip install -r requirements.txt
-  ```
-
-<!--hide_directive:::
 ::::hide_directive-->
 
-> **NOTE:** Fedora 41 / EMT users: install the dnf equivalents of the
+> [!NOTE]
+> Fedora 41 / EMT users: install the dnf equivalents of the
 > packages above (see [Step 2](#step-2-install-build-dependencies)) before
 > running `uv pip install`.
 
@@ -428,7 +439,8 @@ After installation, no `PYTHONPATH` configuration is needed:
   from dlstreamer.onvif import DlsOnvifDiscoveryEngine, discover_onvif_cameras
   ```
 
-> **NOTE (advanced):** As an alternative to pip, `dlstreamer.onvif` is also
+> [!NOTE]
+> (Advanced) As an alternative to pip, `dlstreamer.onvif` is also
 > accessible via `PYTHONPATH` set in Step 8. This approach requires
 > manual installation of the dependencies declared in `python/pyproject.toml`.
 

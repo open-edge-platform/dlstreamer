@@ -8,18 +8,18 @@ from the root of this project (`.clang-format`).
 
 ## Install clang formatter
 
-<!--hide_directive::::{tab-set}
-:::{tab-item}hide_directive--> Ubuntu
-<!--hide_directive:sync: tab1hide_directive-->
+<!--hide_directive ::::{tab-set} hide_directive-->
+<!--hide_directive :::{tab-item} hide_directive--> Ubuntu
+<!--hide_directive :sync: ubuntu hide_directive-->
 
   ```bash
   sudo apt install -y clang-format-12
   sudo ln -s /usr/bin/clang-format-12 /usr/bin/clang-format
   ```
 
-<!--hide_directive:::
-:::{tab-item}hide_directive--> Other distros
-<!--hide_directive:sync: tab2hide_directive-->
+<!--hide_directive ::: hide_directive-->
+<!--hide_directive :::{tab-item} hide_directive--> Other distributions
+<!--hide_directive :sync: other hide_directive-->
 
   You can find an appropriate repository at <https://apt.llvm.org/>.
   And install the newest version:
@@ -29,8 +29,8 @@ from the root of this project (`.clang-format`).
   sudo ln -s /usr/bin/clang-format-9 /usr/bin/clang-format
   ```
 
-<!--hide_directive:::
-::::hide_directive-->
+<!--hide_directive ::: hide_directive-->
+<!--hide_directive :::: hide_directive-->
 
 ## Configure IDE
 

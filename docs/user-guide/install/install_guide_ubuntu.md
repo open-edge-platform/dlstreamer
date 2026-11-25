@@ -106,17 +106,19 @@ drivers. For more details see [prerequisites](#prerequisites).
   sudo bash -c 'echo "deb [signed-by=/usr/share/keyrings/intel-sw-products.gpg] https://apt.repos.intel.com/openvino ubuntu26 main" | sudo tee /etc/apt/sources.list.d/intel-openvino.list'
   ```
 
-  > **NOTE:** If you have OpenVINO™ installed in any version other than 2026.3.1,
+  > [!NOTE]
+  > If you have OpenVINO™ installed in any version other than 2026.3.1,
   > please uninstall the OpenVINO™ packages using the following commands.
-
-  ```bash
-  sudo apt remove -y openvino* libopenvino-* python3-openvino*
-  sudo apt-get autoremove
-  ```
+  >
+  > ```bash
+  > sudo apt remove -y openvino* libopenvino-* python3-openvino*
+  > sudo apt-get autoremove
+  > ```
 
 ### Step 3: Install the Deep Learning Streamer Pipeline Framework
 
-> **NOTE:** This step will also install the required dependencies, including the
+> [!NOTE]
+> This step will also install the required dependencies, including the
 > OpenVINO™ toolkit and GStreamer.
 
 ```bash
@@ -130,14 +132,14 @@ use!**
 To see the full list of installed components check the
 [Dockerfile content for Ubuntu 24](https://github.com/open-edge-platform/dlstreamer/blob/main/docker/ubuntu/ubuntu24.Dockerfile)
 
-### [Optional] Step 4: Python dependencies
+### (Optional) Step 4: Python dependencies
 
 The Python packages required to run Deep Learning Streamer python elements
 or samples are not installed by default. You can install them using
 the commands from
 [Advanced Install Guide Compilation / Install Python dependencies](../dev_guide/advanced_install/advanced_install_guide_compilation.md#step-9-install-python-dependencies-optional).
 
-### [Optional] Step 5: Post installation steps
+### (Optional) Step 5: Post installation steps
 
 #### Prepare a model and run hello_dlstreamer
 
@@ -156,7 +158,8 @@ is installed correctly. Provide a local video path, stream URL, or camera device
 /opt/intel/dlstreamer/scripts/hello_dlstreamer.sh --input=/path/to/video.mp4
 ```
 
-> **NOTE:** To set up Linux with the relevant environment variables every time a new
+> [!NOTE]
+> To set up Linux with the relevant environment variables every time a new
 > terminal is opened, open `~/.bashrc` and add the following lines:
 
 - **Ubuntu 22**
@@ -220,7 +223,7 @@ is installed correctly. Provide a local video path, stream URL, or camera device
 
   to configure environment variables for the current terminal session.
 
-### [Optional] Step 6: Auxiliary installation steps
+### (Optional) Step 6: Auxiliary installation steps
 
 A. Check for installed packages and versions
 
@@ -274,7 +277,8 @@ xhost local:root
 setfacl -m user:1000:r ~/.Xauthority
 ```
 
-> **NOTE**: If you want to build Docker image from DL Streamer Dockerfiles, please
+> [!NOTE]
+> If you want to build Docker image from DL Streamer Dockerfiles, please
 > follow [the instructions](../dev_guide/advanced_install/advanced_build_docker_image.md).
 
 ### Step 4: Pull the Deep Learning Streamer Docker image from Docker Hub

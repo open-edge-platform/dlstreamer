@@ -17,7 +17,7 @@ typed entries (`GstAnalyticsMtd`) connected by relations (`CONTAIN`,
 Key types:
 
 | Type | Description |
-|------|-------------|
+| ---- | ----------- |
 | `GstAnalyticsODMtd` | Object detection (bbox, label, confidence) |
 | `GstAnalytics3DODMtd` | 3D object detection (oriented box, class, confidence, sensor modality) — DL Streamer extension |
 | `GstAnalyticsClsMtd` | Classification |
@@ -42,11 +42,11 @@ using the DL Streamer watermark metadata types.
 
 Key types:
 
-| Type                  | Description |
-|-----------------------|-------------|
-| `WatermarkDrawMeta`   | Polygon or polyline defined by an ordered list of (x, y) coordinate pairs (max 128 pairs) |
+| Type | Description |
+| ---- | ----------- |
+| `WatermarkDrawMeta` | Polygon or polyline defined by an ordered list of (x, y) coordinate pairs (max 128 pairs) |
 | `WatermarkCircleMeta` | Circle defined by center (cx, cy), radius, color, and thickness |
-| `WatermarkTextMeta`   | Text label at position (x, y) with font, scale, color, and optional background |
+| `WatermarkTextMeta` | Text label at position (x, y) with font, scale, color, and optional background |
 
 For the full API documentation, see [Watermark Metadata](./metadata_watermark.md).
 
@@ -58,12 +58,12 @@ levels:
 - **3D detections** — oriented 3D bounding boxes are stored as `GstAnalytics3DODMtd`
   inside the buffer's `GstAnalyticsRelationMeta`.
 - **Raw-sensor metadata** — standalone `GstMeta` types attached directly to the
-  buffer that describe the sensor frame and its low-level results:
+  buffer that describe the sensor frame and its low-level results.
 
 Key types:
 
 | Type | Description |
-|------|-------------|
+| ---- | ----------- |
 | `GstAnalytics3DODMtd` | 3D object detection — oriented box (x, y, z, l, w, h, yaw, pitch, roll), class, confidence, sensor modality. |
 | `LidarMeta` | Raw LiDAR frame framing: point count, frame/stream id, timestamps. The point cloud itself lives in the buffer payload. |
 | `GstRadarProcessMeta` | Radar signal-processing results: point clouds, clusters, and per-object tracks. |
@@ -74,10 +74,11 @@ see [3D Sensor Metadata](./metadata_3d.md).
 
 ## Legacy Metadata (deprecated)
 
+> [!WARNING]
 > **DEPRECATED:** The legacy metadata API based on
 > `GstVideoRegionOfInterestMeta`, `GstGVATensorMeta`, and `GstGVAJSONMeta`
 > is deprecated and will be removed in the future. New code should use
-> the GStreamer Analytics API described below.
+> the [GStreamer Analytics API](#gstreamer-analytics-metadata) described above.
 
 The legacy API attaches
 [GstVideoRegionOfInterestMeta](https://gstreamer.freedesktop.org/documentation/video/gstvideometa.html?gi-language=c#GstVideoRegionOfInterestMeta)
@@ -95,7 +96,7 @@ For reference documentation of the legacy API, see
 ## Element input/output summary
 
 | Element | Description | Input | Output (Analytics) | Output (Legacy) |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `gvadetect` (full-frame) | Object detection on full frame | GstBuffer | ODMtd, ClsMtd, GstAnalyticsGroupMtd, GstAnalyticsKeypointMtd, GstAnalyticsTensorMtd | ROI + GstStructure params |
 | `gvadetect` (roi-list) | Object detection per ROI | GstBuffer + ROI + ODMtd | ODMtd, ClsMtd, GstAnalyticsGroupMtd, GstAnalyticsKeypointMtd, GstAnalyticsTensorMtd | ROI (with parent_id) + GstStructure params |
 | `gvaclassify` (roi-list) | Object classification per ROI | GstBuffer + ROI + ODMtd | ClsMtd, GstAnalyticsGroupMtd, GstAnalyticsKeypointMtd, GstAnalyticsSegmentationMtd, GstAnalyticsTensorMtd | extended ROI params |

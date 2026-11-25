@@ -39,10 +39,8 @@ consists of two files:
 
 You can either:
 
-1. Choose a pre-trained model that is already available in the OpenVINO IR
-  format.
-2. Use
-   [OpenVINO™ Toolkit Model Conversion](https://docs.openvino.ai/2026/openvino-workflow/model-preparation/convert-model-to-ir.html)
+1. Choose a pre-trained model that is already available in the OpenVINO IR format.
+2. Use [OpenVINO™ Toolkit Model Conversion](https://docs.openvino.ai/2026/openvino-workflow/model-preparation/convert-model-to-ir.html)
    method for converting your model from the training framework format
    (e.g., TensorFlow) to the IR format.
 
@@ -92,11 +90,11 @@ surface sharing is not supported with the current settings (see
 [Windows pre-processing backends](#windows-pre-processing-backends)).
 
 | pre-process-backend | Description | Memory type in pipeline | Configurable with model-proc? |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | ie | Short for “Inference Engine”. It resizes an image with a bilinear algorithm and sets color format which is deduced from current media. All that’s done with capabilities provided by Inference Engine from OpenVINO™ Toolkit. | System | No |
 | opencv | All power of OpenCV is leveraged for input image pre-processing. Provides a wide variety of operations that can be performed on image. | System | Yes |
 | <br>va<br><br> | Should be used in pipelines with GPU memory. Performs mapping to the system memory and uses VA pre-processor. | <br>VAMemory<br>and<br>DMABuf<br><br> | Yes |
-| <br>va-surface-sharing<br><br> | Should be used in pipelines with GPU memory and GPU inference device. Doesn’t perform mapping to the system memory. As a pre-processor, it performs image resize, crop, and sets color format to NV12. | <br>VAMemory<br><br> | Partially |
+| <br>va-surface-sharing<br><br> | Should be used in pipelines with GPU memory and GPU inference device. Does not perform mapping to the system memory. As a pre-processor, it performs image resize, crop, and sets color format to NV12. | <br>VAMemory<br><br> | Partially |
 
 ### Windows pre-processing backends
 
@@ -104,7 +102,7 @@ On Windows, the VA backends are replaced by Direct3D backends. `ie` and
 `opencv` are available for system memory, as on Linux.
 
 | pre-process-backend | Description | Memory type in pipeline |
-|---|---|---|
+| --- | --- | --- |
 | d3d11 | Resizes, crops and converts the color format on the GPU with the GStreamer D3D11 converter, then maps the result to system memory for inference. Works with GPU and NPU inference devices. | D3D11Memory |
 | d3d11-surface-sharing | Converts the frame on the GPU into a BGRA/RGBA texture at model input size and passes it to OpenVINO™ through OpenCL/D3D11 interop. The frame is not copied to system memory. GPU inference device only. | D3D11Memory |
 | d3d12 | Same as `d3d11`, using the GStreamer D3D12 converter. Works with GPU and NPU inference devices. | D3D12Memory |
@@ -161,6 +159,7 @@ gvadetect model=MODEL1_FILE_PATH.xml model-proc=MODEL1_FILE_PATH.json ! gvaclass
 <!--hide_directive
 :::{toctree}
 :maxdepth: 2
+:hidden:
 
 download_public_models
 :::

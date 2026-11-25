@@ -1,7 +1,6 @@
 # Model-proc File (legacy)
 
-> **WARNING**:
->
+> [!WARNING]
 > The functionality described here has been **deprecated**. Avoid using it
 > to prevent dealing with a legacy solution. It will be maintained for
 > some time to ensure backwards compatibility, but you should not use it
@@ -84,7 +83,7 @@ described in a key-value format. Valid keys for `input_preproc` are
 presented in the table below.
 
 | Key |  | Possible values or example | Description | Supported by backend |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | layer_name |  | string | Neural network’s input layer name. | All |
 | format |  | <br>image,<br>image_info,<br>sequence_index<br><br> | Input format for the layer with the specified name. In other words: “What to pre-process?”. Can be one of the following:<br><br>image - pre-process images;<br>image_info - pre-process additional layer with image info;<br>sequence_index - additional layer which is filled with ones<br><br> | All |
 | params | resize | <br>no,<br>no-aspect-ratio,<br>aspect-ratio<br><br> | Resize an image to match input model layer dimensions. | <br>opencv,<br>va,<br>va-surface-sharing<br><br> |
@@ -140,7 +139,7 @@ Below is an example of `input_preproc` and its parameters:
 ], ...
 ```
 
-## Post-processing description (`output_postproc`)
+## Post-processing description (output_postproc)
 
 ### Post-processing configuration
 
@@ -162,18 +161,18 @@ applicable with `gvaclassify`). This can be done with the following
 fields:
 
 - `layer_name` or `layer_names` - define for which layer
-    the transformation is applicable. Should be defined for one of them.
+  the transformation is applicable. Should be defined for one of them.
 - `attribute_name` - the name of the output tensor for post-processing result.
 
 **Default behavior**: The default output transformation method depends on
 the used element. If the behavior described by the table is suitable,
 model-proc can be ignored.
 
-| Element        | Default converter                                             |
-|----------------|---------------------------------------------------------------|
-| `gvaclassify`  | raw_data_copy                                                 |
-| `gvadetect `   | detection_output and boxes_labels_scores (depends on model’s output) |
-| `gvainference` | raw_data_copy                                                 |
+| Element | Default converter |
+| ------- | ----------------- |
+| `gvaclassify` | raw_data_copy |
+| `gvadetect` | detection_output and boxes_labels_scores (depends on model’s output) |
+| `gvainference` | raw_data_copy |
 
 The table below contains currently supported converters. Values in the
 *Converter* column contain a link to a `model-proc` file with this
@@ -181,7 +180,7 @@ converter. The last column contains a link to a model for which this
 converter can be applied.
 
 | Converter | Description | Applied to output layer like |
-|---|---|---|
+| --- | --- | --- |
 | **For gvainference:** |  |  |
 | raw_data_copy | Attach tensor data from all output layers in raw binary format and optionally tag the data format. | Basically any inference model |
 | **For gvadetect:** |  |  |
@@ -203,7 +202,8 @@ converter can be applied.
 
 Below is an example of `output_postproc` and its parameters:
 
-> **NOTE:** This configuration cannot be used for any model.
+> [!NOTE]
+> This configuration cannot be used for any model.
 
 ```javascript
 ...
@@ -299,6 +299,7 @@ Below is an example of `output_postproc` and its parameters:
 <!--hide_directive
 :::{toctree}
 :maxdepth: 2
+:hidden:
 
 how_to_create_model_proc_file
 :::

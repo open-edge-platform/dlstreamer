@@ -1,3 +1,11 @@
+<!--hide_directive
+```{eval-rst}
+.. meta::
+   :description: Use the ov-extension-lib parameter in DL Streamer to load OpenVINO™ extension libraries that define custom operations for gvadetect, gvaclassify, and gvainference.
+   :keywords: DL Streamer, OpenVINO, custom operations, ov-extension-lib, extension library, gvadetect, gvaclassify, gvainference
+```
+hide_directive-->
+
 # OpenVINO Custom Operations Support
 
 ## Overview

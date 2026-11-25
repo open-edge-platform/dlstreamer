@@ -75,6 +75,7 @@ The elements that start with **`gva`** (like `gvadetect`, `gvaclassify`,
 Everything else comes from GStreamer, the proven multimedia framework DL Streamer
 is built on.
 
+> [!NOTE]
 > **Pipelines vs. ready-made samples:** In this tutorial we mostly build
 > pipelines **by hand** so you learn the building blocks. DL Streamer also ships
 > **30+ ready-to-run sample scripts** for common use cases — we use one of them
@@ -114,7 +115,8 @@ chmod +x DLS_install_prerequisites.sh
 ./DLS_install_prerequisites.sh --reinstall-npu-driver=yes
 ```
 
-> **Important:** The NPU driver installation requires a **log out and log back in**
+> [!IMPORTANT]
+> The NPU driver installation requires a **log out and log back in**
 > (or a reboot) before the NPU is accessible. Do that now before continuing.
 
 ### 1.2 Add the DL Streamer software repository
@@ -140,6 +142,7 @@ sudo apt-get install -y intel-dlstreamer
 **That's it — DL Streamer is installed!** This single package also pulls in
 everything it needs, including the OpenVINO™ toolkit and GStreamer.
 
+> [!NOTE]
 > **Other systems?** For Windows\*, Docker\*, Ubuntu 26.04 or Ubuntu 22.04, see the
 > full [Install Guide](./install/install_guide_index.md). (Docker is also covered
 > in [Step 5](#step-5---run-in-docker-gpunpu-passthrough) of this tutorial.)
@@ -172,13 +175,12 @@ Any local video files can be used to run this tutorial. Name them as in the tabl
 since the following examples use these names.
 
 | File | Sample content | Used for |
-|---|---|---|
+| --- | --- | --- |
 | `bridge.mp4` | Cars crossing the bridge | Detection & segmentation |
 | `skateboard.mp4` | A skateboarder (and a dog!) in an autumn park | Prompt detection & JSON export |
 | `dance.mp4` | A person dancing in a greenhouse | Human pose estimation |
 | `beach.mp4` | People walking along a sunset beach | Object tracking |
 | `girl_dog.mp4` | A girl playing with her dog | Privacy blur |
-
 
 The following examples have been validated with five short, freely licensed clips from [Pexels\*](https://www.pexels.com/).
 They were downloaded in **Full HD (1080p)** resolution with the following commands:
@@ -191,8 +193,9 @@ wget -O ${VIDEOS_PATH}/beach.mp4      "https://www.pexels.com/download/video/321
 wget -O ${VIDEOS_PATH}/girl_dog.mp4   "https://www.pexels.com/download/video/7516659/?w=1920&h=1080"
 ```
 
-> **Credits:** Videos by *ubeyonroad*, *Rec Everywhere*, *Airam Dato-on*, *Igor
-> Vieira*, and *RDNE Stock project* on Pexels. Free to use under the
+> [!NOTE]
+> **Credits:** Videos by *ubeyonroad*, *Rec Everywhere*, *Airam Dato-on*, *Igor Vieira*,
+> and *RDNE Stock project* on Pexels. Free to use under the
 > [Pexels License](https://www.pexels.com/license/).
 
 ### 2.3 Download the AI models
@@ -234,7 +237,7 @@ deactivate
 You now have four ready-to-use models under `${MODELS_PATH}`:
 
 | Model | File | What it does |
-|---|---|---|
+| --- | --- | --- |
 | `yolo11s` | `${MODELS_PATH}/public/yolo11s/FP16/yolo11s.xml` | Detects objects (boxes + labels) |
 | `yolo11s-seg` | `${MODELS_PATH}/public/yolo11s-seg/FP16/yolo11s-seg.xml` | Detects **and** outlines objects pixel-by-pixel |
 | `yolo11s-pose` | `${MODELS_PATH}/public/yolo11s-pose/FP16/yolo11s-pose.xml` | Detects people and their body keypoints |
@@ -248,6 +251,7 @@ You're ready for the fun part. Each example below is a single copy/paste command
 A window will open showing the video with AI results drawn on top, and the live
 frames-per-second (FPS) will be printed in your terminal.
 
+> [!TIP]
 > **One device, one word.** Every command uses `device=GPU`. Want to use the
 > **NPU** instead? Just change it to `device=NPU`. Prefer the **CPU**? Use
 > `device=CPU`. Same command, different hardware — the drivers you installed in
@@ -278,7 +282,7 @@ detected vehicle.
 Here's what each element in the pipeline does:
 
 | Element | Job |
-|---|---|
+| --- | --- |
 | `filesrc` | Reads the video file |
 | `decodebin3` | Decodes it into raw video frames |
 | `gvadetect` | Runs the YOLO model and finds objects |
@@ -395,7 +399,8 @@ dog and everything else stay sharp — no manual editing required.
 
 *Privacy blur of every `person` with `gvawatermark` on the girl-and-dog video.*
 
-> **Note:** The blur is applied by `gvawatermark`. To blur *everything* instead
+> [!NOTE]
+> The blur is applied by `gvawatermark`. To blur *everything* instead
 > of just people, drop the `show-blur-roi=person` part and use
 > `displ-cfg=enable-blur=true`.
 
@@ -429,6 +434,7 @@ the download step above.
 
 *Prompt-based detection searching the skateboard video for `"dog"`.*
 
+> [!NOTE]
 > **Why a sample here?** Open-vocabulary detection needs a pre-exported model and
 > a bit of Python glue to wire the prompt filter. The sample handles that for you
 > — see its [README](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/prompted_detection)
@@ -486,7 +492,7 @@ docker run -it --rm \
 What the GPU/NPU passthrough flags do:
 
 | Flag | Purpose |
-|---|---|
+| --- | --- |
 | `--device /dev/dri` | Gives the container access to the Intel® **GPU** |
 | `--group-add $(stat -c "%g" /dev/dri/render*)` | Grants non-root permission to the GPU |
 | `--device /dev/accel` | Gives the container access to the Intel® **NPU** |
@@ -527,7 +533,8 @@ gst-launch-1.0 \
 proof that GPU acceleration worked inside the container. Swap `device=GPU` for
 `device=NPU` to run the same pipeline on the NPU.
 
-> **Tip:** To see live video from a container on a Linux desktop, you also need
+> [!TIP]
+> To see live video from a container on a Linux desktop, you also need
 > to forward the X11 display (`--env DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix`).
 > Saving to a file, as above, works everywhere.
 
@@ -559,6 +566,6 @@ Ideas to try right now by editing the commands above:
   stream**.
 - Swap `yolo11s` for a larger model like `yolo11m` for higher accuracy.
 
-------------------------------------------------------------------------
+---
 
 > **\*** *Other names and brands may be claimed as the property of others.*

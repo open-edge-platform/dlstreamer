@@ -2,7 +2,10 @@
 
 This page lists models supported by DL Streamer.
 
-> **NOTE:** DL Streamer relies on inference provided by the [OpenVINO™](https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit/overview.html) toolkit. Whether a particular model can be used on a given platform depends on its compatibility with OpenVINO™. See the [OpenVINO™ documentation](https://docs.openvino.ai/2026/documentation/compatibility-and-support/supported-models.html) for details.
+> [!NOTE]
+> DL Streamer relies on inference provided by the [OpenVINO™](https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit/overview.html)
+> toolkit. Whether a particular model can be used on a given platform depends on its
+> compatibility with OpenVINO™. See the [OpenVINO™ documentation](https://docs.openvino.ai/2026/documentation/compatibility-and-support/supported-models.html) for details.
 
 ## Supported Architectures
 
@@ -81,7 +84,9 @@ The table provides links to model preparation instructions describing download a
 
 The table below lists supported models from [OpenVINO™ Open Model Zoo](https://github.com/openvinotoolkit/open_model_zoo/).
 
-> **NOTE:** The OMZ models listed below were last validated with DL Streamer release 2026.1. Compatibility with later releases has not been verified.
+> [!NOTE]
+> The OMZ models listed below were last validated with DL Streamer release 2026.1.
+> Compatibility with later releases has not been verified.
 
 | Model Name                                                                                                                                            | labels-file                                                                                                        | model-proc                                                                                                                                                                               | Demo App                                                                                                                                                              |
 |-------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|

@@ -26,14 +26,16 @@ root, so running it from within `docs/` fails with a "master document" error.
     ```shell
         make build
     ```
+
     To see the built documentation, open the generated `index.html` file
-    under the build output directory (e.g. `out/html/index.html`).
+    under the build output directory (e.g., `out/html/index.html`).
 
 3. Run the spelling check:
 
     ```shell
         make sphinx-spelling
     ```
+
     Words known to be spelled correctly but missing from the dictionary can be
     added to `spelling_wordlist.txt` (see `user-guide/spelling_wordlist.txt`).
     Each `.md` page is accompanied by a `.spelling` report file with the list
@@ -44,11 +46,11 @@ root, so running it from within `docs/` fails with a "master document" error.
     ```shell
         make sphinx-linkcheck
     ```
+
     Two report files are generated: `output.json` with the complete list of
     URLs checked, and `output.txt` with the list of broken links.
 
-> **NOTE:** The exact `make` targets and output paths are defined by the
+> [!NOTE]
+> The exact `make` targets and output paths are defined by the
 > downloaded template and may change; run `make help` after extracting the
 > template to see the targets available in your checkout.
-
-

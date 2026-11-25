@@ -1,4 +1,4 @@
-# 3D Sensor Metadata (LiDAR & radar)
+# 3D Sensor Metadata (LiDAR and radar)
 
 DL Streamer's 3D pipelines carry two kinds of metadata:
 
@@ -49,7 +49,7 @@ typedef struct _LidarMeta {
 ### Fields
 
 | Field | Type | Description |
-|-------|------|-------------|
+| ----- | ---- | ----------- |
 | `lidar_point_count` | `guint` | Number of points in the frame. The payload is `lidar_point_count * 4 * sizeof(float)` bytes (`x, y, z, intensity` per point). `g3dinference` rejects the buffer if the mapped payload size does not match. |
 | `frame_id` | `size_t` | Sequential frame identifier from the source stream. |
 | `exit_source_timestamp` | `GstClockTime` | Clock time when the buffer exited the source element (`g3dlidarparse` or `g3dlidarsrc`). Set by the producer. |
@@ -59,7 +59,7 @@ typedef struct _LidarMeta {
 ### LidarMeta API
 
 | Symbol | Description |
-|--------|-------------|
+| ------ | ----------- |
 | `LIDAR_META_API_TYPE` | The `GType` for the meta API (`lidar_meta_api_get_type()`). Use it with `gst_buffer_get_meta()`. |
 | `LIDAR_META_INFO` | The `GstMetaInfo` for the meta (`lidar_meta_get_info()`). |
 | `add_lidar_meta(buffer, lidar_point_count, frame_id, exit_source_timestamp, stream_id)` | Attaches a `LidarMeta` to `buffer` and fills it. Returns the new meta or `NULL`. `exit_g3dinference_timestamp` is left as `GST_CLOCK_TIME_NONE` for `g3dinference` to set later. |
@@ -135,7 +135,7 @@ struct _GstRadarProcessMeta {
 ### Result groups
 
 | Group | Count field | Arrays | Meaning |
-|-------|-------------|--------|---------|
+| ----- | ----------- | ------ | ------- |
 | Point clouds | `point_clouds_len` | `ranges`, `speeds`, `angles`, `snrs` | Raw detected reflection points (range, Doppler speed, azimuth angle, SNR). |
 | Clusters | `num_clusters` | `cluster_idx`, `cluster_cx`, `cluster_cy`, `cluster_rx`, `cluster_ry`, `cluster_av` | Nearby points grouped into candidate objects, each with a centre `(cx, cy)`, extents `(rx, ry)`, and average velocity `av`. `cluster_idx` maps clusters to point clouds. |
 | Tracking | `num_tracked_objects` | `tracker_ids`, `tracker_x`, `tracker_y`, `tracker_vx`, `tracker_vy` | Objects tracked across frames, each with a stable `tracker_id`, position `(x, y)`, and velocity `(vx, vy)`. |
@@ -143,12 +143,13 @@ struct _GstRadarProcessMeta {
 ### GstRadarProcessMeta API
 
 | Symbol | Description |
-|--------|-------------|
+| ------ | ----------- |
 | `GST_RADAR_PROCESS_META_API_TYPE` | The `GType` for the meta API (`gst_radar_process_meta_api_get_type()`). Use it with `gst_buffer_get_meta()` / `gst_buffer_iterate_meta_filtered()`. |
 | `GST_RADAR_PROCESS_META_INFO` | The `GstMetaInfo` for the meta (`gst_radar_process_meta_get_info()`). |
 | `gst_buffer_add_radar_process_meta(buffer, frame_id, point_clouds, cluster_result, tracking_result)` | Attaches a `GstRadarProcessMeta` to `buffer` and **deep-copies** the `libradar` result structs into the meta's own arrays. Returns the new meta or `NULL`. |
 
-> **Note:** `GstRadarProcessMeta` has no transform function, so it is
+> [!NOTE]
+> `GstRadarProcessMeta` has no transform function, so it is
 > **not** automatically copied when a buffer is transformed or copied.
 > Read it on the buffer produced directly by `g3dradarprocess`.
 

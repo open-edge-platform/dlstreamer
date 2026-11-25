@@ -6,7 +6,7 @@ Use the `/S` flag to run without the graphical interface.
 ## Command-Line Flags
 
 | Flag | Description | Required | Default |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `/S` | Run in silent mode | Yes | — |
 | `/TYPE=<type>` | Set the installation type | No | `Typical` |
 | `/COMPONENTS=<list>` | Comma-separated list of optional components | No | — |
@@ -15,14 +15,17 @@ Use the `/S` flag to run without the graphical interface.
 ## Installation Types
 
 | Type | Optional Components Included |
-|---|---|
+| --- | --- |
 | `Full` | `python`, `env`, `samples`, `development` |
 | `Typical` | `python`, `env`, `samples` |
 | `Minimal` | *(none)* |
 
-> **Note:** Required components (GStreamer and Runtime) are always installed regardless of the type or components selected.
-
-> **Note:** GStreamer is installed with the `runtime` setup type by default. When the `development` component is selected (for example, with `/TYPE=Full`), GStreamer is installed with the `debug` setup type, which adds the GStreamer development files. An existing `runtime` installation of the same GStreamer version is reinstalled as `debug`.
+> [!NOTE]
+> Required components (GStreamer and Runtime) are always installed regardless of the type or components selected.
+>
+> ---
+>
+> GStreamer is installed with the `runtime` setup type by default. When the `development` component is selected (for example, with `/TYPE=Full`), GStreamer is installed with the `debug` setup type, which adds the GStreamer development files. An existing `runtime` installation of the same GStreamer version is reinstalled as `debug`.
 
 ## Usage
 
@@ -31,6 +34,7 @@ Use the `/S` flag to run without the graphical interface.
 ```
 
 ## Examples
+
 **Install with default settings (Typical):**
 
 ```ps1
@@ -55,7 +59,7 @@ Use the `/S` flag to run without the graphical interface.
 .\dlstreamer-<version>-win64.exe /S /D=C:\custom\path\dlstreamer
 ```
 
-------------------------------------------------------------------------
+---
 
 > **\*** *Other names and brands may be claimed as the property of
 > others.*
