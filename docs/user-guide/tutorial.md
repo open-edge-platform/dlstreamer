@@ -175,13 +175,12 @@ Any local video files can be used to run this tutorial. Name them as in the tabl
 since the following examples use these names.
 
 | File | Sample content | Used for |
-|---|---|---|
+| --- | --- | --- |
 | `bridge.mp4` | Cars crossing the bridge | Detection & segmentation |
 | `skateboard.mp4` | A skateboarder (and a dog!) in an autumn park | Prompt detection & JSON export |
 | `dance.mp4` | A person dancing in a greenhouse | Human pose estimation |
 | `beach.mp4` | People walking along a sunset beach | Object tracking |
 | `girl_dog.mp4` | A girl playing with her dog | Privacy blur |
-
 
 The following examples have been validated with five short, freely licensed clips from [Pexels\*](https://www.pexels.com/).
 They were downloaded in **Full HD (1080p)** resolution with the following commands:
@@ -238,7 +237,7 @@ deactivate
 You now have four ready-to-use models under `${MODELS_PATH}`:
 
 | Model | File | What it does |
-|---|---|---|
+| --- | --- | --- |
 | `yolo11s` | `${MODELS_PATH}/public/yolo11s/FP16/yolo11s.xml` | Detects objects (boxes + labels) |
 | `yolo11s-seg` | `${MODELS_PATH}/public/yolo11s-seg/FP16/yolo11s-seg.xml` | Detects **and** outlines objects pixel-by-pixel |
 | `yolo11s-pose` | `${MODELS_PATH}/public/yolo11s-pose/FP16/yolo11s-pose.xml` | Detects people and their body keypoints |
@@ -283,7 +282,7 @@ detected vehicle.
 Here's what each element in the pipeline does:
 
 | Element | Job |
-|---|---|
+| --- | --- |
 | `filesrc` | Reads the video file |
 | `decodebin3` | Decodes it into raw video frames |
 | `gvadetect` | Runs the YOLO model and finds objects |
@@ -493,7 +492,7 @@ docker run -it --rm \
 What the GPU/NPU passthrough flags do:
 
 | Flag | Purpose |
-|---|---|
+| --- | --- |
 | `--device /dev/dri` | Gives the container access to the Intel® **GPU** |
 | `--group-add $(stat -c "%g" /dev/dri/render*)` | Grants non-root permission to the GPU |
 | `--device /dev/accel` | Gives the container access to the Intel® **NPU** |
@@ -567,6 +566,6 @@ Ideas to try right now by editing the commands above:
   stream**.
 - Swap `yolo11s` for a larger model like `yolo11m` for higher accuracy.
 
-------------------------------------------------------------------------
+---
 
 > **\*** *Other names and brands may be claimed as the property of others.*

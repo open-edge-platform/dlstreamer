@@ -32,7 +32,7 @@ Media analytics — the analysis of video and audio streams to detect, classify,
 ## Why DL Streamer?
 
 | Benefit | Details |
-|---|---|
+| --- | --- |
 | **One-line pipelines** | Build a working detection pipeline in a single `gst-launch-1.0` command |
 | **Hardware acceleration** | Targets CPU, GPU, and NPU on Intel platforms from a single codebase |
 | **Cross-platform** | Runs on Ubuntu 22.04/24.04 and Windows 11 |
@@ -97,7 +97,7 @@ AIVID TECHVISION and others.
 ## Testimonials
 
 | ![NTT_Logo](./_images/NTT_Logo.png) | “Deep Learning Streamer (OpenVINO™) is an easy-to-use and extensible application framework, which provides a well-organized set of classes and methods. In particular, Deep Learning Streamer allows us to add user-defined post processing with gvapython elements. This feature will help us develop AI-based video analytics applications for NTT's businesses, addressing various customer demands responsively.”<br>— Takeharu Eda, Senior Research Engineer, NTT Software Innovation Center<br> |
-|---|---|
+| --- | --- |
 | <br> | "Deep Learning Streamer Pipeline Server has helped TIBCO Software to develop and optimize Project AIR solution with less effort and shorter TTM, and to deliver better user experience that includes no-code data pipelines. Project AIR was able to easier deploy and expose optimized video analytics pipelines as microservices accessible for consumption via REST APIs."<br>— Miguel Torres, Director of the Americas - Office of the CTO at TIBCO Software<br> |
 
 ------------------------------------------------------------------------

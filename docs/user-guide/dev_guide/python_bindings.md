@@ -1,6 +1,14 @@
+<!--hide_directive
+```{eval-rst}
+.. meta::
+   :description: Use GStreamer Python bindings, the gstgva library, and the gvapython element to access video-analytics metadata and customize Deep Learning Streamer pipelines in Python.
+   :keywords: Python, GStreamer, pygst, gstgva, gvapython, bindings, metadata, callback
+```
+hide_directive-->
+
 # GStreamer Python Bindings
 
-## 1. GStreamer Python bindings
+## 1. GStreamer Python Bindings
 
 GStreamer provides Python bindings in the **pygst** module. On
 Ubuntu, you can install it through the apt package manager:
@@ -20,7 +28,7 @@ See the
 [draw_face_attributes.py](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/python/draw_face_attributes/draw_face_attributes.py)
 Python sample.
 
-## 2. Video-analytics specific Python bindings
+## 2. Video-Analytics Specific Python Bindings
 
 As GVA plugin registers inference specific metadata, another
 Python library -
@@ -36,7 +44,7 @@ goal of one-to-one mapping with GVA C++ interface.
 
 You can find the following Python callback function example of accessing
 list of detected objects and objects attributes, very similar to the C++
-function example on the [Metadata page](./metadata.md).
+function example on the [Metadata page](./metadata.md):
 
 ```bash
     def pad_probe_callback(pad, info):
@@ -51,7 +59,7 @@ function example on the [Metadata page](./metadata.md).
         return Gst.PadProbeReturn.OK
 ```
 
-## 3. gvapython element
+## 3. gvapython Element
 
 In addition to Python bindings for standard GStreamer and GVA plugin interfaces,
 the [gvapython](../elements/gvapython.md) GStreamer element from this repository
@@ -72,7 +80,7 @@ element and it invokes Python functions via "C" interface (Python.h).
 See the samples for the *gvapython* element in
 [face_detection_and_classification](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/gvapython/face_detection_and_classification) folder.
 
-## 4. Performance considerations
+## 4. Performance Considerations
 
 Python code performance is typically significantly slower than C/C++
 code compiled into a native instruction set. The parallelization is also
