@@ -24,22 +24,25 @@ Run the `dlstreamer-<version>-win64.exe` file and follow the on-screen instructi
 The installer also supports silent installation via command line, follow the instructions in the [advanced installation guide](../dev_guide/advanced_install/advanced_install_guide_windows_command_line.md) for details.
 
 ### License Agreement
+
 DL Streamer is licensed under the MIT License.
 Accept the license agreement and proceed with the installation.
 
 ![image](_images/install_windows_license.png)
 
 ### Choose Install Location
+
 The default installation folder is `%ProgramFiles%\Intel\dlstreamer`,
 you can choose a different location.
 
 ![image](_images/install_windows_location.png)
 
 ### Choose Components
+
 The installer provides the following components:
 
 | Component | Description |
-|---|---|
+| --- | --- |
 | **GStreamer** | GStreamer multimedia framework (system-wide installation). Installed as the `runtime` setup type, or as `debug` (runtime plus development files) when **Development Files** is selected. |
 | **Runtime** | DL Streamer runtime libraries and plugins. |
 | **Python Bindings** | Python binding library and files. |
@@ -50,12 +53,14 @@ The installer provides the following components:
 Three installation types are available:
 **Typical** (default): All default components; **Full**: All components including Development Files; **Minimal**: Only required components.
 
-> **Note:** Incompatible GStreamer installations (MinGW or 32-bit
+> [!IMPORTANT]
+> Incompatible GStreamer installations (MinGW or 32-bit
 > variants) must be uninstalled before proceeding.
 
 ![image](_images/install_windows_components.png)
 
 ### Installation Process
+
 Click "Install" to start the installation process. The installer will copy files,
 set environment variables, and perform necessary configurations.
 
@@ -63,18 +68,19 @@ The installer configures the following for the current user if selected
 (values shown for default install path):
 
 | Variable | Value |
-|---|---|
+| --- | --- |
 | `DLSTREAMER_DIR` | `C:\Program Files\Intel\dlstreamer` |
 | `GST_PLUGIN_PATH` | `C:\Program Files\Intel\dlstreamer\bin` |
 | Added to `PATH` | `C:\Program Files\gstreamer\1.0\msvc_x86_64\bin` |
 | Added to `PATH` | `C:\Program Files\Intel\dlstreamer\bin` |
 
 Alternatively, use the PowerShell script to set up the environment variables for the current session.
+
 ```powershell
 .\scripts\setup_dls_env.ps1
 ```
 
-## [Optional] Step 3: Setup Python Environment
+## (Optional) Step 3: Setup Python Environment
 
 **DL Streamer Python bindings (`gstgva`)** support **Python 3.9 and above**.
 The **`gvapython`** GStreamer element used with `gst-launch-1.0` requires **Python 3.12**.
@@ -97,6 +103,7 @@ cd $env:DLSTREAMER_DIR
 ```
 
 The script will auto-configure the **current PowerShell session** by setting:
+
 - `PYTHONPATH` to include `<gstreamer_python>\Lib\site-packages` and the `gstgva` directory.
 - `PYGI_DLL_DIRS` to the GStreamer `bin` folder (`$env:GSTREAMER_1_0_ROOT_MSVC_X86_64\bin`).
 - `GI_TYPELIB_PATH` to the DL Streamer typelib directory (`lib\girepository-1.0`).

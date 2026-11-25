@@ -44,7 +44,8 @@ rm -rf ~/python3venv
 
 ### Step 3: Uninstall optional components
 
-> **NOTE:** If you have not installed any optional/additional components, you can
+> [!NOTE]
+> If you have not installed any optional/additional components, you can
 > skip this step.
 
 Uninstall OpenCL™:

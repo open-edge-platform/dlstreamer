@@ -42,12 +42,13 @@ you need to install Intel® NPU driver:
    ["Installation procedure"](https://github.com/intel/linux-npu-driver/releases) for
    the newest Intel® NPU driver.
 
-> **NOTE:** If you are experiencing issues with the installation, check all
+> [!NOTE]
+> If you are experiencing issues with the installation, check all
 > notes and tips in the release notes for the newest [Intel® NPU driver
 > version](https://github.com/intel/linux-npu-driver/releases). Please
 > pay attention to **access to the device as a non-root user**.
 
-------------------------------------------------------------------------
+---
 
 > **\*** *Other names and brands may be claimed as the property of
 > others.*

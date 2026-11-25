@@ -4,7 +4,8 @@ This article explains how to convert a pipeline from NVIDIA
 DeepStream to the Deep Learning Streamer Pipeline Framework. A working
 example is provided at each step to help illustrate the required modifications.
 
-> **Note:** The intermediate steps of the pipeline are not meant to run. They are
+> [!NOTE]
+> The intermediate steps of the pipeline are not meant to run. They are
 > simply there as a reference example of the changes being made in each
 > section.
 
@@ -27,10 +28,10 @@ example is provided at each step to help illustrate the required modifications.
 
 ## Preparing Your Model
 
-> **Note:** To use the Deep Learning Streamer Pipeline Framework and the OpenVINO™ Toolkit, the
+> [!NOTE]
+> To use the Deep Learning Streamer Pipeline Framework and the OpenVINO™ Toolkit, the
 > model needs to be in Intermediate Representation (IR) format. To convert
 > your model to this format, follow the steps in [model preparation](./model_preparation.md).
->
 
 ## Conversion Examples
 
@@ -66,7 +67,7 @@ While the GStreamer command line allows a quick demonstration of a running pipel
 This section illustrates how to convert a [DeepStream Python example](https://github.com/NVIDIA-AI-IOT/deepstream_python_apps/tree/master/apps/deepstream-test1) into a [DL Streamer Python example](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/hello_dlstreamer). Both applications implement the same functionality, but they use DeepStream and DL Streamer elements differently, as illustrated in the table below. The elements in __bold__ are vendor-specific, while the others are regular GStreamer elements.
 
 | DeepStream Element | DL Streamer Element | Function |
-|---|---|---|
+| --- | --- | --- |
 | filesrc | filesrc | Read video file |
 | h264parse ! __nvv4l2decoder__ | decodebin3 | Decode video file |
 | __nvstreammux__ ! __nvinfer__ | __gvadetect__ ! queue | Create batch buffer and run AI inference |
@@ -75,6 +76,7 @@ This section illustrates how to convert a [DeepStream Python example](https://gi
 | __nv3dsink__ | audiovideosink | Render results in a window |
 
 Such pipelines can be created programmatically in a Python application using a sequence of API calls:
+
 ```python
 element = Gst.ElementFactory.make(...)
 element.set_property(...)
@@ -436,7 +438,7 @@ The table below provides a quick reference for mapping typical DeepStream
 elements to Deep Learning Streamer elements or GStreamer.
 
 | DeepStream Element | DL Streamer Element |
-|---|---|
+| --- | --- |
 | [nvinfer](https://docs.nvidia.com/metropolis/deepstream/dev-guide/text/DS_plugin_gst-nvinfer.html) | [gvadetect](../elements/gvadetect), [gvaclassify](../elements/gvaclassify.md), [gvainference](../elements/gvainference.md) |
 | [nvdsosd](https://docs.nvidia.com/metropolis/deepstream/dev-guide/text/DS_plugin_gst-nvdsosd.html) | [gvawatermark](../elements/gvawatermark.md) |
 | [nvtracker](https://docs.nvidia.com/metropolis/deepstream/dev-guide/text/DS_plugin_gst-nvtracker.html) | [gvatrack](../elements/gvatrack.md) |
@@ -444,7 +446,7 @@ elements to Deep Learning Streamer elements or GStreamer.
 | [nvmsgbroker](https://docs.nvidia.com/metropolis/deepstream/dev-guide/text/DS_plugin_gst-nvmsgbroker.html) | [gvametapublish](../elements/gvametapublish.md) |
 
 | DeepStream Element | GStreamer Element |
-|---|---|
+| --- | --- |
 | nvvideoconvert | videoconvert |
 | nvv4l2decoder | decodebin3 |
 | nvv4l2h264dec | vah264dec |
@@ -461,7 +463,7 @@ elements to Deep Learning Streamer elements or GStreamer.
 NVIDIA DeepStream uses a combination of model configuration files and
 DeepStream element properties to specify inference actions, as well as
 pre- and post-processing steps before/after running inference, as
-documented [here](https://docs.nvidia.com/metropolis/deepstream/dev-guide/text/DS_plugin_gst-nvinfer.html).
+documented in [DeepStream documentation](https://docs.nvidia.com/deepstream/text/DS_plugin_gst-nvinfer).
 
 Similarly, the Deep Learning Streamer Pipeline Framework uses GStreamer element
 properties for inference settings and [Model Info Section](./model_info_xml.md)
@@ -471,19 +473,20 @@ The following table shows how to map commonly used NVIDIA DeepStream
 configuration properties to Deep Learning Streamer settings.
 
 | NVIDIA DeepStream config file | NVIDIA DeepStream element property | Deep Learning Streamer model info section | Deep Learning Streamer element property | Description |
-|---|---|---|---|---|
-| model-engine-file <path> | model-engine-file <path> | &nbsp; | model <path> | The path to an inference model network file. |
-| labelfile-path <path> | &nbsp; | &nbsp; | labels-file <path> | The path to a .txt file containing object classes. |
-| network-type <0..3> | &nbsp; | &nbsp; | <br>gvadetect for detection, instance segmentation<br>gvaclassify for classification, semantic segmentation<br><br> | Type of inference operation. |
-| batch-size <N> | batch-size <N> | &nbsp; | batch-size <N> | The number of frames batched together for a single inference. |
-| maintain-aspect-ratio | &nbsp; | resize_type: fit_to_window | &nbsp; | The number of frames batched together for a single inference. |
-| num-detected-classes | &nbsp; | &nbsp; | &nbsp; | The number of classes detected by the model, inferred from a label file by Deep Learning Streamer. |
-| interval <N> | interval <N> | &nbsp; | inference-interval <N+1> | An inference action executed every Nth frame. Note that Deep Learning Streamer value is greater by 1. |
-| &nbsp; | threshold | &nbsp; | threshold | The threshold for detection results. |
+| --- | --- | --- | --- | --- |
+| `model-engine-file <path>` | `model-engine-file <path>` | &nbsp; | `model <path>` | The path to an inference model network file. |
+| `labelfile-path <path>` | &nbsp; | &nbsp; | `labels-file <path>` | The path to a .txt file containing object classes. |
+| `network-type <0..3>` | &nbsp; | &nbsp; | <br>`gvadetect` for detection, instance segmentation<br>`gvaclassify` for classification, semantic segmentation<br><br> | Type of inference operation. |
+| `batch-size <N>` | `batch-size <N>` | &nbsp; | `batch-size <N>` | The number of frames batched together for a single inference. |
+| `maintain-aspect-ratio` | &nbsp; | `resize_type: fit_to_window` | &nbsp; | The number of frames batched together for a single inference. |
+| `num-detected-classes` | &nbsp; | &nbsp; | &nbsp; | The number of classes detected by the model, inferred from a label file by Deep Learning Streamer. |
+| `interval <N>` | `interval <N>` | &nbsp; | `inference-interval <N+1>` | An inference action executed every Nth frame. Note that Deep Learning Streamer value is greater by 1. |
+| &nbsp; | `threshold` | &nbsp; | `threshold` | The threshold for detection results. |
 
 </br>
 
 ## AI-Supported Conversions
+
 In addition to the detailed description of the conversion rules between DeepStream and Deep Learning Streamer applications presented above, we also provide the ability to perform such conversions automatically using a coding agent. As part of the [DL Streamer](https://github.com/open-edge-platform/dlstreamer) project, guidelines for the coding agent have been prepared to support conversion of applications written in **Python**; see [deepstream-python-conversion](https://github.com/open-edge-platform/dlstreamer/blob/main/.github/skills/dlstreamer-coding-agent/example-prompts/deepstream-python-conversion.md). They also support conversion of **C/C++** applications; see [deepstream-cpp-conversion](https://github.com/open-edge-platform/dlstreamer/blob/main/.github/skills/dlstreamer-coding-agent/example-prompts/deepstream-cpp-conversion.md).
 
 To see examples of DeepStream applications automatically converted by the coding agent, refer to the [auto_generated_samples](../../../samples/auto_generated_samples/) directory, which includes [Python](../../../samples/auto_generated_samples/deepstream_python_conversion/) and [C++](../../../samples/auto_generated_samples/deepstream_cpp_conversion/) conversion examples.
@@ -495,8 +498,7 @@ The coding agent supports conversion of DeepStream applications developed in the
 - **Python** - applications using Python bindings for DeepStream. The output code is based on the [python-app-template](https://github.com/open-edge-platform/dlstreamer/tree/main/.github/skills/dlstreamer-coding-agent/assets/python-app-template.py), which demonstrates the structure of a DL Streamer application in Python using Sample Pipeline Processing.
 - **C/C++** - native DeepStream applications written in C or C++. The output code is based on the [cpp-app-template](https://github.com/open-edge-platform/dlstreamer/tree/main/.github/skills/dlstreamer-coding-agent/assets/cpp-app-template.cpp), which demonstrates the structure of a DL Streamer application in C++ using Sample Pipeline Processing.
 
-> **Note:** By default, the coding agent generates the converted application in the same programming language as the source DeepStream application. However, this behavior can be changed by modifying the conversion prompt to explicitly request a different target language.
-
+> [!NOTE]
+> By default, the coding agent generates the converted application in the same programming language as the source DeepStream application. However, this behavior can be changed by modifying the conversion prompt to explicitly request a different target language.
 
 See also: [Coding Agent](./coding_agent.md)
-
