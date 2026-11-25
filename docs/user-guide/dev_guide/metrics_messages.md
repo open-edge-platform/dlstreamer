@@ -28,7 +28,7 @@ A consumer should process the versions it knows, ignore fields it does not know,
 ## Messages
 
 | Structure name | Posted by | Enable with | Posted |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `dlstreamer/latency-window` | [latency_tracer](./latency_tracer.md) | `post-metrics=true` tracer parameter | Once per interval window per source-to-sink branch |
 | `dlstreamer/genai-request` | [gvagenai](../elements/gvagenai.md) | `post-metrics=true` | Once per generation request |
 
@@ -45,7 +45,7 @@ frame latencies of the window as a count, a sum, the extremes, a sum of squares 
 histogram.
 
 | Field | Type | Description |
-|---|---|---|
+| --- | --- | --- |
 | `version` | uint | Schema version, `1` |
 | `pipeline` | string | Name of the pipeline |
 | `source` | string | Name of the branch's source element |
@@ -68,7 +68,7 @@ them from the message instead of assuming them.
 What can be derived from a window:
 
 | Value | Derivation |
-|---|---|
+| --- | --- |
 | Mean frame latency | `sum_ms / count` |
 | Standard deviation of the frame latency | `sqrt(sum_sq_ms / count - (sum_ms / count)²)` |
 | Frame latency percentiles, e.g. p95 | From the histogram: find the bucket that holds rank `0.95 * count` and interpolate within it. The result is an estimate within the bucket width; the other values are exact. |
@@ -90,7 +90,7 @@ Only the `openvino-genai` backend measures these values. With the `openai-http` 
 message is posted, and the element logs a warning once.
 
 | Field | Type | Description |
-|---|---|---|
+| --- | --- | --- |
 | `version` | uint | Schema version, `1` |
 | `frames` | uint | Number of frames the request was generated from |
 | `ttft_ms` | double | Time to first token |

@@ -6,11 +6,11 @@ a Python callback or a custom GStreamer element without modifying pixel data man
 
 ## Metadata Types
 
-| Type                  | Python name                          | Description |
-|-----------------------|--------------------------------------|-------------|
-| `WatermarkDrawMeta`   | `DLStreamerWatermarkMeta.DrawMeta`   | Polygon or polyline defined by an ordered list of (x, y) coordinate pairs (max 128 pairs) |
+| Type | Python name | Description |
+| ---- | ----------- | ----------- |
+| `WatermarkDrawMeta` | `DLStreamerWatermarkMeta.DrawMeta` | Polygon or polyline defined by an ordered list of (x, y) coordinate pairs (max 128 pairs) |
 | `WatermarkCircleMeta` | `DLStreamerWatermarkMeta.CircleMeta` | Circle defined by center (cx, cy), radius, color, and thickness |
-| `WatermarkTextMeta`   | `DLStreamerWatermarkMeta.TextMeta`   | Text label at position (x, y) with font, scale, color, and optional background |
+| `WatermarkTextMeta` | `DLStreamerWatermarkMeta.TextMeta` | Text label at position (x, y) with font, scale, color, and optional background |
 
 A thickness of `-1` fills the shape (circle or polygon). For `WatermarkDrawMeta`, two points draw a line segment;
 three or more points draw a polygon.
@@ -46,5 +46,5 @@ DLStreamerWatermarkMeta.text_meta_add(
 
 Once attached, `gvawatermark` renders the primitives automatically alongside any standard inference metadata.
 
-See the [watermark_meta Python sample](../../../samples/gstreamer/python/watermark_meta/README.md) for a complete
+See the [watermark_meta Python sample](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/python/watermark_meta/README.md) for a complete
 working example.

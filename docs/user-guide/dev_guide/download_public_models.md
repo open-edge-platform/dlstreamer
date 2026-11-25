@@ -12,15 +12,15 @@ the [Model Conversion Scripts README](https://github.com/open-edge-platform/dlst
 ## Available Scripts
 
 - `download_hf_models.py` converts supported Hugging Face models with
-	`optimum-cli`. It also provides custom conversion paths for selected models,
-	including CLIP and RT-DETR.
+  `optimum-cli`. It also provides custom conversion paths for selected models,
+  including CLIP and RT-DETR.
 - `download_ultralytics_models.py` converts Ultralytics models, including YOLO
-	detection, segmentation, pose, OBB, classification, and YOLOE models. It
-	supports model names, local `.pt` files, and Hugging Face repositories.
+  detection, segmentation, pose, OBB, classification, and YOLOE models. It
+  supports model names, local `.pt` files, and Hugging Face repositories.
 - `download_timm_models.py` converts supported TIMM image-classification
-	models hosted on Hugging Face.
+  models hosted on Hugging Face.
 - `download_other_models.py` downloads and converts selected helper models that
-	are not handled by the other scripts, including `yolox-tiny`.
+  are not handled by the other scripts, including `yolox-tiny`.
 
 ## Reproducible Downloads
 
@@ -28,9 +28,9 @@ Model references can include an `@...` suffix to pin the source version:
 
 - Hugging Face and TIMM use `repo_id@revision`, typically a commit SHA.
 - Ultralytics uses `model.pt@tag`, where `tag` is an `ultralytics/assets`
-	GitHub release tag.
+  GitHub release tag.
 - `download_other_models.py` uses sources and tool versions defined in the
-	script and does not support per-model version suffixes.
+  script and does not support per-model version suffixes.
 
 Without a pinned revision, the Hugging Face, TIMM, and Ultralytics scripts may
 resolve the latest available model at runtime.

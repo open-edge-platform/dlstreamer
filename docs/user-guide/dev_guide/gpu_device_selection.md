@@ -67,7 +67,8 @@ gst-launch-1.0 filesrc location=${VIDEO_FILE} ! parsebin ! varenderD129h264dec !
 gvadetect model=${MODEL_FILE} device=GPU.1 pre-process-backend=va-surface-sharing batch_size=8 ! queue ! gvafpscounter ! fakesink
 ```
 
-> **NOTE:** Starting with [GStreamer 1.24.12](https://gstreamer.freedesktop.org/releases/1.24/) and [DLS 2025.0.1.2](https://github.com/open-edge-platform/dlstreamer/releases/tag/v2025.0.1.2), using `decodebin3` instead of `decodebin` is strongly recommended for the primary GPU (GPU.0).
+> [!NOTE]
+> Starting with [GStreamer 1.24.12](https://gstreamer.freedesktop.org/releases/1.24/) and [DLS 2025.0.1.2](https://github.com/open-edge-platform/dlstreamer/releases/tag/v2025.0.1.2), using `decodebin3` instead of `decodebin` is strongly recommended for the primary GPU (GPU.0).
 > `decodebin3` simplifies the pipeline layout.
 > The sequence `parsebin ! vah264dec ! vapostproc ! "video/x-raw(memory:VAMemory)"` can be replaced with a single `decodebin3` element.
 
@@ -76,7 +77,8 @@ gst-launch-1.0 filesrc location=${VIDEO_FILE} ! decodebin3 ! \
 gvadetect model=${MODEL_FILE} device=GPU pre-process-backend=va-surface-sharing ! queue ! gvafpscounter ! fakesink
 ```
 
-> **NOTE:** From [GStreamer 1.28](https://gstreamer.freedesktop.org/releases/1.28/) and [DL Streamer 2026.1.0] the VAAPI plugin support has being removed, the VA plugin must be used instead.
+> [!IMPORTANT]
+> From [GStreamer 1.28](https://gstreamer.freedesktop.org/releases/1.28/) and [DL Streamer 2026.1.0](https://github.com/open-edge-platform/dlstreamer/releases/tag/v2026.1.0) the VAAPI plugin support has being removed, the VA plugin must be used instead.
 
 ## 3. Windows (D3D11 and D3D12)
 

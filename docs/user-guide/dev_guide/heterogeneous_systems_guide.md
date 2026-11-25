@@ -92,7 +92,7 @@ detect this condition.
 
 ### Optimize sub-pipelines with the DL Streamer Optimizer
 
-The [DL Streamer Optimizer](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/optimizer.html)
+The [DL Streamer Optimizer](./optimizer.md)
 can automatically tune inference parameters such as `nireq`, `batch-size` for each
 sub-pipeline and target device. A standalone NPU workload that runs independently
 is a particularly good candidate: its parameters can be tuned in isolation without
@@ -106,7 +106,7 @@ This demo uses two video files representing different camera feeds in a city
 surveillance scenario:
 
 | Role | Video | Resolution | Frame Rate |
-|------|-------|------------|------------|
+| ---- | ----- | ---------- | ---------- |
 | Main | Police highway scene | 1280×720 | 60 fps |
 | Extra | Metro crowd scene | 1280×720 | 30 fps |
 
@@ -130,7 +130,7 @@ task and the primary driver of GT0 utilization.
 
 Based on the DL Streamer [VLM alerts sample](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/python/vlm_alerts).
 
-```
+```text
 filesrc location=Videos/police_highway_1280_720_60fps_loop10.mp4 ! decodebin3
   ! gvagenai model-path=models/InternVL3_5-2B device=GPU
       prompt="Is there a police car? Answer yes or no."
@@ -149,7 +149,7 @@ Runs at full video frame rate: object detection followed by OCR on cropped
 plate regions. Runs in parallel with sub-pipeline A on its own decode path —
 the LVM's low cadence does not limit its throughput.
 
-```
+```text
 filesrc location=Videos/police_highway_1280_720_60fps_loop10.mp4 ! decodebin3
   ! gvadetect model=models/yolov8_license_plate_detector/FP32/yolov8_license_plate_detector.xml
       device=GPU batch-size=2 model-instance-id=inf1
@@ -173,7 +173,7 @@ Based on the DL Streamer [face detection and classification sample](https://gith
 
 **GPU variant (Case 2):**
 
-```
+```text
 filesrc location=Videos/metro_1280_720_30fps_loop10.mp4 ! decodebin3
   ! gvadetect model=models/YOLOv8-Face-Detection/INT8/YOLOv8-Face-Detection.xml
       device=GPU batch-size=2 model-instance-id=inf3
@@ -182,7 +182,7 @@ filesrc location=Videos/metro_1280_720_30fps_loop10.mp4 ! decodebin3
 
 **NPU variant (Case 3):**
 
-```
+```text
 filesrc location=Videos/metro_1280_720_30fps_loop10.mp4 ! decodebin3
   ! gvadetect model=models/YOLOv8-Face-Detection/INT8/YOLOv8-Face-Detection.xml
       device=NPU nireq=2 batch-size=2 model-instance-id=inf3
@@ -206,7 +206,7 @@ Sub-pipelines A and B run on GPU. No extra workload.
 **Compute allocation:**
 
 | Workload | Device |
-|----------|--------|
+| -------- | ------ |
 | LVM (gvagenai) | GPU GT0 |
 | License plate detection + OCR | GPU GT0 |
 | Video decode (2 streams) | GPU GT1 |
@@ -216,26 +216,26 @@ Sub-pipelines A and B run on GPU. No extra workload.
 ```mermaid
 flowchart LR
     Video1["Police Highway Video"]
-    
+
     Video1 -.-> V1A[filesrc]
     Video1 -.-> V1B[filesrc]
-    
+
     V1A --> D1
     V1B --> D2
-    
+
     subgraph GT1["GPU GT1 Media Tile (Shared HW Decode)"]
         D1[decodebin3]
         D2[decodebin3]
     end
-    
+
     subgraph SubA["Sub-pipeline A: LVM Alerts"]
         D1 --> LVM["gvagenai<br/>device=GPU<br/>InternVL3_5-2B"] --> Q1[queue] --> F1[fakesink]
     end
-    
+
     subgraph SubB["Sub-pipeline B: License Plate Detection + OCR"]
         D2 --> DET["gvadetect<br/>device=GPU<br/>YOLOv8 LP"] --> Q2[queue] --> OCR["gvaclassify<br/>device=GPU<br/>PP-OCRv4"] --> Q3[queue] --> F2[fakesink]
     end
-    
+
     style GT1 fill:#fff4e6,stroke:#ff9800,stroke-width:3px
 ```
 
@@ -258,7 +258,7 @@ Sub-pipelines A, B and C (GPU variant) run together.
 **Compute allocation:**
 
 | Workload | Device |
-|----------|--------|
+| -------- | ------ |
 | LVM (gvagenai) | GPU GT0 |
 | License plate detection + OCR | GPU GT0 |
 | Face detection (metro video) | GPU GT0 |
@@ -270,33 +270,33 @@ Sub-pipelines A, B and C (GPU variant) run together.
 flowchart LR
     Video1["Police Highway Video"]
     Video2["Metro Crowd Video"]
-    
+
     Video1 -.-> V1A[filesrc]
     Video1 -.-> V1B[filesrc]
     Video2 -.-> V2[filesrc]
-    
+
     V1A --> D1
     V1B --> D2
     V2 --> D3
-    
+
     subgraph GT1["GPU GT1 Media Tile (Shared HW Decode)"]
         D1[decodebin3]
         D2[decodebin3]
         D3[decodebin3]
     end
-    
+
     subgraph SubA["Sub-pipeline A: LVM Alerts"]
         D1 --> LVM["gvagenai<br/>device=GPU<br/>InternVL3_5-2B"] --> Q1[queue] --> F1[fakesink]
     end
-    
+
     subgraph SubB["Sub-pipeline B: License Plate Detection + OCR"]
         D2 --> DET["gvadetect<br/>device=GPU<br/>YOLOv8 LP"] --> Q2[queue] --> OCR["gvaclassify<br/>device=GPU<br/>PP-OCRv4"] --> Q3[queue] --> F2[fakesink]
     end
-    
+
     subgraph SubC["Sub-pipeline C: Face Detection"]
         D3 --> FACE["gvadetect<br/>device=GPU<br/>YOLOv8 Face"] --> Q4[queue] --> F3[fakesink]
     end
-    
+
     style GT1 fill:#fff4e6,stroke:#ff9800,stroke-width:3px
 ```
 
@@ -318,7 +318,7 @@ Sub-pipelines A and B remain on GPU. Sub-pipeline C uses the NPU variant.
 **Compute allocation:**
 
 | Workload | Device |
-|----------|--------|
+| -------- | ------ |
 | LVM (gvagenai) | GPU GT0 |
 | License plate detection + OCR | GPU GT0 |
 | Face detection (metro video) | **NPU** |
@@ -330,33 +330,33 @@ Sub-pipelines A and B remain on GPU. Sub-pipeline C uses the NPU variant.
 flowchart LR
     Video1["Police Highway Video"]
     Video2["Metro Crowd Video"]
-    
+
     Video1 -.-> V1A[filesrc]
     Video1 -.-> V1B[filesrc]
     Video2 -.-> V2[filesrc]
-    
+
     V1A --> D1
     V1B --> D2
     V2 --> D3
-    
+
     subgraph GT1["GPU GT1 Media Tile (Shared HW Decode)"]
         D1[decodebin3]
         D2[decodebin3]
         D3[decodebin3]
     end
-    
+
     subgraph SubA["Sub-pipeline A: LVM Alerts"]
         D1 --> LVM["gvagenai<br/>device=GPU<br/>InternVL3_5-2B"] --> Q1[queue] --> F1[fakesink]
     end
-    
+
     subgraph SubB["Sub-pipeline B: License Plate Detection + OCR"]
         D2 --> DET["gvadetect<br/>device=GPU<br/>YOLOv8 LP"] --> Q2[queue] --> OCR["gvaclassify<br/>device=GPU<br/>PP-OCRv4"] --> Q3[queue] --> F2[fakesink]
     end
-    
+
     subgraph SubC["Sub-pipeline C: Face Detection"]
         D3 --> FACE["gvadetect<br/>device=NPU<br/>YOLOv8 Face"] --> Q4[queue] --> F3[fakesink]
     end
-    
+
     style GT1 fill:#fff4e6,stroke:#ff9800,stroke-width:3px
 ```
 
@@ -379,8 +379,8 @@ flowchart LR
 
 ## Results Summary
 
-| | Case 1: MAIN/GPU | Case 2: MAIN+EXTRA/GPU | Case 3: MAIN+EXTRA/GPU+NPU |
-|---|---|---|---|
+| Metric | Case 1: MAIN/GPU | Case 2: MAIN+EXTRA/GPU | Case 3: MAIN+EXTRA/GPU+NPU |
+| --- | --- | --- | --- |
 | Extra workload | — | GPU | **NPU** |
 | Total throughput | baseline | moderate gain | **highest** |
 | LP detection throughput | baseline | significantly lower | **fully recovered** |

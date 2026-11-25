@@ -34,6 +34,7 @@ elements for each frame. Below there is a sample log for `gvadetect` element and
 ```
 
 Key measurement for `latency_tracer_element`:
+
 - `frame_latency` - the current frame's processing latency calculated as the time difference
   between when the frame was entered the element and the current timestamp at element's output
 - `avg` - the average value of element processing latency for all frames processed so far by the element,
@@ -45,6 +46,7 @@ Key measurement for `latency_tracer_element`:
 - `frame_num` - frame number for which latencies values are calculated
 
 Key measurement for `latency_tracer_pipeline`:
+
 - `frame_latency` - the current frame's processing latency calculated as the time difference
   between when the frame was entered the pipeline and the current timestamp at pipeline's output
 - `avg` - the average value of the pipeline processing latency for all frames processed so far by the pipeline,
@@ -61,15 +63,21 @@ Key measurement for `latency_tracer_pipeline`:
 ### Configuration options
 
 The `latency_tracer` can be configured to show latencies only for elements or a pipeline:
-- show only element latencies
+
+- show only element latencies:
+
   ```bash
   GST_DEBUG="GST_TRACER:7" GST_TRACERS="latency_tracer(flags=element)" gst-launch-1.0 ...
   ```
-- show only pipeline latencies
+
+- show only pipeline latencies:
+
   ```bash
   GST_DEBUG="GST_TRACER:7" GST_TRACERS="latency_tracer(flags=pipeline)" gst-launch-1.0 ...
   ```
-- show both element and pipeline latencies (default)
+
+- show both element and pipeline latencies (default):
+
   ```bash
   GST_DEBUG="GST_TRACER:7" GST_TRACERS="latency_tracer(flags=element+pipeline)" gst-launch-1.0 ...
   ```
@@ -104,6 +112,7 @@ The interval feature generates two types of periodic reports:
 2. `latency_tracer_pipeline_interval` - Provides aggregated statistics for the entire pipeline over the specified time interval
 
 Key measurements in interval reports:
+
 - `interval` - The actual duration of the reporting interval in milliseconds
 - All other parameters (`avg`, `min`, `max`, `latency`, `fps`) have the same interpretation as for ordinary latency_tracer,
   but statistics are calculated for the last interval window only

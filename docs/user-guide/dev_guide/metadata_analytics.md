@@ -11,7 +11,7 @@ upstream
 ## Metadata types used by DL Streamer
 
 | Type | Description |
-|------|-------------|
+| ---- | ----------- |
 | `GstAnalyticsODMtd` | Object detection (bbox, label, confidence, rotation) |
 | `GstAnalytics3DODMtd` | 3D object detection — oriented box, class, confidence, sensor modality (DL Streamer extension) |
 | `GstAnalyticsClsMtd` | Classification (confidence + label) |
@@ -37,7 +37,7 @@ how DL Streamer elements populate this structure in typical pipelines.
 When `gvadetect` processes a frame, it adds one `GstAnalyticsODMtd` per
 detected object:
 
-```
+```text
 gvadetect post-processor
   │
   └─ GstAnalyticsODMtd (label="car", x, y, w, h, confidence=0.92,
@@ -48,7 +48,7 @@ If the model has additional output heads (e.g., classification attributes or
 keypoints), `gvadetect` attaches them to the detection via `CONTAIN`
 relations:
 
-```
+```text
   ODMtd (label="vehicle", semantic_tag="multi-head-model")
     ─CONTAIN→ ClsMtd (label="red", confidence=0.87, semantic_tag="multi-head-model")
     ─CONTAIN→ GroupMtd (semantic_tag="multi-head-model/body-pose/coco-17")
@@ -61,7 +61,7 @@ relations:
 
 A typical two-stage pipeline `gvadetect ! gvaclassify` produces:
 
-```
+```text
 gvadetect
   └─ ODMtd (label="person", x, y, w, h, confidence,
             semantic_tag="yolov26n")
@@ -77,7 +77,7 @@ The classification result is attached to the existing `ODMtd` via a
 `gvaclassify` can also attach keypoints when using a keypoint model (e.g.,
 pose estimation, facial landmarks) as a second stage (per-ROI inference):
 
-```
+```text
 gvadetect
   └─ ODMtd (label="person", x, y, w, h, confidence,
             semantic_tag="yolov26n")
@@ -94,7 +94,7 @@ stage over the detected ROIs. Each `GstAnalyticsSegmentationMtd` is then
 attached to its parent `ODMtd` via a `CONTAIN` relation, and its mask covers
 the ROI region rather than the whole frame:
 
-```
+```text
 gvadetect
   └─ ODMtd (label="person", x, y, w, h, confidence,
             semantic_tag="yolov26n")
@@ -110,7 +110,7 @@ gvaclassify (inference-region=roi-list, model=segmentation_model)
 
 After `gvadetect ! gvatrack`:
 
-```
+```text
 gvadetect
   └─ ODMtd (label="car", x, y, w, h, confidence,
             semantic_tag="yolov26n")
@@ -127,7 +127,7 @@ relation to display it on screen.
 
 After `gvadetect ! gvatrack ! gvaanalytics`:
 
-```
+```text
 gvadetect
   └─ ODMtd (label="car", x, y, w, h, confidence,
             semantic_tag="yolov26n")
@@ -154,7 +154,7 @@ output as `zone_violations` (array of zone ID strings) and
 
 When a keypoint model (e.g., pose estimation) runs through `gvadetect`:
 
-```
+```text
 gvadetect post-processor
   │
   ├─ GstAnalyticsODMtd (person bounding box)
@@ -180,7 +180,7 @@ When `gvaclassify` runs with `inference-region=full-frame`, classification
 results are stored directly in `GstAnalyticsRelationMeta` without a parent
 `ODMtd`:
 
-```
+```text
 gvaclassify (inference-region=full-frame, model=densenet-121)
   │
   └─ GstAnalyticsRelationMeta
@@ -193,7 +193,7 @@ level.
 
 When multiple full-frame classification models are chained:
 
-```
+```text
 gvaclassify (model=densenet-121) ! gvaclassify (model=emotion-recognition)
   │
   └─ GstAnalyticsRelationMeta
@@ -207,7 +207,7 @@ When `gvaclassify` runs with `inference-region=full-frame` and a model that
 produces keypoints (e.g., pose estimation, facial landmarks), keypoint groups
 are stored at the frame level:
 
-```
+```text
 gvaclassify (inference-region=full-frame, model=single-person-pose)
   │
   └─ GstAnalyticsRelationMeta
@@ -238,7 +238,7 @@ detection:
 
 The frame-level case:
 
-```
+```text
 gvaclassify (inference-region=full-frame, model=deeplabv3)
   │
   └─ GstAnalyticsRelationMeta
@@ -250,7 +250,7 @@ gvaclassify (inference-region=full-frame, model=deeplabv3)
 
 The per-ROI case:
 
-```
+```text
 gvadetect
   └─ ODMtd (label="person", x, y, w, h, confidence,
             semantic_tag="yolov26n")
@@ -278,7 +278,7 @@ Instance segmentation produces one soft mask **per detected object**. Each mask
 is stored as a `GstAnalyticsTensorMtd` (`FP32` probabilities) and attached to
 the owning detection via a `CONTAIN` relation:
 
-```
+```text
 gvadetect (instance-segmentation model, e.g. Mask R-CNN, YOLOv8-SEG)
   └─ ODMtd (label="person", x, y, w, h, confidence,
             semantic_tag="yolov8-seg")
@@ -301,7 +301,7 @@ raw output tensor(s) for any model (full-frame or per-ROI).
 At the frame level (`gvainference` with `inference-region=full-frame`) the
 tensor has no parent `ODMtd`:
 
-```
+```text
 gvainference (inference-region=full-frame, model=resnet-50)
   │
   └─ GstAnalyticsRelationMeta
@@ -312,7 +312,7 @@ gvainference (inference-region=full-frame, model=resnet-50)
 Per-ROI (`inference-region=roi-list`, or a second-stage model over detections)
 the tensor is attached to its parent `ODMtd` via a `CONTAIN` relation:
 
-```
+```text
 gvadetect
   └─ ODMtd (label="person", ..., semantic_tag="yolov26n")
 
@@ -336,7 +336,7 @@ class, confidence, and the sensor modality.
 When `g3dinference` runs inference over a LiDAR frame, it adds one
 `GstAnalytics3DODMtd` per detection at the frame level:
 
-```
+```text
 g3dinference
   │
   └─ GstAnalyticsRelationMeta
@@ -349,7 +349,7 @@ When a camera stream is fused with a 3D (LiDAR/radar) stream by
 (track id), and each fused camera `ODMtd` is linked across buffers to its
 matching 3D detection:
 
-```
+```text
 3D-sensor stream buffer
   └─ 3DODMtd (id=3, modality=lidar) ─RELATE_TO→ TrackingMtd (id=42)
 
@@ -376,7 +376,7 @@ All `GstAnalyticsMtd` entries support a generic `semantic_tag` string via:
 DL Streamer uses semantic tags to:
 
 | Metadata type | Tag format | Example |
-|---|---|---|
+| --- | --- | --- |
 | `ODMtd` | model name | `"yolov26n"` |
 | `ClsMtd` | model name | `"densenet-121"` |
 | `GroupMtd` (keypoints) | `model_name/keypoint_format` | `"hrnet/body-pose/coco-17"` |
@@ -416,14 +416,14 @@ struct _GstAnalytics3DODMtdData {
 `GstAnalytics3DSensorModality` is an enum:
 
 | Value | Meaning |
-|-------|---------|
+| ----- | ------- |
 | `GST_ANALYTICS_3D_SENSOR_LIDAR` (0) | Detection sourced from a LiDAR-based detector |
 | `GST_ANALYTICS_3D_SENSOR_RADAR` (1) | Detection sourced from a radar-based detector |
 
 ### 3D object detection API
 
 | Function | Description |
-|----------|-------------|
+| -------- | ----------- |
 | `gst_analytics_3d_od_mtd_get_mtd_type()` | Returns the metadata type ID for `GstAnalytics3DODMtd`. |
 | `gst_analytics_relation_meta_add_3d_od_mtd(rmeta, x, y, z, length, width, height, yaw, pitch, roll, class_id, confidence, modality, &mtd)` | Adds a 3D detection to `rmeta`. Returns `TRUE` on success. |
 | `gst_analytics_3d_od_mtd_get_location(&mtd, &x, &y, &z, &length, &width, &height, &yaw, &pitch, &roll)` | Retrieves the oriented box. Returns `TRUE` on success. |
@@ -474,7 +474,7 @@ struct _GstAnalyticsZoneData {
 ### Zone API
 
 | Function | Description |
-|----------|-------------|
+| -------- | ----------- |
 | `gst_analytics_zone_mtd_get_mtd_type()` | Returns the metadata type ID for `GstAnalyticsZoneMtd`. |
 | `gst_analytics_zone_mtd_get_info(handle, &zone_id)` | Fills `zone_id` (caller-owned string) with the zone identifier. Returns `TRUE` on success. |
 | `gst_analytics_relation_meta_add_zone_mtd(rmeta, zone_id, &zone_mtd)` | Adds a `ZoneMtd` entry to `rmeta`. Returns `TRUE` on success. |
@@ -521,7 +521,7 @@ struct _GstAnalyticsTripwireData {
 ### Direction values
 
 | Value | Meaning |
-|-------|---------|
+| ----- | ------- |
 | `1` | Forward — object crossed from the left-hand side to the right-hand side of the tripwire vector (t1 → t2) |
 | `-1` | Backward — object crossed from the right-hand side to the left-hand side |
 | `0` | Undefined |
@@ -532,7 +532,7 @@ For a **vertical** tripwire defined top-to-bottom (`{x,0}` → `{x,height}`),
 ### Tripwire API
 
 | Function | Description |
-|----------|-------------|
+| -------- | ----------- |
 | `gst_analytics_tripwire_mtd_get_mtd_type()` | Returns the metadata type ID for `GstAnalyticsTripwireMtd`. |
 | `gst_analytics_tripwire_mtd_get_info(handle, &tripwire_id, &direction)` | Fills `tripwire_id` (caller-owned string) and `direction`. Returns `TRUE` on success. |
 | `gst_analytics_relation_meta_add_tripwire_mtd(rmeta, tripwire_id, direction, &tripwire_mtd)` | Adds a `TripwireMtd` entry to `rmeta`. Returns `TRUE` on success. |
@@ -582,7 +582,7 @@ struct _GstAnalyticsDwellTimeData {
 ### Dwell-Time API
 
 | Function | Description |
-|----------|-------------|
+| -------- | ----------- |
 | `gst_analytics_dwelltime_mtd_get_mtd_type()` | Returns the metadata type ID for `GstAnalyticsDwellTimeMtd`. |
 | `gst_analytics_dwelltime_mtd_get_info(handle, &zone_id, &dwell_time, &first_seen_timestamp)` | Reads dwell metadata fields. Returns `TRUE` on success. |
 | `gst_analytics_relation_meta_add_dwelltime_mtd(rmeta, zone_id, dwell_time, first_seen_timestamp, &dwell_mtd)` | Adds a dwell-time entry to `rmeta`. Returns `TRUE` on success. |
@@ -614,7 +614,6 @@ while (gst_analytics_relation_meta_iterate(rmeta, &state,
 }
 ```
 
-
 ## GstAnalyticsKeypointDescriptor
 
 `GstAnalyticsKeypointDescriptor` is a DL Streamer extension that provides a
@@ -640,7 +639,7 @@ typedef struct {
 ### Built-in descriptors
 
 | Semantic Tag | Points | Skeleton Edges | Use Case |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `body-pose/coco-17` | 17 | 18 | COCO body pose (nose, eyes, ears, shoulders, elbows, wrists, hips, knees, ankles) |
 | `body-pose/openpose-18` | 18 | 13 | OpenPose body model (adds neck point) |
 | `body-pose/hrnet-coco-17` | 17 | 13 | HRNet with COCO keypoint ordering |
@@ -649,7 +648,7 @@ typedef struct {
 ### Keypoint Descriptor API
 
 | Function | Description |
-|----------|-------------|
+| -------- | ----------- |
 | `gst_analytics_keypoint_descriptor_lookup(semantic_tag)` | Find a built-in descriptor by its semantic tag (e.g., `"body-pose/coco-17"`). Returns `NULL` if not found. |
 | `gst_analytics_keypoint_descriptor_find_in_tag(tag, &format_start)` | Search for a known descriptor format inside a composite tag (e.g., `"hrnet/body-pose/coco-17"`). Sets `format_start` to the offset where the format begins. Returns the descriptor or `NULL`. |
 | `gst_analytics_keypoint_descriptor_get_point_name(desc, index)` | Get point name at index (Python bindings only). |
@@ -842,7 +841,7 @@ members, and establishes `RELATE_TO` relations between keypoints according to
 Standard COCO body pose with 17 keypoints and 18 skeleton edges.
 
 | Index | Point Name |
-|---|---|
+| --- | --- |
 | 0 | nose |
 | 1 | eye_l |
 | 2 | eye_r |
@@ -863,7 +862,7 @@ Standard COCO body pose with 17 keypoints and 18 skeleton edges.
 
 Skeleton connections:
 
-```
+```text
 nose─eye_l─ear_l─shoulder_l─elbow_l─wrist_l
 nose─eye_r─ear_r─shoulder_r─elbow_r─wrist_r
 shoulder_l─shoulder_r
@@ -878,7 +877,7 @@ OpenPose 18-keypoint body model. Adds a **neck** point (index 1) compared to
 COCO. 13 skeleton edges.
 
 | Index | Point Name |
-|---|---|
+| --- | --- |
 | 0 | nose |
 | 1 | neck |
 | 2 | shoulder_r |
@@ -900,7 +899,7 @@ COCO. 13 skeleton edges.
 
 Skeleton connections:
 
-```
+```text
 nose─eye_l─ear_l
 nose─eye_r─ear_r
 shoulder_l─shoulder_r
@@ -918,7 +917,7 @@ nose-to-ear or shoulder-to-hip connections).
 
 Skeleton connections:
 
-```
+```text
 nose─eye_l─ear_l
 nose─eye_r─ear_r
 shoulder_l─shoulder_r
@@ -933,7 +932,7 @@ hip_r─knee_r─ankle_r
 CenterFace 5-point facial landmarks. No skeleton connections.
 
 | Index | Point Name |
-|---|---|
+| --- | --- |
 | 0 | eye_l |
 | 1 | eye_r |
 | 2 | nose_tip |

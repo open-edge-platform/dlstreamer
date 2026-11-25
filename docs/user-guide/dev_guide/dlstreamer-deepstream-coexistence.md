@@ -1,7 +1,9 @@
 # DL Streamer and DeepStream Coexistence
 
-This tutorial explains how to sequentially or simultaneously run DL Streamer and DeepStream on a single machine for optimal performance.
+This tutorial explains how to sequentially or simultaneously run Deep Learning Streamer
+(DL Streamer) and DeepStream on a single machine for optimal performance.
 It serves two main purposes:
+
 1. It shows DeepStream users that DL Streamer has similar capabilities and can be used for their use cases with very low time and effort investment.
     - The sample adds DL Streamer to Intel-powered setups without disrupting the current environment configuration.
     - It enables you to run and compare results of typical use cases.
@@ -76,22 +78,22 @@ if "Intel" in lscpu_output:
 flowchart LR
     A[Start] --> B{Intel GPU and Nvidia GPU exist}
     B -->|Yes| C[Run DL Streamer and DeepStream]
-	B -->|No| D{Intel NPU and Nvidia GPU exist}
-	D -->|Yes| C
-	D -->|No| E{Intel CPU and Nvidia GPU exist}
-	E -->|Yes| C
-	E -->|No| F{Intel GPU exists}
-	F -->|Yes| G[Run DL Streamer]
-	F -->|No| H{Nvidia GPU exists}
-	H -->|Yes| I[Run DeepStream]
-	H -->|No| J{Intel NPU exists}
-	J -->|Yes| G
-	J -->|No| K{Intel CPU exists}
-	K -->|Yes| G
-	K -->|No| L[Exit]
-	C --> L
-	G --> L
-	I --> L
+    B -->|No| D{Intel NPU and Nvidia GPU exist}
+    D -->|Yes| C
+    D -->|No| E{Intel CPU and Nvidia GPU exist}
+    E -->|Yes| C
+    E -->|No| F{Intel GPU exists}
+    F -->|Yes| G[Run DL Streamer]
+    F -->|No| H{Nvidia GPU exists}
+    H -->|Yes| I[Run DeepStream]
+    H -->|No| J{Intel NPU exists}
+    J -->|Yes| G
+    J -->|No| K{Intel CPU exists}
+    K -->|Yes| G
+    K -->|No| L[Exit]
+    C --> L
+    G --> L
+    I --> L
 ```
 
 ## How to use
@@ -113,8 +115,7 @@ python3 ./coexistence_dls_and_ds.py <input> LPR <output> -simultaneously
 - `output` is the filename. For example, the `Output.mp4` or `Output` parameters
   will create the `Output_dls.mp4` (DL Streamer output) and/or `Output_ds.mp4`
   (DeepStream output) files.
-- Use the `-simultaneously` argument when the user wants to run pipelines concurrently. If the user wants to run pipelines sequentially, no argument is required. 
+- Use the `-simultaneously` argument when the user wants to run pipelines concurrently. If the user wants to run pipelines sequentially, no argument is required.
 
-## Notes
-
-First-time download of the Docker images and models may take a long time.
+> [!NOTE]
+> First-time download of the Docker images and models may take a long time.
