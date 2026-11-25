@@ -237,7 +237,7 @@ sudo apt install intel-dlstreamer=<VERSION>.<UPDATE>.<PATCH>
 For example
 
 ```bash
-sudo apt install intel-dlstreamer=2026.2.0
+sudo apt install intel-dlstreamer=2026.3.0
 ```
 
 C. List available versions
@@ -283,15 +283,15 @@ Visit the [Deep Learning Streamer image docker hub](https://hub.docker.com/r/int
 select the most appropriate version. By default, the latest docker image points to Ubuntu
 24 version.
 
-For **Ubuntu 22.04**, specify the tag e.g. **2026.2.0-ubuntu22**.
+For **Ubuntu 22.04**, specify the tag e.g. **2026.3.0-ubuntu22**.
 For **Ubuntu 24.04**, use the **latest** tag or specify the version, such as
-**2026.2.0-ubuntu24**.
-For **Ubuntu 26.04**, specify the tag e.g. **2026.2.0-ubuntu26**.
+**2026.3.0-ubuntu24**.
+For **Ubuntu 26.04**, specify the tag e.g. **2026.3.0-ubuntu26**.
 
 - **Ubuntu 22**
 
   ```bash
-  docker pull intel/dlstreamer:2026.2.0-ubuntu22
+  docker pull intel/dlstreamer:2026.3.0-ubuntu22
   ```
 
 - **Ubuntu 24**
@@ -303,7 +303,7 @@ For **Ubuntu 26.04**, specify the tag e.g. **2026.2.0-ubuntu26**.
 - **Ubuntu 26**
 
   ```bash
-  docker pull intel/dlstreamer:2026.2.0-ubuntu26
+  docker pull intel/dlstreamer:2026.3.0-ubuntu26
   ```
 
 ### Step 5: Run Deep Learning Streamer Pipeline Framework container
@@ -314,7 +314,7 @@ a container
 - **Ubuntu 22**
 
   ```bash
-  docker run -it intel/dlstreamer:2026.2.0-ubuntu22
+  docker run -it intel/dlstreamer:2026.3.0-ubuntu22
   ```
 
 - **Ubuntu 24**
@@ -326,7 +326,7 @@ a container
 - **Ubuntu 26**
 
   ```bash
-  docker run -it intel/dlstreamer:2026.2.0-ubuntu26
+  docker run -it intel/dlstreamer:2026.3.0-ubuntu26
   ```
 
 In the container, please run the command `gst-inspect-1.0 gvadetect` to confirm
