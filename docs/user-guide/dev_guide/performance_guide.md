@@ -69,6 +69,26 @@ correcting the pipeline.
 | CPU              | only `video/x-raw` available  | `ie` or `opencv`      |
 | GPU / NPU        | use `video/x-raw(memory:VAMemory)` for optimal performance | use `va-surface-sharing` to avoid memory copying |
 
+### Many models on the same objects: `pre-process-backend=opencl`
+
+With `va` and `va-surface-sharing`, each ROI of each `gvaclassify` or `gvainference`
+element is scaled by a separate call to the media driver's video processing. In
+pipelines with several models on the same objects (for example face recognition,
+face attributes and person re-identification on every detected person), these calls can
+limit the throughput more than the inference does. `pre-process-backend=opencl`
+pre-processes the ROIs of a frame with one OpenCL kernel launch, straight into the model
+input, and works for any inference device, including CPU and NPU inference on frames
+decoded on the GPU (see
+[OpenCL pre-processing backend](./model_preparation.md#opencl-pre-processing-backend)):
+
+```bash
+gst-launch-1.0 filesrc location=${VIDEO_FILE} ! parsebin ! vah264dec ! "video/x-raw(memory:VAMemory)" ! \
+  gvadetect model=${DETECTION_MODEL} device=GPU pre-process-backend=va-surface-sharing ! queue ! \
+  gvaclassify model=${MODEL_1} device=GPU pre-process-backend=opencl batch-size=8 ! queue ! \
+  gvaclassify model=${MODEL_2} device=GPU pre-process-backend=opencl batch-size=8 ! queue ! \
+  gvafpscounter ! fakesink
+```
+
 ### Windows (D3D11 and D3D12)
 
 On Windows, hardware decoders output Direct3D memory instead of VAMemory, and

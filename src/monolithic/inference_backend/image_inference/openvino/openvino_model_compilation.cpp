@@ -20,6 +20,7 @@
 #include <spdlog/fmt/fmt.h>
 
 #ifdef _WIN32
+#include "opencl_context.h"
 #include <dlstreamer/d3d11/context.h>
 #include <dlstreamer/d3d12/context.h>
 #endif
@@ -111,6 +112,35 @@ dlstreamer::OpenVINOContextPtr CreateRemoteContext(const std::string &device, Me
 #endif
     }
     return openvino_context;
+}
+
+dlstreamer::OpenVINOContextPtr CreateOpenclRemoteContext(const std::string &device,
+                                                         const dlstreamer::ContextPtr &app_context) {
+    // Only a single GPU device ("GPU", "GPU.<N>") has an OpenCL context the kernels can write the model input in.
+    if (device.rfind("GPU", 0) != 0)
+        return nullptr;
+#ifdef _WIN32
+    // OpenVINO's D3D11 context leaves CL_CONTEXT_INTEROP_USER_SYNC off, which makes every texture acquire wait for
+    // the GPU on the CPU. The pre-processing orders the D3D11 work itself, so OpenVINO gets a context with user sync.
+    if (app_context && app_context->handle(dlstreamer::BaseContext::key::d3d11_device)) {
+        cl_context cl_ctx = CreateOpenclPreprocContext(app_context);
+        ov::RemoteContext remote_context;
+        try {
+            // OpenVINO retains the context.
+            remote_context = ov::intel_gpu::ocl::ClContext(OpenVinoCore(), cl_ctx);
+        } catch (...) {
+            clReleaseContext(cl_ctx);
+            throw;
+        }
+        clReleaseContext(cl_ctx);
+        GVA_INFO("OpenCL pre-processing: OpenVINO uses an OpenCL context with D3D11 interop user sync");
+        return std::make_shared<dlstreamer::OpenVINOContext>(remote_context);
+    }
+    return nullptr;
+#else
+    // A VA display gets OpenVINO's VA context; system memory frames OpenVINO's default context.
+    return CreateRemoteContext(device, MemoryType::SYSTEM, app_context);
+#endif
 }
 
 ov::CompiledModel CompileModelForDevice(const PreparedModel &prepared, const ConfigHelper &config,

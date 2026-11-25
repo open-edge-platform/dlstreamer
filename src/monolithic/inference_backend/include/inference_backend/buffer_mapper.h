@@ -14,6 +14,7 @@
 #include "dlstreamer/gst/mappers/gst_to_d3d11.h"
 #include "dlstreamer/gst/mappers/gst_to_d3d12.h"
 #endif
+#include "inference_backend/gst_colorimetry.h"
 #include "inference_backend/image.h"
 
 namespace InferenceBackend {
@@ -76,6 +77,8 @@ class BufferToImageMapper final {
         image->height = image_info0.height();
         image->size = size;
         image->type = _memory_type;
+        if (_video_info)
+            image->colorimetry = YuvColorimetryFromVideoInfo(*_video_info);
 #ifndef _WIN32
         if (_memory_type == MemoryType::VAAPI) {
             image->va_surface_id = dlstreamer::ptr_cast<dlstreamer::VAAPITensor>(tensor0)->va_surface();

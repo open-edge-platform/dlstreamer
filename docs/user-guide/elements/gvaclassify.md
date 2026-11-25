@@ -8,11 +8,12 @@ On Windows, the element also accepts `video/x-raw(memory:D3D11Memory)` and
 from the Linux listing below:
 
 - `pre-process-backend` accepts `ie`, `opencv`, `d3d11`, `d3d11-surface-sharing`,
-  `d3d12` and `d3d12-surface-sharing`. If it is not set, both D3D memory types are
-  accepted and the backend is selected from the negotiated memory:
+  `d3d12`, `d3d12-surface-sharing` and `opencl` (D3D11Memory, D3D12Memory and system memory, see
+  [OpenCL pre-processing backend](../dev_guide/model_preparation.md#opencl-pre-processing-backend)).
+  If it is not set, both D3D memory types are accepted and the backend is selected from the negotiated memory:
   `d3d12-surface-sharing` or `d3d11-surface-sharing` on GPU, `d3d12` or `d3d11` on
   NPU, and `ie` for system memory. A `d3d11` backend accepts only D3D11Memory, a `d3d12` backend
-  only D3D12Memory. See
+  only D3D12Memory, and `opencl` both. See
   [Windows pre-processing backends](../dev_guide/model_preparation.md#windows-pre-processing-backends).
 - `share-d3d-ctx` (Boolean, default `true`) replaces `share-va-display-ctx`. It
   controls whether the upstream D3D11/D3D12 device is reused for inference
@@ -82,7 +83,7 @@ Element Properties:
 batch-size          : Number of frames batched together for a single inference. If the batch-size is 0, then it will be set by default to be optimal for the device. Not all models support batching. Use model optimizer to ensure that the model has batching support.
                         flags: readable, writable
                         Unsigned Integer. Range: 0 - 1024 Default: 0
-batch-timeout       : Timeout (ms) for OpenVINO™ Automatic Batching. Waits for batch to accumulate inference requests before execution. If the number of frames collected reaches batch-size, inference is executed with a full batch and the timer is reset. If timeout occurs before collecting all frames specified by batch-size, inference is executed on collected frames individually (as if batch-size=1) and the timer is reset. If batch-timeout is set to 0, it operates as if batch-size were set to 1, executing inference on individual frames. Value -1 disables timeout, waiting indefinitely for full batch. Note: Not supported with VA backends (pre-process-backend=va or va-surface-sharing).
+batch-timeout       : Timeout (ms) for OpenVINO™ Automatic Batching. Waits for batch to accumulate inference requests before execution. If the number of frames collected reaches batch-size, inference is executed with a full batch and the timer is reset. If timeout occurs before collecting all frames specified by batch-size, inference is executed on collected frames individually (as if batch-size=1) and the timer is reset. If batch-timeout is set to 0, it operates as if batch-size were set to 1, executing inference on individual frames. Value -1 disables timeout, waiting indefinitely for full batch. Note: Not supported with VA/OpenCL backends (pre-process-backend=va, va-surface-sharing or opencl).
                         flags: readable, writable
                         Integer. Range: -1 - 2147483647 Default: -1
 core-pinning        : List or range of CPU cores to pin this inference element to (e.g., '0-3' or '0,2,3'). 
@@ -147,7 +148,7 @@ ov-extension-lib    : Path to the .so file defining custom OpenVINO operations.
 parent              : The parent of the object
                         flags: readable, writable
                         Object of type "GstObject"
-pre-process-backend : Select a pre-processing method (color conversion, resize and crop), one of 'ie', 'opencv', 'va', 'va-surface-sharing, 'vaapi', 'vaapi-surface-sharing'. If not set, it will be selected automatically: 'va' for VAMemory and DMABuf, 'ie' for SYSTEM memory.
+pre-process-backend : Select a pre-processing method (color conversion, resize and crop), one of 'ie', 'opencv', 'va', 'va-surface-sharing', 'vaapi', 'vaapi-surface-sharing', 'opencl'. If not set, it will be selected automatically: 'va' for VAMemory and DMABuf, 'ie' for SYSTEM memory. 'opencl' pre-processes VAMemory, DMABuf or SYSTEM memory frames with an OpenCL kernel on the GPU, straight into the model input, for any device; it is used only when selected.
                         flags: readable, writable
                         String. Default: ""
 pre-process-config  : Comma separated list of KEY=VALUE parameters for image processing pipeline configuration

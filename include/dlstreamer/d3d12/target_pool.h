@@ -13,8 +13,8 @@
 
 namespace dlstreamer {
 
-// Textures to draw frames into instead of the frames' own, recycled through a
-// GStreamer pool allocator.
+// Textures to draw frames into, or read them from, in OpenCL instead of the
+// frames' own, recycled through a GStreamer pool allocator.
 //
 // A frame's texture may still be one of the decoder's reference pictures or be
 // shared with another branch, so it must not be drawn on in place. OpenCL has
@@ -22,10 +22,12 @@ namespace dlstreamer {
 // view of its shared handle (gst_d3d12_memory_get_d3d11_texture()), which needs
 // a texture on a shared heap that allows render target and simultaneous
 // access. So the frame is copied on the GPU into a pooled texture created that
-// way, which then replaces the frame's memory in the buffer.
+// way, which then replaces the frame's memory in the buffer (replace()), or is
+// read in its place (copy()).
 //
-// One pool serves one stream and is not thread-safe. Messages go to the debug
-// category given at construction.
+// One pool serves frames of one size and format: it starts over when they
+// change. Not thread-safe. Messages go to the debug category given at
+// construction.
 class D3D12TargetPool {
   public:
     explicit D3D12TargetPool(GstDebugCategory *category) : _category(category) {
@@ -37,36 +39,48 @@ class D3D12TargetPool {
     D3D12TargetPool(const D3D12TargetPool &) = delete;
     D3D12TargetPool &operator=(const D3D12TargetPool &) = delete;
 
-    // Swaps the buffer's D3D12 texture for a pooled copy of it. Returns false,
-    // leaving the buffer as it was, unless the buffer holds a single D3D12
-    // texture that could be copied. The copy is only queued: it becomes the
-    // fence of the pooled memory, which D3D12 consumers wait for on the GPU,
-    // and gst_d3d12_memory_sync() and CPU maps on the CPU.
+    // Swaps the buffer's D3D12 texture for a pooled copy of it (see copy()).
+    // Returns false, leaving the buffer as it was, unless the buffer holds a
+    // single D3D12 texture that could be copied.
     bool replace(GstBuffer *buffer, const GstVideoInfo *info) {
         if (gst_buffer_n_memory(buffer) != 1)
             return false;
-        GstMemory *frame = gst_buffer_peek_memory(buffer, 0);
-        if (!gst_is_d3d12_memory(frame))
+        GstMemory *target = copy(gst_buffer_peek_memory(buffer, 0), info);
+        if (!target) {
+            GST_CAT_WARNING(_category, "The buffer keeps its own D3D12 texture");
             return false;
+        }
+        gst_buffer_replace_memory(buffer, 0, target);
+        return true;
+    }
+
+    // A pooled copy of `frame`, a single D3D12 texture, owned by the caller, or
+    // nullptr. The copy is only queued: it becomes the fence of the returned
+    // memory, which D3D12 consumers wait for on the GPU, and
+    // gst_d3d12_memory_sync() and CPU maps on the CPU.
+    GstMemory *copy(GstMemory *frame, const GstVideoInfo *info) {
+        if (!gst_is_d3d12_memory(frame))
+            return nullptr;
         GstMemory *target = acquire(GST_D3D12_MEMORY_CAST(frame));
         if (!target)
-            return false;
+            return nullptr;
 
         // The copy keeps the buffer it reads from alive until the GPU is done
         // with it, so it reads the frame through a buffer of its own: the
-        // frame's buffer must stay writable for the swap.
+        // frame's buffer must stay writable for replace().
         GstBuffer *src = gst_buffer_new();
         gst_buffer_append_memory(src, gst_memory_ref(frame));
         GstBuffer *dst = gst_buffer_new();
-        gst_buffer_append_memory(dst, target);
+        gst_buffer_append_memory(dst, gst_memory_ref(target));
         const bool copied = gst_d3d12_buffer_copy_into(dst, src, info);
         gst_buffer_unref(src);
-        if (copied)
-            gst_buffer_replace_memory(buffer, 0, gst_memory_ref(target));
-        else
-            GST_CAT_WARNING(_category, "Cannot copy the frame into a pooled D3D12 texture; the buffer keeps its own");
         gst_buffer_unref(dst);
-        return copied;
+        if (!copied) {
+            GST_CAT_WARNING(_category, "Cannot copy the frame into a pooled D3D12 texture");
+            gst_memory_unref(target);
+            return nullptr;
+        }
+        return target;
     }
 
   private:
@@ -79,8 +93,10 @@ class D3D12TargetPool {
         if (desc.Dimension != D3D12_RESOURCE_DIMENSION_TEXTURE2D)
             return nullptr;
 
-        if (_device != frame->device || desc.Width != _desc.Width || desc.Height != _desc.Height ||
-            desc.Format != _desc.Format) {
+        // GStreamer hands out a GstD3D12Device object per user of an adapter's
+        // device: compare the devices, not the objects.
+        if (!gst_d3d12_device_is_equal(_device, frame->device) || desc.Width != _desc.Width ||
+            desc.Height != _desc.Height || desc.Format != _desc.Format) {
             GST_CAT_INFO(_category,
                          "D3D12 target pool for %llux%u format %u on device %p (was %llux%u format %u on %p)",
                          static_cast<unsigned long long>(desc.Width), desc.Height, desc.Format,

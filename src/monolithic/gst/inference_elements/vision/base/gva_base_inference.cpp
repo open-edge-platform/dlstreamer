@@ -184,6 +184,12 @@ static bool is_roi_inference_needed(GvaBaseInference *gva_base_inference, guint6
     return true;
 }
 
+// 'opencl' pre-processes frames in GPU memory on their GPU, whatever the inference device, so it takes them for CPU
+// inference too.
+static bool gva_base_inference_takes_gpu_frames_for_any_device(GvaBaseInference *base_inference) {
+    return g_strcmp0(base_inference->pre_proc_type, "opencl") == 0;
+}
+
 static GstCaps *gva_base_inference_transform_caps(GstBaseTransform *trans, GstPadDirection direction, GstCaps *caps,
                                                   GstCaps *filter) {
     GvaBaseInference *base_inference = GVA_BASE_INFERENCE(trans);
@@ -192,16 +198,18 @@ static GstCaps *gva_base_inference_transform_caps(GstBaseTransform *trans, GstPa
     GstCaps *result =
         GST_BASE_TRANSFORM_CLASS(gva_base_inference_parent_class)->transform_caps(trans, direction, caps, filter);
 
-    // If device is CPU, filter out memory:VASurface, memory:VAMemory, memory:DMABuf
+    // If device is CPU, filter out memory:VASurface, memory:VAMemory, memory:DMABuf, memory:D3D11Memory and
+    // memory:D3D12Memory, except for 'opencl', which pre-processes GPU frames on the GPU for any device
+    const bool gpu_frames_for_any_device = gva_base_inference_takes_gpu_frames_for_any_device(base_inference);
     if (base_inference->device && g_strcmp0(base_inference->device, "CPU") == 0) {
         GstCaps *filtered = gst_caps_copy(result);
         for (gint i = gst_caps_get_size(filtered) - 1; i >= 0; --i) {
             GstCapsFeatures *features = gst_caps_get_features(filtered, i);
-            if ((gst_caps_features_contains(features, "memory:VASurface")) ||
-                (gst_caps_features_contains(features, "memory:VAMemory")) ||
-                (gst_caps_features_contains(features, "memory:DMABuf")) ||
-                (gst_caps_features_contains(features, "memory:D3D11Memory")) ||
-                (gst_caps_features_contains(features, "memory:D3D12Memory"))) {
+            if (!gpu_frames_for_any_device && (gst_caps_features_contains(features, "memory:VASurface") ||
+                                               gst_caps_features_contains(features, "memory:VAMemory") ||
+                                               gst_caps_features_contains(features, "memory:DMABuf") ||
+                                               gst_caps_features_contains(features, "memory:D3D11Memory") ||
+                                               gst_caps_features_contains(features, "memory:D3D12Memory"))) {
                 gst_caps_remove_structure(filtered, i);
                 GST_WARNING("Filtered out structure %d from caps, it contains unsupported memory type", i);
             }
@@ -215,11 +223,12 @@ static GstCaps *gva_base_inference_transform_caps(GstBaseTransform *trans, GstPa
     // (through an extra GPU copy) otherwise. With auto-selection both are offered, so the
     // decoder picks D3D12Memory when the whole downstream chain supports it. An explicit
     // backend keeps only its own D3D memory type, none for 'opencv' or 'ie', so the
-    // negotiated caps always match it.
+    // negotiated caps always match it. 'opencl' reads both, D3D12 frames through D3D11
+    // views of copies, which saves the decoder's copy into D3D11Memory.
     const gchar *pp = base_inference->pre_proc_type;
     if (pp && *pp) {
-        const bool keep_d3d11 = g_str_has_prefix(pp, "d3d11");
-        const bool keep_d3d12 = g_str_has_prefix(pp, "d3d12");
+        const bool keep_d3d11 = g_str_has_prefix(pp, "d3d11") || g_str_equal(pp, "opencl");
+        const bool keep_d3d12 = g_str_has_prefix(pp, "d3d12") || g_str_equal(pp, "opencl");
         GstCaps *filtered = gst_caps_copy(result);
         for (gint i = gst_caps_get_size(filtered) - 1; i >= 0; --i) {
             GstCapsFeatures *features = gst_caps_get_features(filtered, i);
@@ -499,13 +508,17 @@ void gva_base_inference_class_init(GvaBaseInferenceClass *klass) {
             "pre-process-backend", "Pre-processing method",
             "Select a pre-processing method (color conversion, resize and crop), "
 #ifdef _WIN32
-            "one of 'ie', 'opencv', 'd3d11', 'd3d11-surface-sharing', 'd3d12', 'd3d12-surface-sharing'."
+            "one of 'ie', 'opencv', 'd3d11', 'd3d11-surface-sharing', 'd3d12', 'd3d12-surface-sharing', 'opencl'."
             " If not set, it will be selected automatically: 'd3d12-surface-sharing' for D3D12Memory and"
             " 'd3d11-surface-sharing' for D3D11Memory on GPU ('d3d12'/'d3d11' on NPU, AUTO or MULTI devices),"
-            " 'ie' for SYSTEM memory. A d3d11 backend accepts only D3D11Memory, a d3d12 backend only D3D12Memory.",
+            " 'ie' for SYSTEM memory. A d3d11 backend accepts only D3D11Memory, a d3d12 backend only D3D12Memory."
+            " 'opencl' pre-processes D3D11Memory or SYSTEM memory frames with an OpenCL kernel on the GPU, straight"
+            " into the model input, for any device; it is used only when selected.",
 #else
-            "one of 'ie', 'opencv', 'va', 'va-surface-sharing', 'vaapi', 'vaapi-surface-sharing'."
-            " If not set, it will be selected automatically: 'va' for VAMemory and DMABuf, 'ie' for SYSTEM memory.",
+            "one of 'ie', 'opencv', 'va', 'va-surface-sharing', 'vaapi', 'vaapi-surface-sharing', 'opencl'."
+            " If not set, it will be selected automatically: 'va' for VAMemory and DMABuf, 'ie' for SYSTEM memory."
+            " 'opencl' pre-processes VAMemory, DMABuf or SYSTEM memory frames with an OpenCL kernel on the GPU,"
+            " straight into the model input, for any device; it is used only when selected.",
 #endif
             DEFAULT_PRE_PROC, param_flags));
 
@@ -545,10 +558,10 @@ void gva_base_inference_class_init(GvaBaseInferenceClass *klass) {
             "inference on individual frames. "
             "Value -1 disables timeout, waiting indefinitely for full batch. "
 #ifdef _WIN32
-            "Note: Not supported with D3D11/D3D12 backends (pre-process-backend=d3d11, d3d11-surface-sharing, d3d12 or "
-            "d3d12-surface-sharing).",
+            "Note: Not supported with D3D11/D3D12/OpenCL backends (pre-process-backend=d3d11, d3d11-surface-sharing, "
+            "d3d12, d3d12-surface-sharing or opencl).",
 #else
-            "Note: Not supported with VA backends (pre-process-backend=va or va-surface-sharing).",
+            "Note: Not supported with VA/OpenCL backends (pre-process-backend=va, va-surface-sharing or opencl).",
 #endif
             DEFAULT_MIN_BATCH_TIMEOUT, DEFAULT_MAX_BATCH_TIMEOUT, DEFAULT_BATCH_TIMEOUT, param_flags));
 
@@ -1427,12 +1440,14 @@ gboolean gva_base_inference_set_caps(GstBaseTransform *trans, GstCaps *incaps, G
     }
 
     // Check if the caps are compatible with the device
-    if ((base_inference->device && g_strcmp0(base_inference->device, "CPU") == 0 &&
-         ((gst_caps_features_contains(gst_caps_get_features(incaps, 0), "memory:VASurface")) ||
-          (gst_caps_features_contains(gst_caps_get_features(incaps, 0), "memory:VAMemory")) ||
-          (gst_caps_features_contains(gst_caps_get_features(incaps, 0), "memory:DMABuf")) ||
-          (gst_caps_features_contains(gst_caps_get_features(incaps, 0), "memory:D3D11Memory")) ||
-          (gst_caps_features_contains(gst_caps_get_features(incaps, 0), "memory:D3D12Memory"))))) {
+    const GstCapsFeatures *in_features = gst_caps_get_features(incaps, 0);
+    if (base_inference->device && g_strcmp0(base_inference->device, "CPU") == 0 &&
+        !gva_base_inference_takes_gpu_frames_for_any_device(base_inference) &&
+        (gst_caps_features_contains(in_features, "memory:VASurface") ||
+         gst_caps_features_contains(in_features, "memory:VAMemory") ||
+         gst_caps_features_contains(in_features, "memory:DMABuf") ||
+         gst_caps_features_contains(in_features, "memory:D3D11Memory") ||
+         gst_caps_features_contains(in_features, "memory:D3D12Memory"))) {
         GST_ELEMENT_WARNING(base_inference, RESOURCE, SETTINGS,
                             ("Refusing caps other than SYSTEM_MEMORY_CAPS because device is set to CPU"),
                             ("Set device property to a hardware accelerator (e.g., GPU) to enable VA memory types."));

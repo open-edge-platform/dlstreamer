@@ -40,6 +40,7 @@ PUBLIC
         logger
         spdlog::spdlog
         OpenCL::OpenCL
+        image_inference_opencl
 )
 
 if(WIN32)

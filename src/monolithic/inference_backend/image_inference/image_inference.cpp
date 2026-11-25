@@ -9,6 +9,7 @@
 #ifdef _WIN32
 #include "image_inference_async_d3d11.h"
 #include "image_inference_async_d3d12.h"
+#include "image_inference_async_opencl.h"
 #else
 #include "image_inference_async/image_inference_async.h"
 #include <unistd.h>
@@ -128,6 +129,42 @@ ImageInference::Ptr ImageInference::createImageInferenceInstance(MemoryType inpu
                                                                  const InferenceConfig &config, Allocator *allocator,
                                                                  CallbackFunc callback, ErrorHandlingFunc error_handler,
                                                                  dlstreamer::ContextPtr context) {
+    // pre-process-backend=opencl: the OpenVINO inference pre-processes the frames itself, wherever they are, with
+    // OpenCL kernels writing the model input (see opencl/opencl_preprocessor.h). The model is prepared as for system
+    // memory frames (u8 NCHW input), but the frames keep their memory type.
+    if (getPreProcType(config.at(KEY_BASE)) == ImagePreprocessorType::OPENCL) {
+        switch (input_image_memory_type) {
+        case MemoryType::SYSTEM:
+            break;
+#ifndef _WIN32
+        case MemoryType::VAAPI:
+        case MemoryType::DMA_BUFFER:
+#else
+        case MemoryType::D3D11:
+        case MemoryType::D3D12:
+#endif
+            if (!context)
+                throw std::invalid_argument("Null context provided (the VA display or D3D device of the frames is "
+                                            "expected)");
+            break;
+        default:
+            throw std::invalid_argument("pre-process-backend=opencl does not support this memory type");
+        }
+#ifdef _WIN32
+        // D3D frames are copied into textures OpenCL can read first, which it reads through a D3D11 device, also for
+        // D3D12 frames: the inference gets that device.
+        if (input_image_memory_type == MemoryType::D3D11 || input_image_memory_type == MemoryType::D3D12) {
+            auto d3d11_context = ImageInferenceAsyncOpenCL::D3D11ContextFor(context);
+            auto ov_inference = std::make_shared<OpenVinoImageInference>(config, allocator, d3d11_context, callback,
+                                                                         error_handler, MemoryType::SYSTEM);
+            return std::make_shared<ImageInferenceAsyncOpenCL>(config, d3d11_context, std::move(ov_inference),
+                                                               error_handler);
+        }
+#endif
+        return std::make_shared<OpenVinoImageInference>(config, allocator, context, callback, error_handler,
+                                                        MemoryType::SYSTEM);
+    }
+
     // Flag to determine if asynchronous mode is required
     bool async_mode = false;
 
