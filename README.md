@@ -113,7 +113,7 @@ Download the **model** you want to use. The code below downloads the `yolo11n` m
 cd ~
 curl -LsSf https://astral.sh/uv/install.sh | sh
 uv venv .dls-venv && source .dls-venv/bin/activate
-uv pip install -r /opt/intel/dlstreamer/scripts/download_models/requirements_download_ultralytics_models.txt
+uv pip install --index-strategy unsafe-best-match -r /opt/intel/dlstreamer/scripts/download_models/requirements_download_ultralytics_models.txt
 python3 /opt/intel/dlstreamer/scripts/download_models/download_ultralytics_models.py \
   --model yolo11n.pt \
   --outdir ~/models/yolo11n \
