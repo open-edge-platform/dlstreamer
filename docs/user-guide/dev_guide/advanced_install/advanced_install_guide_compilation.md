@@ -27,7 +27,7 @@ Follow the instructions in
 
 <!--hide_directive::::{tab-set}
 :::{tab-item}hide_directive--> Ubuntu 26
-<!--hide_directive:sync: tab0hide_directive-->
+<!--hide_directive:sync: ub26 hide_directive-->
 
   ```bash
   sudo apt-get update && \
@@ -45,7 +45,7 @@ Follow the instructions in
 
 <!--hide_directive:::
 :::{tab-item}hide_directive--> Ubuntu 24
-<!--hide_directive:sync: tab1hide_directive-->
+<!--hide_directive:sync: ub24 hide_directive-->
 
   ```bash
   sudo apt-get update && \
@@ -63,7 +63,7 @@ Follow the instructions in
 
 <!--hide_directive:::
 :::{tab-item}hide_directive--> Ubuntu 22
-<!--hide_directive:sync: tab2hide_directive-->
+<!--hide_directive:sync: ub22 hide_directive-->
 
   ```bash
   sudo apt-get update && \
@@ -81,7 +81,7 @@ Follow the instructions in
 
 <!--hide_directive:::
 :::{tab-item}hide_directive--> Fedora 41
-<!--hide_directive:sync: tab3hide_directive-->
+<!--hide_directive:sync: fedora hide_directive-->
 
   ```bash
   sudo dnf install -y \
@@ -98,7 +98,7 @@ Follow the instructions in
 
 <!--hide_directive:::
 :::{tab-item}hide_directive--> EMT 3.x
-<!--hide_directive:sync: tab3hide_directive-->
+<!--hide_directive:sync: emt hide_directive-->
 
   ```bash
   sudo dnf install -y uuid libuuid-devel openssl-devel gcc gcc-c++ make curl ca-certificates librdkafka-devel libva-devel alsa-lib-devel unzip glibc libstdc++ libgcc cmake sudo pkgconf pkgconf-pkg-config ocl-icd-devel libva-intel-media-driver python3-devel libXaw-devel ncurses-devel libva2 intel-compute-runtime intel-opencl intel-level-zero-gpu intel-ocloc-devel nasm
@@ -130,7 +130,7 @@ packages:
 
 <!--hide_directive::::{tab-set}
 :::{tab-item}hide_directive--> Ubuntu 24, Ubuntu 26, Fedora 41, EMT
-<!--hide_directive:sync: tab1hide_directive-->
+<!--hide_directive:sync: non-ub22 hide_directive-->
 
   ```bash
   UV_PYTHON_PREFERENCE=only-system uv venv --python python3 ~/python3venv
@@ -141,7 +141,7 @@ packages:
 
 <!--hide_directive:::
 :::{tab-item}hide_directive--> Ubuntu 22
-<!--hide_directive:sync: tab2hide_directive-->
+<!--hide_directive:sync: ub22 hide_directive-->
 
   ```bash
   uv python install 3.11
@@ -181,7 +181,7 @@ which needs the [OpenVINO GenAI archive](https://docs.openvino.ai/2026/get-start
 
 <!--hide_directive::::{tab-set}
 :::{tab-item}hide_directive--> Ubuntu 26
-<!--hide_directive:sync: tab0hide_directive-->
+<!--hide_directive:sync: ub26 hide_directive-->
 
   ```bash
   wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/pre-release/2026.5.0.0rc2/openvino_genai_ubuntu26_2026.5.0.0rc2_x86_64.tar.gz | tar -xz &&
@@ -191,7 +191,7 @@ which needs the [OpenVINO GenAI archive](https://docs.openvino.ai/2026/get-start
 
 <!--hide_directive:::
 :::{tab-item}hide_directive--> Ubuntu 24
-<!--hide_directive:sync: tab1hide_directive-->
+<!--hide_directive:sync: ub24 hide_directive-->
 
   ```bash
   wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/pre-release/2026.5.0.0rc2/openvino_genai_ubuntu24_2026.5.0.0rc2_x86_64.tar.gz | tar -xz &&
@@ -201,7 +201,7 @@ which needs the [OpenVINO GenAI archive](https://docs.openvino.ai/2026/get-start
 
 <!--hide_directive:::
 :::{tab-item}hide_directive--> Ubuntu 22
-<!--hide_directive:sync: tab2hide_directive-->
+<!--hide_directive:sync: ub22 hide_directive-->
 
   ```bash
   wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/pre-release/2026.5.0.0rc2/openvino_genai_ubuntu22_2026.5.0.0rc2_x86_64.tar.gz | tar -xz &&
@@ -211,7 +211,7 @@ which needs the [OpenVINO GenAI archive](https://docs.openvino.ai/2026/get-start
 
 <!--hide_directive:::
 :::{tab-item}hide_directive--> Fedora 41
-<!--hide_directive:sync: tab3hide_directive-->
+<!--hide_directive:sync: fedora hide_directive-->
 
   ```bash
 sudo tee /etc/yum.repos.d/openvino.repo >/dev/null <<'EOF'
@@ -233,7 +233,7 @@ sudo dnf install -y openvino-2026.3.1
 
 <!--hide_directive:::
 :::{tab-item}hide_directive--> EMT
-<!--hide_directive:sync: tab4hide_directive-->
+<!--hide_directive:sync: emt hide_directive-->
 
   ```bash
   wget -O- https://storage.openvinotoolkit.org/repositories/openvino_genai/packages/pre-release/2026.5.0.0rc2/openvino_genai_ubuntu24_2026.5.0.0rc2_x86_64.tar.gz | tar -xz &&
@@ -273,7 +273,7 @@ Set up the required environment variables:
 
 <!--hide_directive::::{tab-set}
 :::{tab-item}hide_directive--> Ubuntu
-<!--hide_directive:sync: tab1hide_directive-->
+<!--hide_directive:sync: ubuntu hide_directive-->
 
   ```bash
   export LIBVA_DRIVER_NAME=iHD
@@ -290,7 +290,7 @@ Set up the required environment variables:
 
 <!--hide_directive:::
 :::{tab-item}hide_directive--> Fedora
-<!--hide_directive:sync: tab2hide_directive-->
+<!--hide_directive:sync: fedora hide_directive-->
 
   ```bash
   export LIBVA_DRIVER_NAME=iHD
@@ -306,7 +306,7 @@ Set up the required environment variables:
 
 <!--hide_directive:::
 :::{tab-item}hide_directive--> EMT
-<!--hide_directive:sync: tab3hide_directive-->
+<!--hide_directive:sync: emt hide_directive-->
 
   Enable `i915` graphics driver in the system:
 
@@ -357,8 +357,23 @@ necessary dependencies using the following commands:
 > and 26.04 use the system Python, so install its matching `python3-dev`.
 
 <!--hide_directive::::{tab-set}
+:::{tab-item}hide_directive--> Ubuntu 26
+<!--hide_directive:sync: ub26 hide_directive-->
+
+  ```bash
+  sudo apt-get update
+  sudo apt-get install -y -q --no-install-recommends gcc cmake python-gi-dev python3-dev \
+      libglib2.0-dev libcairo2-dev libopencv-objdetect-dev libopencv-photo-dev libopencv-stitching-dev libopencv-video-dev \
+      libopencv-calib3d-dev libopencv-core-dev libopencv-dnn-dev libgirepository1.0-dev libgirepository-2.0-dev
+
+  source ~/python3venv/bin/activate
+  cd ~/dlstreamer
+  uv pip install -r requirements.txt
+  ```
+
+<!--hide_directive:::
 :::{tab-item}hide_directive--> Ubuntu 24
-<!--hide_directive:sync: tab1hide_directive-->
+<!--hide_directive:sync: ub24 hide_directive-->
 
   ```bash
   sudo apt-get update
@@ -373,28 +388,13 @@ necessary dependencies using the following commands:
 
 <!--hide_directive:::
 :::{tab-item}hide_directive--> Ubuntu 22
-<!--hide_directive:sync: tab2hide_directive-->
+<!--hide_directive:sync: ub22 hide_directive-->
 
   ```bash
   sudo apt-get update
   sudo apt-get install -y -q --no-install-recommends gcc cmake python-gi-dev \
       libglib2.0-dev libcairo2-dev libopencv-objdetect-dev libopencv-photo-dev libopencv-stitching-dev libopencv-video-dev \
       libopencv-calib3d-dev libopencv-core-dev libopencv-dnn-dev libgirepository1.0-dev
-
-  source ~/python3venv/bin/activate
-  cd ~/dlstreamer
-  uv pip install -r requirements.txt
-  ```
-
-<!--hide_directive:::
-:::{tab-item}hide_directive--> Ubuntu 26
-<!--hide_directive:sync: tab4hide_directive-->
-
-  ```bash
-  sudo apt-get update
-  sudo apt-get install -y -q --no-install-recommends gcc cmake python-gi-dev python3-dev \
-      libglib2.0-dev libcairo2-dev libopencv-objdetect-dev libopencv-photo-dev libopencv-stitching-dev libopencv-video-dev \
-      libopencv-calib3d-dev libopencv-core-dev libopencv-dnn-dev libgirepository1.0-dev libgirepository-2.0-dev
 
   source ~/python3venv/bin/activate
   cd ~/dlstreamer
