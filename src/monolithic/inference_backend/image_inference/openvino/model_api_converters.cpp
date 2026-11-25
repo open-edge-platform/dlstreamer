@@ -185,6 +185,10 @@ bool convertYoloMeta2ModelApi(const std::string model_file, ov::AnyMap &modelCon
         }
         GST_WARNING("YOLO model type derived from end2end flag: %s", model_type.c_str());
     }
+    // Ultralytics exports YOLO26 with the raw one-to-many head (end2end: false) unless exported with nms=False.
+    // yaml2Json() stores values as strings, so compare against "false".
+    if (model_type == "yolo_v26" && yaml_json.contains("end2end") && yaml_json["end2end"] == "false")
+        model_type = "yolo_v8";
 
     const std::string task =
         yaml_json.contains("task") && yaml_json["task"].is_string() ? yaml_json["task"].get<std::string>() : "";
@@ -211,9 +215,10 @@ bool convertYoloMeta2ModelApi(const std::string model_file, ov::AnyMap &modelCon
         // YOLOv26 OBB models with FP16/FP32 precision are not supported due to
         // OpenVINO GPU plugin activation function issue producing garbage output
         if (model_type == "yolo_v26_obb") {
-            std::string int8 =
-                yaml_json.contains("int8") && yaml_json["int8"].is_string() ? yaml_json["int8"].get<std::string>() : "";
-            if (int8 != "true") {
+            // Ultralytics records INT8 export arguments as int8: true in older releases and quantize: 8 in newer ones
+            const bool int8 = (yaml_json.contains("int8") && yaml_json["int8"] == "true") ||
+                              (yaml_json.contains("quantize") && yaml_json["quantize"] == "8");
+            if (!int8) {
                 throw std::runtime_error(
                     "YOLOv26 OBB model with FP16/FP32 precision is not supported due to an OpenVINO GPU "
                     "plugin issue. Please use INT8 precision instead.");
