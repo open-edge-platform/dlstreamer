@@ -1,8 +1,0 @@
-# ==============================================================================
-# Copyright (C) 2026 Intel Corporation
-#
-# SPDX-License-Identifier: MIT
-# ==============================================================================
-
-add_subdirectory(test_config_parser)
-add_subdirectory(test_metrics_message)
