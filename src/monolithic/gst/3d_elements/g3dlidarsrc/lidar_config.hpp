@@ -128,7 +128,7 @@ struct LidarConfig {
      * errors, with the path included in the message. */
     static LidarConfig from_file(const std::string &path) {
         if (std::filesystem::is_symlink(path))
-            throw std::runtime_error("lidar config file is a symbolic link: " + path);
+            throw std::invalid_argument("lidar config file is a symbolic link: " + path);
 
         std::ifstream stream(path);
         if (!stream)

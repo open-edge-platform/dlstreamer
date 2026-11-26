@@ -10,7 +10,7 @@
 
 void JsonReader::read(const std::string &file_path) {
     if (std::filesystem::is_symlink(file_path))
-        throw std::runtime_error("Model-proc file '" + file_path + "' is a symbolic link");
+        throw std::invalid_argument("Model-proc file '" + file_path + "' is a symbolic link");
 
     std::ifstream input_file(file_path);
     if (not input_file)
