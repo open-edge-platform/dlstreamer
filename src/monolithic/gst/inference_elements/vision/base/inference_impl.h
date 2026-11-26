@@ -16,6 +16,7 @@
 #include <gst/video/video.h>
 
 #include <gst/analytics/analytics.h>
+#include <atomic>
 #include <condition_variable>
 #include <list>
 #include <memory>
@@ -45,6 +46,12 @@ class InferenceImpl {
     // the element's streaming thread and blocks in gst_pad_push() with no instance lock held, so only this stream is
     // throttled. With wait_all (EOS/FLUSH_STOP) it also waits for in-flight frames so nothing is left behind the event.
     void DrainOutput(GvaBaseInference *element, bool wait_all = false);
+    void SetElementCount(size_t count) {
+        element_count = count;
+    }
+    bool IsShared() const {
+        return element_count > 1;
+    }
     const Model &GetModel() const;
 
     void UpdateObjectClasses(const gchar *obj_classes_str);
@@ -87,6 +94,8 @@ class InferenceImpl {
     // Serializes frame submission of all elements sharing this instance, in arrival order: when the device is
     // saturated every stream gets its turn, instead of whichever thread wins the race for a plain mutex.
     mutable FairMutex _mutex;
+    // number of elements (streams) currently attached to this instance, maintained by the instance pool
+    std::atomic<size_t> element_count{1};
     Model model;
     std::shared_ptr<InferenceBackend::Allocator> allocator;
 

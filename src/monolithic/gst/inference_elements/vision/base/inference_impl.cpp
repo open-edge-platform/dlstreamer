@@ -1615,13 +1615,16 @@ void InferenceImpl::SetAffinityMask(const WinCorePinningMask &mask) {
 #endif
 
 /**
- * Pushes every completed frame whose output is not blocked, in per-element order. Called on the completion thread:
- * a frame whose downstream queue is (about to be) full is left for the element's streaming thread (DrainOutput), and
- * output_frames_mutex is released around each push so other elements' completions never wait on a push.
+ * Pushes every completed frame, in per-element order, with output_frames_mutex released around each push so other
+ * elements' completions never wait on a push. Called on the completion thread. When the instance is shared, a frame
+ * whose downstream queue is (about to be) full is left for the element's streaming thread (DrainOutput) instead:
+ * a blocked push would pin an infer request of the shared pool to one slow stream. With a single element nothing
+ * else can use that request, so the push simply blocks here and the streaming thread keeps the device fed.
  */
 void InferenceImpl::PushOutput() {
     ITT_TASK(__FUNCTION__);
     std::unique_lock<std::mutex> guard(output_frames_mutex);
+    const bool skip_blocked = IsShared();
 
     // track output queues that are full
     std::map<std::string, bool> output_full;
@@ -1643,7 +1646,7 @@ void InferenceImpl::PushOutput() {
         // 'output_frames' queue can be shared across streams and it is subject to HOL blocking
         // do not send frame to a blocked output, but check if there frames ready to non-blocked outputs
         GstObject *src = &(*frame).filter->base_transform.element.object;
-        if (output_full[src->name] || CheckSrcPadBlocked(src)) {
+        if (skip_blocked && (output_full[src->name] || CheckSrcPadBlocked(src))) {
             output_full[src->name] = true;
             frame++; // output blocked, try next frame
             continue;

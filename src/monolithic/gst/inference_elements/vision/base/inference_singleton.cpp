@@ -192,6 +192,7 @@ std::shared_ptr<InferenceImpl> acquire_inference_instance(GvaBaseInference *base
             infRefs->proxy =
                 std::make_shared<InferenceImpl>(base_inference); // one instance for all elements with same inference-id
         }
+        infRefs->proxy->SetElementCount(infRefs->refs.size());
         infRefs->context = InferenceImpl::GetDisplay(base_inference);
 
         return infRefs->proxy;
@@ -216,6 +217,8 @@ void release_inference_instance(GvaBaseInference *base_inference) {
                 infRefs.reset();
                 it = inference_pool_.erase(it);
             } else {
+                if (infRefs->proxy)
+                    infRefs->proxy->SetElementCount(infRefs->refs.size());
                 ++it;
             }
         }
