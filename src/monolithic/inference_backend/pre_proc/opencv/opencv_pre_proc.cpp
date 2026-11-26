@@ -181,8 +181,10 @@ cv::Mat OpenCV_VPP::CustomImageConvert(const cv::Mat &orig_image, const int src_
                 resize_scale_param_x *= additional_crop_scale_param;
                 resize_scale_param_y *= additional_crop_scale_param;
 
-                cv::Size after_resize(processed_image.size().width * resize_scale_param_x,
-                                      processed_image.size().height * resize_scale_param_y);
+                // Round, as the other backends do: truncating w * (target / w) = 111.99... gives a size one pixel
+                // short of the target and leaves a row and a column of the input unfilled.
+                cv::Size after_resize(safe_convert<int>(processed_image.size().width * resize_scale_param_x + 0.5),
+                                      safe_convert<int>(processed_image.size().height * resize_scale_param_y + 0.5));
 
                 ITT_TASK("cv::resize");
                 cv::resize(processed_image, image_to_insert, after_resize);
