@@ -2,7 +2,7 @@
 
 <!--hide_directive
 <div class="component_card_widget">
-  <a class="icon_github" href="https://github.com/open-edge-platform/dlstreamer">
+  <a class="icon_github" href="https://github.com/open-edge-platform/dlstreamer/tree/main/">
      GitHub
   </a>
   <a class="icon_document" href="https://github.com/open-edge-platform/dlstreamer/blob/main/README.md">
@@ -20,7 +20,7 @@ hide_directive-->
   for designing, creating, building, and running media analytics
   pipelines. It includes C++ and Python APIs.
 - [Deep Learning Streamer Pipeline
-  Server](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/microservices/dlstreamer-pipeline-server)
+  Server](https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.3.0/microservices/dlstreamer-pipeline-server)
   for deploying and scaling media analytics pipelines as
   micro-services on one or many compute nodes. It includes REST APIs
   for pipelines management.
@@ -64,7 +64,7 @@ and in [the documentation](./dev_guide/metadata.md).
 reference apps for the most common media analytics use cases. They are
 included in
 [Deep Learning Streamer Pipeline Framework](https://github.com/open-edge-platform/dlstreamer/tree/main),
-[Deep Learning Streamer Pipeline Server](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/microservices/dlstreamer-pipeline-server),
+[Deep Learning Streamer Pipeline Server](https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.3.0/microservices/dlstreamer-pipeline-server),
 [Open Visual Cloud](https://github.com/OpenVisualCloud), and
 [Intel® Edge Software Hub](https://www.intel.com/content/www/us/en/edge-computing/edge-software-hub.html)
 The samples demonstrate C++ and/or Python based: Action Recognition, Face Detection and
@@ -117,7 +117,7 @@ New to Deep Learning Streamer? Start here:
 :::{toctree}
 :hidden:
 
-Go back to Libraries <https://docs.openedgeplatform.intel.com/dev/ai-libraries.html>
+Go back to Libraries <https://docs.openedgeplatform.intel.com/2026.3/ai-libraries.html>
 
 :::
 
@@ -125,7 +125,7 @@ Go back to Libraries <https://docs.openedgeplatform.intel.com/dev/ai-libraries.h
 :hidden:
 :caption: Get Started
 
-DL Streamer Overview <https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/index.html>
+DL Streamer Overview <https://docs.openedgeplatform.intel.com/2026.3/edge-ai-libraries/dlstreamer/index.html>
 Installation Guide <install/install_guide_index>
 system_requirements
 tutorial
