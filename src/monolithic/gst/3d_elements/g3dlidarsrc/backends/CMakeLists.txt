@@ -23,3 +23,8 @@ option(ENABLE_LIDAR_ROBOSENSE "Build the RoboSense (rs_driver) LiDAR backend for
 if(ENABLE_LIDAR_ROBOSENSE)
     add_subdirectory(robosense)
 endif()
+
+option(ENABLE_LIDAR_LIVOX "Build the Livox (Livox-SDK2) LiDAR backend for g3dlidarsrc" OFF)
+if(ENABLE_LIDAR_LIVOX)
+    add_subdirectory(livox)
+endif()
