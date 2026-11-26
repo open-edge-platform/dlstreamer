@@ -440,7 +440,7 @@ helps distinguish these cases.
 ### 6. Optimize individual sub-pipelines with the DL Streamer Optimizer
 
 Each sub-pipeline can be tuned independently using the
-[DL Streamer Optimizer](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/optimizer.html).
+[DL Streamer Optimizer](./optimizer.md).
 A standalone NPU sub-pipeline is a good starting point: its `nireq` and
 `batch-size` can be tuned to maximize NPU throughput without affecting the
 adjacent GPU workloads.
@@ -462,7 +462,7 @@ adjacent GPU workloads.
 
 ## References
 
-- [DL Streamer Optimizer](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/optimizer.html)
+- [DL Streamer Optimizer](./optimizer.md)
 - [VLM Alerts Sample](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/python/vlm_alerts)
 - [Face Detection and Classification Sample](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/python/face_detection_and_classification)
 - [Intel OpenVINO](https://github.com/openvinotoolkit/openvino)
