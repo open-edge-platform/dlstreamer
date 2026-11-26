@@ -94,8 +94,8 @@ elements at the same server (e.g. OVMS, vLLM) via `http-server-url` instead.
 
 The `generation-config` property accepts config parameters in
 the `KEY=VALUE,KEY=VALUE` format. For detailed information about these
-parameters, refer to the [OpenVINO™ GenAI GenerationConfig
-documentation](https://docs.openvino.ai/2026/api/genai_api/_autosummary/openvino_genai.GenerationConfig.html)
+parameters, refer to the [OpenVINO™ GenAI API
+reference](https://docs.openvino.ai/2026/api/genai_api/api.html)
 and [Optimization Techniques](https://openvinotoolkit.github.io/openvino.genai/docs/category/optimization-techniques).
 
 Available `generation-config` keys:
@@ -142,7 +142,7 @@ and `pipeline-config`.
 For more information, see [Visual Token Pruning](https://openvinotoolkit.github.io/openvino.genai/docs/concepts/optimization-techniques/visual-token-pruning).
 
 > [!NOTE]
-> Structured output (`json_schema`, `regex`, `grammar`, `backend`), is currently not 
+> Structured output (`json_schema`, `regex`, `grammar`, `backend`), is currently not
 > supported. Those values contain special characters (commas, spaces and `=`)
 > which cannot fit the `KEY=VALUE,KEY=VALUE` grammar.
 
@@ -156,8 +156,8 @@ generation-config="max_new_tokens=100,temperature=0.7,do_sample=true"
 
 The `scheduler-config` property accepts config parameters in the
 `KEY=VALUE,KEY=VALUE` format. For detailed information about these
-parameters, refer to the [OpenVINO™ GenAI SchedulerConfig
-documentation](https://docs.openvino.ai/2026/api/genai_api/_autosummary/openvino_genai.SchedulerConfig.html)
+parameters, refer to the [OpenVINO™ GenAI API
+reference](https://docs.openvino.ai/2026/api/genai_api/api.html)
 and [Optimization Techniques](https://openvinotoolkit.github.io/openvino.genai/docs/category/optimization-techniques).
 
 Available `scheduler-config` keys:
