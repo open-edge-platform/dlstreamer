@@ -85,8 +85,9 @@ getImagePreProcInfo(const std::map<std::string, InferenceBackend::InputLayerDesc
 } // namespace
 
 ImageInferenceAsync::ImageInferenceAsync(const InferenceBackend::InferenceConfig &config,
-                                         dlstreamer::ContextPtr vadpy_context, ImageInference::Ptr inference)
-    : _inference(inference) {
+                                         dlstreamer::ContextPtr vadpy_context, ImageInference::Ptr inference,
+                                         ErrorHandlingFunc error_handler)
+    : _inference(inference), _error_handler(std::move(error_handler)) {
     const auto &pre_process_config = config.at(KEY_PRE_PROCESSOR);
     if (!Utils::checkAllKeysAreKnown({KEY_VAAPI_THREAD_POOL_SIZE, KEY_VAAPI_FAST_SCALE_LOAD_FACTOR},
                                      pre_process_config)) {
@@ -143,8 +144,16 @@ void ImageInferenceAsync::SubmitInference(VaApiImage *va_api_image, IFrameBase::
         }
     };
 
-    auto mapped = va_api_image->Map();
-    frame->SetImage(std::shared_ptr<Image>(new Image(mapped), deleter));
+    std::shared_ptr<Image> image;
+    try {
+        auto mapped = va_api_image->Map();
+        image.reset(new Image(mapped), deleter);
+    } catch (...) {
+        _va_image_pool->ReleaseBuffer(va_api_image);
+        throw;
+    }
+    // From here on the frame owns the pool image: the deleter returns it to the pool when the frame is done or failed.
+    frame->SetImage(std::move(image));
     _inference->SubmitImage(std::move(frame), input_preprocessors);
 }
 
@@ -165,7 +174,18 @@ void ImageInferenceAsync::SubmitImage(IFrameBase::Ptr frame,
     }
 
     dst_image->sync = _thread_pool->schedule([this, dst_image, f = std::move(frame), input_preprocessors]() {
-        SubmitInference(dst_image, std::move(f), input_preprocessors);
+        // Keep a reference: SubmitInference takes the frame, and a failed frame must still be reported downstream.
+        IFrameBase::Ptr failed = f;
+        try {
+            SubmitInference(dst_image, std::move(f), input_preprocessors);
+        } catch (const std::exception &e) {
+            // No infer request will ever complete for this frame. Report it as failed so that the element pushes its
+            // buffer; otherwise the frame blocks the shared output queue forever and every later frame is retained.
+            GVA_ERROR("Submitting a frame for inference failed, the frame is passed on without results: %s",
+                      Utils::createNestedErrorMsg(e).c_str());
+            if (_error_handler && !_destroying)
+                _error_handler({failed});
+        }
     });
 }
 
@@ -227,4 +247,12 @@ void ImageInferenceAsync::Close() {
     _inference->Close();
 }
 
-ImageInferenceAsync::~ImageInferenceAsync() = default;
+ImageInferenceAsync::~ImageInferenceAsync() {
+    // The element that owned the frames is going away with us, so a pre-processing task that is still waiting for
+    // an infer request must fail quietly (no error handler) and the workers must be joinable: close the request pool
+    // first, which wakes such a task (issue #1240: a model instance whose requests stopped completing).
+    _destroying = true;
+    if (_inference)
+        _inference->Close();
+    _thread_pool.reset();
+}

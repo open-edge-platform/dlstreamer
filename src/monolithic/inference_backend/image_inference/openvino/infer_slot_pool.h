@@ -14,6 +14,7 @@
 
 #include "inference_backend/logger.h"
 
+#include <chrono>
 #include <condition_variable>
 #include <deque>
 #include <mutex>
@@ -22,6 +23,10 @@
 template <class Slot>
 class InferSlotPool {
   public:
+    // Slots come back when inference requests complete; one that does not within this time means the requests of the
+    // model instance stopped completing, and the submitting thread (which holds the instance's locks) must not wait
+    // forever (issue #1240).
+    static constexpr std::chrono::seconds kAcquireTimeout{30};
     // Makes a slot available: a new slot, or one whose inference is done. Wakes one waiting thread. Also allowed after
     // Close().
     void Release(Slot slot) {
@@ -33,16 +38,21 @@ class InferSlotPool {
         condition_.notify_one();
     }
 
-    // Blocks until a slot is free and returns it. Returns nothing once the pool is closed.
+    // Blocks until a slot is free and returns it. Returns nothing once the pool is closed, or when no slot became free
+    // within kAcquireTimeout (see IsClosed() to tell the two apart).
     std::optional<Slot> Acquire() {
         ITT_TASK("InferSlotPool::Acquire");
         std::unique_lock lock(mutex_);
-        condition_.wait(lock, [this] { return !free_.empty() || closed_; });
-        if (closed_)
+        if (!condition_.wait_for(lock, kAcquireTimeout, [this] { return !free_.empty() || closed_; }) || closed_)
             return std::nullopt;
         Slot slot = free_.front();
         free_.pop_front();
         return slot;
+    }
+
+    bool IsClosed() const {
+        std::lock_guard lock(mutex_);
+        return closed_;
     }
 
     // Does not block. Another thread may change the pool right after the call returns.

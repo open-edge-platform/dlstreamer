@@ -278,10 +278,19 @@ void OpenVinoImageInference::Flush() {
         }
     }
 
+    // Bounded: a request that never completes would otherwise hang the pipeline in its state change (and the
+    // process on exit) after the error it caused has already been reported.
+    constexpr std::chrono::seconds kFlushTimeout{30};
+    const auto deadline = std::chrono::steady_clock::now() + kFlushTimeout;
     while (frames_in_flight_ != 0) {
         // wait_for unlocks flush_mutex_ until we get notify
         // waiting will be continued if frames_in_flight_ != 0
         frames_done_.wait_for(flush_lk, std::chrono::seconds(1), [this] { return frames_in_flight_ == 0; });
+        if (frames_in_flight_ != 0 && std::chrono::steady_clock::now() >= deadline) {
+            GVA_ERROR("Flush: %u frame(s) still in flight after %ld s, giving up waiting for the inference requests",
+                      static_cast<unsigned>(frames_in_flight_), static_cast<long>(kFlushTimeout.count()));
+            break;
+        }
     }
 }
 

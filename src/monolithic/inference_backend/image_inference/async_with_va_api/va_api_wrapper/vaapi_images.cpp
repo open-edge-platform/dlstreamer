@@ -11,6 +11,10 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
+#include <chrono>
+#include <stdexcept>
+#include <string>
+
 using namespace InferenceBackend;
 
 namespace {
@@ -243,6 +247,11 @@ VaApiImagePool::VaApiImagePool(VaApiContext *context, SizeParams size_params, Im
 }
 
 VaApiImage *VaApiImagePool::AcquireBuffer() {
+    // Pool images come back when the inference requests holding them complete. A wait this long means the requests of
+    // the model instance stopped completing; failing here (the caller holds the instance lock) is what keeps every
+    // stream sharing the instance from stalling silently while their decoded frames pile up (issue #1240).
+    constexpr std::chrono::seconds kAcquireTimeout{30};
+    const auto deadline = std::chrono::steady_clock::now() + kAcquireTimeout;
     std::unique_lock<std::mutex> lock(_free_images_mutex);
     for (;;) {
         for (auto &image : _images) {
@@ -251,7 +260,10 @@ VaApiImage *VaApiImagePool::AcquireBuffer() {
                 return image.get();
             }
         }
-        _free_image_condition_variable.wait(lock);
+        if (_free_image_condition_variable.wait_until(lock, deadline) == std::cv_status::timeout)
+            throw std::runtime_error("No VA-API pre-processing image became free in " +
+                                     std::to_string(kAcquireTimeout.count()) +
+                                     " s: the inference requests of this model instance are not completing");
     }
 }
 
@@ -264,9 +276,14 @@ void VaApiImagePool::ReleaseBuffer(VaApiImage *image) {
 }
 
 void VaApiImagePool::Flush() {
+    // Bounded for the same reason as AcquireBuffer(): a pre-processing task stuck behind inference requests that never
+    // complete must not hang the pipeline's state change.
+    constexpr std::chrono::seconds kFlushTimeout{30};
     std::unique_lock<std::mutex> lock(_free_images_mutex);
     for (auto &image : _images) {
-        if (!image->completed)
-            image->sync.wait();
+        if (!image->completed && image->sync.valid() &&
+            image->sync.wait_for(kFlushTimeout) == std::future_status::timeout)
+            GVA_ERROR("Flush: a VA-API pre-processing task did not finish in %ld s, giving up waiting for it",
+                      static_cast<long>(kFlushTimeout.count()));
     }
 }

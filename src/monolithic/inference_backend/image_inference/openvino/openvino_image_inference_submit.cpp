@@ -213,7 +213,12 @@ void OpenVinoImageInference::SubmitImage(
         auto acquired = free_slots_.Acquire();
         if (!acquired) {
             --frames_in_flight_;
-            throw std::runtime_error("Inference is closed, cannot submit an image");
+            frames_done_.notify_all();
+            if (free_slots_.IsClosed())
+                throw std::runtime_error("Inference is closed, cannot submit an image");
+            throw std::runtime_error("No inference request became free in " +
+                                     std::to_string(free_slots_.kAcquireTimeout.count()) +
+                                     " s: the inference requests of this model instance are not completing");
         }
         inference_slot = *acquired;
         current_slot_ = inference_slot;

@@ -30,7 +30,9 @@
 #include "utils.h"
 #include "video_frame.h"
 
+#include <algorithm>
 #include <assert.h>
+#include <chrono>
 #include <cmath>
 #include <cstring>
 #include <exception>
@@ -59,6 +61,9 @@ namespace {
 
 const int DEFAULT_GPU_DRM_ID = 128;          // -> /dev/dri/renderD128
 const int MAX_STREAMS_SHARING_VADISPLAY = 4; // Maximum number of streams sharing the same VADisplay context
+// How long a frame may wait at the head of output_frames for its inference request before the element fails
+// (model compilation happens before the first frame; a single inference takes milliseconds to a few seconds)
+constexpr std::chrono::seconds kStuckInferenceTimeout{30};
 
 inline std::shared_ptr<Allocator> CreateAllocator(const char *const allocator_name) {
     std::shared_ptr<Allocator> allocator;
@@ -1601,28 +1606,41 @@ void InferenceImpl::PushOutput() {
         }
 
         for (const std::shared_ptr<InferenceFrame> &inference_roi : (*frame).inference_rois) {
-            gint meta_id = 0;
-            if (inference_roi->roi.id >= 0) {
-                GMutexLockGuard guard(&inference_roi->gva_base_inference->meta_mutex);
-                GstAnalyticsRelationMeta *relation_meta = gst_buffer_get_analytics_relation_meta(inference_roi->buffer);
-                if (!relation_meta) {
-                    throw std::runtime_error("Failed to find relation meta");
+            try {
+                gint meta_id = 0;
+                if (inference_roi->roi.id >= 0) {
+                    GMutexLockGuard guard(&inference_roi->gva_base_inference->meta_mutex);
+                    GstAnalyticsRelationMeta *relation_meta =
+                        gst_buffer_get_analytics_relation_meta(inference_roi->buffer);
+                    if (!relation_meta) {
+                        throw std::runtime_error("Failed to find relation meta");
+                    }
+
+                    GstAnalyticsODMtd od_mtd;
+                    if (!gst_analytics_relation_meta_get_od_mtd(relation_meta, inference_roi->roi.id, &od_mtd)) {
+                        throw std::runtime_error("Failed to find od metadata");
+                    }
+
+                    if (!post_processing::sameRegion(&od_mtd, &inference_roi->roi)) {
+                        throw std::runtime_error("Roi and od meta are not the same region");
+                    }
+
+                    get_od_id(od_mtd, &meta_id);
                 }
 
-                GstAnalyticsODMtd od_mtd;
-                if (!gst_analytics_relation_meta_get_od_mtd(relation_meta, inference_roi->roi.id, &od_mtd)) {
-                    throw std::runtime_error("Failed to find od metadata");
+                for (const GstStructure *roi_classification : inference_roi->roi_classifications) {
+                    UpdateClassificationHistory(meta_id, (*frame).filter, roi_classification);
                 }
-
-                if (!post_processing::sameRegion(&od_mtd, &inference_roi->roi)) {
-                    throw std::runtime_error("Roi and od meta are not the same region");
-                }
-
-                get_od_id(od_mtd, &meta_id);
-            }
-
-            for (const GstStructure *roi_classification : inference_roi->roi_classifications) {
-                UpdateClassificationHistory(meta_id, (*frame).filter, roi_classification);
+            } catch (const std::exception &e) {
+                // This runs in the inference completion callback, where exceptions are only logged. A frame that is
+                // left at the head of output_frames blocks every later frame of every stream sharing the model
+                // instance (frames leave in order), and each of them pins its decoded surface: under multi-stream
+                // load this ends in a host OOM within minutes (issue #1240). Deliver the frame without the
+                // classification history update for this region instead.
+                GVA_ERROR("Element '%s': region %d of frame %" GST_TIME_FORMAT
+                          " is delivered without classification history update: %s",
+                          GST_ELEMENT_NAME((*frame).filter), inference_roi->roi.id,
+                          GST_TIME_ARGS(GST_BUFFER_PTS((*frame).buffer)), e.what());
             }
         }
 
@@ -1899,8 +1917,30 @@ GstFlowReturn InferenceImpl::TransformFrameIp(GvaBaseInference *gva_base_inferen
             return GST_FLOW_OK;
         }
 
-        InferenceImpl::OutputFrame output_frame = {
-            .buffer = buffer, .inference_count = inference_count, .filter = gva_base_inference, .inference_rois = {}};
+        // Frames leave output_frames strictly in order, so a frame whose inference request never completes blocks
+        // the head while every later frame (of every stream sharing the instance) is still accepted here without
+        // back-pressure. Each of them pins a decoded surface, which under multi-stream load grows into a host OOM
+        // within minutes (issue #1240: a lost NPU request). No inference takes anywhere near this long, so fail the
+        // element with a clear message instead.
+        const auto pending = std::find_if(output_frames.begin(), output_frames.end(),
+                                          [](const OutputFrame &f) { return f.inference_count != 0; });
+        if (pending != output_frames.end()) {
+            const auto waited = std::chrono::steady_clock::now() - pending->queued_at;
+            if (waited > kStuckInferenceTimeout) {
+                const auto waited_s = std::chrono::duration_cast<std::chrono::seconds>(waited).count();
+                throw std::runtime_error(
+                    "Inference request of element '" + std::string(GST_ELEMENT_NAME(pending->filter)) +
+                    "' has not completed for " + std::to_string(waited_s) + " s; " +
+                    std::to_string(output_frames.size()) + " frames are waiting in model instance '" +
+                    std::string(gva_base_inference->model_instance_id) + "' (stuck inference request)");
+            }
+        }
+
+        InferenceImpl::OutputFrame output_frame = {.buffer = buffer,
+                                                   .inference_count = inference_count,
+                                                   .filter = gva_base_inference,
+                                                   .inference_rois = {},
+                                                   .queued_at = std::chrono::steady_clock::now()};
         output_frames.push_back(output_frame);
 
         // No need to unref buffer copy further
@@ -1924,14 +1964,28 @@ GstFlowReturn InferenceImpl::TransformFrameIp(GvaBaseInference *gva_base_inferen
  */
 void InferenceImpl::PushFramesIfInferenceFailed(
     std::vector<std::shared_ptr<InferenceBackend::ImageInference::IFrameBase>> frames) {
+    std::vector<GvaBaseInference *> elements;
     for (auto &frame : frames) {
         auto inference_result = std::dynamic_pointer_cast<InferenceResult>(frame);
         /* InferenceResult is inherited from IFrameBase */
         assert(inference_result.get() != nullptr && "Expected a valid InferenceResult");
 
         std::shared_ptr<InferenceFrame> inference_roi = inference_result->inference_frame;
+        if (std::find(elements.begin(), elements.end(), inference_roi->gva_base_inference) == elements.end())
+            elements.push_back(inference_roi->gva_base_inference);
         inference_result->image.reset(); // deleter will to not make buffer_unref, see 'SubmitImages' method
         UpdateOutputFrames(inference_roi);
+    }
+    // On the bus, so that it is visible without GST_DEBUG; rate-limited in case a whole stream fails
+    const unsigned count = failed_frames += static_cast<unsigned>(frames.size());
+    if (count <= 10 || count % 1000 < frames.size()) {
+        for (GvaBaseInference *element : elements) {
+            GST_ELEMENT_WARNING(element, STREAM, FAILED,
+                                ("Inference of a frame failed; the frame is passed on without inference results"),
+                                ("%u frame(s) of model instance '%s' failed so far, see the GVA_common debug log for "
+                                 "the reason",
+                                 count, element->model_instance_id ? element->model_instance_id : ""));
+        }
     }
     PushOutput();
 }

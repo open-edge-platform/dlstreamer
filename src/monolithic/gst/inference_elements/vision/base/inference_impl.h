@@ -14,6 +14,8 @@
 
 #include <gst/video/video.h>
 
+#include <atomic>
+#include <chrono>
 #include <gst/analytics/analytics.h>
 #include <list>
 #include <memory>
@@ -87,10 +89,12 @@ class InferenceImpl {
         uint64_t inference_count;
         GvaBaseInference *filter;
         std::vector<std::shared_ptr<InferenceFrame>> inference_rois;
+        std::chrono::steady_clock::time_point queued_at;
     };
 
     std::list<OutputFrame> output_frames;
     std::mutex output_frames_mutex;
+    std::atomic<unsigned> failed_frames{0};
 
 #ifndef _WIN32
     void SetAffinityMask(const cpu_set_t &mask);

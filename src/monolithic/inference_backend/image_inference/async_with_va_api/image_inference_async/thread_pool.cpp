@@ -48,7 +48,12 @@ std::future<void> ThreadPool::schedule(const std::function<void()> &callable) {
     {
         std::unique_lock<std::mutex> lock(_mutex);
         _tasks.push([callable, p]() {
-            callable();
+            try {
+                callable();
+            } catch (...) {
+                p->set_exception(std::current_exception());
+                throw;
+            }
             p->set_value();
         });
     }
@@ -59,25 +64,30 @@ std::future<void> ThreadPool::schedule(const std::function<void()> &callable) {
 
 void ThreadPool::_task_runner() {
     ITT_THREAD_NAME();
-    try {
-        while (!_terminate) {
-            std::function<void()> task;
+    while (!_terminate) {
+        std::function<void()> task;
 
-            // Pop a task
-            {
-                std::unique_lock<std::mutex> lock(_mutex);
-                _condition_variable.wait_for(lock, std::chrono::seconds(1),
-                                             [this]() -> bool { return !_tasks.empty() || _terminate; });
-                if (!_tasks.empty()) {
-                    task = _tasks.front();
-                    _tasks.pop();
-                }
+        // Pop a task
+        {
+            std::unique_lock<std::mutex> lock(_mutex);
+            _condition_variable.wait_for(lock, std::chrono::seconds(1),
+                                         [this]() -> bool { return !_tasks.empty() || _terminate; });
+            if (!_tasks.empty()) {
+                task = _tasks.front();
+                _tasks.pop();
             }
-
-            if (task)
-                task();
         }
-    } catch (const std::exception &e) {
-        GVA_ERROR("Error was happened during in another thread: %s", Utils::createNestedErrorMsg(e).c_str());
+
+        if (!task)
+            continue;
+        // A failing task must not take the worker thread with it: the pool has only a few threads, and every lost one
+        // leaves tasks (and the pool images they hold) waiting forever.
+        try {
+            task();
+        } catch (const std::exception &e) {
+            GVA_ERROR("Error was happened during in another thread: %s", Utils::createNestedErrorMsg(e).c_str());
+        } catch (...) {
+            GVA_ERROR("Unknown error was happened during in another thread");
+        }
     }
 }
