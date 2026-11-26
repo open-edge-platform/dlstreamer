@@ -77,6 +77,14 @@ conform to the following JSON schema. Values specified in the
 configuration file override values assigned to the individual properties
 listed above.
 
+> **Upgrade note (behavior change):** `ssl_verify` and `ssl_enable_server_cert_auth` now
+> default to `1` (enabled) instead of `0` whenever `TLS` is `true`. If you already use
+> `"TLS": true` with a self-signed or otherwise unverifiable broker certificate and did **not**
+> explicitly set these fields, the connection previously succeeded without verification and may
+> now fail. To restore the previous behavior, set `ssl_verify` and/or
+> `ssl_enable_server_cert_auth` to `0` explicitly in your `mqtt-config` file, or (recommended)
+> configure `ssl_CA_certificate` so the broker's certificate verifies correctly.
+
 ```json
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
