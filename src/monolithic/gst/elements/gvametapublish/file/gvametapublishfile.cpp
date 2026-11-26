@@ -7,8 +7,8 @@
 #include "gvametapublishfile.hpp"
 
 #include <common.hpp>
-#include <utils.h>
 
+#include <filesystem>
 #include <stdio.h>
 #include <string>
 
@@ -85,7 +85,7 @@ class GvaMetaPublishFilePrivate {
             _output_file = stdout;
             return true;
         }
-        if (Utils::symLink(_file_path)) {
+        if (std::filesystem::is_symlink(_file_path)) {
             // refuse to read/write through a symlink planted at the output path
             return false;
         }
