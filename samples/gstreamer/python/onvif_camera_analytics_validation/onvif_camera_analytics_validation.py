@@ -581,9 +581,9 @@ def start_web_ui(host: str, port: int, token: str = None):
 #  ONVIF Discovery
 # ═══════════════════════════════════════════════════════════════════════════
 
-def discover_camera(ip: str, port: int):
+def discover_camera(ip: str, port: int, scheme: str = "http"):
     """Query ONVIF device info, capabilities, profiles, stream URI, and event topics."""
-    onvif = ONVIFClient(ip, port)
+    onvif = ONVIFClient(ip, port, scheme)
 
     dev_info = onvif.get_device_info()
     if dev_info:
@@ -637,7 +637,7 @@ def build_rtsp_uri(args) -> str:
 
     if not rtsp_uri:
         discovered_uri, discovered_topics = discover_camera(
-            args.camera_ip, args.onvif_port)
+            args.camera_ip, args.onvif_port, args.onvif_scheme)
         if discovered_uri:
             rtsp_uri = discovered_uri
         # Use discovered topics if user kept default wildcard
@@ -830,6 +830,9 @@ Model export (run once):
 """)
     p.add_argument("--camera-ip", default="192.168.1.100")
     p.add_argument("--onvif-port", type=int, default=80)
+    p.add_argument("--onvif-scheme", default="http", choices=["http", "https"],
+                   help="Transport scheme for the ONVIF SOAP control plane "
+                        "(use https if the camera exposes it)")
     p.add_argument("--onvif-user", default="admin")
     p.add_argument("--onvif-pass", default="admin")
     p.add_argument("--rtsp-uri", default="",
