@@ -51,8 +51,13 @@ Key design points:
      last batch has missed it, and taking it as the next anchor would move batch time (and, in
      `container` mode, the output buffer's PTS) backwards.
    - **Phase 2 (wait for contributors)** — wait up to `max-wait-time` for every *active*
-     non-EOS pad to have a head buffer with `|pts - anchor| ≤ pts-tolerance`. Exit early once
-     they all contribute. See [Slow and Failed Sources](#slow-and-failed-sources).
+     non-EOS pad to have a head buffer with `|pts - anchor| ≤ pts-tolerance`. A head further
+     behind the anchor than `pts-tolerance` can never join the batch, so it is discarded and
+     the buffer behind it is checked instead. A pad whose head is already past the anchor
+     cannot contribute either (its queue is in PTS order), so the batch does not wait for it:
+     with sources at different rates (e.g. a 30 fps camera and a 10 fps LiDAR) most anchors
+     have no counterpart on the slower source. Exit early once every active pad either
+     contributes or is past the anchor. See [Slow and Failed Sources](#slow-and-failed-sources).
    - **Phase 3 (collect & push)** — pop one matching buffer per pad, attach
      `GstAnalyticsBatchMeta`, push downstream in pad-index order.
 4. EOS on a sink pad is honored only once that pad's queue is drained: buffers already enqueued

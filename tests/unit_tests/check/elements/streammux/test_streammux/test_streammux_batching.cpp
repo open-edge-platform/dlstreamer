@@ -105,6 +105,45 @@ TEST(StreammuxBatching, AStrayFutureTimestampDoesNotSilenceTheElement) {
         << "output stopped after one stray timestamp (" << h.outputCount() - before << " buffers since)";
 }
 
+/* Sources at different rates, e.g. a camera at 30 fps and a LiDAR at 10 fps:
+ * most anchors have no counterpart on the slower source. A pad whose head
+ * cannot match the anchor must not hold the batch open:
+ *   - a head past the anchor: nothing the pad delivers later can match either,
+ *     since a pad queue is in PTS order;
+ *   - a head too far behind the anchor (the anchor was taken from another pad
+ *     just before this one's earlier buffer arrived): it is stale, but the
+ *     buffer queued behind it may match.
+ * Either used to make the batch wait the full max-wait-time, so the output fell
+ * behind the faster source.
+ *
+ * max-wait-time is set far beyond the test's deadline so that any such wait
+ * shows up as batch time not advancing. Which anchors are built depends on the
+ * order the two sources' buffers reach the muxer, so the test checks that batch
+ * time gets through the whole input, not the exact batch sequence. */
+TEST(StreammuxBatching, ASlowerSourceDoesNotHoldBackTheFasterOne) {
+    StreammuxHarness h("container");
+    g_object_set(h.mux(), "max-wait-time", (guint64)(10 * GST_SECOND), nullptr);
+    h.addSource(0);
+    h.addSource(1);
+    h.start();
+
+    /* Source 1 runs at a third of source 0's rate and ends on the frame after
+     * source 0's last one, so it never runs dry while source 0 is batched. */
+    constexpr int kFrames = 30;
+    for (int i = 0; i < kFrames; i++)
+        h.push(0, i * kFrame);
+    for (int i = 0; i <= kFrames; i += 3)
+        h.push(1, i * kFrame);
+
+    const GstClockTime last = (kFrames - 1) * kFrame;
+    EXPECT_TRUE(h.waitFor([&] {
+        const auto seen = h.batchPtsSeen();
+        return !seen.empty() && seen.back() >= last;
+    })) << "batch time stopped at "
+        << (h.batchPtsSeen().empty() ? 0 : h.batchPtsSeen().back()) << " ns before reaching " << last
+        << " ns; the muxer waited for a source that could not contribute";
+}
+
 /* sync-mode=first-pts rebases each source to zero. An RTSP source that
  * reconnects starts its timestamps over, and the rebase has to continue the
  * normalized timeline rather than restart it -- a source that drops back to
