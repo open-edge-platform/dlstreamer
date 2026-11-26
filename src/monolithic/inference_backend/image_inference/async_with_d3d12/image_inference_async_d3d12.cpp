@@ -507,6 +507,15 @@ bool ImageInferenceAsyncD3D12::IsQueueFull() {
     return _inference->IsQueueFull();
 }
 
+uint64_t ImageInferenceAsyncD3D12::GetPartialBatchId() {
+    return _inference->GetPartialBatchId();
+}
+
+// Frames still queued here are not in the batch yet; they go into the next one.
+void ImageInferenceAsyncD3D12::StartPartialBatch(uint64_t batch_id) {
+    _inference->StartPartialBatch(batch_id);
+}
+
 void ImageInferenceAsyncD3D12::Flush() {
     {
         std::unique_lock lk(_queue_mutex);

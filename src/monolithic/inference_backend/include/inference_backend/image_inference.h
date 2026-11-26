@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <functional>
 #include <gst/gst.h>
 #include <map>
@@ -80,6 +81,19 @@ class ImageInference {
                                                                           const gchar *ov_extension_lib);
 
     virtual bool IsQueueFull() = 0;
+
+    // A batch starts once batch-size images have been submitted, so a partly filled batch can wait for images that
+    // take long to come, or never come: with inference on ROIs, frames without ROIs add no images. These two let the
+    // caller start it earlier. Unlike Flush(), they do not wait for any inference to complete. The defaults are for a
+    // backend without partly filled batches.
+    // Identifies the partly filled batch: 0 if there is none, otherwise a value that no other batch gets.
+    virtual uint64_t GetPartialBatchId() {
+        return 0;
+    }
+    // Starts inference on the partly filled batch if its id is 'batch_id', that is, if it is still being filled.
+    virtual void StartPartialBatch(uint64_t /*batch_id*/) {
+    }
+
     virtual void Flush() = 0;
     virtual void Close() = 0;
 

@@ -32,6 +32,7 @@
 
 #include <assert.h>
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 #include <exception>
 #include <gst/analytics/analytics.h>
@@ -1639,6 +1640,47 @@ void InferenceImpl::PushOutput() {
     }
 }
 
+/**
+ * Batches are filled across frames: a batch starts once batch-size images are submitted. Until then the frames of its
+ * images wait in 'output_frames', and so does every later frame, because frames leave in order. Each holds its buffer,
+ * with VA memory a surface that the decoder's pool replaces with a new one. With inference on ROIs, frames without
+ * ROIs add no images, so where ROIs are sparse, the wait and the number of waiting frames have no limit.
+ * This starts the partly filled batch once batch-size frames that run inference on ROIs have arrived since it took its
+ * first image. Full-frame inference does not need it: each frame adds an image, so a batch fills after batch-size
+ * frames. Called with _mutex held, for each frame that runs inference on ROIs, before its images are submitted.
+ */
+void InferenceImpl::StartStalePartialBatch() {
+    const uint64_t batch_id = model.inference->GetPartialBatchId();
+    if (batch_id == 0 || batch_id != partial_batch_id) {
+        // No partly filled batch, or a new one. With asynchronous pre-processing (VA), images reach the batch a little
+        // later than their frames arrive here, so the age is counted from when the batch is first seen, not opened.
+        partial_batch_id = batch_id;
+        partial_batch_age = 0;
+        return;
+    }
+    if (++partial_batch_age < model.inference->GetBatchSize())
+        return;
+    GVA_DEBUG("Starting a partly filled batch of model %s: %zu frames arrived without filling it", model.name.c_str(),
+              partial_batch_age);
+    model.inference->StartPartialBatch(batch_id);
+    partial_batch_id = 0;
+    partial_batch_age = 0;
+}
+
+/**
+ * Starts the partly filled batch, if any. Called with _mutex held, before waiting for frames to leave: they may wait
+ * for a batch that only later frames would fill.
+ */
+void InferenceImpl::StartPartialBatch() {
+    const uint64_t batch_id = model.inference->GetPartialBatchId();
+    if (batch_id != 0) {
+        GVA_DEBUG("Starting a partly filled batch of model %s: frames must leave first", model.name.c_str());
+        model.inference->StartPartialBatch(batch_id);
+    }
+    partial_batch_id = 0;
+    partial_batch_age = 0;
+}
+
 bool InferenceImpl::CheckSrcPadBlocked(GstObject *src) {
     bool blocked = false;
 
@@ -1847,6 +1889,9 @@ GstFlowReturn InferenceImpl::TransformFrameIp(GvaBaseInference *gva_base_inferen
         }
     }
 
+    if (status == INFERENCE_EXECUTED && gva_base_inference->effective_inference_region == ROI_LIST)
+        StartStalePartialBatch();
+
     // count number ROIs to run inference on
     size_t inference_count = (status == INFERENCE_EXECUTED) ? metas.size() : 0;
     gva_base_inference->frame_num++;
@@ -1880,10 +1925,18 @@ GstFlowReturn InferenceImpl::TransformFrameIp(GvaBaseInference *gva_base_inferen
 
             // pause if total number of buffered frames exceeds max number of frames in flight,
             // and frame presentation time is later than ones already queued
+            size_t queued = SIZE_MAX;
             while ((buffer->pts > latest_pts) &&
                    (output_frames.size() >
                     model.inference->GetNireq() * model.inference->GetBatchSize() * inference_interval)) {
+                // If no frame left during the last round, the queued frames wait for a batch that only this frame and
+                // later ones would fill: start it. Again in later rounds, as asynchronous pre-processing (VA) can
+                // still add images of queued frames to a new batch.
+                const bool stalled = output_frames.size() >= queued;
+                queued = output_frames.size();
                 output_lock.unlock();
+                if (stalled)
+                    StartPartialBatch();
                 lock.unlock();
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
                 lock.lock();
