@@ -7,6 +7,7 @@
 #include "gvametapublishfile.hpp"
 
 #include <common.hpp>
+#include <utils.h>
 
 #include <stdio.h>
 #include <string>
@@ -83,6 +84,10 @@ class GvaMetaPublishFilePrivate {
         if (_file_path == STDOUT) {
             _output_file = stdout;
             return true;
+        }
+        if (Utils::symLink(_file_path)) {
+            // refuse to read/write through a symlink planted at the output path
+            return false;
         }
         if (_file_format == GVA_META_PUBLISH_JSON) {
             if (!(_output_file = fopen(_file_path.c_str(), "w+"))) {

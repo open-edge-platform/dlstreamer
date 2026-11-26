@@ -44,6 +44,7 @@
 #include <stdexcept>
 #include <string>
 
+#include <filesystem>
 #include <nlohmann/json.hpp>
 
 namespace g3dlidar {
@@ -126,6 +127,9 @@ struct LidarConfig {
     /* Parse from a config file path. Throws std::runtime_error on I/O or schema
      * errors, with the path included in the message. */
     static LidarConfig from_file(const std::string &path) {
+        if (std::filesystem::is_symlink(path))
+            throw std::runtime_error("lidar config file is a symbolic link: " + path);
+
         std::ifstream stream(path);
         if (!stream)
             throw std::runtime_error("failed to open lidar config file: " + path);

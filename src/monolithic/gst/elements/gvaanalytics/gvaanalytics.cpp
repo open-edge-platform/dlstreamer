@@ -17,6 +17,7 @@
 #include <gst/video/video.h>
 
 #include "dlstreamer/gst/utils.h"
+#include "utils.h"
 
 #include <cmath>
 #include <fstream>
@@ -389,6 +390,11 @@ static gboolean gva_analytics_start(GstBaseTransform *base) {
     // Load configuration from file if specified
     if (priv->config_path) {
         try {
+            if (Utils::symLink(priv->config_path)) {
+                GST_ERROR_OBJECT(base, "Config file is a symbolic link: %s", priv->config_path);
+                return FALSE;
+            }
+
             std::ifstream config_file(priv->config_path);
             if (!config_file.is_open()) {
                 GST_ERROR_OBJECT(base, "Failed to open config file: %s", priv->config_path);

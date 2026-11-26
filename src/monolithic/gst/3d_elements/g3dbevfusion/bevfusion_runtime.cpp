@@ -34,6 +34,8 @@ std::mutex &sparse_encoder_mutex() {
 }
 
 json read_json(const fs::path &path) {
+    if (fs::is_symlink(path))
+        throw std::runtime_error("config file is a symbolic link: " + path.string());
     std::ifstream f(path);
     if (!f)
         throw std::runtime_error("cannot open " + path.string());
