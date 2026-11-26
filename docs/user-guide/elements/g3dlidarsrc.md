@@ -241,7 +241,14 @@ The element needs **no changes** — a config with `"vendor": "<vendor>"` will l
 Backends are loaded by bare name (`libg3dlidar_<vendor>.so` on Linux, `g3dlidar_<vendor>.dll` on Windows), so the install directory must be on the dynamic loader's search path at runtime:
 
 - **Linux** — on `LD_LIBRARY_PATH`. A standard install places the backend under `lib/`, which `scripts/setup_dls_env.sh` already adds to `LD_LIBRARY_PATH`.
-- **Windows** — the backend DLL must sit in the **same directory as `gst3delements.dll`** (the standard install / `setup_dls_env.ps1` / `build_dlstreamer_dlls.ps1 -setEnv` layout already satisfies this). As a hardening measure against DLL planting (SDL436), the plugin restricts `LoadLibrary`'s default search order at startup to the application directory, `System32`, and its own install directory — it no longer falls back to the current working directory or other `PATH` entries. If you relocate the backend DLL to a different directory than `gst3delements.dll`, loading will fail even if that directory is on `PATH`.
+- **Windows** — the backend DLL must sit in the **same directory as `gst3delements.dll`** (the standard install / `setup_dls_env.ps1` / `build_dlstreamer_dlls.ps1 -setEnv` layout already satisfies this).
+
+> **Upgrade note (behavior change):** as a hardening measure against DLL planting (SDL436),
+> the plugin restricts `LoadLibrary`'s default search order at startup on Windows to the
+> application directory, `System32`, and its own install directory — it no longer falls back to
+> the current working directory or other `PATH` entries. If you relocate the backend DLL to a
+> different directory than `gst3delements.dll`, loading will fail even if that directory is on
+> `PATH`.
 
 If the element fails at start with *"Failed to load backend '…'"*, the backend is either not built (its `ENABLE_LIDAR_<VENDOR>` option was OFF) or not installed alongside `gst3delements.dll`.
 
