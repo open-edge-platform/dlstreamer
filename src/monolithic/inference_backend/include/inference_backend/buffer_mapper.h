@@ -82,7 +82,7 @@ class BufferToImageMapper final {
             image->va_display = tensor0->context()->handle(dlstreamer::VAAPIContext::key::va_display);
         };
         image->dma_fd = tensor0->handle(dlstreamer::tensor::key::dma_fd, 0);
-        image->drm_format_modifier = tensor0->handle(dlstreamer::tensor::key::drm_modifier, 0);
+        image->drm_format_modifier = static_cast<uint64_t>(tensor0->handle(dlstreamer::tensor::key::drm_modifier, 0));
 #else
         if (_memory_type == MemoryType::D3D11) {
             auto d3d11_tensor = dlstreamer::ptr_cast<dlstreamer::D3D11Tensor>(tensor0);
@@ -117,14 +117,16 @@ class BufferToImageMapper final {
 
 class BufferMapperFactory {
   public:
+    // drm_modifier: DRM format modifier of DMA-BUF input, from the 'drm-format' field of DMA_DRM caps
     static dlstreamer::MemoryMapperPtr createMapper(InferenceBackend::MemoryType memory_type,
-                                                    dlstreamer::ContextPtr output_context = nullptr) {
+                                                    dlstreamer::ContextPtr output_context = nullptr,
+                                                    [[maybe_unused]] uint64_t drm_modifier = 0) {
         switch (memory_type) {
         case InferenceBackend::MemoryType::SYSTEM:
             return std::make_shared<dlstreamer::MemoryMapperGSTToCPU>(nullptr, output_context);
 #ifndef _WIN32
         case InferenceBackend::MemoryType::DMA_BUFFER:
-            return std::make_shared<dlstreamer::MemoryMapperGSTToDMA>(nullptr, output_context);
+            return std::make_shared<dlstreamer::MemoryMapperGSTToDMA>(nullptr, output_context, drm_modifier);
         case InferenceBackend::MemoryType::VAAPI:
             return std::make_shared<dlstreamer::MemoryMapperGSTToVAAPI>(nullptr, output_context);
         case InferenceBackend::MemoryType::USM_DEVICE_POINTER:
@@ -144,8 +146,8 @@ class BufferMapperFactory {
 
     static std::unique_ptr<InferenceBackend::BufferToImageMapper>
     createMapper(InferenceBackend::MemoryType output_type, const GstVideoInfo *intput_video_info,
-                 dlstreamer::ContextPtr output_context = nullptr) {
-        dlstreamer::MemoryMapperPtr mapper = createMapper(output_type, output_context);
+                 dlstreamer::ContextPtr output_context = nullptr, uint64_t drm_modifier = 0) {
+        dlstreamer::MemoryMapperPtr mapper = createMapper(output_type, output_context, drm_modifier);
         return std::unique_ptr<InferenceBackend::BufferToImageMapper>(
             new InferenceBackend::BufferToImageMapper(output_type, intput_video_info, mapper));
     }

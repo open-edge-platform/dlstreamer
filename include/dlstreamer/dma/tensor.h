@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -16,27 +16,27 @@ namespace dlstreamer {
 
 namespace tensor::key {
 static constexpr auto dma_fd = "dma_fd";             // (int)
-static constexpr auto drm_modifier = "drm_modifier"; // (int)
+static constexpr auto drm_modifier = "drm_modifier"; // (uint64_t) DRM format modifier, e.g. tiling
 }; // namespace tensor::key
 
 class DMATensor : public BaseTensor {
   public:
-    DMATensor(int dma_fd, int drm_modifier, const TensorInfo &info, bool take_ownership = false,
+    DMATensor(int dma_fd, uint64_t drm_modifier, const TensorInfo &info, bool take_ownership = false,
               ContextPtr context = nullptr)
         : BaseTensor(MemoryType::DMA, info, tensor::key::dma_fd, context), _take_ownership(take_ownership) {
 #ifndef __linux__
         throw std::runtime_error("DMABuffer is not supported");
 #endif
         set_handle(tensor::key::dma_fd, dma_fd);
-        set_handle(tensor::key::drm_modifier, drm_modifier);
+        set_handle(tensor::key::drm_modifier, static_cast<handle_t>(drm_modifier));
     }
 
     int dma_fd() const {
         return handle(tensor::key::dma_fd);
     }
 
-    int drm_modifier() const {
-        return handle(tensor::key::drm_modifier);
+    uint64_t drm_modifier() const {
+        return static_cast<uint64_t>(handle(tensor::key::drm_modifier));
     }
 
     size_t offset() const {
