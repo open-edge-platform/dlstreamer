@@ -128,10 +128,35 @@ class Blob {
     virtual Precision GetPrecision() const = 0;
 };
 
+// PROTOTYPE (gpu_post_process): an FP32 output that is a dense "proposals x fields" matrix reduced on the device.
+// Element (field f, proposal i) of one batch item is at f * stride_field + i * stride_box.
+struct DenseFilterDesc {
+    int num_proposals = 0;
+    int stride_field = 0;
+    int stride_box = 0;
+    int box_offset = 0; // cx, cy, w, h
+    int cls_offset = 0; // first class score
+    int num_classes = 0;
+    int obj_offset = -1;  // objectness (score = obj * best class), -1 = none
+    double threshold = 0; // kept: score > threshold, compared like the CPU converters
+};
+
+// One proposal whose best class score is above the threshold; candidates of a batch item are in proposal order
+struct DenseCandidate {
+    float x, y, w, h, score;
+    int label;
+    int index;
+};
+
 class OutputBlob : public virtual Blob {
   public:
     using Ptr = std::shared_ptr<OutputBlob>;
     virtual const void *GetData() const = 0;
+    // Reduces the output on the device. false: not supported for this blob (or too many candidates), use GetData()
+    virtual bool FilterDense(const DenseFilterDesc &, size_t /*batch_size*/,
+                             std::vector<std::vector<DenseCandidate>> & /*per_batch*/) const {
+        return false;
+    }
     virtual ~OutputBlob() = default;
 };
 

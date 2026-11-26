@@ -35,6 +35,13 @@
 #pragma once
 
 #include "inference_backend/image_inference.h"
+
+namespace InferenceBackend {
+namespace OpenVino {
+struct GpuOutputBuffers;
+class GpuDenseFilter;
+} // namespace OpenVino
+} // namespace InferenceBackend
 #include "inference_backend/input_image_layer_descriptor.h"
 #include "inference_backend/pre_proc.h"
 
@@ -91,6 +98,9 @@ class OpenVinoImageInference : public InferenceBackend::ImageInference {
 
   protected:
     struct InferSlot {
+        // PROTOTYPE (gpu_post_process): device output buffers, one per model output, when DLS_GPU_POSTPROC=1;
+        // declared first so they outlive infer_request, whose output tensors wrap them
+        std::vector<std::shared_ptr<InferenceBackend::OpenVino::GpuOutputBuffers>> gpu_outputs;
         ov::InferRequest infer_request;
         std::vector<IFrameBase::Ptr> buffers;
         std::vector<ov::TensorVector> in_tensors;
@@ -111,6 +121,7 @@ class OpenVinoImageInference : public InferenceBackend::ImageInference {
     std::string model_path_;
     InferenceBackend::OpenVino::PreparedModel prepared_model_;
     ov::CompiledModel compiled_model_;
+    std::shared_ptr<InferenceBackend::OpenVino::GpuDenseFilter> gpu_filter_;
     std::unique_ptr<InferenceBackend::OpenVino::ImageToTensorConverter> img_to_tensor_;
 
     std::string model_name_;

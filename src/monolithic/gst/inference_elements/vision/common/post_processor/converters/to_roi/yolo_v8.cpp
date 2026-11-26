@@ -71,6 +71,39 @@ TensorsTable YOLOv8Converter::convert(const OutputBlobs &output_blobs) {
 
         DetectedObjectsTable objects_table(batch_size);
 
+        // PROTOTYPE (gpu_post_process): output [B, 4 + classes, proposals] reduced on the device when the blob
+        // supports it (DLS_GPU_POSTPROC=1); same objects in the same order as parseOutputBlob
+        if (output_blobs.size() == 1 && output_blobs.begin()->second) {
+            const auto &blob = output_blobs.begin()->second;
+            const auto &dims = blob->GetDims();
+            if (dims.size() >= BlobToROIConverter::min_dims_size &&
+                dims[dims.size() - 2] > static_cast<size_t>(YOLOV8_OFFSET_CS)) {
+                const size_t object_size = dims[dims.size() - 2];
+                const size_t proposals = dims[dims.size() - 1];
+                InferenceBackend::DenseFilterDesc desc;
+                desc.num_proposals = static_cast<int>(proposals);
+                desc.stride_field = static_cast<int>(proposals);
+                desc.stride_box = 1;
+                desc.box_offset = YOLOV8_OFFSET_X;
+                desc.cls_offset = YOLOV8_OFFSET_CS;
+                desc.num_classes = static_cast<int>(object_size) - YOLOV8_OFFSET_CS;
+                desc.obj_offset = -1;
+                desc.threshold = confidence_threshold;
+                std::vector<std::vector<InferenceBackend::DenseCandidate>> candidates;
+                if (blob->FilterDense(desc, batch_size, candidates)) {
+                    const size_t input_width = model_input_image_info.width;
+                    const size_t input_height = model_input_image_info.height;
+                    for (size_t b = 0; b < batch_size; ++b)
+                        for (const auto &c : candidates[b])
+                            objects_table[b].push_back(DetectedObject(c.x, c.y, c.w, c.h, 0, c.score,
+                                                                      static_cast<size_t>(c.label),
+                                                                      BlobToMetaConverter::getLabelByLabelId(c.label),
+                                                                      1.0f / input_width, 1.0f / input_height, true));
+                    return storeObjects(objects_table);
+                }
+            }
+        }
+
         for (size_t batch_number = 0; batch_number < batch_size; ++batch_number) {
             auto &objects = objects_table[batch_number];
 

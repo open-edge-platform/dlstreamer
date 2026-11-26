@@ -11,6 +11,7 @@
 #include "inference_backend/image_inference.h"
 #include <spdlog/fmt/fmt.h>
 
+#include <dlstreamer/openvino/context.h>
 #include <openvino/runtime/properties.hpp>
 
 #include <openvino/runtime/intel_npu/properties.hpp>
@@ -26,14 +27,18 @@
 #include "inference_backend/logger.h"
 #include "inference_backend/pre_proc.h"
 
+#include "gpu_dense_filter.h"
 #include "openvino_blob_wrapper.h"
 #include "safe_arithmetic.hpp"
 #include "utils.h"
 
 #include <algorithm>
 #include <chrono>
+#include <cstdlib>
 #include <functional>
 #include <mutex>
+#include <optional>
+#include <string>
 #include <thread>
 
 using namespace InferenceBackend;
@@ -43,6 +48,28 @@ namespace {
 
 void LogOpenVinoVersion() {
     GVA_DEBUG("OpenVINO version: %s", ov::get_openvino_version().buildNumber);
+}
+
+// PROTOTYPE (gpu_post_process): upper bound of moving post-processing to the GPU.
+//   DLS_PROTO_DEVICE_OUTPUT=1  output tensors are device memory of the compiled model's context (no copy back to the
+//                              host) and post-processing is skipped
+//   DLS_PROTO_SKIP_POSTPROC=1  output stays in host memory (copy happens) but post-processing is skipped
+bool ProtoDeviceOutput() {
+    static const bool on = getenv("DLS_PROTO_DEVICE_OUTPUT") && std::string(getenv("DLS_PROTO_DEVICE_OUTPUT")) == "1";
+    return on;
+}
+
+//   DLS_GPU_POSTPROC=1         output tensors are OpenCL buffers; converters with a GPU path reduce them on the device
+//                              (OutputBlob::FilterDense), the others read them back with GetData()
+bool GpuPostproc() {
+    static const bool on = getenv("DLS_GPU_POSTPROC") && std::string(getenv("DLS_GPU_POSTPROC")) == "1";
+    return on;
+}
+
+bool ProtoSkipPostproc() {
+    static const bool on = ProtoDeviceOutput() ||
+                           (getenv("DLS_PROTO_SKIP_POSTPROC") && std::string(getenv("DLS_PROTO_SKIP_POSTPROC")) == "1");
+    return on;
 }
 
 } // namespace
@@ -108,9 +135,46 @@ OpenVinoImageInference::OpenVinoImageInference(const InferenceBackend::Inference
         batch_timeout_ = prepared_model_.batch_timeout;
         image_layer_ = prepared_model_.image_input_name;
 
+        const bool proto_device_output = ProtoDeviceOutput() && device.rfind("GPU", 0) == 0;
+        bool gpu_postproc = GpuPostproc() && !proto_device_output && device.rfind("GPU", 0) == 0;
+        if (gpu_postproc) {
+            for (const auto &out : compiled_model_.outputs())
+                gpu_postproc =
+                    gpu_postproc && out.get_element_type() == ov::element::f32 && out.get_partial_shape().is_static();
+            if (!gpu_postproc)
+                GVA_WARNING("GPU post-processing: needs static FP32 outputs, using the CPU");
+        }
+        std::optional<ov::intel_gpu::ocl::ClContext> cl_ctx;
+        if (gpu_postproc) {
+            cl_ctx = compiled_model_.get_context().as<ov::intel_gpu::ocl::ClContext>();
+            gpu_filter_ = std::make_shared<GpuDenseFilter>(cl_ctx->get());
+            GVA_INFO("GPU post-processing: outputs stay in device memory");
+        }
+        if (ProtoSkipPostproc())
+            GVA_WARNING("PROTOTYPE: post-processing skipped, output in %s memory",
+                        proto_device_output ? "device" : "host");
         for (int i = 0; i < nireq_; i++) {
             auto &inference_slot = inference_slots_.emplace_back(std::make_unique<InferSlot>());
             inference_slot->infer_request = compiled_model_.create_infer_request();
+            if (gpu_filter_) {
+                const auto &outs = compiled_model_.outputs();
+                for (size_t o = 0; o < outs.size(); o++) {
+                    const auto &shape = outs[o].get_shape();
+                    ov::RemoteTensor tensor = cl_ctx->create_tensor(ov::element::f32, shape);
+                    auto cl_buffer = tensor.as<ov::intel_gpu::ocl::ClBufferTensor>();
+                    const cl_mem mem = cl_buffer.get();
+                    auto buffers = gpu_filter_->CreateBuffers(tensor, mem, shape.empty() ? 1 : shape[0]);
+                    inference_slot->infer_request.set_output_tensor(o, tensor);
+                    inference_slot->gpu_outputs.push_back(std::move(buffers));
+                }
+            }
+            if (proto_device_output) {
+                auto ctx = compiled_model_.get_context();
+                const auto &outs = compiled_model_.outputs();
+                for (size_t o = 0; o < outs.size(); o++)
+                    inference_slot->infer_request.set_output_tensor(
+                        o, ctx.create_tensor(outs[o].get_element_type(), outs[o].get_shape()));
+            }
             inference_slot->in_tensors.resize(prepared_model_.model->inputs().size());
             SetCompletionCallback(inference_slot.get());
             free_slots_.Release(inference_slot.get());
@@ -298,10 +362,19 @@ void OpenVinoImageInference::WorkingFunction(InferSlot *inference_slot) {
     assert(inference_slot);
 
     std::map<std::string, OutputBlob::Ptr> output_blobs;
+    if (ProtoSkipPostproc()) {
+        callback_(output_blobs, inference_slot->buffers);
+        return;
+    }
     const auto &outputs = compiled_model_.outputs();
     for (size_t i = 0; i < outputs.size(); i++) {
         auto name = outputs[i].get_names().size() > 0 ? outputs[i].get_any_name() : std::string("output");
-        output_blobs[name] = std::make_shared<OpenvinoOutputTensor>(inference_slot->infer_request.get_output_tensor(i));
+        if (i < inference_slot->gpu_outputs.size())
+            output_blobs[name] = std::make_shared<OpenvinoDeviceOutputTensor>(
+                inference_slot->gpu_outputs[i], outputs[i].get_shape(), outputs[i].get_element_type());
+        else
+            output_blobs[name] =
+                std::make_shared<OpenvinoOutputTensor>(inference_slot->infer_request.get_output_tensor(i));
     }
     callback_(output_blobs, inference_slot->buffers);
 }
