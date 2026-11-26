@@ -43,3 +43,8 @@ TEST(json_reader_symlink, accepts_regular_file) {
 
     fs::remove(real_file);
 }
+
+GTEST_API_ int main(int argc, char **argv) {
+    testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
+}

@@ -50,3 +50,8 @@ TEST(calibration_symlink, accepts_regular_file) {
 
     EXPECT_TRUE(ok) << "last_error() was: " << store.last_error();
 }
+
+GTEST_API_ int main(int argc, char **argv) {
+    testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
+}
