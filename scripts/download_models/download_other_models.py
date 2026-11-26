@@ -375,8 +375,10 @@ def download_ppocr_v5(models_path: Path, model_name: str) -> None:
         shutil.copyfile(paddle_dir / "config.json", fp16_dir / "config.json")
 
 
-def download_pallet_defect_detection(models_path: Path) -> None:
-    model_name = "pallet_defect_detection"
+def download_pallet_defect_detection_model(
+    models_path: Path, model_name: str, commit: str, archive_name: str, source_subdir: str = "deployment/Detection/model"
+) -> None:
+    """Extract an INT8 Pallet Defect Detection model from an edge-ai-resources archive."""
     model_dir = models_path / "public" / model_name
     int8_dir = model_dir / "INT8"
     if all_exist(int8_dir / f"{model_name}.xml"):
@@ -385,19 +387,20 @@ def download_pallet_defect_detection(models_path: Path) -> None:
 
     log(f"Downloading and converting: {model_dir}")
     with staging_dir(model_dir) as tmp:
-        archive = tmp / f"{model_name}.zip"
+        archive = tmp / archive_name
         download_file(
-            "https://github.com/open-edge-platform/edge-ai-resources/raw/"
-            "06bb0d621cb14a1791672552a538beddddcc4066/models/INT8/pallet_defect_detection.zip",
+            f"https://github.com/open-edge-platform/edge-ai-resources/raw/{commit}/models/INT8/{archive_name}",
             archive,
         )
         extract_zip(archive, tmp)
 
-        source_dir = tmp / "deployment" / "Detection" / "model"
+        source_dir = tmp / source_subdir if source_subdir else tmp
         int8_dir.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source_dir / "model.bin", int8_dir / f"{model_name}.bin")
         shutil.copyfile(source_dir / "model.xml", int8_dir / f"{model_name}.xml")
-        shutil.copyfile(source_dir / "config.json", int8_dir / "config.json")
+        config_json = source_dir / "config.json"
+        if config_json.is_file():
+            shutil.copyfile(config_json, int8_dir / "config.json")
 
 
 def download_colorcls2(models_path: Path) -> None:
@@ -467,7 +470,25 @@ MODEL_HANDLERS: dict[str, tuple[str, Callable[[Path], None]]] = {
         "PaddlePaddle PP-OCRv5_mobile_rec",
         functools.partial(download_ppocr_v5, model_name="PP-OCRv5_mobile_rec"),
     ),
-    "pallet_defect_detection": ("Pallet Defect Detection", download_pallet_defect_detection),
+    "pallet_defect_detection": (
+        "Pallet Defect Detection",
+        functools.partial(
+            download_pallet_defect_detection_model,
+            model_name="pallet_defect_detection",
+            commit="06bb0d621cb14a1791672552a538beddddcc4066",
+            archive_name="pallet_defect_detection.zip",
+        ),
+    ),
+    "pallet_defect_detection_3.x": (
+        "Pallet Defect Detection 3.x",
+        functools.partial(
+            download_pallet_defect_detection_model,
+            model_name="pallet_defect_detection_3.x",
+            commit="4f002b31fae3af7361b1f43c48c243bd8d513d9b",
+            archive_name="pallet_defect_detection_3.x.zip",
+            source_subdir="",
+        ),
+    ),
     "colorcls2": ("Colorcls2", download_colorcls2),
     "pointpillars": ("PointPillars", download_pointpillars),
 }
