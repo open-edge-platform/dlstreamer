@@ -22,6 +22,7 @@ gst_mod = pytest.importorskip(
     "gi.repository.Gst",
     reason="Requires PyGObject + GStreamer typelibs (same as running the sample itself)",
 )
+pytest.importorskip("paho", reason="Requires paho-mqtt (sample's util.py imports it unconditionally)")
 
 _SAMPLE_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)),

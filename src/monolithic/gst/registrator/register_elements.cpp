@@ -43,15 +43,8 @@
 #include "gva_zone_meta.h"
 #include "gvaanalytics.h"
 
-#include "utils.h"
-
 static gboolean plugin_init(GstPlugin *plugin) {
     set_log_function(GST_logger);
-
-    // Restrict LoadLibrary/dlopen search order on Windows (application directory + System32 +
-    // this plugin's own install directory) before any backend .dll is loaded, mitigating DLL
-    // planting/injection via CWD or PATH hijacking. No-op on Linux.
-    Utils::secureDllSearchPath();
 
     if (!gst_element_register(plugin, "gvainference", GST_RANK_NONE, gst_gva_inference_get_type()))
         return FALSE;

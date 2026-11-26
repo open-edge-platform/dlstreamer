@@ -15,13 +15,17 @@ Run with: pytest test_onvif_client.py -v
 import os
 import sys
 
+import pytest
+
+pytest.importorskip("paho", reason="Requires paho-mqtt (sample's util.py imports it unconditionally)")
+
 _SAMPLE_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
     "..", "..", "..", "samples", "gstreamer", "python", "onvif_camera_analytics_validation",
 )
 sys.path.insert(0, os.path.abspath(_SAMPLE_DIR))
 
-from util import ONVIFClient  # pylint: disable=wrong-import-position
+from util import ONVIFClient  # noqa: E402  pylint: disable=wrong-import-position
 
 
 def test_onvifclient_defaults_to_http():

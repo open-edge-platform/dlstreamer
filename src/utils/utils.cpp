@@ -81,30 +81,6 @@ bool symLink(const std::string &path) {
     return std::filesystem::is_symlink(path);
 }
 
-void secureDllSearchPath() {
-#ifdef _WIN32
-    // Resolve the directory of the module this code was compiled into (whichever plugin DLL
-    // links this translation unit), so bare-name dlopen() of sibling backend DLLs installed
-    // next to it keeps working after CWD/PATH are removed from the default search order.
-    HMODULE this_module = nullptr;
-    if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                           reinterpret_cast<LPCWSTR>(&secureDllSearchPath), &this_module) &&
-        this_module) {
-        wchar_t path[MAX_PATH];
-        DWORD len = GetModuleFileNameW(this_module, path, MAX_PATH);
-        if (len > 0 && len < MAX_PATH) {
-            std::wstring module_path(path, len);
-            auto pos = module_path.find_last_of(L"\\/");
-            if (pos != std::wstring::npos) {
-                std::wstring module_dir = module_path.substr(0, pos);
-                AddDllDirectory(module_dir.c_str());
-            }
-        }
-    }
-    SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
-#endif
-}
-
 size_t GetFileSize(const std::string &file_path) {
 #ifdef __linux__
     struct stat stat_buffer;

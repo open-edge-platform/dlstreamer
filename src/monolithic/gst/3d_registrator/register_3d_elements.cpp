@@ -19,16 +19,9 @@
 #include "g3dobjectfuser.h"
 #include "g3drender.h"
 
-#include "utils.h"
-
 extern "C" {
 
 static gboolean plugin_init(GstPlugin *plugin) {
-    // Restrict LoadLibrary/dlopen search order on Windows (application directory + System32 +
-    // this plugin's own install directory) before vendor backend .dlls (e.g. g3dlidar_*.dll)
-    // are loaded, mitigating DLL planting/injection via CWD or PATH hijacking. No-op on Linux.
-    Utils::secureDllSearchPath();
-
     // Register element
     if (!gst_element_register(plugin, "g3dradarprocess", GST_RANK_NONE, GST_TYPE_RADAR_PROCESS))
         return FALSE;
