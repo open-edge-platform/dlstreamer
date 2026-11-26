@@ -129,6 +129,10 @@ class OpenVinoImageInference : public InferenceBackend::ImageInference {
 
     std::unique_ptr<InferenceBackend::ImagePreprocessor> pre_processor_;
 
+    // Set once the device has rejected set_input_tensors: batches are then copied into the request's input tensor. See
+    // SetBatchedInputTensors. Read and written under requests_mutex_.
+    bool copy_batched_inputs_ = false;
+
     // Threading
     std::mutex requests_mutex_;
     std::atomic<unsigned int> frames_in_flight_;
@@ -144,6 +148,7 @@ class OpenVinoImageInference : public InferenceBackend::ImageInference {
                                const InferenceBackend::ImageTransformationParams::Ptr image_transform_info);
     void BypassImageProcessing(const std::string &input_name, InferSlot *inference_slot,
                                const InferenceBackend::Image &src_img, size_t batch_size);
+    void SetBatchedInputTensors(InferSlot *inference_slot, size_t input_idx);
     void SetCompletionCallback(InferSlot *inference_slot);
     void
     ApplyInputPreprocessors(InferSlot *inference_slot,

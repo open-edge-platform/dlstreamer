@@ -1,5 +1,5 @@
 # ==============================================================================
-# Copyright (C) 2020-2025 Intel Corporation
+# Copyright (C) 2020-2026 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 # ==============================================================================
@@ -23,6 +23,7 @@ add_executable(${TARGET_NAME} ${TEST_SOURCES})
 target_link_libraries(${TARGET_NAME}
 PRIVATE
     va_api_wrapper
+    image_inference_async
     gtest
     common
     ${GSTREAMER_LIBRARIES}

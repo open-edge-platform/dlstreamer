@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -14,7 +14,9 @@
 #include "inference_backend/logger.h"
 #include "inference_backend/pre_proc.h"
 
+#include <exception>
 #include <map>
+#include <mutex>
 
 namespace InferenceBackend {
 
@@ -61,10 +63,16 @@ class ImageInferenceAsync : public ImageInference {
 
     ImageInference::Ptr _inference;
 
+    // The first error of a SubmitInference task, which runs on a worker thread, kept for RethrowSubmitError. Declared
+    // before _thread_pool so that they outlive it: its destructor waits for the running tasks, which may set them.
+    std::exception_ptr _submit_error;
+    std::mutex _submit_error_mutex;
+
     std::unique_ptr<ThreadPool> _thread_pool;
 
     void SubmitInference(VaApiImage *va_api_image, IFrameBase::Ptr frame,
                          const std::map<std::string, InputLayerDesc::Ptr> &input_preprocessors);
+    void RethrowSubmitError();
 };
 
 } // namespace InferenceBackend
