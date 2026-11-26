@@ -81,6 +81,14 @@ void parseFilterConfig(const std::string &config_str, std::unordered_set<std::st
 std::map<std::string, std::string> stringToMap(const std::string &s, char rec_delim = ',', char kv_delim = '=');
 bool fileExists(const std::string &path);
 bool symLink(const std::string &path);
+
+// Restricts LoadLibrary/dlopen's default search order on Windows to the application
+// directory, System32, and the directory containing the calling module itself (added via
+// AddDllDirectory) — removing the current working directory and PATH from the implicit
+// search, which mitigates DLL planting/injection. No-op on Linux. Must be called once,
+// early, before any bare-name dlopen() of a vendor backend library.
+void secureDllSearchPath();
+
 constexpr bool IsLinux() {
 #ifdef __linux__
     return true;

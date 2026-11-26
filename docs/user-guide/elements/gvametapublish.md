@@ -110,11 +110,11 @@ listed above.
     },
     "ssl_verify": {
       "type": "integer",
-      "description": "An integer indicating whether to carry out post-connect checks, including that a certificate matches the given host name. A value of 0 means verification is disabled. Default: 0."
+      "description": "An integer indicating whether to carry out post-connect checks, including that a certificate matches the given host name. A value of 0 means verification is disabled. Default: 1 (enabled) when TLS is used."
     },
     "ssl_enable_server_cert_auth": {
       "type": "integer",
-      "description": "An integer indicating whether to enable server certificate authentication. A value of 0 means it is disabled. Default: 0."
+      "description": "An integer indicating whether to enable server certificate authentication. A value of 0 means it is disabled. Default: 1 (enabled) when TLS is used."
     },
     "ssl_CA_certificate": {
       "type": ["string", "null"],

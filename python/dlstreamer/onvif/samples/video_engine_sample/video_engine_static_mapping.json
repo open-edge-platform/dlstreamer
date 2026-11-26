@@ -9,8 +9,8 @@
       },
       "profile_name": "mainStream",
       "pipeline_ref": "static_mapping_camera_1",
-      "username": "admin",
-      "password": "r00tme"
+      "username": "",
+      "password": ""
     },
     {
       "binding_id": "lobby_ball_demo",

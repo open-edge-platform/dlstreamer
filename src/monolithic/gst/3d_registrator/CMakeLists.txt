@@ -35,6 +35,7 @@ PRIVATE
     g3drender
     g3dbevfusion
     dlstreamer_gst_meta
+    utils
 )
            
 install(TARGETS ${TARGET_NAME} DESTINATION ${DLSTREAMER_PLUGINS_INSTALL_PATH})
