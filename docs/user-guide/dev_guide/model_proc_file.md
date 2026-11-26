@@ -19,6 +19,11 @@
 
 ## model-proc Overview
 
+> **Upgrade note (behavior change):** the model-proc file path is now rejected if it resolves
+> to a symlink (mitigates symlink-planting attacks on shared model directories). If you
+> intentionally point the `model-proc` property at a symlink, replace it with a bind mount or
+> a copy of the real file.
+
 A model-proc file is a regular JSON file with pre- and post-processing
 configuration.
 

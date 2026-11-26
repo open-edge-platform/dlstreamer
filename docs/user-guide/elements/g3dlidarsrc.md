@@ -28,6 +28,10 @@ Key operations:
 
 ## Configuration
 
+> **Upgrade note (behavior change):** `config` is now rejected if it resolves to a symlink
+> (mitigates symlink-planting attacks on shared config directories). If you intentionally point
+> `config` at a symlink, replace it with a bind mount or a copy of the real file.
+
 The `config` property points to a JSON file with a deliberately layered structure so that adding a new vendor or a new transport is a localized change. There are three layers: **vendor identity**, **transport** (how data arrives, vendor-neutral), and an open **passthrough** object for vendor-specific extras.
 
 A key principle: `transport` only carries fields whose meaning is vendor-neutral (for UDP today, that is just the bind address). Anything that uses **vendor-specific terminology** — for example RoboSense's `dense_points` or `wait_for_difop` SDK options — belongs in `params`, not in `transport`.

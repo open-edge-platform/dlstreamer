@@ -16,6 +16,11 @@ It runs:
 > **Detection must run *before* `gvastreammux`.** Once a 3D (LiDAR/radar) stream joins the mux, `gvastreammux` emits a CONTAINER batch (`multistream/x-analytics-batch`). So each camera runs its own `gvadetect` ahead of the mux; the fuser reads the resulting `GstAnalyticsODMtd` (camera streams) and `GstAnalytics3DODMtd` (3D stream) straight out of the batch.
 
 ## Properties
+
+> **Upgrade note (behavior change):** `calibration` is now rejected if it resolves to a
+> symlink (mitigates symlink-planting attacks). If you intentionally point `calibration` at a
+> symlink (e.g. shared via a symlink in a container), replace it with a bind mount or a copy.
+
 | Property              | Type           | Description                                                                                                      | Default |
 |-----------------------|----------------|------------------------------------------------------------------------------------------------------------------|---------|
 | `calibration`         | String         | Path to JSON file containing camera ↔ 3D calibration matrices. Required.                                          | NULL    |

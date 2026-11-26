@@ -72,6 +72,11 @@ Element Properties:
                         String. Default: null
 ```
 
+> **Upgrade note (behavior change):** when `method=file`, `file-path` is now rejected if it
+> resolves to a symlink (mitigates symlink-planting attacks that could redirect the write to an
+> unintended file). If you intentionally point `file-path` at a symlink, replace it with a bind
+> mount or write directly to the real path instead.
+
 The MQTT configuration file used with the `mqtt-config` property should
 conform to the following JSON schema. Values specified in the
 configuration file override values assigned to the individual properties

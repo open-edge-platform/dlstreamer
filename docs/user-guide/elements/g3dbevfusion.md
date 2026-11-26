@@ -21,6 +21,10 @@ Detections are attached as `GstAnalytics3DODMtd` to the **LiDAR buffer** inside 
 
 ## Properties
 
+> **Upgrade note (behavior change):** `config` is now rejected if it resolves to a symlink
+> (mitigates symlink-planting attacks). If you intentionally point `config` at a symlink
+> (e.g. shared via a symlink in a container), replace it with a bind mount or a copy.
+
 | Property | Type | Default | Description |
 |---|---|---|---|
 | `config` | String | NULL | Runtime JSON describing the model files (see [Runtime configuration](#runtime-configuration)). Required. |
