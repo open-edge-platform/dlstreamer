@@ -246,7 +246,7 @@ ImageInference::Ptr ImageInference::createImageInferenceInstance(MemoryType inpu
     if (async_mode) {
 #ifndef _WIN32
         // Wrap the inference in an asynchronous handler if async mode is enabled
-        result_inference = std::make_shared<ImageInferenceAsync>(config, context, std::move(ov_inference));
+        result_inference = std::make_shared<ImageInferenceAsync>(config, context, std::move(ov_inference), error_handler);
 #else
         if (input_image_memory_type == MemoryType::D3D12)
             result_inference =

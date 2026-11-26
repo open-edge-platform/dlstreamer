@@ -85,8 +85,9 @@ getImagePreProcInfo(const std::map<std::string, InferenceBackend::InputLayerDesc
 } // namespace
 
 ImageInferenceAsync::ImageInferenceAsync(const InferenceBackend::InferenceConfig &config,
-                                         dlstreamer::ContextPtr vadpy_context, ImageInference::Ptr inference)
-    : _inference(inference) {
+                                         dlstreamer::ContextPtr vadpy_context, ImageInference::Ptr inference,
+                                         ErrorHandlingFunc error_handler)
+    : _inference(inference), _error_handler(std::move(error_handler)) {
     const auto &pre_process_config = config.at(KEY_PRE_PROCESSOR);
     if (!Utils::checkAllKeysAreKnown({KEY_VAAPI_THREAD_POOL_SIZE, KEY_VAAPI_FAST_SCALE_LOAD_FACTOR},
                                      pre_process_config)) {
@@ -143,9 +144,28 @@ void ImageInferenceAsync::SubmitInference(VaApiImage *va_api_image, IFrameBase::
         }
     };
 
-    auto mapped = va_api_image->Map();
+    Image mapped;
+    try {
+        mapped = va_api_image->Map();
+    } catch (const std::exception &e) {
+        // The frame never reached an infer request, so no completion will ever arrive for it. Report it as
+        // failed so the element pushes its buffer instead of holding back every later frame of the stream.
+        GVA_ERROR("VA-API pre-processing failed, frame dropped: %s", Utils::createNestedErrorMsg(e).c_str());
+        _va_image_pool->ReleaseBuffer(va_api_image);
+        if (_error_handler)
+            _error_handler({std::move(frame)});
+        return;
+    }
+    // from here the frame's Image owns the pool entry and releases it through the deleter
     frame->SetImage(std::shared_ptr<Image>(new Image(mapped), deleter));
-    _inference->SubmitImage(std::move(frame), input_preprocessors);
+    IFrameBase::Ptr failed = frame;
+    try {
+        _inference->SubmitImage(std::move(frame), input_preprocessors);
+    } catch (const std::exception &e) {
+        GVA_ERROR("Inference submit failed, frame dropped: %s", Utils::createNestedErrorMsg(e).c_str());
+        if (_error_handler)
+            _error_handler({std::move(failed)});
+    }
 }
 
 void ImageInferenceAsync::SubmitImage(IFrameBase::Ptr frame,
@@ -164,7 +184,7 @@ void ImageInferenceAsync::SubmitImage(IFrameBase::Ptr frame,
         std::throw_with_nested(std::runtime_error("Unable to convert image using VA-API"));
     }
 
-    dst_image->sync = _thread_pool->schedule([this, dst_image, f = std::move(frame), input_preprocessors]() {
+    dst_image->sync = _thread_pool->schedule([this, dst_image, f = std::move(frame), input_preprocessors]() mutable {
         SubmitInference(dst_image, std::move(f), input_preprocessors);
     });
 }

@@ -59,25 +59,27 @@ std::future<void> ThreadPool::schedule(const std::function<void()> &callable) {
 
 void ThreadPool::_task_runner() {
     ITT_THREAD_NAME();
-    try {
-        while (!_terminate) {
-            std::function<void()> task;
+    while (!_terminate) {
+        std::function<void()> task;
 
-            // Pop a task
-            {
-                std::unique_lock<std::mutex> lock(_mutex);
-                _condition_variable.wait_for(lock, std::chrono::seconds(1),
-                                             [this]() -> bool { return !_tasks.empty() || _terminate; });
-                if (!_tasks.empty()) {
-                    task = _tasks.front();
-                    _tasks.pop();
-                }
+        // Pop a task
+        {
+            std::unique_lock<std::mutex> lock(_mutex);
+            _condition_variable.wait_for(lock, std::chrono::seconds(1),
+                                         [this]() -> bool { return !_tasks.empty() || _terminate; });
+            if (!_tasks.empty()) {
+                task = _tasks.front();
+                _tasks.pop();
             }
-
-            if (task)
-                task();
         }
-    } catch (const std::exception &e) {
-        GVA_ERROR("Error was happened during in another thread: %s", Utils::createNestedErrorMsg(e).c_str());
+
+        if (!task)
+            continue;
+        // a failing task must not take the worker down with it: the pool would silently shrink
+        try {
+            task();
+        } catch (const std::exception &e) {
+            GVA_ERROR("Error was happened during in another thread: %s", Utils::createNestedErrorMsg(e).c_str());
+        }
     }
 }

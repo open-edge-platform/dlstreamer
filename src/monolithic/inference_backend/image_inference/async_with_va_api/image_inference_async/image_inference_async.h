@@ -28,7 +28,7 @@ class ImageInferenceAsync : public ImageInference {
     constexpr static size_t DEFAULT_THREAD_POOL_SIZE = 5;
 
     ImageInferenceAsync(const InferenceBackend::InferenceConfig &config, dlstreamer::ContextPtr vadpy_context,
-                        ImageInference::Ptr inference);
+                        ImageInference::Ptr inference, ErrorHandlingFunc error_handler = nullptr);
 
     ~ImageInferenceAsync() override;
 
@@ -60,6 +60,7 @@ class ImageInferenceAsync : public ImageInference {
     std::shared_ptr<VaApiImagePool> _va_image_pool;
 
     ImageInference::Ptr _inference;
+    ErrorHandlingFunc _error_handler;
 
     std::unique_ptr<ThreadPool> _thread_pool;
 
