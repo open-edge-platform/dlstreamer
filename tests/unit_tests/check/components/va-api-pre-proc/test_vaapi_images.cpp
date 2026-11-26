@@ -13,6 +13,11 @@
 
 #include <gtest/gtest.h>
 
+#include <atomic>
+#include <chrono>
+#include <future>
+#include <thread>
+
 #include <unistd.h>
 
 using namespace InferenceBackend;
@@ -221,7 +226,44 @@ TEST_F(VAAPIImagePoolTest, VAAPIImagePoolTestManipulations) {
     ASSERT_FALSE(va_image->completed);
     ASSERT_NO_THROW(pool->ReleaseBuffer(va_image));
     ASSERT_TRUE(va_image->completed);
-    ASSERT_NO_THROW(pool->Flush());
 
     ASSERT_ANY_THROW(pool->ReleaseBuffer(nullptr));
+}
+
+// Every ReleaseBuffer must wake an AcquireBuffer that waits for it. With a single image, one lost wakeup leaves the
+// acquiring thread asleep for good: ReleaseBuffer used to set the flag and notify without the pool mutex, so a release
+// that came between AcquireBuffer's check and its wait went unnoticed. The releasing thread spins so that its release
+// often lands in that window.
+TEST_F(VAAPIImagePoolTest, VAAPIImagePoolTestNoLostWakeup) {
+    VaApiImagePool pool(va_context.get(), VaApiImagePool::SizeParams(1), image_info);
+    constexpr int iterations = 1000000;
+
+    std::atomic<VaApiImage *> handed{nullptr};
+    std::atomic<bool> stop{false};
+    std::thread releaser([&] {
+        while (!stop) {
+            if (VaApiImage *image = handed.exchange(nullptr))
+                pool.ReleaseBuffer(image);
+        }
+    });
+
+    std::atomic<VaApiImage *> the_image{nullptr};
+    std::atomic<int> done{0};
+    auto acquirer = std::async(std::launch::async, [&] {
+        while (done < iterations && !stop) {
+            VaApiImage *image = pool.AcquireBuffer();
+            the_image = image;
+            handed = image;
+            done++;
+        }
+    });
+
+    const bool finished = acquirer.wait_for(std::chrono::seconds(60)) == std::future_status::ready;
+    stop = true;
+    if (!finished)
+        pool.ReleaseBuffer(the_image); // wake the stuck AcquireBuffer, so that the test ends instead of hanging
+    acquirer.get();
+    releaser.join();
+
+    EXPECT_TRUE(finished) << "AcquireBuffer missed a release after " << done << " of " << iterations << " images";
 }

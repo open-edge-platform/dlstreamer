@@ -18,6 +18,7 @@
 #include "vaapi_images.h"
 
 #include "safe_arithmetic.hpp"
+#include "scope_guard.h"
 
 #include <future>
 #include <string>
@@ -164,7 +165,17 @@ void ImageInferenceAsync::SubmitImage(IFrameBase::Ptr frame,
         std::throw_with_nested(std::runtime_error("Unable to convert image using VA-API"));
     }
 
-    dst_image->sync = _thread_pool->schedule([this, dst_image, f = std::move(frame), input_preprocessors]() {
+    {
+        std::lock_guard<std::mutex> lock(_pending_submits_mutex);
+        ++_pending_submits;
+    }
+    _thread_pool->schedule([this, dst_image, f = std::move(frame), input_preprocessors]() {
+        // Counts the task as finished however it ends, exception included.
+        auto finished = makeScopeGuard([this] {
+            std::lock_guard<std::mutex> lock(_pending_submits_mutex);
+            if (--_pending_submits == 0)
+                _pending_submits_done.notify_all();
+        });
         SubmitInference(dst_image, std::move(f), input_preprocessors);
     });
 }
@@ -215,8 +226,11 @@ bool ImageInferenceAsync::IsQueueFull() {
 }
 
 void ImageInferenceAsync::Flush() {
-    if (_va_image_pool) {
-        _va_image_pool->Flush();
+    // Every frame scheduled so far must reach _inference before its Flush starts the last, partial batch. Wait without
+    // holding a lock that the tasks need.
+    {
+        std::unique_lock<std::mutex> lock(_pending_submits_mutex);
+        _pending_submits_done.wait(lock, [this] { return _pending_submits == 0; });
     }
     if (_inference) {
         _inference->Flush();
