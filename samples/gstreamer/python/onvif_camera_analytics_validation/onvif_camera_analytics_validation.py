@@ -26,11 +26,13 @@ Usage:
 # ==============================================================================
 
 import argparse
+import base64
 import http.server
 import json
 import logging
 import os
 import queue
+import secrets
 import sys
 import threading
 import time
@@ -469,8 +471,32 @@ class _DashboardState:
 class DashboardHandler(http.server.BaseHTTPRequestHandler):
     """HTTP handler for the live validation dashboard."""
 
+    auth_token = None  # set by start_web_ui(); required via HTTP Basic Auth
+
+    def _authenticated(self):
+        """Check the request's Basic Auth header against the dashboard token."""
+        if not self.auth_token:
+            return True
+        header = self.headers.get('Authorization', '')
+        provided = ''
+        if header.startswith('Basic '):
+            try:
+                decoded = base64.b64decode(header[len('Basic '):]).decode('utf-8')
+                _, _, provided = decoded.partition(':')
+            except (ValueError, UnicodeDecodeError):
+                provided = ''
+        if secrets.compare_digest(provided, self.auth_token):
+            return True
+        self.send_response(401)
+        self.send_header('WWW-Authenticate', 'Basic realm="DL Streamer Dashboard"')
+        self.send_header('Content-Length', '0')
+        self.end_headers()
+        return False
+
     def do_GET(self):  # pylint: disable=invalid-name
         """Handle GET requests for dashboard pages, frames, and API endpoints."""
+        if not self._authenticated():
+            return
         if self.path in ('/', '/index.html'):
             self._respond(200, 'text/html', DASHBOARD_HTML.encode(),
                           extra={'Cache-Control': 'no-cache'})
@@ -527,7 +553,6 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         """Send an HTTP response with the given status, content-type, and body."""
         self.send_response(code)
         self.send_header('Content-Type', ctype)
-        self.send_header('Access-Control-Allow-Origin', '*')
         for k, v in (extra or {}).items():
             self.send_header(k, v)
         self.end_headers()
@@ -537,12 +562,19 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         """Suppress default HTTP request logging."""
 
 
-def start_web_ui(host: str, port: int):
-    """Start the dashboard web server on the given host and port."""
+def start_web_ui(host: str, port: int, token: str = None):
+    """Start the dashboard web server on the given host and port.
+
+    Requires HTTP Basic Auth unless ``token`` is explicitly set to an empty
+    string. A token is auto-generated when none is supplied.
+    """
+    if token is None:
+        token = secrets.token_urlsafe(18)
+    DashboardHandler.auth_token = token or None
     srv = http.server.ThreadingHTTPServer((host, port), DashboardHandler)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     log.info("Web UI on %s:%d", host, port)
-    return srv
+    return srv, token
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -766,8 +798,10 @@ def run(args):
     print(f"  MQTT: CONNECTED (topics: {', '.join(args.mqtt_topics)})")
 
     # -- Start web dashboard --
-    start_web_ui(args.web_host, args.web_port)
+    _, web_token = start_web_ui(args.web_host, args.web_port, args.web_token)
     print(f"\n[Setup] Web UI: http://{args.web_host}:{args.web_port}")
+    if web_token:
+        print(f"[Setup] Web UI login — username: (any), password: {web_token}")
 
     # -- Run validation loop --
     try:
@@ -815,6 +849,10 @@ Model export (run once):
     p.add_argument("--web-host", default="127.0.0.1",
                    help="Web dashboard bind address (use 0.0.0.0 only if needed)")
     p.add_argument("--web-port", type=int, default=8080)
+    p.add_argument("--web-token", default=None,
+                   help="Password for the web dashboard's HTTP Basic Auth "
+                        "(auto-generated and printed at startup if omitted; "
+                        "pass an empty string to disable auth)")
     args = p.parse_args()
     run(args)
 
