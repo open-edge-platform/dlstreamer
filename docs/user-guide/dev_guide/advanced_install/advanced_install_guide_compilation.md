@@ -176,7 +176,7 @@ DL Streamer - no separate "plain" OpenVINO™ Toolkit install is needed on those
 platforms. Fedora 41 instead installs the official OpenVINO™ Toolkit 2026.3.1
 package from Intel's YUM repository, as in the Fedora 41 Dockerfile. The
 separate OpenVINO™ GenAI archive is required if you want to use the
-[gvagenai element](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvagenai.html),
+[gvagenai element](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-libraries/dlstreamer/elements/gvagenai.html),
 which needs the [OpenVINO GenAI archive](https://docs.openvino.ai/2026/get-started/install-openvino/install-openvino-genai.html) package.
 
 <!--hide_directive::::{tab-set}

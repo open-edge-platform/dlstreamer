@@ -5,7 +5,7 @@
 This branch is for the purpose of publishing documentation only.
 
 To see the official documentation, go to
-[Open Edge Platform documentation](https://docs.openedgeplatform.intel.com/2026.2/edge-ai-libraries/dlstreamer/index.html)
+[Open Edge Platform documentation](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-libraries/dlstreamer/index.html)
 
 For the most recent DL Streamer source, see the [main branch](https://github.com/open-edge-platform/dlstreamer)
 
