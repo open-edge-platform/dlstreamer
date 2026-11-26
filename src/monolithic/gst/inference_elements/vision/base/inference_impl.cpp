@@ -39,6 +39,8 @@
 #include <memory>
 #include <openvino/runtime/core.hpp>
 #include <openvino/runtime/properties.hpp>
+#include <algorithm>
+#include <chrono>
 #include <regex>
 #include <set>
 #include <sstream>
@@ -1445,29 +1447,30 @@ void InferenceImpl::FlushOutputs() {
     PushOutput();
 }
 
-// True while output_frames holds a completed (inference_count == 0) frame of this element that has not been pushed.
-bool InferenceImpl::HasReadyOutput(GvaBaseInference *element) {
-    std::lock_guard<std::mutex> guard(output_frames_mutex);
-    for (const auto &frame : output_frames) {
-        if (frame.filter != element)
-            continue;
-        // frames of one element are delivered in order: the first one decides
-        return frame.inference_count == 0;
-    }
-    return false;
-}
-
-// PushOutput() skips frames whose downstream queue is full instead of blocking the completion thread, so the frames
-// of a slow consumer stay in output_frames. The element's own streaming thread pushes them from here, blocking only
-// itself.
-void InferenceImpl::DrainOutput(GvaBaseInference *element) {
-    GstObject *src = &element->base_transform.element.object;
-    while (HasReadyOutput(element)) {
-        if (CheckSrcPadBlocked(src)) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+// Deliver this element's frames in order from its own streaming thread. A blocked downstream queue parks this thread
+// inside gst_pad_push() (no locks held) and the queue wakes it the moment there is room, so there is no polling and
+// no other stream of the instance is affected. Stops at the first frame still in inference or being pushed by the
+// completion thread, unless wait_all: then it waits for them (EOS/FLUSH_STOP), bounded so a lost frame cannot hang
+// the event.
+void InferenceImpl::DrainOutput(GvaBaseInference *element, bool wait_all) {
+    std::unique_lock<std::mutex> lock(output_frames_mutex);
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    for (;;) {
+        auto frame = std::find_if(output_frames.begin(), output_frames.end(),
+                                  [element](const OutputFrame &f) { return f.filter == element; });
+        if (frame == output_frames.end())
+            return;
+        if (frame->inference_count != 0 || frame->pushing) {
+            if (!wait_all)
+                return;
+            if (output_frames_cv.wait_until(lock, deadline) == std::cv_status::timeout) {
+                GVA_WARNING("<%s>: output frames still pending at EOS/flush", GST_ELEMENT_NAME(element));
+                return;
+            }
             continue;
         }
-        PushOutput();
+        RecordClassificationHistory(*frame);
+        DeliverFrame(lock, frame);
     }
 }
 
@@ -1612,21 +1615,22 @@ void InferenceImpl::SetAffinityMask(const WinCorePinningMask &mask) {
 #endif
 
 /**
- * Acquires output_frames_mutex with std::lock_guard.
+ * Pushes every completed frame whose output is not blocked, in per-element order. Called on the completion thread:
+ * a frame whose downstream queue is (about to be) full is left for the element's streaming thread (DrainOutput), and
+ * output_frames_mutex is released around each push so other elements' completions never wait on a push.
  */
 void InferenceImpl::PushOutput() {
     ITT_TASK(__FUNCTION__);
-    std::lock_guard<std::mutex> guard(output_frames_mutex);
+    std::unique_lock<std::mutex> guard(output_frames_mutex);
 
     // track output queues that are full
     std::map<std::string, bool> output_full;
-    // elements with an earlier, not yet completed frame: their later frames must wait to keep per-stream order
+    // elements with an earlier frame not yet completed or still being pushed: later frames wait to keep order
     std::set<GvaBaseInference *> elements_pending;
 
     auto frame = output_frames.begin();
     while (frame != output_frames.end()) {
-        if ((*frame).inference_count != 0) {
-            // not completed yet: holds back only this element's later frames, not the other streams
+        if ((*frame).inference_count != 0 || (*frame).pushing) {
             elements_pending.insert((*frame).filter);
             frame++;
             continue;
@@ -1636,43 +1640,59 @@ void InferenceImpl::PushOutput() {
             continue;
         }
 
-        for (const std::shared_ptr<InferenceFrame> &inference_roi : (*frame).inference_rois) {
-            gint meta_id = 0;
-            if (inference_roi->roi.id >= 0) {
-                GMutexLockGuard guard(&inference_roi->gva_base_inference->meta_mutex);
-                GstAnalyticsRelationMeta *relation_meta = gst_buffer_get_analytics_relation_meta(inference_roi->buffer);
-                if (!relation_meta) {
-                    throw std::runtime_error("Failed to find relation meta");
-                }
-
-                GstAnalyticsODMtd od_mtd;
-                if (!gst_analytics_relation_meta_get_od_mtd(relation_meta, inference_roi->roi.id, &od_mtd)) {
-                    throw std::runtime_error("Failed to find od metadata");
-                }
-
-                if (!post_processing::sameRegion(&od_mtd, &inference_roi->roi)) {
-                    throw std::runtime_error("Roi and od meta are not the same region");
-                }
-
-                get_od_id(od_mtd, &meta_id);
-            }
-
-            for (const GstStructure *roi_classification : inference_roi->roi_classifications) {
-                UpdateClassificationHistory(meta_id, (*frame).filter, roi_classification);
-            }
-        }
-
         // 'output_frames' queue can be shared across streams and it is subject to HOL blocking
         // do not send frame to a blocked output, but check if there frames ready to non-blocked outputs
         GstObject *src = &(*frame).filter->base_transform.element.object;
-        if (CheckSrcPadBlocked(src) || output_full[src->name]) {
+        if (output_full[src->name] || CheckSrcPadBlocked(src)) {
             output_full[src->name] = true;
             frame++; // output blocked, try next frame
-        } else {
-            PushBufferToSrcPad(*frame);
-            frame = output_frames.erase(frame);
+            continue;
+        }
+        RecordClassificationHistory(*frame);
+        frame = DeliverFrame(guard, frame);
+    }
+}
+
+void InferenceImpl::RecordClassificationHistory(const OutputFrame &frame) {
+    for (const std::shared_ptr<InferenceFrame> &inference_roi : frame.inference_rois) {
+        gint meta_id = 0;
+        if (inference_roi->roi.id >= 0) {
+            GMutexLockGuard guard(&inference_roi->gva_base_inference->meta_mutex);
+            GstAnalyticsRelationMeta *relation_meta = gst_buffer_get_analytics_relation_meta(inference_roi->buffer);
+            if (!relation_meta) {
+                throw std::runtime_error("Failed to find relation meta");
+            }
+
+            GstAnalyticsODMtd od_mtd;
+            if (!gst_analytics_relation_meta_get_od_mtd(relation_meta, inference_roi->roi.id, &od_mtd)) {
+                throw std::runtime_error("Failed to find od metadata");
+            }
+
+            if (!post_processing::sameRegion(&od_mtd, &inference_roi->roi)) {
+                throw std::runtime_error("Roi and od meta are not the same region");
+            }
+
+            get_od_id(od_mtd, &meta_id);
+        }
+
+        for (const GstStructure *roi_classification : inference_roi->roi_classifications) {
+            UpdateClassificationHistory(meta_id, frame.filter, roi_classification);
         }
     }
+}
+
+// Pushes `frame` with output_frames_mutex released (gst_pad_push may block) and erases it afterwards. The `pushing`
+// flag keeps every other thread from touching or reordering around it; std::list iterators stay valid meanwhile.
+std::list<InferenceImpl::OutputFrame>::iterator InferenceImpl::DeliverFrame(std::unique_lock<std::mutex> &lock,
+                                                                           std::list<OutputFrame>::iterator frame) {
+    frame->pushing = true;
+    OutputFrame to_push = *frame;
+    lock.unlock();
+    PushBufferToSrcPad(to_push);
+    lock.lock();
+    auto next = output_frames.erase(frame);
+    output_frames_cv.notify_all();
+    return next;
 }
 
 bool InferenceImpl::CheckSrcPadBlocked(GstObject *src) {
@@ -1709,10 +1729,9 @@ bool InferenceImpl::CheckSrcPadBlocked(GstObject *src) {
                      NULL);
 
         // The queue blocks its sink pad when one more buffer would exceed any of its limits. A blocked
-        // gst_pad_push from the completion thread would stall every stream sharing this instance
-        // (output_frames_mutex and _mutex are held across it), so the completion thread skips such a
-        // frame and the stream's own thread delivers it (DrainOutput) once there is room. Per-buffer
-        // size/duration are estimated from the queue's current contents.
+        // gst_pad_push from the completion thread would delay every completion of this instance, so the
+        // completion thread skips such a frame and the stream's own thread delivers it (DrainOutput),
+        // blocking only itself. Per-buffer size/duration are estimated from the queue's current contents.
         if (buf_cnt > 0) {
             const guint avg_bytes = bytes / buf_cnt;
             const guint64 avg_time = time / buf_cnt;
@@ -1905,16 +1924,8 @@ GstFlowReturn InferenceImpl::TransformFrameIp(GvaBaseInference *gva_base_inferen
         ITT_TASK("InferenceImpl::TransformFrameIp pushIntoOutputFramesQueue");
         std::unique_lock output_lock(output_frames_mutex);
 
-        // pause on accepting a new frame if downstream already blocks
-        GstObject *src = &gva_base_inference->base_transform.element.object;
-        while (CheckSrcPadBlocked(src)) {
-            output_lock.unlock();
-            lock.unlock();
-            GVA_INFO("Wait on blocking output <%s>", src->name);
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            lock.lock();
-            output_lock.lock();
-        }
+        // Backpressure comes from DrainOutput() above: this thread blocks there until its completed frames fit
+        // downstream, so the frames of one element in output_frames are bounded by the requests in flight.
 
         // schedule frames according to their presentation time
         if (!strcmp(gva_base_inference->scheduling_policy, "latency")) {
@@ -2012,6 +2023,7 @@ void InferenceImpl::UpdateOutputFrames(std::shared_ptr<InferenceFrame> &inferenc
         --output_frame.inference_count;
         break;
     }
+    output_frames_cv.notify_all();
 }
 
 namespace {
