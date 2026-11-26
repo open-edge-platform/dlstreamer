@@ -20,10 +20,15 @@
 #define NUM_BUFFERS 30
 #define PIPELINE_RECORD "latency_tracer_pipeline"
 
-static GMutex records_lock;
-static GHashTable *records; /* pipeline name -> number of latency_tracer_pipeline records */
+typedef struct {
+    guint count;         /* latency_tracer_pipeline records */
+    guint max_frame_num; /* highest frame_num among them */
+} RunRecords;
 
-/* Counts the tracer's per-frame records and hands every other message to the default handler. */
+static GMutex records_lock;
+static GHashTable *records; /* pipeline name -> RunRecords* */
+
+/* Collects the tracer's per-frame records and hands every other message to the default handler. */
 static void count_tracer_records(GstDebugCategory *category, GstDebugLevel level, const gchar *file,
                                  const gchar *function, gint line, GObject *object, GstDebugMessage *message,
                                  gpointer user_data) {
@@ -33,9 +38,16 @@ static void count_tracer_records(GstDebugCategory *category, GstDebugLevel level
             GstStructure *s = gst_structure_from_string(text, NULL);
             if (s) {
                 const gchar *name = gst_structure_get_string(s, "pipeline_name");
+                guint frame_num = 0;
+                gst_structure_get_uint(s, "frame_num", &frame_num);
                 g_mutex_lock(&records_lock);
-                guint n = GPOINTER_TO_UINT(g_hash_table_lookup(records, name));
-                g_hash_table_replace(records, g_strdup(name), GUINT_TO_POINTER(n + 1));
+                RunRecords *r = g_hash_table_lookup(records, name);
+                if (!r) {
+                    r = g_new0(RunRecords, 1);
+                    g_hash_table_insert(records, g_strdup(name), r);
+                }
+                r->count++;
+                r->max_frame_num = MAX(r->max_frame_num, frame_num);
                 g_mutex_unlock(&records_lock);
                 gst_structure_free(s);
             }
@@ -45,12 +57,15 @@ static void count_tracer_records(GstDebugCategory *category, GstDebugLevel level
     gst_debug_log_default(category, level, file, function, line, object, message, user_data);
 }
 
-static guint take_records(const gchar *pipeline_name) {
+static RunRecords take_records(const gchar *pipeline_name) {
+    RunRecords result = {0, 0};
     g_mutex_lock(&records_lock);
-    guint n = GPOINTER_TO_UINT(g_hash_table_lookup(records, pipeline_name));
+    RunRecords *r = g_hash_table_lookup(records, pipeline_name);
+    if (r)
+        result = *r;
     g_hash_table_remove(records, pipeline_name);
     g_mutex_unlock(&records_lock);
-    return n;
+    return result;
 }
 
 static void count_handoff(GstElement *sink, GstBuffer *buffer, GstPad *pad, gpointer user_data) {
@@ -78,7 +93,7 @@ static GstElement *make_pipeline(const gchar *name, gboolean live, gint *handoff
 }
 
 /* Plays the pipeline to EOS, stops it in READY and checks the records logged during this run. */
-static void run_and_check(GstElement *pipeline, gint *handoffs) {
+static RunRecords run_and_check(GstElement *pipeline, gint *handoffs) {
     const gchar *name = GST_ELEMENT_NAME(pipeline);
     g_atomic_int_set(handoffs, 0);
     fail_if(gst_element_set_state(pipeline, GST_STATE_PLAYING) == GST_STATE_CHANGE_FAILURE);
@@ -93,11 +108,12 @@ static void run_and_check(GstElement *pipeline, gint *handoffs) {
     fail_if(gst_element_set_state(pipeline, GST_STATE_READY) == GST_STATE_CHANGE_FAILURE);
 
     guint buffers = (guint)g_atomic_int_get(handoffs);
-    guint n = take_records(name);
+    RunRecords r = take_records(name);
     fail_unless_equals_int(buffers, NUM_BUFFERS);
-    fail_unless(n <= buffers, "%s: %u tracer records for %u buffers, some buffers were counted twice", name, n,
-                buffers);
-    fail_unless(n >= buffers / 2, "%s: only %u tracer records for %u buffers", name, n, buffers);
+    fail_unless(r.count <= buffers, "%s: %u tracer records for %u buffers, some buffers were counted twice", name,
+                r.count, buffers);
+    fail_unless(r.count >= buffers / 2, "%s: only %u tracer records for %u buffers", name, r.count, buffers);
+    return r;
 }
 
 /* A live pipeline goes PAUSED -> PLAYING twice per start: ASYNC first, then again after async-done. */
@@ -134,6 +150,72 @@ GST_START_TEST(test_restarted_pipeline_records_each_buffer_once) {
 }
 GST_END_TEST;
 
+/* A pipeline stopped in READY and played again must not continue the statistics of its previous run. */
+GST_START_TEST(test_restarted_pipeline_starts_fresh) {
+    gint handoffs = 0;
+    GstElement *pipeline = make_pipeline("fresh", FALSE, &handoffs);
+    run_and_check(pipeline, &handoffs);
+    RunRecords second = run_and_check(pipeline, &handoffs);
+    fail_unless(second.max_frame_num <= NUM_BUFFERS, "frame_num reached %u in a run of %u buffers",
+                second.max_frame_num, NUM_BUFFERS);
+    gst_element_set_state(pipeline, GST_STATE_NULL);
+    gst_object_unref(pipeline);
+}
+GST_END_TEST;
+
+static GstPad *pushed_pad;
+static gint stop_pushing;
+
+static gpointer push_until_stopped(gpointer user_data) {
+    (void)user_data;
+    while (!g_atomic_int_get(&stop_pushing))
+        gst_pad_push(pushed_pad, gst_buffer_new_allocate(NULL, 16, NULL));
+    return NULL;
+}
+
+/* Threads the pipeline does not join (inference callbacks, the application) can still push while the pipeline
+ * goes to READY and the tracer releases its state. Run under a sanitizer to detect use after free. */
+GST_START_TEST(test_push_during_teardown) {
+    GstElement *pipeline = gst_parse_launch("videotestsrc ! video/x-raw,width=16,height=16 ! "
+                                            "identity name=id ! fakesink sync=false",
+                                            NULL);
+    fail_unless(pipeline != NULL);
+    gst_object_set_name(GST_OBJECT(pipeline), "teardown");
+    GstElement *identity = gst_bin_get_by_name(GST_BIN(pipeline), "id");
+    pushed_pad = gst_element_get_static_pad(identity, "src");
+    g_atomic_int_set(&stop_pushing, 0);
+    /* Pushes that race with videotestsrc starting a stream make GStreamer warn about event order */
+    GRegex *early_data =
+        g_regex_new("Got data flow before|Sticky event misordering", (GRegexCompileFlags)0, (GRegexMatchFlags)0, NULL);
+    GstCheckLogFilter *filter =
+        gst_check_add_log_filter("GStreamer", G_LOG_LEVEL_WARNING, early_data, NULL, NULL, NULL);
+
+    GThread *pushers[4];
+    for (guint i = 0; i < G_N_ELEMENTS(pushers); i++)
+        pushers[i] = g_thread_new("pusher", push_until_stopped, NULL);
+    guint failed_changes = 0;
+    for (guint cycle = 0; cycle < 50; cycle++) {
+        if (gst_element_set_state(pipeline, GST_STATE_PLAYING) == GST_STATE_CHANGE_FAILURE)
+            failed_changes++;
+        gst_element_get_state(pipeline, NULL, NULL, GST_CLOCK_TIME_NONE);
+        g_usleep(2000);
+        if (gst_element_set_state(pipeline, GST_STATE_READY) == GST_STATE_CHANGE_FAILURE)
+            failed_changes++;
+    }
+    g_atomic_int_set(&stop_pushing, 1);
+    for (guint i = 0; i < G_N_ELEMENTS(pushers); i++)
+        g_thread_join(pushers[i]);
+
+    gst_element_set_state(pipeline, GST_STATE_NULL);
+    gst_check_remove_log_filter(filter);
+    gst_object_unref(pushed_pad);
+    gst_object_unref(identity);
+    gst_object_unref(pipeline);
+    take_records("teardown");
+    fail_unless_equals_int(failed_changes, 0);
+}
+GST_END_TEST;
+
 static Suite *latency_tracer_suite(void) {
     Suite *s = suite_create("latency_tracer");
     TCase *tc = tcase_create("general");
@@ -141,6 +223,8 @@ static Suite *latency_tracer_suite(void) {
     tcase_add_test(tc, test_live_pipeline_records_each_buffer_once);
     tcase_add_test(tc, test_sequential_pipelines_record_each_buffer_once);
     tcase_add_test(tc, test_restarted_pipeline_records_each_buffer_once);
+    tcase_add_test(tc, test_restarted_pipeline_starts_fresh);
+    tcase_add_test(tc, test_push_during_teardown);
     return s;
 }
 
@@ -149,7 +233,7 @@ int main(int argc, char **argv) {
     g_setenv("GST_TRACERS", "latency_tracer(flags=pipeline)", TRUE);
     gst_check_init(&argc, &argv);
 
-    records = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+    records = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
     gst_debug_remove_log_function(gst_debug_log_default);
     gst_debug_add_log_function(count_tracer_records, NULL, NULL);
     gst_debug_set_threshold_for_name("GST_TRACER", GST_LEVEL_TRACE);
