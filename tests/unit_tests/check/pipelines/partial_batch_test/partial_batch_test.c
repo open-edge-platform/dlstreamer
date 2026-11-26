@@ -76,6 +76,10 @@ static gchar *write_roi_file(void) {
     gint fd = g_file_open_tmp("partial_batch_test_XXXXXX.json", &path, &error);
     ck_assert_msg(fd >= 0, "cannot create the ROI file: %s", error ? error->message : "");
     g_close(fd, NULL);
+#ifdef _WIN32
+    // The path ends up in the gst_parse_launch() description, where '\' is an escape character
+    g_strdelimit(path, "\\", '/');
+#endif
 
     GString *json = g_string_new("[");
     for (int i = 0; i < 2; i++)
