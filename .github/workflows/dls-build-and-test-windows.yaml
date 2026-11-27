@@ -481,7 +481,7 @@ jobs:
           }
 
           # defusedxml is needed by tests/scripts/unit_test_results.py
-          & $VenvPython -m pip install tqdm==4.67.1 numpy==2.2.0 opencv-python==4.11.0.86 defusedxml==0.7.1
+          & $VenvPython -m pip install tqdm==4.67.1 numpy==2.2.0 opencv-python==5.1.0.95 defusedxml==0.7.1
 
           "VENV_PYTHON=$VenvPython" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 

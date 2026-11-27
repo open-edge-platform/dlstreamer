@@ -1,6 +1,6 @@
 numpy==2.2.0
 tqdm==4.67.1
-opencv-python==4.11.0.86
+opencv-python==5.1.0.95
 setuptools==84.1.0
 typing-extensions==4.15.0
 defusedxml==0.7.1
