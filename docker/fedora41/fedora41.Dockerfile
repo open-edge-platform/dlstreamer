@@ -95,7 +95,7 @@ RUN \
     tabulate==0.9.0 \
     tqdm==4.67.1 \
     junit-xml==1.9 \
-    opencv-python==4.11.0.86 \
+    opencv-python==5.1.0.95 \
     XlsxWriter==3.2.0 \
     zxing-cpp==2.2.0 \
     pyzbar==0.1.9 \
