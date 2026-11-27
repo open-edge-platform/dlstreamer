@@ -64,8 +64,8 @@ def _soap_request(url: str, body: str) -> Optional[str]:
 class ONVIFClient:
     """Lightweight ONVIF client for camera discovery via standard SOAP calls."""
 
-    def __init__(self, ip: str, port: int = 80):
-        base = f"http://{ip}:{port}/onvif"
+    def __init__(self, ip: str, port: int = 80, scheme: str = "http"):
+        base = f"{scheme}://{ip}:{port}/onvif"
         self.device_url = f"{base}/device_service"
         self.media_url = f"{base}/media_service"
 

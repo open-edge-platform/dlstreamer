@@ -396,8 +396,10 @@ class GvaMetaPublishMqttPrivate {
 
     std::string _json_config_file;
 
-    uint32_t _ssl_verify = 0;
-    uint32_t _ssl_enable_server_cert_auth = 0;
+    // secure-by-default: when TLS is enabled, verify the broker's certificate unless the
+    // user explicitly opts out via the mqtt-config file
+    uint32_t _ssl_verify = 1;
+    uint32_t _ssl_enable_server_cert_auth = 1;
 
     bool _TLS = false;
 

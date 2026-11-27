@@ -16,6 +16,7 @@
 
 #ifdef _WIN32
 #include <intrin.h>
+#include <windows.h>
 #endif
 
 #include <cassert>

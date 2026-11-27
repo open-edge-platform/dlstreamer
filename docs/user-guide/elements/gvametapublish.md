@@ -72,10 +72,23 @@ Element Properties:
                         String. Default: null
 ```
 
+> **Upgrade note (behavior change):** when `method=file`, `file-path` is now rejected if it
+> resolves to a symlink (mitigates symlink-planting attacks that could redirect the write to an
+> unintended file). If you intentionally point `file-path` at a symlink, replace it with a bind
+> mount or write directly to the real path instead.
+
 The MQTT configuration file used with the `mqtt-config` property should
 conform to the following JSON schema. Values specified in the
 configuration file override values assigned to the individual properties
 listed above.
+
+> **Upgrade note (behavior change):** `ssl_verify` and `ssl_enable_server_cert_auth` now
+> default to `1` (enabled) instead of `0` whenever `TLS` is `true`. If you already use
+> `"TLS": true` with a self-signed or otherwise unverifiable broker certificate and did **not**
+> explicitly set these fields, the connection previously succeeded without verification and may
+> now fail. To restore the previous behavior, set `ssl_verify` and/or
+> `ssl_enable_server_cert_auth` to `0` explicitly in your `mqtt-config` file, or (recommended)
+> configure `ssl_CA_certificate` so the broker's certificate verifies correctly.
 
 ```json
 {
@@ -110,11 +123,11 @@ listed above.
     },
     "ssl_verify": {
       "type": "integer",
-      "description": "An integer indicating whether to carry out post-connect checks, including that a certificate matches the given host name. A value of 0 means verification is disabled. Default: 0."
+      "description": "An integer indicating whether to carry out post-connect checks, including that a certificate matches the given host name. A value of 0 means verification is disabled. Default: 1 (enabled) when TLS is used."
     },
     "ssl_enable_server_cert_auth": {
       "type": "integer",
-      "description": "An integer indicating whether to enable server certificate authentication. A value of 0 means it is disabled. Default: 0."
+      "description": "An integer indicating whether to enable server certificate authentication. A value of 0 means it is disabled. Default: 1 (enabled) when TLS is used."
     },
     "ssl_CA_certificate": {
       "type": ["string", "null"],

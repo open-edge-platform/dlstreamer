@@ -93,6 +93,11 @@ gvaanalytics config=/path/to/analytics-config.json track-timeout=30.0
 
 Pass a path to a JSON configuration file using the `config` property:
 
+> **Upgrade note (behavior change):** `config` is now rejected if it resolves to a symlink
+> (mitigates symlink-planting attacks on shared config directories). If you intentionally
+> point `config` at a symlink (e.g. a config mounted/shared via a symlink in a container),
+> replace the symlink with a bind mount or a copy of the real file.
+
 ```bash
 gst-launch-1.0 ... ! gvaanalytics config=/path/to/analytics-config.json ! ...
 ```

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
@@ -8,6 +8,7 @@
 
 #include <common.hpp>
 
+#include <filesystem>
 #include <stdio.h>
 #include <string>
 
@@ -83,6 +84,10 @@ class GvaMetaPublishFilePrivate {
         if (_file_path == STDOUT) {
             _output_file = stdout;
             return true;
+        }
+        if (std::filesystem::is_symlink(_file_path)) {
+            // refuse to read/write through a symlink planted at the output path
+            return false;
         }
         if (_file_format == GVA_META_PUBLISH_JSON) {
             if (!(_output_file = fopen(_file_path.c_str(), "w+"))) {

@@ -106,6 +106,12 @@ python3 onvif_camera_analytics_validation.py \
 
 Open **http://localhost:8080** to view the dashboard. When the camera detects objects and publishes MQTT events, the dashboard will show the camera's reported analytics alongside the VLM's independent description of the same scene.
 
+> **Upgrade note (behavior change):** the dashboard now requires HTTP Basic Auth. A random
+> password is generated and printed to the console at startup (`[Setup] Web UI login`); use any
+> username with that password, or pass your own via `--web-token` (pass an empty string to
+> disable auth for local debugging). Scripts/automation that previously hit the dashboard
+> without credentials will now get `401 Unauthorized` until updated.
+
 ### Example Output
 
 #### Dashboard
@@ -140,6 +146,7 @@ without requiring a dedicated weapon-detection model.
 | `--mqtt-port` | `1883` | MQTT broker port |
 | `--mqtt-topics` | `onvif/analytics/#` | MQTT subscribe topics |
 | `--web-port` | `8080` | Web dashboard port |
+| `--web-token` | (auto-generated) | Web dashboard Basic Auth password; pass `""` to disable auth |
 
 ## Web Dashboard
 

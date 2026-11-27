@@ -6,6 +6,7 @@
 
 #include "calibration.h"
 
+#include <filesystem>
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include <sstream>
@@ -39,6 +40,11 @@ bool parse_camera(const nlohmann::json &j, CameraCalibration &cal) {
 bool CalibrationStore::load(const std::string &path) {
     last_error_.clear();
     per_camera_.clear();
+
+    if (std::filesystem::is_symlink(path)) {
+        last_error_ = "Calibration file is a symbolic link: " + path;
+        return false;
+    }
 
     std::ifstream in(path);
     if (!in.is_open()) {

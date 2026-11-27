@@ -28,6 +28,10 @@ Key operations:
 
 ## Configuration
 
+> **Upgrade note (behavior change):** `config` is now rejected if it resolves to a symlink
+> (mitigates symlink-planting attacks on shared config directories). If you intentionally point
+> `config` at a symlink, replace it with a bind mount or a copy of the real file.
+
 The `config` property points to a JSON file with a deliberately layered structure so that adding a new vendor or a new transport is a localized change. There are three layers: **vendor identity**, **transport** (how data arrives, vendor-neutral), and an open **passthrough** object for vendor-specific extras.
 
 A key principle: `transport` only carries fields whose meaning is vendor-neutral (for UDP today, that is just the bind address). Anything that uses **vendor-specific terminology** — for example RoboSense's `dense_points` or `wait_for_difop` SDK options — belongs in `params`, not in `transport`.
@@ -237,9 +241,9 @@ The element needs **no changes** — a config with `"vendor": "<vendor>"` will l
 Backends are loaded by bare name (`libg3dlidar_<vendor>.so` on Linux, `g3dlidar_<vendor>.dll` on Windows), so the install directory must be on the dynamic loader's search path at runtime:
 
 - **Linux** — on `LD_LIBRARY_PATH`. A standard install places the backend under `lib/`, which `scripts/setup_dls_env.sh` already adds to `LD_LIBRARY_PATH`.
-- **Windows** — on `PATH` (Windows searches `PATH`, not `LD_LIBRARY_PATH`). A standard install / `setup_dls_env.ps1` sets this up; building from the tree with `build_dlstreamer_dlls.ps1 -setEnv` also adds the build output to `PATH`.
+- **Windows** — the backend DLL must sit in the **same directory as `gst3delements.dll`** (the standard install / `setup_dls_env.ps1` / `build_dlstreamer_dlls.ps1 -setEnv` layout already satisfies this).
 
-If the element fails at start with *"Failed to load backend '…'"*, the backend is either not built (its `ENABLE_LIDAR_<VENDOR>` option was OFF) or not on the library path.
+If the element fails at start with *"Failed to load backend '…'"*, the backend is either not built (its `ENABLE_LIDAR_<VENDOR>` option was OFF) or not installed alongside `gst3delements.dll`.
 
 ## Element Details (gst-inspect-1.0)
 

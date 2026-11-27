@@ -1,12 +1,17 @@
 /*******************************************************************************
- * Copyright (C) 2020-2025 Intel Corporation
+ * Copyright (C) 2020-2026 Intel Corporation
  *
  * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
 #include "json_reader.h"
 
+#include <filesystem>
+
 void JsonReader::read(const std::string &file_path) {
+    if (std::filesystem::is_symlink(file_path))
+        throw std::invalid_argument("Model-proc file '" + file_path + "' is a symbolic link");
+
     std::ifstream input_file(file_path);
     if (not input_file)
         throw std::runtime_error("Model-proc file '" + file_path + "' was not found");

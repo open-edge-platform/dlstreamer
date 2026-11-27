@@ -81,8 +81,8 @@
       "target_binding_id": "event_mapping_camera_2_id",
       "pipeline_ref": "event_mapping_camera_2",
       "profile_name": "minorStream",
-      "username": "admin",
-      "password": "r00tme"
+      "username": "",
+      "password": ""
     }
   ]
 }

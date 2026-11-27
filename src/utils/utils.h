@@ -81,6 +81,7 @@ void parseFilterConfig(const std::string &config_str, std::unordered_set<std::st
 std::map<std::string, std::string> stringToMap(const std::string &s, char rec_delim = ',', char kv_delim = '=');
 bool fileExists(const std::string &path);
 bool symLink(const std::string &path);
+
 constexpr bool IsLinux() {
 #ifdef __linux__
     return true;
