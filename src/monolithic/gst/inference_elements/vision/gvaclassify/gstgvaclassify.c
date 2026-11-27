@@ -18,7 +18,7 @@
 #include <gst/gst.h>
 #include <gst/video/video.h>
 
-#define ELEMENT_LONG_NAME "Object classification (requires GstVideoRegionOfInterestMeta on input)"
+#define ELEMENT_LONG_NAME "Object classification (on GstAnalyticsODMtd or full frame)"
 #define ELEMENT_DESCRIPTION                                                                                            \
     "Performs object classification. Accepts the ROI or full frame as an input and "                                   \
     "outputs classification results with metadata."

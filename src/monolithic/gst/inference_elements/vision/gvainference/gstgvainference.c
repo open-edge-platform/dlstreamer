@@ -14,8 +14,8 @@
 #include <gst/gst.h>
 #include <gst/video/video.h>
 
-#define ELEMENT_LONG_NAME "Generic full-frame inference (generates GstGVATensorMeta)"
-#define ELEMENT_DESCRIPTION "Runs deep learning inference using any model with an RGB or BGR input."
+#define ELEMENT_LONG_NAME "Generic full-frame or ROI inference (generates GstAnalyticsTensorMtd)"
+#define ELEMENT_DESCRIPTION "Runs deep learning inference on full frames or ROIs using any model with RGB or BGR input."
 
 GST_DEBUG_CATEGORY_STATIC(gst_gva_inference_debug_category);
 #define GST_CAT_DEFAULT gst_gva_inference_debug_category

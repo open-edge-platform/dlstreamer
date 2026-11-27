@@ -13,10 +13,10 @@
 #include <gst/gst.h>
 #include <gst/video/video.h>
 
-#define ELEMENT_LONG_NAME "Object detection (generates GstVideoRegionOfInterestMeta)"
+#define ELEMENT_LONG_NAME "Object detection (generates GstAnalyticsODMtd)"
 #define ELEMENT_DESCRIPTION                                                                                            \
     "Performs object detection using SSD-like "                                                                        \
-    "(including MobileNet-V1/V2 and ResNet), YOLOv5 - YOLO11, YOLOX "                                                  \
+    "(including MobileNet-V1/V2 and ResNet), YOLOv5 - YOLO26, YOLOX, RT-DETR, RF-DETR, Mask R-CNN "                    \
     "and FasterRCNN-like object detection models."
 
 enum {

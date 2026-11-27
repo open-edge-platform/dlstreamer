@@ -19,7 +19,7 @@
 #include <dlstreamer/vaapi/context.h>
 #endif
 
-#define ELEMENT_LONG_NAME "Object tracker (generates GstGvaObjectTrackerMeta, GstVideoRegionOfInterestMeta)"
+#define ELEMENT_LONG_NAME "Object tracker (generates GstAnalyticsTrackingMtd)"
 #define ELEMENT_DESCRIPTION                                                                                            \
     "Performs object tracking using zero-term, zero-term-imageless, short-term-imageless, or Deep SORT tracking "      \
     "algorithms. Zero-term tracking assigns unique object IDs and requires object detection to run on every frame. "   \

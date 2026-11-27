@@ -1,8 +1,8 @@
 # gvadetect
 
 Performs object detection using SSD-like (including MobileNet-V1/V2 and
-ResNet), YOLOv5 - YOLO11, YOLOX and FasterRCNN-like object detection
-models.
+ResNet), YOLOv5 - YOLO26, YOLOX, RT-DETR, RF-DETR, Mask R-CNN and
+FasterRCNN-like object detection models.
 
 On Windows, the element also accepts `video/x-raw(memory:D3D11Memory)` and
 `video/x-raw(memory:D3D12Memory)` in `NV12` and `BGRA`, and the properties differ

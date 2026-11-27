@@ -24,7 +24,7 @@ GST_DEBUG_CATEGORY_STATIC(gst_gva_meta_aggregate_debug);
 #define ELEMENT_LONG_NAME "Meta Aggregate"
 #define ELEMENT_DESCRIPTION                                                                                            \
     "Aggregates inference results from multiple pipeline branches. Data that is transferred further along the "        \
-    "pipeline is taken from the first sink pad of the gvametaaggreagate element."
+    "pipeline is taken from the first sink pad of the gvametaaggregate element."
 
 static GstStaticPadTemplate src_factory =
     GST_STATIC_PAD_TEMPLATE("src", GST_PAD_SRC, GST_PAD_ALWAYS, GST_STATIC_CAPS_ANY);
