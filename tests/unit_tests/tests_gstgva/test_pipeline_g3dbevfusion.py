@@ -95,9 +95,9 @@ class TestG3DBevFusion(unittest.TestCase):
         return ("gvastreammux name=mux output-mode=container sync-mode=first-pts max-wait-time=5000000000 ! "
                 f"g3dbevfusion {props} ! fakesink name=sink")
 
-    def _calibration(self, edit):
-        """A copy of the scene's calibration.json, changed by edit(dict)."""
-        with open(os.path.join(SCENE, "calibration.json")) as f:
+    def _calibration(self, edit, name="calibration.json"):
+        """A copy of the scene's calibration (calibration.json by default), changed by edit(dict)."""
+        with open(os.path.join(SCENE, name)) as f:
             calibration = json.load(f)
         edit(calibration)
         path = os.path.join(self.dump_dir, "calibration_edited.json")
@@ -202,6 +202,23 @@ class TestG3DBevFusion(unittest.TestCase):
                            f"{self._bevfusion(os.path.join(SCENE, 'calibration.json'))}", pts=pts)
         self.assertEqual(errors, [])
         self.assertEqual(pts, [table[i]["timestamp_us"] * 1000 for i in range(frames)])
+
+    def test_frames_table_loops_with_the_source(self):
+        # multifilesrc loop=true keeps counting frame_id past the table: it
+        # starts the table again, and the recorded times keep increasing.
+        table = self._frames_table()[:2]
+        if len(table) < 2:
+            self.skipTest("the scene's calibration.json has no frames table")
+        calibration = self._calibration(lambda c: c.update(frames=c["frames"][:2]), "calibration_lidar_only.json")
+        frames, pts = 5, []
+        lidar = (f"multifilesrc location={SCENE}/LIDAR_TOP/%06d.bin start-index=0 stop-index=1 loop=true "
+                 f"num-buffers={frames} caps=application/octet-stream ! g3dlidarparse frame-rate=2 ! queue ! mux.sink_6")
+        errors = self._run(f"{lidar} {self._bevfusion(calibration)}", pts=pts)
+        self.assertEqual(errors, [])
+        self.assertEqual(len(self._dumped_frames()), frames)
+        t0, t1 = (entry["timestamp_us"] * 1000 for entry in table)
+        period = 2 * (t1 - t0)  # two frames, then one more interval back to the first
+        self.assertEqual(pts, [t0, t1, t0 + period, t1 + period, t0 + 2 * period])
 
     def test_frames_table_out_of_step_is_an_error(self):
         if not self._frames_table():

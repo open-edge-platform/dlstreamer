@@ -25,7 +25,7 @@ Detections are attached as `GstAnalytics3DODMtd` to the **LiDAR buffer** inside 
 |---|---|---|---|
 | `config` | String | NULL | Runtime JSON describing the model files (see [Runtime configuration](#runtime-configuration)). Required. |
 | `calibration` | String | NULL | JSON naming the mux pad of the LiDAR and of each camera, with each camera's calibration, and optionally a per-frame table (see [Calibration JSON schema](#calibration-json-schema)). Required. |
-| `device` | String | `GPU` | Device for the dense networks: camera encoder, geometry and detection head. The custom voxelize and BEV-pool ops always run on the GPU. |
+| `device` | String | `GPU` | Device for the dense networks: camera encoder, geometry and detection head, for example `GPU`, `GPU.1` or `CPU`. The GPU-only voxelize, BEV-pool and sparse-encoder ops run on the same GPU, or on `GPU` when this is `CPU`. |
 | `score-threshold` | Float [0, 1] | 0.3 | Minimum detection score to attach. The model proposes 200 boxes per frame; most score close to 0. |
 
 ## Preparing the model
@@ -50,7 +50,7 @@ Pass the full OpenVINO version of the DL Streamer release that runs the pipeline
 
 Run either script with `--help` for every option, including `BEVFUSION_ROOT` to use an existing openvino_contrib checkout and `NUSCENES_ROOT` to convert an existing nuScenes copy.
 
-The model script checks out a fixed commit of [openvinotoolkit/openvino_contrib](https://github.com/openvinotoolkit/openvino_contrib) and applies the patches in `samples/gstreamer/gst_launch/g3dbevfusion/patches/` on top of it. They carry the openvino_bevfusion fixes that g3dbevfusion relies on, from [openvino_contrib#1197](https://github.com/openvinotoolkit/openvino_contrib/pull/1197), until that PR is merged (override the source with `OPENVINO_CONTRIB_URL` and `OPENVINO_CONTRIB_REF`). They also include a fix that gives the BEV-pool op a zeroed accumulator: without it the camera branch pools into stale GPU memory and fusion detects nothing on OpenVINO 2026.5. Two more patches speed up the model without changing its results: one removes a per-frame allocation that took about half of the sparse encoder's time, and one exports the camera backbone without the 5-D tensors that the GPU plugin runs slowly. Another raises the limits of the LiDAR branch to 350,000 points and 160,000 voxels, room for the ten LiDAR sweeps the model is trained on. The element reads both limits from the exported model. A model prepared without that patch takes 70,000 points, about one sweep; the element drops the points beyond that, with a warning. The last patch makes the sparse encoder's kernel choice reproducible: it was made by timing, between kernels that give slightly different results. Detections can still differ slightly from run to run, because voxelization picks the points it averages in GPU-scheduling order.
+The model script checks out a fixed commit of [openvinotoolkit/openvino_contrib](https://github.com/openvinotoolkit/openvino_contrib) and applies the patches in `samples/gstreamer/gst_launch/g3dbevfusion/patches/` on top of it. They carry the openvino_bevfusion fixes that g3dbevfusion relies on, from [openvino_contrib#1197](https://github.com/openvinotoolkit/openvino_contrib/pull/1197), until that PR is merged (override the source with `OPENVINO_CONTRIB_URL` and `OPENVINO_CONTRIB_REF`). They also include a fix that gives the BEV-pool op a zeroed accumulator: without it the camera branch pools into stale GPU memory and fusion detects nothing on OpenVINO 2026.5. Two more patches speed up the model without changing its results: one removes a per-frame allocation that took about half of the sparse encoder's time, and one exports the camera backbone without the 5-D tensors that the GPU plugin runs slowly. Another raises the limits of the LiDAR branch to 350,000 points and 160,000 voxels, room for the ten LiDAR sweeps the model is trained on. The element reads both limits from the exported model. A model prepared without that patch takes 70,000 points, about one sweep; the element drops the points beyond that, with a warning. The last patch makes the sparse encoder's kernel choice reproducible: it was made by timing, between kernels that give slightly different results. Detections can still differ slightly from run to run, because voxelization picks the points it averages in GPU-scheduling order. Patch 0007 caps the sparse encoder's OpenMP loops at four threads unless `OMP_NUM_THREADS` is set, and lets the element run the encoder on the GPU it selects.
 
 ### Runtime configuration
 
@@ -117,10 +117,10 @@ A calibration file can also carry a `frames` array, which describes the sequence
 
 Entry *i* describes the LiDAR buffer whose `LidarMeta` `frame_id` is *i*, which is the file index for `g3dlidarparse`. Every key in an entry is optional:
 
-- **`lidar.points`** is the buffer's point count. A buffer with a different count, or a `frame_id` beyond the table, is an error. This catches a LiDAR stream that does not match the table, for example one that does not start at the table's first frame.
+- **`lidar.points`** is the buffer's point count. A buffer with a different count is an error. This catches a LiDAR stream that does not match the table, for example one that does not start at the table's first frame. A `frame_id` beyond the table reads entry `frame_id` modulo the table length, so a source that loops the sequence (`multifilesrc loop=true`, which keeps counting) starts the table again.
 - **`lidar.sweeps`** lists the LiDAR turns the point cloud is made of, in point order, with each turn's time lag in seconds behind the frame. BEVFusion reads the lag as a fifth point column; without `sweeps` it is 0 for every point.
 - **`cameras`** gives each camera's `camera2lidar` at its own exposure. It must cover every declared camera. Without it, the static `camera2lidar` applies.
-- **`timestamp_us`**, the capture time, becomes the PTS of the batch and of its LiDAR buffer. Without it, the PTS is unchanged.
+- **`timestamp_us`**, the capture time, becomes the PTS of the batch and of its LiDAR buffer. Without it, the PTS is unchanged. On each further pass of a looping source the times are shifted by one sequence length (the recorded span plus one frame interval), so they keep increasing.
 
 The per-frame `camera2lidar` matters because each nuScenes camera exposes up to 45 ms before the LiDAR timestamp, while the vehicle moves. A static `camera2lidar` misplaces the camera features by about 0.1 m typically, and up to 0.4 m. The `g3d/calibration` event downstream carries the static calibration only.
 
@@ -199,7 +199,8 @@ Before the first buffer, the element pushes a sticky `GST_EVENT_CUSTOM_DOWNSTREA
 - **Six fixed cameras.** The camera branch is exported for a batch of six images of 1600×900-class resolution.
 - **LiDAR sweeps are accumulated upstream.** The model is trained on a frame's LiDAR turn plus the 9 before it, moved into the frame's coordinates using the vehicle's motion. The element does not accumulate turns itself. It takes the accumulated point cloud, and the time lag of each turn from the calibration's per-frame table, as `nuscenes_to_sequence.py` writes them. A single turn with lag 0 also works, at lower recall.
 - **One frame at a time.** Inference is synchronous in the streaming thread. For fusion, the LiDAR and camera branches run in parallel inside the element. On an Intel Arc Pro B60, with ten accumulated sweeps, a frame takes about 90 ms for fusion and about 70 ms for LiDAR-only. Most of the LiDAR branch is the sparse encoder, at about 50 ms for 80,000 voxels.
-- **One sparse-encoder context per process.** The sparse-encoder extension keeps process-wide OpenCL state. Several `g3dbevfusion` instances in one process are serialised around it.
+- **OpenMP thread count on many-core hosts.** The sparse encoder copies its output into the BEV grid with an OpenMP loop. OpenMP's default team of one thread per core makes that take about 1 s per frame on a 128-thread two-socket Xeon, so patch 0007 caps the loop at four threads unless `OMP_NUM_THREADS` is set. A model prepared before that patch needs `OMP_NUM_THREADS=4` set for the process.
+- **One sparse-encoder context per process.** The sparse-encoder extension keeps process-wide OpenCL state. Several `g3dbevfusion` instances in one process are serialised around it, and it opens its OpenCL context on the GPU of the first instance started in the process; it reads that GPU from `BEVFUSION_OPENCL_DEVICE_UUID`, which the element sets. Instances on other GPUs still give the same detections, but their sparse encoder runs on that first GPU.
 - **JPEG decoding matters.** The camera branch is sensitive to small pixel differences. `jpegdec` and OpenCV decode the same JPEG slightly differently, and scores can move by a few hundredths as a result.
 
 ## Debugging
@@ -239,7 +240,7 @@ Element Properties:
   config              : Runtime JSON: model_dir, extensions and gpu_custom_layers of the OpenVINO BEVFusion model
                         flags: readable, writable
                         String. Default: null
-  device              : Device for the dense networks (camera encoder, geometry, detection head); the custom voxelize/bev_pool ops always run on the GPU
+  device              : Device for the dense networks (camera encoder, geometry, detection head). The GPU-only voxelize, BEV-pool and sparse encoder ops run on the same GPU (GPU or GPU.<n>), or on GPU when this is CPU
                         flags: readable, writable
                         String. Default: "GPU"
   name                : The name of the object
