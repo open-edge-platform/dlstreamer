@@ -1738,6 +1738,8 @@ gboolean gva_base_inference_sink_event(GstBaseTransform *trans, GstEvent *event)
         if (base_inference->inference && (event->type == GST_EVENT_EOS || event->type == GST_EVENT_FLUSH_STOP) &&
             base_inference->frame_num > 0) {
             base_inference->inference->FlushInference();
+            // frames the completion thread left behind for a blocked output must go out before the event does
+            base_inference->inference->DrainOutput(base_inference, /*wait_all=*/true);
         }
     } catch (const std::exception &e) {
         GST_ELEMENT_ERROR(base_inference, CORE, EVENT, ("base_inference failed while handling sink"),
