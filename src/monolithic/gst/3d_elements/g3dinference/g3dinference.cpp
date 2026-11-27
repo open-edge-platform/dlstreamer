@@ -859,13 +859,17 @@ static void gst_g3d_inference_init(GstG3DInference *filter) {
     filter->config = NULL;
     filter->device = g_strdup(DEFAULT_DEVICE);
     filter->model_type = g_strdup(DEFAULT_MODEL_TYPE);
-    filter->score_threshold = DEFAULT_SCORE_THRESHOLD;
     filter->nireq = DEFAULT_NIREQ;
     filter->initialized = FALSE;
     filter->runtime = NULL;
     filter->async_state = new G3DInferenceAsyncState();
 
     g_mutex_init(&filter->mutex);
+    {
+        /* Uncontended here; taken so score_threshold is written under the mutex everywhere. */
+        GMutexLockGuard lock(&filter->mutex);
+        filter->score_threshold = DEFAULT_SCORE_THRESHOLD;
+    }
     gst_base_transform_set_in_place(GST_BASE_TRANSFORM(filter), TRUE);
 }
 

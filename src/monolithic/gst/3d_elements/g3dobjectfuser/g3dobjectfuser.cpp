@@ -243,8 +243,11 @@ static void gst_g3d_object_fuser_class_init(GstG3DObjectFuserClass *klass) {
 }
 
 static void gst_g3d_object_fuser_init(GstG3DObjectFuser *self) {
+    /* Uncontended here; taken so these fields are written under the lock everywhere. */
+    GST_OBJECT_LOCK(self);
     self->calibration_path = nullptr;
     self->assoc_iou_threshold = DEFAULT_IOU_THRESHOLD;
+    GST_OBJECT_UNLOCK(self);
     self->track_history_window = DEFAULT_HISTORY_WINDOW;
     self->tracking_type = DEFAULT_TRACKING_TYPE;
     self->tracking_space = DEFAULT_TRACKING_SPACE;

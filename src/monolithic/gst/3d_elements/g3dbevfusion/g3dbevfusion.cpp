@@ -631,7 +631,10 @@ static void gst_g3d_bevfusion_init(GstG3DBevFusion *self) {
     self->config = nullptr;
     self->calibration = nullptr;
     self->device = g_strdup(DEFAULT_DEVICE);
+    /* Uncontended here; taken so score_threshold is written under the lock everywhere. */
+    GST_OBJECT_LOCK(self);
     self->score_threshold = DEFAULT_SCORE_THRESHOLD;
+    GST_OBJECT_UNLOCK(self);
     self->priv = static_cast<GstG3DBevFusionPrivate *>(gst_g3d_bevfusion_get_instance_private(self));
     new (self->priv) GstG3DBevFusionPrivate();
     // Detections are attached to the batch's inner lidar buffer; the container
