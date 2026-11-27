@@ -1,6 +1,6 @@
 # gvainference
 
-Runs deep learning inference using any model with RGB or BGR input.
+Runs deep learning inference on full frames or ROIs using any model with RGB or BGR input.
 
 On Windows, the element also accepts `video/x-raw(memory:D3D11Memory)` and
 `video/x-raw(memory:D3D12Memory)` in `NV12` and `BGRA`, and the properties differ

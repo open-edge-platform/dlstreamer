@@ -17,7 +17,7 @@ GST_DEBUG_CATEGORY_STATIC(gstgvaattachroigst_gva_attach_roi_debug_category);
 #define GST_CAT_DEFAULT gstgvaattachroigst_gva_attach_roi_debug_category
 
 #define ELEMENT_LONG_NAME "Generic ROI metadata generator"
-#define ELEMENT_DESCRIPTION "Generic ROI metadata generator"
+#define ELEMENT_DESCRIPTION "Attaches ROIs from the roi property or a JSON file to video frames."
 
 /* prototypes */
 
