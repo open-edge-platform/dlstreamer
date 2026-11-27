@@ -151,9 +151,13 @@ struct _GstG3DObjectFuserPrivate {
      * track ids are a single consistent frame across all cameras. */
     std::unique_ptr<ModalityTracker> threed_tracker;
 
-    bool calibration_loaded = false;
     /* Whether the sticky "g3d/calibration" event has been pushed downstream. */
     bool calibration_event_sent = false;
+
+    /* Guarded by the object lock. Once started, setting the calibration property loads the
+     * file in the caller's thread and leaves it here for the streaming thread to adopt. */
+    bool started = false;
+    std::unique_ptr<dlstreamer::CalibrationStore> pending_calibration;
 };
 
 /* The fuser sits after gvastreammux, which has already merged the camera
@@ -190,14 +194,18 @@ static void gst_g3d_object_fuser_class_init(GstG3DObjectFuserClass *klass) {
     g_object_class_install_property(
         gobject_class, PROP_CALIBRATION,
         g_param_spec_string("calibration", "Calibration",
-                            "Path to JSON file containing calibration matrices for camera <-> 3D sensor projection",
-                            NULL, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                            "Path to JSON file containing calibration matrices for camera <-> 3D sensor projection. "
+                            "Setting it while playing reloads the file, even if the path is unchanged",
+                            NULL,
+                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
         gobject_class, PROP_ASSOC_IOU_THRESHOLD,
         g_param_spec_float("assoc-iou-threshold", "Association IoU threshold",
-                           "Minimum IoU between projected 3D box and 2D camera box for association", 0.0f, 1.0f,
-                           DEFAULT_IOU_THRESHOLD, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                           "Minimum IoU between projected 3D box and 2D camera box for association. "
+                           "Setting it while playing applies from the next buffer",
+                           0.0f, 1.0f, DEFAULT_IOU_THRESHOLD,
+                           (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
         gobject_class, PROP_TRACK_HISTORY_WINDOW,
@@ -235,8 +243,11 @@ static void gst_g3d_object_fuser_class_init(GstG3DObjectFuserClass *klass) {
 }
 
 static void gst_g3d_object_fuser_init(GstG3DObjectFuser *self) {
+    /* Uncontended here; taken so these fields are written under the lock everywhere. */
+    GST_OBJECT_LOCK(self);
     self->calibration_path = nullptr;
     self->assoc_iou_threshold = DEFAULT_IOU_THRESHOLD;
+    GST_OBJECT_UNLOCK(self);
     self->track_history_window = DEFAULT_HISTORY_WINDOW;
     self->tracking_type = DEFAULT_TRACKING_TYPE;
     self->tracking_space = DEFAULT_TRACKING_SPACE;
@@ -259,12 +270,38 @@ static void gst_g3d_object_fuser_finalize(GObject *object) {
 static void gst_g3d_object_fuser_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec) {
     GstG3DObjectFuser *self = GST_G3D_OBJECT_FUSER(object);
     switch (prop_id) {
-    case PROP_CALIBRATION:
+    case PROP_CALIBRATION: {
+        gchar *path = g_value_dup_string(value);
+        GST_OBJECT_LOCK(self);
+        const bool started = self->priv->started;
+        GST_OBJECT_UNLOCK(self);
+        std::unique_ptr<dlstreamer::CalibrationStore> reloaded;
+        if (started) {
+            /* Running: load the file now, even when the path is unchanged, so an edited file
+             * is picked up. One that does not load is rejected and the current one stays. */
+            reloaded = std::make_unique<dlstreamer::CalibrationStore>();
+            const bool has_path = path && path[0] != '\0';
+            if (!has_path || !reloaded->load(path)) {
+                const std::string reason = has_path ? reloaded->last_error() : "calibration path is empty";
+                GST_ELEMENT_WARNING(self, RESOURCE, READ, ("Could not reload the calibration; keeping the current one"),
+                                    ("%s", reason.c_str()));
+                g_free(path);
+                break;
+            }
+            GST_INFO_OBJECT(self, "Reloaded calibration from %s", path);
+        }
+        GST_OBJECT_LOCK(self);
         g_free(self->calibration_path);
-        self->calibration_path = g_value_dup_string(value);
+        self->calibration_path = path;
+        if (reloaded)
+            self->priv->pending_calibration = std::move(reloaded);
+        GST_OBJECT_UNLOCK(self);
         break;
+    }
     case PROP_ASSOC_IOU_THRESHOLD:
+        GST_OBJECT_LOCK(self);
         self->assoc_iou_threshold = g_value_get_float(value);
+        GST_OBJECT_UNLOCK(self);
         break;
     case PROP_TRACK_HISTORY_WINDOW:
         self->track_history_window = g_value_get_uint(value);
@@ -285,10 +322,14 @@ static void gst_g3d_object_fuser_get_property(GObject *object, guint prop_id, GV
     GstG3DObjectFuser *self = GST_G3D_OBJECT_FUSER(object);
     switch (prop_id) {
     case PROP_CALIBRATION:
+        GST_OBJECT_LOCK(self);
         g_value_set_string(value, self->calibration_path);
+        GST_OBJECT_UNLOCK(self);
         break;
     case PROP_ASSOC_IOU_THRESHOLD:
+        GST_OBJECT_LOCK(self);
         g_value_set_float(value, self->assoc_iou_threshold);
+        GST_OBJECT_UNLOCK(self);
         break;
     case PROP_TRACK_HISTORY_WINDOW:
         g_value_set_uint(value, self->track_history_window);
@@ -308,33 +349,49 @@ static void gst_g3d_object_fuser_get_property(GObject *object, guint prop_id, GV
 static gboolean gst_g3d_object_fuser_start(GstBaseTransform *trans) {
     GstG3DObjectFuser *self = GST_G3D_OBJECT_FUSER(trans);
 
-    if (!self->calibration_path || self->calibration_path[0] == '\0') {
-        GST_ERROR_OBJECT(self, "calibration property is required");
-        return FALSE;
-    }
+    /* Mark started before reading the path, so a path set from now on is loaded by
+     * set_property (and adopted by the streaming thread) rather than missed. */
+    GST_OBJECT_LOCK(self);
+    gchar *path = g_strdup(self->calibration_path);
+    const float iou_threshold = self->assoc_iou_threshold;
+    self->priv->started = true;
+    self->priv->pending_calibration.reset();
+    GST_OBJECT_UNLOCK(self);
 
-    if (!self->priv->calibration.load(self->calibration_path)) {
-        GST_ERROR_OBJECT(self, "Failed to load calibration: %s", self->priv->calibration.last_error().c_str());
+    std::string error;
+    if (!path || path[0] == '\0')
+        error = "calibration property is required";
+    else if (!self->priv->calibration.load(path))
+        error = "Failed to load calibration: " + self->priv->calibration.last_error();
+    if (!error.empty()) {
+        GST_ERROR_OBJECT(self, "%s", error.c_str());
+        GST_OBJECT_LOCK(self);
+        self->priv->started = false;
+        GST_OBJECT_UNLOCK(self);
+        g_free(path);
         return FALSE;
     }
-    self->priv->calibration_loaded = true;
 
     self->priv->fuser = std::make_unique<dlstreamer::ObjectFuser>();
-    self->priv->fuser->set_iou_threshold(self->assoc_iou_threshold);
+    self->priv->fuser->set_iou_threshold(iou_threshold);
     self->priv->fuser->set_history_window(self->track_history_window);
     self->priv->fuser->set_calibration_store(&self->priv->calibration);
     self->priv->calibration_event_sent = false;
 
-    GST_INFO_OBJECT(self, "Started g3dobjectfuser; calibration=%s", self->calibration_path);
+    GST_INFO_OBJECT(self, "Started g3dobjectfuser; calibration=%s", path);
+    g_free(path);
     return TRUE;
 }
 
 static gboolean gst_g3d_object_fuser_stop(GstBaseTransform *trans) {
     GstG3DObjectFuser *self = GST_G3D_OBJECT_FUSER(trans);
+    GST_OBJECT_LOCK(self);
+    self->priv->started = false;
+    self->priv->pending_calibration.reset();
+    GST_OBJECT_UNLOCK(self);
     self->priv->camera_trackers.clear();
     self->priv->threed_tracker.reset();
     self->priv->fuser.reset();
-    self->priv->calibration_loaded = false;
     self->priv->calibration_event_sent = false;
     return TRUE;
 }
@@ -636,6 +693,19 @@ static void process_one_camera(GstG3DObjectFuser *self, GstBuffer *cam_buf, int 
 static GstFlowReturn gst_g3d_object_fuser_transform_ip(GstBaseTransform *trans, GstBuffer *buf) {
     GstG3DObjectFuser *self = GST_G3D_OBJECT_FUSER(trans);
 
+    /* Adopt settings changed while running: a calibration reloaded by setting the property, and
+     * the association IoU threshold. The ObjectFuser keeps pointing at priv->calibration, so it
+     * projects with the new matrices from this buffer on. */
+    GST_OBJECT_LOCK(self);
+    std::unique_ptr<dlstreamer::CalibrationStore> reloaded = std::move(self->priv->pending_calibration);
+    const float iou_threshold = self->assoc_iou_threshold;
+    GST_OBJECT_UNLOCK(self);
+    if (reloaded) {
+        self->priv->calibration = std::move(*reloaded);
+        self->priv->calibration_event_sent = false;
+    }
+    self->priv->fuser->set_iou_threshold(iou_threshold);
+
     GstAnalyticsBatchMeta *batch = gst_buffer_get_analytics_batch_meta(buf);
     if (!batch || batch->n_streams == 0) {
         GST_WARNING_OBJECT(self, "Buffer has no GstAnalyticsBatchMeta; passing through unchanged");
@@ -761,9 +831,9 @@ static GstFlowReturn gst_g3d_object_fuser_transform_ip(GstBaseTransform *trans, 
             is_lidar ? GST_ANALYTICS_3D_SENSOR_LIDAR : GST_ANALYTICS_3D_SENSOR_RADAR;
         emit_3d_mtds(threed_rmeta, threed_boxes, threed_pts, modality, threed_mtd_ids);
 
-        /* Push the calibration as a sticky downstream event exactly once, now
-         * that the sensor modality is known. Downstream caches it to reproject
-         * the 3D boxes back onto each camera image. */
+        /* Push the calibration as a sticky downstream event once the sensor
+         * modality is known, and again after a reload. Downstream caches it to
+         * reproject the 3D boxes back onto each camera image. */
         if (!self->priv->calibration_event_sent) {
             GstStructure *cal_s = build_calibration_structure(self->priv->calibration, is_lidar);
             GstEvent *cal_ev = gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM_STICKY, cal_s);

@@ -18,8 +18,8 @@ It runs:
 ## Properties
 | Property              | Type           | Description                                                                                                      | Default |
 |-----------------------|----------------|------------------------------------------------------------------------------------------------------------------|---------|
-| `calibration`         | String         | Path to JSON file containing camera ↔ 3D calibration matrices. Required.                                          | NULL    |
-| `assoc-iou-threshold` | Float [0, 1]   | Minimum IoU between a projected 3D box and a 2D camera box to count as a spatial association.                    | 0.3     |
+| `calibration`         | String         | Path to JSON file containing camera ↔ 3D calibration matrices. Required. Can be set while playing: the file is reloaded (even if the path is unchanged), used from the next buffer and sent downstream in a new `g3d/calibration` event. A file that fails to load is rejected with a warning message on the bus, and the current calibration and path stay in use. | NULL    |
+| `assoc-iou-threshold` | Float [0, 1]   | Minimum IoU between a projected 3D box and a 2D camera box to count as a spatial association. Can be set while playing; the new value applies from the next buffer. | 0.3     |
 | `track-history-window`| UInt           | Frames retained for the cross-modal track-to-track association table.                                            | 30      |
 | `tracking-type`       | Enum `GstG3DFuserTrackingType` | Tracking algorithm used to identify the same object in multiple frames: `short-term-imageless` or `zero-term-imageless`. | `zero-term-imageless` |
 | `tracking-space`      | Enum `GstG3DFuserTrackingSpace` | Coordinate frame the internal LiDAR tracker runs in: `bev` (top-down metric grid, camera-independent) or `image` (projected into the canonical camera plane). Fusion always uses image projection regardless. | `bev` |
@@ -123,7 +123,7 @@ Multi-camera form (keyed by `gvastreammux` stream index — one entry per camera
 When `gvastreammux` merges multiple cameras, every output buffer's `GstAnalyticsBatchMeta.streams[0].index` selects which entry under `cameras` the fuser uses — so different intrinsics/extrinsics per camera Just Work.
 
 ## Calibration propagated downstream (`g3d/calibration` event)
-The fuser is the single source of truth for calibration. Once the sensor modality is known (first 3D buffer), it pushes the loaded matrices downstream as a **sticky custom-downstream event** named `g3d/calibration`, so a downstream element (e.g., `g3drender`) can reproject the 3D boxes onto each camera image without being handed the file path again. The event is sticky, so late-linked or flushed branches still receive it.
+The fuser is the single source of truth for calibration. Once the sensor modality is known (first 3D buffer), and again with the next 3D buffer after the `calibration` property reloads the file, it pushes the loaded matrices downstream as a **sticky custom-downstream event** named `g3d/calibration`, so a downstream element (e.g., `g3drender`) can reproject the 3D boxes onto each camera image without being handed the file path again. The event is sticky, so late-linked or flushed branches still receive it.
 
 Event `GstStructure` layout:
 
@@ -161,11 +161,11 @@ Pad Templates:
       multistream/x-analytics-batch(meta:GstAnalyticsBatchMeta)
 
 Element Properties:
-  calibration          : Path to JSON file containing calibration matrices for camera <-> 3D sensor projection
-                         flags: readable, writable
+  calibration          : Path to JSON file containing calibration matrices for camera <-> 3D sensor projection. Setting it while playing reloads the file, even if the path is unchanged
+                         flags: readable, writable, changeable in NULL, READY, PAUSED or PLAYING state
                          String. Default: null
-  assoc-iou-threshold  : Minimum IoU between projected 3D box and 2D camera box for association
-                         flags: readable, writable
+  assoc-iou-threshold  : Minimum IoU between projected 3D box and 2D camera box for association. Setting it while playing applies from the next buffer
+                         flags: readable, writable, changeable in NULL, READY, PAUSED or PLAYING state
                          Float. Range: 0 - 1 Default: 0.3
   track-history-window : Frames retained for the cross-modal track-to-track association table
                          flags: readable, writable

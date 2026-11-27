@@ -824,11 +824,13 @@ static void gst_g3d_inference_class_init(GstG3DInferenceClass *klass) {
                                                         DEFAULT_MODEL_TYPE,
                                                         (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
-    g_object_class_install_property(gobject_class, PROP_SCORE_THRESHOLD,
-                                    g_param_spec_float("score-threshold", "Score Threshold",
-                                                       "Drop detections below this score (0 keeps all postproc output)",
-                                                       0.0, 1.0, DEFAULT_SCORE_THRESHOLD,
-                                                       (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+    g_object_class_install_property(
+        gobject_class, PROP_SCORE_THRESHOLD,
+        g_param_spec_float("score-threshold", "Score Threshold",
+                           "Drop detections below this score (0 keeps all postproc output). "
+                           "Setting it while playing applies from the next buffer",
+                           0.0, 1.0, DEFAULT_SCORE_THRESHOLD,
+                           (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | GST_PARAM_MUTABLE_PLAYING)));
 
     g_object_class_install_property(
         gobject_class, PROP_NIREQ,
@@ -857,13 +859,17 @@ static void gst_g3d_inference_init(GstG3DInference *filter) {
     filter->config = NULL;
     filter->device = g_strdup(DEFAULT_DEVICE);
     filter->model_type = g_strdup(DEFAULT_MODEL_TYPE);
-    filter->score_threshold = DEFAULT_SCORE_THRESHOLD;
     filter->nireq = DEFAULT_NIREQ;
     filter->initialized = FALSE;
     filter->runtime = NULL;
     filter->async_state = new G3DInferenceAsyncState();
 
     g_mutex_init(&filter->mutex);
+    {
+        /* Uncontended here; taken so score_threshold is written under the mutex everywhere. */
+        GMutexLockGuard lock(&filter->mutex);
+        filter->score_threshold = DEFAULT_SCORE_THRESHOLD;
+    }
     gst_base_transform_set_in_place(GST_BASE_TRANSFORM(filter), TRUE);
 }
 
@@ -899,9 +905,12 @@ static void gst_g3d_inference_set_property(GObject *object, guint prop_id, const
         g_free(filter->model_type);
         filter->model_type = g_value_dup_string(value);
         break;
-    case PROP_SCORE_THRESHOLD:
+    case PROP_SCORE_THRESHOLD: {
+        /* The streaming thread reads it under the same mutex for every buffer. */
+        GMutexLockGuard lock(&filter->mutex);
         filter->score_threshold = g_value_get_float(value);
         break;
+    }
     case PROP_NIREQ:
         filter->nireq = g_value_get_uint(value);
         break;
@@ -924,9 +933,11 @@ static void gst_g3d_inference_get_property(GObject *object, guint prop_id, GValu
     case PROP_MODEL_TYPE:
         g_value_set_string(value, filter->model_type);
         break;
-    case PROP_SCORE_THRESHOLD:
+    case PROP_SCORE_THRESHOLD: {
+        GMutexLockGuard lock(&filter->mutex);
         g_value_set_float(value, filter->score_threshold);
         break;
+    }
     case PROP_NIREQ:
         g_value_set_uint(value, filter->nireq);
         break;

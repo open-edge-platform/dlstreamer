@@ -28,7 +28,7 @@ In `bev` and `perspective` modes, each camera tile also shows the 3D boxes proje
 | `cam-elevation` | float | [5.0, 89.0] | 30.0 | Synthetic camera elevation angle in degrees (`5°` = near eye-level, `89°` = near top-down). Only effective in `perspective` mode. |
 | `cam-azimuth` | float | [-360.0, 360.0] | 180.0 | Synthetic camera horizontal azimuth in degrees. Only effective in `perspective` mode. |
 | `cam-fov` | float | [10.0, 150.0] | 60.0 | Synthetic camera vertical field of view in degrees. Only effective in `perspective` mode. |
-| `cam-proj-index` | int | [0, 255] | 0 | `gvastreammux` pad index of the camera to use as the projection background in `cam-proj` mode. The first camera in the batch is used when no camera has this index. |
+| `cam-proj-index` | int | [0, 255] | 0 | `gvastreammux` pad index of the camera to use as the projection background in `cam-proj` mode. The first camera in the batch is used when no camera has this index. Can be changed while playing; the next frame uses that camera's image and calibration. |
 | `cam-bg-grayscale` | bool | true / false | true | Convert the camera background to grayscale in `cam-proj` mode. |
 | `cam-bg-dim` | float | [0.0, 1.0] | 0.65 | Brightness multiplier for the camera background in `cam-proj` mode (`0.0=black`, `1.0=original`). |
 | `forward-axis` | enum | `x` / `y` | `x` | LiDAR axis that points in the vehicle's forward direction: `x` (KITTI) or `y` (nuScenes). `bev` mode draws it pointing up, and `perspective` mode measures `cam-azimuth` from it, so `cam-azimuth=180` looks forward from behind the vehicle either way. |
@@ -150,7 +150,7 @@ The element always allocates a new output buffer; the input buffer is not modifi
 └──────────────────────────────────────────────────────┘
 ```
 
-The LiDAR panel is always a `height × height` square anchored to the right edge. Each camera frame is letterboxed into its grid cell. The layout switches from 1 column to 2 columns when 4 or more camera streams are present.
+The LiDAR panel is always a `height × height` square, anchored to the right edge when there are cameras and centred when there are none (LiDAR-only input, or a batch that carries only the LiDAR, as `g3dbevfusion` does in LiDAR-only mode). Each camera frame is letterboxed into its grid cell. The layout switches from 1 column to 2 columns when 4 or more camera streams are present.
 
 ## Notes
 
@@ -160,13 +160,13 @@ The LiDAR panel is always a `height × height` square anchored to the right edge
 
 - **Any width**: output frames use GStreamer's default `BGR` layout, with each row padded to a multiple of 4 bytes, so widths that are not a multiple of 4 work with downstream elements such as `videoconvert` and encoders.
 
-- **cam-proj requires calibration**: `cam-proj` mode depends on the `g3d/calibration` sticky event emitted by `g3dobjectfuser` or `g3dbevfusion`. Without a calibration for the selected camera the element falls back to `bev`.
+- **cam-proj requires calibration**: `cam-proj` mode depends on the `g3d/calibration` sticky event emitted by `g3dobjectfuser` or `g3dbevfusion`. Without a calibration for the selected camera the element falls back to `bev`. A later event, such as the one `g3dobjectfuser` sends after reloading its calibration, replaces the earlier one from the next frame.
 
 - **3D box convention**: boxes are drawn as `GstAnalytics3DODMtd` defines them: `length` along the box's own x axis, `width` along its y axis, rotated by `yaw` counter-clockwise about +z.
 
 - **Camera labels**: each camera tile, and the `cam-proj` image, is labelled with the camera's `name` from the `g3d/calibration` event (`g3dbevfusion` sends nuScenes names such as `CAM_FRONT`), or `Cam <pad>` without one.
 
-- **Box colours**: a 3D box that `g3dobjectfuser` associated with a camera detection is white. Otherwise, when the `g3d/calibration` event lists `class-names` (as `g3dbevfusion` does), boxes are coloured per class; if not, they are green.
+- **Box colours**: a 3D box that `g3dobjectfuser` associated with a camera detection is white. Otherwise, when the `g3d/calibration` event lists `class-names` (as `g3dbevfusion` does), boxes are coloured per class; if not, they are orange. 2D camera detections without a fused 3D box are green.
 
 - **Point intensity**: points are coloured by intensity, normalised to 0..1. Intensities above 1.5 in a frame are taken to be on a 0..255 scale.
 

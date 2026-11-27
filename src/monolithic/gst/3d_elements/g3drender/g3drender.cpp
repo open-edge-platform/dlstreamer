@@ -656,9 +656,9 @@ cv::Vec3b height_to_color(float z) {
     return cv::Vec3b(0, static_cast<uint8_t>((1.0f - s) * 180), static_cast<uint8_t>(s * 220 + 80));
 }
 
-const cv::Scalar kColorUnmatched(0, 255, 0);   // green — 3D unmatched
-const cv::Scalar kColor2DUnmatched(0, 255, 0); // green — 2D unmatched
-const cv::Scalar kColorMatched(255, 255, 255); // white — 3D matched (associated with a 2D det)
+const cv::Scalar kColorUnmatched(0, 165, 255); // orange — 3D unmatched (LiDAR only)
+const cv::Scalar kColor2DUnmatched(0, 255, 0); // green  — 2D unmatched (camera only)
+const cv::Scalar kColorMatched(255, 255, 255); // white  — 3D matched (fused detection)
 
 /* The 8 corners of a GstAnalytics3DODMtd box, in the lidar frame: length along
  * the box's local x, width along its local y, rotated by yaw counter-clockwise
@@ -1469,10 +1469,12 @@ static GstFlowReturn gst_g3d_render_transform(GstBaseTransform *trans, GstBuffer
         cam_area_w = 0;
     } else {
         int lidar_size = self->height;
-        lidar_x = (n_cams > 0) ? std::max(0, self->width - lidar_size) : 0;
+        // Without cameras (LiDAR-only input, or a batch carrying only the LiDAR)
+        // the panel is centred, so a wide canvas leaves even margins.
+        lidar_x = (n_cams > 0) ? std::max(0, self->width - lidar_size) : std::max(0, (self->width - lidar_size) / 2);
         lidar_w = std::min(lidar_size, self->width - lidar_x);
         lidar_h = lidar_size;
-        cam_area_w = lidar_x;
+        cam_area_w = (n_cams > 0) ? lidar_x : 0;
     }
 
     const std::unordered_set<guint> assoc_ids = collect_associated_3d_ids(cams);

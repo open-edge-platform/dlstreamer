@@ -19,7 +19,7 @@ Key operations:
 | config | String | Path to the PointPillars JSON configuration file. Required. | null |
 | device | String | OpenVINO device used for the neural network stage. Currently `CPU`, `GPU`, and `GPU.<id>` are supported. | CPU |
 | model-type | String | 3D detector model type. Currently only `pointpillars` is supported. | pointpillars |
-| score-threshold | Float | Drops detections below this score. `0.0` keeps all post-processing output unchanged. | 0.7 |
+| score-threshold | Float | Drops detections below this score. `0.0` keeps all post-processing output unchanged. Can be set while playing; it applies to buffers received after the change, so frames already in flight (up to `nireq`) keep the previous value. | 0.7 |
 | nireq | Unsigned Integer | Number of inference requests processed concurrently. Sizes the worker pool *and*, when non-zero, is forwarded to OpenVINO as `PERFORMANCE_HINT_NUM_REQUESTS`. `0` derives the value from the compiled network. Range `0 - 1024`. See [Throughput and concurrency](#throughput-and-concurrency). | 0 |
 
 ## Configuration
@@ -222,8 +222,8 @@ Element Properties:
                         flags: readable, writable
                         Boolean. Default: false
 
-  score-threshold     : Drop detections below this score (0 keeps all postproc output)
-                        flags: readable, writable
+  score-threshold     : Drop detections below this score (0 keeps all postproc output). Setting it while playing applies from the next buffer
+                        flags: readable, writable, changeable in NULL, READY, PAUSED or PLAYING state
                         Float. Range:               0 - 1 
                         Default:               0.7
 ```

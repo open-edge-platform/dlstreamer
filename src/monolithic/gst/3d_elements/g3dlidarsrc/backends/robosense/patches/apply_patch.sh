@@ -36,7 +36,12 @@ apply_one() {
   # so the exit code alone cannot distinguish an idempotent skip from a genuine
   # failure. Detect "already applied" explicitly by checking whether the patch
   # applies cleanly in reverse (--dry-run so nothing is modified). If so, skip.
-  if patch --reverse --batch --dry-run -p1 < "$patch_path" >/dev/null 2>&1; then
+  # --forward is essential here: without it, GNU patch reacts to a not-yet-
+  # patched tree with "Unreversed patch detected! Ignoring -R" and succeeds by
+  # applying the patch *forward*, so the check would report rc=0 ("already
+  # applied") for every pristine tree and the patch would never be applied.
+  # --forward makes it skip such hunks instead, yielding rc=1 as intended.
+  if patch --reverse --forward --batch --dry-run -p1 < "$patch_path" >/dev/null 2>&1; then
     echo "  -> already applied (skipped)."
     return 0
   fi

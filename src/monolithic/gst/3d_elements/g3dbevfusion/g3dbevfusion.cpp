@@ -298,7 +298,10 @@ static void gst_g3d_bevfusion_set_property(GObject *object, guint prop_id, const
         self->device = g_value_dup_string(value);
         break;
     case PROP_SCORE_THRESHOLD:
+        /* Settable while playing: the streaming thread reads it under the lock per frame. */
+        GST_OBJECT_LOCK(self);
         self->score_threshold = g_value_get_float(value);
+        GST_OBJECT_UNLOCK(self);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -318,7 +321,9 @@ static void gst_g3d_bevfusion_get_property(GObject *object, guint prop_id, GValu
         g_value_set_string(value, self->device);
         break;
     case PROP_SCORE_THRESHOLD:
+        GST_OBJECT_LOCK(self);
         g_value_set_float(value, self->score_threshold);
+        GST_OBJECT_UNLOCK(self);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -519,9 +524,13 @@ static GstFlowReturn gst_g3d_bevfusion_transform_ip(GstBaseTransform *trans, Gst
                                GST_TIME_ARGS(GST_BUFFER_PTS(buf)));
     }
 
+    GST_OBJECT_LOCK(self);
+    const float score_threshold = self->score_threshold;
+    GST_OBJECT_UNLOCK(self);
+
     std::vector<bev::Box3D> boxes;
     try {
-        boxes = priv->runtime->infer(in, self->score_threshold);
+        boxes = priv->runtime->infer(in, score_threshold);
     } catch (const std::exception &e) {
         gst_buffer_unmap(lidar_buf, &lidar_map);
         GST_ELEMENT_ERROR(self, STREAM, FAILED, ("BEVFusion inference failed"), ("%s", e.what()));
@@ -601,8 +610,10 @@ static void gst_g3d_bevfusion_class_init(GstG3DBevFusionClass *klass) {
                                                         DEFAULT_DEVICE, flags));
     g_object_class_install_property(gobject_class, PROP_SCORE_THRESHOLD,
                                     g_param_spec_float("score-threshold", "Score threshold",
-                                                       "Minimum detection score to attach", 0.0f, 1.0f,
-                                                       DEFAULT_SCORE_THRESHOLD, flags));
+                                                       "Minimum detection score to attach. Setting it while playing "
+                                                       "applies from the next frame",
+                                                       0.0f, 1.0f, DEFAULT_SCORE_THRESHOLD,
+                                                       static_cast<GParamFlags>(flags | GST_PARAM_MUTABLE_PLAYING)));
 
     gst_element_class_set_static_metadata(element_class, "G3D BEVFusion", "Filter/Analytics/3D",
                                           "BEVFusion 3D object detection on a gvastreammux batch of six cameras and "
@@ -620,7 +631,10 @@ static void gst_g3d_bevfusion_init(GstG3DBevFusion *self) {
     self->config = nullptr;
     self->calibration = nullptr;
     self->device = g_strdup(DEFAULT_DEVICE);
+    /* Uncontended here; taken so score_threshold is written under the lock everywhere. */
+    GST_OBJECT_LOCK(self);
     self->score_threshold = DEFAULT_SCORE_THRESHOLD;
+    GST_OBJECT_UNLOCK(self);
     self->priv = static_cast<GstG3DBevFusionPrivate *>(gst_g3d_bevfusion_get_instance_private(self));
     new (self->priv) GstG3DBevFusionPrivate();
     // Detections are attached to the batch's inner lidar buffer; the container

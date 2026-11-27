@@ -362,6 +362,30 @@ GstEvent *build_calib_event_for_cameras(guint n_cams, const gchar *const *class_
     return gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM_STICKY, root);
 }
 
+GstEvent *build_calib_event_shifted(const gfloat *cx_shift, gint n_cams) {
+    GstStructure *root = gst_structure_new_empty("g3d/calibration");
+    gst_structure_set(root, "modality", G_TYPE_STRING, "lidar", "cameras", G_TYPE_UINT, (guint)n_cams, NULL);
+    for (gint i = 0; i < n_cams; i++) {
+        gfloat p2[12];
+        memcpy(p2, SYNTH_P2, sizeof(p2));
+        p2[2] += cx_shift[i];
+
+        GstStructure *cam = gst_structure_new_empty("camera");
+        gst_structure_set(cam, "index", G_TYPE_INT, i, NULL);
+        append_float_array_field(cam, "tr_velo_to_cam", SYNTH_TR_VELO_TO_CAM, 16);
+        append_float_array_field(cam, "r0_rect", SYNTH_R0_RECT, 16);
+        append_float_array_field(cam, "p2", p2, 12);
+
+        gchar key[32];
+        g_snprintf(key, sizeof(key), "camera-%d", i);
+        GValue cam_val = G_VALUE_INIT;
+        g_value_init(&cam_val, GST_TYPE_STRUCTURE);
+        g_value_take_boxed(&cam_val, cam);
+        gst_structure_take_value(root, key, &cam_val);
+    }
+    return gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM_STICKY, root);
+}
+
 GstBuffer *build_empty_lidar_buf(GstHarness *h) {
     GstBuffer *buf = gst_buffer_new_allocate(NULL, 0, NULL);
     (void)h;
