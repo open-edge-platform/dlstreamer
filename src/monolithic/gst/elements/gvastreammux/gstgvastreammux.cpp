@@ -1534,11 +1534,12 @@ static void gst_gva_streammux_update_output_time(GstGvaStreammux *mux) {
     g_mutex_unlock(&mux->lock);
 }
 
-/* Drop buffers at the head of a pad's queue that are further behind the last
- * batch than pts-tolerance allows, so the next anchor cannot be taken from one
- * of them. Returns how many were dropped. Must be called with mux->lock held. */
-static guint gva_streammux_drop_stale_head(GstGvaStreammux *mux, GvaStreammuxPadData *pdata) {
-    if (!GST_CLOCK_TIME_IS_VALID(mux->last_pushed_batch_pts))
+/* Drop buffers at the head of a pad's queue whose PTS is before `reference`.
+ * Phase 1 passes the last batch pushed, so the next anchor cannot be taken from
+ * one of them; phase 2 passes the earliest PTS that can still join the current
+ * batch. Returns how many were dropped. Must be called with mux->lock held. */
+static guint gva_streammux_drop_stale_head(GstGvaStreammux *mux, GvaStreammuxPadData *pdata, GstClockTime reference) {
+    if (!GST_CLOCK_TIME_IS_VALID(reference))
         return 0;
 
     guint dropped = 0;
@@ -1547,13 +1548,12 @@ static guint gva_streammux_drop_stale_head(GstGvaStreammux *mux, GvaStreammuxPad
         if (!head)
             break;
         GstClockTime pts = GST_BUFFER_PTS(head->buffer);
-        if (!GST_CLOCK_TIME_IS_VALID(pts) || pts >= mux->last_pushed_batch_pts)
+        if (!GST_CLOCK_TIME_IS_VALID(pts) || pts >= reference)
             break;
 
         GST_DEBUG_OBJECT(mux,
-                         "Dropping stale buffer from sink_%u (pts=%" GST_TIME_FORMAT
-                         " is behind the last batch at %" GST_TIME_FORMAT ")",
-                         pdata->pad_index, GST_TIME_ARGS(pts), GST_TIME_ARGS(mux->last_pushed_batch_pts));
+                         "Dropping stale buffer from sink_%u (pts=%" GST_TIME_FORMAT " is behind %" GST_TIME_FORMAT ")",
+                         pdata->pad_index, GST_TIME_ARGS(pts), GST_TIME_ARGS(reference));
         queue_item_free((GvaStreammuxQueueItem *)g_queue_pop_head(&pdata->buffer_queue));
         dropped++;
     }
@@ -1746,7 +1746,7 @@ static void gst_gva_streammux_output_loop(gpointer user_data) {
              * This doubles as the catch-up path for a source returning from a
              * stall with a backlog: its arrears are dropped until what it is
              * delivering is current again. */
-            if (gva_streammux_drop_stale_head(mux, pdata) > 0) {
+            if (gva_streammux_drop_stale_head(mux, pdata, mux->last_pushed_batch_pts) > 0) {
                 pdata->stale_dropped = TRUE;
                 dropped_any = TRUE;
             }
@@ -1809,6 +1809,12 @@ static void gst_gva_streammux_output_loop(gpointer user_data) {
     while (!mux->flushing) {
         contributing_count = 0;
         eligible_pads = 0;
+        /* Pads whose head is already past this batch. A pad queue is in PTS
+         * order, so nothing such a pad delivers can match the anchor any more:
+         * waiting for it only delays the batch. This is the normal case when
+         * sources run at different rates (e.g. a 30 fps camera and a 10 fps
+         * LiDAR): most anchors have no counterpart on the slower pad. */
+        guint passed_count = 0;
 
         for (guint i = 0; i < mux->pad_data->len; i++) {
             GvaStreammuxPadData *pdata = (GvaStreammuxPadData *)g_ptr_array_index(mux->pad_data, i);
@@ -1816,6 +1822,15 @@ static void gst_gva_streammux_output_loop(gpointer user_data) {
              * queued buffers must be waited on like any live pad. */
             if (!pdata || (pdata->eos && g_queue_is_empty(&pdata->buffer_queue)))
                 continue;
+            /* A head further behind the anchor than pts-tolerance cannot join
+             * this batch, and phase 1 discards it once the batch is pushed.
+             * Discard it now: a buffer queued behind it may match the anchor.
+             * Otherwise the batch waits the full max-wait-time on a pad that
+             * is in fact delivering, whenever the anchor was taken from another
+             * pad just before this one's earlier buffer arrived. */
+            if (GST_CLOCK_TIME_IS_VALID(mux->batch_anchor_pts) && mux->batch_anchor_pts > mux->pts_tolerance &&
+                gva_streammux_drop_stale_head(mux, pdata, mux->batch_anchor_pts - mux->pts_tolerance) > 0)
+                pdata->stale_dropped = TRUE;
             /* A pad that is not delivering, or is delivering only arrears, is
              * still collected below whenever it has something that matches --
              * it just stops the batch waiting on it. */
@@ -1828,11 +1843,13 @@ static void gst_gva_streammux_output_loop(gpointer user_data) {
                 if (!GST_CLOCK_TIME_IS_VALID(pts) || !GST_CLOCK_TIME_IS_VALID(mux->batch_anchor_pts) ||
                     pts_abs_diff(pts, mux->batch_anchor_pts) <= mux->pts_tolerance) {
                     contributing_count++;
+                } else if (pts > mux->batch_anchor_pts) {
+                    passed_count++;
                 }
             }
         }
 
-        if (contributing_count >= eligible_pads) {
+        if (contributing_count + passed_count >= eligible_pads) {
             break;
         }
 
