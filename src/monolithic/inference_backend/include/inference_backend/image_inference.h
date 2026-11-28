@@ -10,6 +10,7 @@
 #include <gst/gst.h>
 #include <map>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -23,6 +24,13 @@ class Allocator;
 class InputLayerDesc;
 class InputImageLayerDesc;
 class ImageTransformationParams;
+
+// The hardware decoder flagged the frame as corrupted (VA-API: VA_STATUS_ERROR_DECODING_ERROR from vaSyncSurface). The
+// status concerns that one frame only; the stream goes on normally, so the frame can be skipped instead of failing.
+class DecodedFrameError : public std::runtime_error {
+  public:
+    using std::runtime_error::runtime_error;
+};
 
 using InferenceConfig = std::map<std::string, std::map<std::string, std::string>>;
 

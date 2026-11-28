@@ -159,6 +159,9 @@ void ImageInferenceAsync::SubmitImage(IFrameBase::Ptr frame,
             *frame->GetImage(), *dst_image,
             getImagePreProcInfo(input_preprocessors), // contain operations order for Custom Image PreProcessing
             frame->GetImageTransformationParams());
+    } catch (const DecodedFrameError &) {
+        _va_image_pool->ReleaseBuffer(dst_image);
+        throw; // kept as is: the element skips the frame instead of failing
     } catch (std::exception &) {
         _va_image_pool->ReleaseBuffer(dst_image);
         std::throw_with_nested(std::runtime_error("Unable to convert image using VA-API"));
